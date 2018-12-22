@@ -5,10 +5,13 @@
 
 class Mat4x4{
 	public:
+		static Mat4x4 Id;
 		float matrix[16];
 		Mat4x4();
+		Mat4x4(bool id);
 		~Mat4x4();
 		void translate(Vec3 v);
+		void translateRaw(Vec3 v);
 		void setIdentity();
 		void setLookAt(Vec3 eye,Vec3 center,Vec3 up);
 		void setRotate(float radians,Vec3 v);
@@ -23,6 +26,7 @@ class Mat4x4{
 		Mat4x4 operator*=(Mat4x4 right);
 		Mat4x4 operator=(Mat4x4 right);
 		void debug();
+		static Mat4x4 wrap(float* m);
 };
 
 Mat4x4 operator*(Mat4x4 left,Mat4x4 right);

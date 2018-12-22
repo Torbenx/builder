@@ -12,7 +12,6 @@ template<typename T> Buffer<T>::~Buffer(){
 template<typename T> bool Buffer<T>::init(){
 	if(target!=TE_BUFFER&&!glIsBuffer(glId)){
 		glGenBuffers(1,&glId);
-		if(source!=NULL)bufferData(source,size,usage);
 		return true;
 	}
 	return false;

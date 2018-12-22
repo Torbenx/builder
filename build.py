@@ -19,6 +19,8 @@ input_files = [
 "lgraphic/lighting/SpotLighting.cpp",
 "lgraphic/reflection/Reflection.cpp",
 "renderer.cpp",
+"GL/glLog.cpp",
+"resource/ObjParser.cpp",
 ]
 
 include_dirs = ["include"]
@@ -30,6 +32,8 @@ output_file = "main"
 args = ["-Wno-attributes", "-Wall"]
 
 build_dir = "build"
+
+preprocess_headers = False
 
 
 import subprocess
@@ -65,7 +69,7 @@ def build(source):
 	outputDir = join(build_dir,sourceDir)
 	if not os.path.exists(outputDir):
 		os.makedirs(outputDir)
-	cmd = ["g++"] + [source] + ["-o"+output] + ["-iquote"+join(build_dir,s,sourceDir) for s in include_dirs] + ["-iquote"+join(s,sourceDir) for s in include_dirs] + ["-c"] + args
+	cmd = ["g++"] + [source] + ["-o"+output] + (["-iquote"+join(build_dir,s,sourceDir) for s in include_dirs] if preprocess_headers else []) + ["-iquote"+join(s,sourceDir) for s in include_dirs] + ["-c"] + args
 	ret = subprocess.call(cmd, stderr=subprocess.STDOUT)
 	if ret != 0:
 		global failed
@@ -96,17 +100,18 @@ def scan_include(dir):
 		else:
 			scan_include(file)
 
-threads = []
-			
-for include_dir in include_dirs:
-	scan_include(include_dir)
+start_time = time.time()
+if preprocess_headers:
+	threads = []
+	for include_dir in include_dirs:
+		scan_include(include_dir)
 	
-for thread in threads:
-	thread.join()
-	
-if failed:
-	print "PREPROCESSING FAILED"
-	os._exit(1)
+	for thread in threads:
+		thread.join()
+		
+	if failed:
+		print "PREPROCESSING FAILED"
+		os._exit(1)
 			
 threads = []
 
@@ -126,6 +131,8 @@ if failed:
 buildRet = subprocess.call(["g++"] + [join(build_dir,s.replace(".cpp",".o")) for s in input_files] + ["-l" + s for s in libs] + ["-o"+output_file] + args, stderr=subprocess.STDOUT)
 
 if buildRet==0:
+	elapsed = time.time() - start_time
+	print "Build finished in "+str(elapsed)+"s"
 	mainRet = subprocess.call(["main.exe"])
 	print "Exit with "+str(mainRet)
 else:

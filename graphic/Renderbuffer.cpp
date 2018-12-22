@@ -11,9 +11,6 @@ Renderbuffer::~Renderbuffer(){
 bool Renderbuffer::init(){
 	if(!glIsRenderbuffer(glId)){
 		glGenRenderbuffers(1,&glId);
-		if(format){
-			storage(format,width,height);
-		}
 		return true;
 	}
 	return false;

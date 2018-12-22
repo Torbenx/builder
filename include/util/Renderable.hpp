@@ -9,14 +9,9 @@ class Renderable{
 	public:
 		virtual void draw(
 			Shader *shader,
-			MvpMatrix **mvpMatrices,
 			std::string positionAttrib,
-			std::string normalAttrib,
-			std::string colorAttrib,
-			std::string textureUniform,
-			std::string colorUniform,
-			std::string *mvpMatrixUniforms,
-			int matrixCount) = 0;
+			std::string modelUniform
+		) = 0;
 };
 
 #endif

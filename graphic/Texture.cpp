@@ -11,9 +11,6 @@ Texture::~Texture(){
 bool Texture::init(){
 	if(!glIsTexture(glId)){
 		glGenTextures(1,&glId);
-		if(source){
-			texture(source,width,height,format,type);
-		}
 		return true;
 	}
 	return false;

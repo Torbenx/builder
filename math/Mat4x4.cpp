@@ -3,8 +3,16 @@
 #include <cstring>
 #include "../util/log.hpp"
 
+Mat4x4 Mat4x4::Id(true);
+
 Mat4x4::Mat4x4(){
 	
+}
+
+Mat4x4::Mat4x4(bool id){
+	if(id){
+		setIdentity();
+	}
 }
 
 Mat4x4::~Mat4x4(){
@@ -17,6 +25,13 @@ void Mat4x4::translate(Vec3 v){
 	m[13] += m[ 1] * v.x + m[ 5] * v.y + m[ 9] * v.z;
 	m[14] += m[ 2] * v.x + m[ 6] * v.y + m[10] * v.z;
 	m[15] += m[ 3] * v.x + m[ 7] * v.y + m[11] * v.z;
+}
+
+void Mat4x4::translateRaw(Vec3 v){
+	float *m = matrix;
+	m[12] += v.x;
+	m[13] += v.y;
+	m[14] += v.z;
 }
 
 void Mat4x4::setIdentity(){
@@ -219,6 +234,10 @@ void Mat4x4::scale(Vec3 v){
 	m[ 9] *= v.z;
 	m[10] *= v.z;
 	m[11] *= v.z;
+	
+	m[12] *= v.x;
+	m[13] *= v.y;
+	m[14] *= v.z;
 }
 
 void Mat4x4::invert(){

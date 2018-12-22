@@ -1,5 +1,6 @@
 #include "Shader.hpp"
 #include "../util/log.hpp"
+#include "../GL/glLog.hpp"
 		
 Shader::Shader(std::string vertex,std::string fragment){
 	vertexSource = vertex;
@@ -14,16 +15,18 @@ bool Shader::init(){
 	if(!glIsProgram(glId)){
 		const char *vSource = vertexSource.c_str();
 		const char *fSource = fragmentSource.c_str();
-		LOGD("%s\n\n%s", vSource, fSource);
+		//LOGD("%s\n\n%s\n\n", vSource, fSource);
 		glId = glCreateProgram();
 		GLuint shader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(shader,1,&vSource,0);
 		glCompileShader(shader);
 		glAttachShader(glId,shader);
+		glDeleteShader(shader);
 		shader = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(shader,1,&fSource,0);
 		glCompileShader(shader);
 		glAttachShader(glId,shader);
+		glDeleteShader(shader);
 		glLinkProgram(glId);
 		return true;
 	}

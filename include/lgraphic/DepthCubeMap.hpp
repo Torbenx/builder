@@ -8,8 +8,6 @@
 
 class DepthCubeMap{
 	public:
-		static const std::string POSITION_ATTRIB;
-		static const std::string MVP_MATRIX_UNIFORM;
 		CubeMap texture = CubeMap();
 		Renderbuffer renderbuffer = Renderbuffer();
 		Framebuffer framebuffer = Framebuffer();

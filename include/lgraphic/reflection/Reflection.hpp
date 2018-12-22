@@ -11,6 +11,7 @@ class Reflection{
 		Texture texture = Texture();
 		Vec3 reflection,position;
 		float factor;
+		int width,height;
 		Reflection(Vec3 reflection,Vec3 position,int width,int height,float factor);
 		void init();
 		void bind();

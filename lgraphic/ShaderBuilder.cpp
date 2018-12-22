@@ -6,6 +6,21 @@ ShaderBuilder::ShaderBuilder(){
 	
 }
 
+ShaderBuilder::ShaderBuilder(ShaderBuilder& s){
+	rawPosition = s.rawPosition;
+	worldPositionMulti = s.worldPositionMulti;
+	rawPositionMulti = s.rawPositionMulti;
+	locations = s.locations;
+	uCount = s.uCount;
+	aCount = s.aCount;
+	vCount = s.vCount;
+	varCount = s.varCount;
+	vMain << s.vMain.str();
+	fMain << s.fMain.str();
+	vInit << s.vInit.str();
+	fInit << s.fInit.str();
+}
+
 void ShaderBuilder::addLighting(AmbientLighting& l){
 	std::string colorUniform = newUniform(&(l.color));
 	addFragmentUniform("vec3", colorUniform);
@@ -23,7 +38,7 @@ void ShaderBuilder::addLighting(SpotLighting& l){
 	addVarying("vec4",positionVarying);
 	std::string m_far = newVar();
 	std::string depth = newVar();
-	vMain<<positionVarying<<" = "<<mvpUniform<<" * "<<vPosition<<";\n";
+	vMain<<positionVarying<<" = "<<mvpUniform<<" * "<<worldPosition<<";\n";
 	char buff[100];
 	sprintf(buff,"%f",l.depthMap->m_far);
 	fMain<<"const float "<<m_far<<" = "<<buff<<";\n";
@@ -40,7 +55,7 @@ void ShaderBuilder::addLighting(PointLighting& l){
 	addFragmentUniform("vec3",colorUniform);
 	addFragmentUniform("vec3",lightPosUniform);
 	addVarying("vec4",positionVarying);
-	vMain<<positionVarying<<" = "<<vPosition<<";\n";
+	vMain<<positionVarying<<" = "<<worldPosition<<";\n";
 	std::string _far = newVar();
 	std::string depth = newVar();
 	std::string pos = newVar();
@@ -62,24 +77,23 @@ void ShaderBuilder::addReflection(Reflection& r){
 	std::string positionVarying = newVarying();
 	addVarying("vec4", positionVarying);
 	addFragmentUniform("sampler2D",textureUniform);
-	vMain<<positionVarying<<" = gl_Position;\n";
+	vMain<<positionVarying<<" = "<<screenPosition<<";\n";
 	char buff[100];
 	sprintf(buff,"%f",r.factor);
 	fMain<<fColor<<" += "<<buff<<"*texture2D("<<textureUniform<<",("<<positionVarying<<".xy/"<<positionVarying<<".w+1.0)/2.0);\n";
 }
 		
-void ShaderBuilder::setFragmentColor(std::string s){
-	fColor = newVar();
-	fMain<<"vec4 "<<fColor<<" = "<<s<<";\n";
+void ShaderBuilder::addToFragmentColor(std::string s){
+	fMain<<fColor<<" += "<<s<<";\n";
 }
 		
 void ShaderBuilder::setVertexPosition(std::string s){
-	vPosition = s;
+	rawPosition = s;
 }
 		
 void ShaderBuilder::setFragmentColorUniform(std::string s){
-	addFragmentUniform("vec4",s);
-	setFragmentColor(s);
+	addFragmentUniform("vec3",s);
+	addToFragmentColor(s);
 }
 		
 void ShaderBuilder::setFragmentColorUniformTexture(std::string texType,std::string textureUniform,std::string texCoordAttrib){
@@ -92,7 +106,7 @@ void ShaderBuilder::setFragmentColorUniformTexture(std::string texType,std::stri
 	addFragmentUniform(s,textureUniform);
 	vMain<<texCoordVarying<<" = "<<texCoordAttrib<<";\n";
 	fMain<<"vec4 "<<color<<" = texture"<<texType<<"("<<textureUniform<<","<<texCoordVarying<<");\n";
-	setFragmentColor(color);
+	addToFragmentColor(color);
 }
 		
 void ShaderBuilder::setFragmentColorAttrib(std::string s){
@@ -100,12 +114,17 @@ void ShaderBuilder::setFragmentColorAttrib(std::string s){
 	addVarying("vec4",varying);
 	addAttrib("vec4",s);
 	vMain<<varying<<" = "<<s<<";\n";
-	setFragmentColor(varying);
+	addToFragmentColor(varying);
 }
 		
-void ShaderBuilder::setPositionMvpUniform(std::string s){
+void ShaderBuilder::setScreenMvpMatrixUniform(std::string s){
 	addVertexUniform("mat4",s);
-	vPositionMulti = s;
+	worldPositionMulti = s;
+}
+
+void ShaderBuilder::setWorldModelMatrixUniform(std::string s){
+	addVertexUniform("mat4",s);
+	rawPositionMulti = s;
 }
 		
 void ShaderBuilder::setVertexPositionAttrib(std::string s){
@@ -119,18 +138,23 @@ LShader* ShaderBuilder::build(){
 		
 std::string ShaderBuilder::buildVStr(){
 	std::ostringstream v;
-	v<<vInit.str()<<"void main(){\ngl_Position = ";
-	if(!vPositionMulti.empty()){
-		v<<vPositionMulti<<" * ";
+	v<<vInit.str()<<"void main(){\nvec4 "<<worldPosition<<" = ";
+	if(!rawPositionMulti.empty()){
+		v<<rawPositionMulti<<" * ";
 	}
-	v<<vPosition<<";\n"<<vMain.str()<<"}";
+	v<<rawPosition<<";\ngl_Position = ";
+	if(!worldPositionMulti.empty()){
+		v<<worldPositionMulti<<" * ";
+	}
+	v<<worldPosition<<";\n"<<vMain.str()<<"}";
 	return v.str();
 }
 		
 std::string ShaderBuilder::buildFStr(){
 	std::ostringstream f;
 	f<<fInit.str()<<"void main(){\nvec3 "<<colorMulti<<" = vec3(0.0);\n";
-	f<<fMain.str()<<"gl_FragColor = vec4("<<colorMulti<<", 1.0) * "<<fColor<<";\n}";
+	f<<"vec3 "<<fColor<<" = vec3(0.0);\n";
+	f<<fMain.str()<<"gl_FragColor = vec4("<<colorMulti<<" * "<<fColor<<", 1.0);\n}";
 	return f.str();
 }
 		

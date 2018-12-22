@@ -1,26 +1,18 @@
 #include <stdio.h>
 #include "DepthMap.hpp"
 
-const std::string DepthMap::POSITION_ATTRIB = "a_position";
-const std::string DepthMap::MVP_MATRIX_UNIFORM = "u_mvpMatrix";
-
 DepthMap::DepthMap(bool divideByW,int width,int height,float _far){
 	this->divideByW = divideByW;
 	this->width = width;
 	this->height = height;
 	this->m_far = _far;
-	framebuffer.colorAttachment(texture);
-	renderbuffer.storageDepth16(width,height);
-	framebuffer.depthAttachment(renderbuffer);
-	texture.texture(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-	framebuffer.viewport(width,height);
-	framebuffer.setClearColor(1,1,1,1);
 	vSource =
 		"attribute vec4 a_position;\n"
 		"uniform mat4 u_mvpMatrix;\n"
+		"uniform mat4 u_modelMatrix;\n"
 		"varying vec4 v_position;\n"
 		"void main(){\n"
-		"	v_position = u_mvpMatrix * a_position;\n"
+		"	v_position = u_mvpMatrix * (u_modelMatrix * a_position);\n"
 		"	gl_Position = v_position;\n"
 		"}";
 	std::string f = 
@@ -61,18 +53,23 @@ void DepthMap::init(){
 	renderbuffer.init();
 	framebuffer.init();
 	shader->init();
+	framebuffer.colorAttachment(texture);
+	renderbuffer.storageDepth16(width,height);
+	framebuffer.depthAttachment(renderbuffer);
+	texture.texture(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+	framebuffer.viewport(width,height);
+	framebuffer.setClearColor(1,1,1,1);
 }
 		
 void DepthMap::draw(MvpMatrix& mvpMatrix,Renderable **ptrArray,int count){
 	framebuffer.bind();
 	shader->use();
+	shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
 	GLboolean depthTest = glIsEnabled(GL_DEPTH_TEST);
 	glEnable(GL_DEPTH_TEST);
 	int i;
-	std::string mvps[] = {MVP_MATRIX_UNIFORM};
-	MvpMatrix *mvpPtr = &mvpMatrix;
 	for(i=0;i<count;i++){
-		ptrArray[i]->draw(shader,&mvpPtr,POSITION_ATTRIB,"","","","",mvps,1);
+		ptrArray[i]->draw(shader,"a_position","u_modelMatrix");
 	}
 	Framebuffer::DEFAULT.bind();
 	if(!depthTest)glDisable(GL_DEPTH_TEST);

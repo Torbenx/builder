@@ -3,30 +3,18 @@
 #include <cmath>
 #include <stdio.h>
 
-const std::string DepthCubeMap::POSITION_ATTRIB = "a_position";
-const std::string DepthCubeMap::MVP_MATRIX_UNIFORM = "u_mvpMatrix";
-
 DepthCubeMap::DepthCubeMap(int width,int height,float _far){
 	this->width = width;
 	this->height = height;
 	this->m_far = _far;
-	renderbuffer.storageDepth16(width,height);
-	framebuffer.depthAttachment(renderbuffer);
-	texture.texturePosX(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-	texture.textureNegX(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-	texture.texturePosY(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-	texture.textureNegY(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-	texture.texturePosZ(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-	texture.textureNegZ(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-	framebuffer.setClearColor(1,1,1,1);
-	framebuffer.viewport(width,height);
 	vSource = 
 		"attribute vec4 a_position;\n"
 		"uniform mat4 u_mvpMatrix;\n"
+		"uniform mat4 u_modelMatrix;\n"
 		"varying vec4 v_position;\n"
 		"void main(){\n"
-		"	v_position = a_position;\n"
-		"	gl_Position = u_mvpMatrix*a_position;\n"
+		"	v_position = u_modelMatrix*a_position;\n"
+		"	gl_Position = u_mvpMatrix*v_position;\n"
 		//"	gl_Position = vec4(gl_Position.xy / gl_Position.z, gl_Position.z, 1.0);\n"
 		"}";
 	std::string f = 
@@ -66,6 +54,16 @@ void DepthCubeMap::init(){
 	renderbuffer.init();
 	framebuffer.init();
 	shader->init();
+	texture.texturePosX(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+	texture.textureNegX(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+	texture.texturePosY(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+	texture.textureNegY(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+	texture.texturePosZ(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+	texture.textureNegZ(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+	renderbuffer.storageDepth16(width,height);
+	framebuffer.depthAttachment(renderbuffer);
+	framebuffer.setClearColor(1,1,1,1);
+	framebuffer.viewport(width,height);
 }
 		
 void DepthCubeMap::draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int count){
@@ -129,14 +127,14 @@ void DepthCubeMap::draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int cou
 			//mvpMatrix.view.setLookAt(position,position+Vec3(0,0,-1),Vec3(0,1,0));
 		}
 		mvpMatrix.view.translate(position*-1);
+		shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
 		//mvpMatrix.view.debug();
 		framebuffer.colorAttachment(targets[face],texture);
 		framebuffer.bind();
 		//if(face != 2 && face != 3)continue;
-		std::string mvps[] = {MVP_MATRIX_UNIFORM};
-		MvpMatrix *mvpPtr = &mvpMatrix;
+		
 		for(i=0;i<count;i++){
-			ptrArray[i]->draw(shader,&mvpPtr,POSITION_ATTRIB,"","","","",mvps,1);
+			ptrArray[i]->draw(shader,"a_position","u_modelMatrix");
 		}
 	}
 	Framebuffer::DEFAULT.bind();

@@ -11,18 +11,6 @@ CubeMap::~CubeMap(){
 bool CubeMap::init(){
 	if(!glIsTexture(glId)){
 		glGenTextures(1,&glId);
-		if(posX)
-			texturePosX(posX,posXwidth,posXheight,posXformat,posXtype);
-		if(negX)
-			textureNegX(negX,negXwidth,negXheight,negXformat,negXtype);
-		if(posY)
-			texturePosY(posY,posYwidth,posYheight,posYformat,posYtype);
-		if(negY)
-			textureNegY(negY,negYwidth,negYheight,negYformat,negYtype);
-		if(posZ)
-			texturePosZ(posZ,posZwidth,posZheight,posZformat,posZtype);
-		if(negZ)
-			textureNegZ(negZ,negZwidth,negZheight,negZformat,negZtype);
 		applyTexParameter();
 		return true;
 	}

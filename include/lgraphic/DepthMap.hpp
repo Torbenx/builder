@@ -9,8 +9,6 @@
 
 class DepthMap{
 	public:
-		static const std::string POSITION_ATTRIB;
-		static const std::string MVP_MATRIX_UNIFORM;
 		Texture texture = Texture();
 		Renderbuffer renderbuffer = Renderbuffer();
 		Framebuffer framebuffer = Framebuffer();

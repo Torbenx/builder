@@ -23,9 +23,9 @@ class Buffer{
 const static GLint TE_BUFFER = 0x00cf;
 
 #define Bufferf Buffer<float>
-#define Bufferi Buffer<int>
+#define Bufferi Buffer<uint32_t>
 
 template class Buffer<float>;
-template class Buffer<int>;
+template class Buffer<uint32_t>;
 
 #endif
