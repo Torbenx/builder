@@ -1,36 +1,19 @@
-import msvcrt
 import os
+import msvcrt
 import subprocess
 import sys
-from engine.build import Builder
+from engine import build
 
-b = Builder()
+class Builder(build.Builder):
+	input_files = [
+		"main.cpp",
+		"TestRenderer.cpp",
+	]
 
-b.input_files = [
-"main.cpp",
-"TestRenderer.cpp"
-]
+	compile_args = ["-Wno-attributes", "-Wall"]
 
-b.output_file = "main.exe"
-if len(sys.argv) > 1:
-	b.output_file = sys.argv[1]
+	include_dirs = ["engine/include"]
 
-b.compile_args = ["-Wno-attributes", "-Wall"]
+	libs = ["engine","Opengl32","Gdi32"]
 
-b.include_dirs = ["engine/include"]
-
-b.libs = ["engine","Opengl32","Gdi32"]
-
-b.link_args = ["-L."]
-
-b.rebuild = True
-if len(sys.argv) > 2 and sys.argv[2] == "0":
-	b.rebuild = False
-
-b.repreprocess = True
-if len(sys.argv) > 3 and sys.argv[3] == "0":
-	b.repreprocess = False
-	
-b.build()
-
-sys.exit(1 if b.failed else 0)
+	link_args = ["-L."]

@@ -1,6 +1,12 @@
+import sys
+sys.dont_write_bytecode = True
+
 import msvcrt
 import os
 import subprocess
+import build_script
+import engine.build_script
+
 
 output_dir = "."
 
@@ -17,10 +23,23 @@ while True:
 	if key == "p":
 		rebuild = True
 		repreprocess = True
-	engineRet = subprocess.call(["python","build_script.py","../"+output_dir+"/engine.dll","1" if rebuild else "0","1" if repreprocess else "0"], cwd="engine", stderr=subprocess.STDOUT)
+		
+	reload(engine.build)
+	reload(engine.build_script)
+	reload(build_script)
+	
+	eb = engine.build_script.Builder()
+	eb.rebuild = rebuild
+	eb.repreprocess = repreprocess
+	eb.output_file = "../"+output_dir+"/engine.dll"
+	eb.build()
 	print "\n----------------\n"
-	mainRet = subprocess.call(["python","build_script.py",output_dir+"/main.exe","1" if rebuild else "0","1" if repreprocess else "0"], stderr=subprocess.STDOUT)
+	mb = build_script.Builder()
+	mb.rebuild = rebuild
+	mb.repreprocess = repreprocess
+	mb.output_file = output_dir+"/main.exe"
+	mb.build()
 	print "\n----------------\n"
-	if(mainRet == 0 and engineRet == 0):
+	if((not mb.failed) and (not eb.failed)):
 		runRet = subprocess.call(output_dir+"/main.exe", stderr=subprocess.STDOUT)
 		print "Exit with "+str(runRet)
