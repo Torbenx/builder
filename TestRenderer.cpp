@@ -68,14 +68,14 @@ class ObjRenderable : public Renderable{
 			shader->uniformMat4x4(modelUniform, model);
 			shader->attribPointer(positionAttrib, 3, *vertex);
 			index->bind();
-			glDrawElements(GL_QUADS, num, GL_UNSIGNED_INT, (void*)0);
+			//glDrawElements(GL_QUADS, num, GL_UNSIGNED_INT, (void*)0);
 		}
 		void draw2(Shader *shader, std::string positionAttrib, std::string modelUniform, std::string colorUniform){
 			shader->uniformMat4x4(modelUniform, model);
 			shader->uniformVec3(colorUniform, color);
 			shader->attribPointer(positionAttrib, 3, *vertex);
 			index->bind();
-			glDrawElements(GL_QUADS, num, GL_UNSIGNED_INT, (void*)0);
+			//glDrawElements(GL_QUADS, num, GL_UNSIGNED_INT, (void*)0);
 		}
 };
 Vec3 up = Vec3(0,1,0);

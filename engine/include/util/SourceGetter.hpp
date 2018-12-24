@@ -1,8 +1,8 @@
 #ifndef HEADER_UTIL_SOURCEGETTER_H
 #define HEADER_UTIL_SOURCEGETTER_H
 
-#include "SourceParser.hpp"
-#include "SourceDescription.hpp"
+//#include "SourceParser.hpp"
+//#include "SourceDescription.hpp"
 
 template <typename S>
 class SourceGetter{
@@ -11,7 +11,7 @@ class SourceGetter{
 		virtual ~SourceGetter(){};
 };
 
-template <typename S> 
+/*template <typename S> 
 class StaticSourceGetter : public SourceGetter<S>{
 	public:
 		S source;
@@ -39,7 +39,7 @@ class DynamicSourceGetter : public SourceGetter<S>{
 		S getSource(){
 			return parser.parse(sourceDes.open);
 		}
-};
+};*/
 
 template <typename S>
 class DirectSourceGetter : public SourceGetter<S>{

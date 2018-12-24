@@ -3,6 +3,7 @@
 #include <iomanip>
 #include "../util/log.hpp"
 #include "glLog.hpp"
+#include <sstream>
 
 std::string glGetErrorStr(){
 	int error = glGetError();
@@ -18,12 +19,6 @@ std::string glGetErrorStr(){
 			break;
 		case GL_INVALID_OPERATION:
 			s << "GL_INVALID_OPERATION";
-			break;
-		case GL_STACK_OVERFLOW:
-			s << "GL_STACK_OVERFLOW";
-			break;
-		case GL_STACK_UNDERFLOW:
-			s << "GL_STACK_UNDERFLOW";
 			break;
 		case GL_OUT_OF_MEMORY:
 			s << "GL_OUT_OF_MEMORY";

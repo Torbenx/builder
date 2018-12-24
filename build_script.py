@@ -5,15 +5,28 @@ import sys
 from engine import build
 
 class Builder(build.Builder):
-	input_files = [
-		"main.cpp",
-		"TestRenderer.cpp",
-	]
 
-	compile_args = ["-Wno-attributes", "-Wall"]
+	def __init__(self, target):
+		super(Builder, self).__init__(target)
+		
+		self.input_files += [
+			"main.cpp",
+			"TestRenderer.cpp",
+		]
 
-	include_dirs = ["engine/include"]
+		self.compile_args += ["-Wno-attributes", "-Wall", "-Wno-nonportable-include-path"]
 
-	libs = ["engine","Opengl32","Gdi32"]
+		self.include_dirs += ["engine/include"]
 
-	link_args = ["-L."]
+		if target == "windows":
+			self.libs += ["engine","Opengl32"]
+			self.input_files += ["engine/windows/main.cpp"]
+			self.file_compile_args["engine/windows/main.cpp"] = ["-iquoteengine/include"]
+		if target == "android":
+			self.libs += ["engine", "log", "GLESv2"]
+		
+	def build(self):
+		oldDir = os.getcwd()
+		os.chdir(os.path.relpath(os.path.dirname(__file__)))
+		super(Builder, self).build()
+		os.chdir(oldDir)

@@ -4,6 +4,8 @@ import msvcrt
 import time
 import threading
 import sys
+import string
+import traceback
 
 def join(*paths):
 	ret = ""
@@ -14,39 +16,72 @@ def join(*paths):
 	return ret
 
 def compile(self, source):
-	output = join(self.base, self.build_dir, source+".o")
-	if (not self.rebuild) and os.path.exists(output) and os.path.getmtime(output) > os.path.getmtime(join(self.base, source)):
-		#print "Skipping "+source
-		return
-	print "Building "+source
-	sourceDir = os.path.dirname(source);
-	cmd = ["g++"] + [join(self.base, source)] + ["-o"+output] + ["-iquote"+join(self.base, s, sourceDir) for s in self.include_dirs] + ["-c"] + self.compile_args
-	ret = subprocess.call(cmd, stderr=subprocess.STDOUT)
-	if ret != 0:
+	try:
+		output = join(self.ibuild_dir, source+".o")
+		dep = join(self.ibuild_dir, source+".d")
+		rebuild = self.rebuild or (not os.path.exists(output)) or (not os.path.exists(dep))
+		if not rebuild:
+			with open(dep, "r") as f:
+				for line in f:
+					files = string.split(line)
+					for file in files:
+						if file == ":" or file == "\\":
+							continue
+						if os.path.getmtime(file) > self.lastBuildTime:
+							rebuild = True
+							break
+					if rebuild: break
+		if not rebuild:
+			return
+		print "Building "+source
+		sourceDir = os.path.dirname(source);
+		cmd = [self.bin] + [source] + ["-o"+output] + ["-iquote"+join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",""] + self.compile_args
+		if source in self.file_compile_args:
+			cmd += self.file_compile_args[source]
+		ret = subprocess.call(cmd, stderr=subprocess.STDOUT)
+		if ret != 0:
+			print str(cmd)
+			self.failed = True
+	except Exception as ex:
+		traceback.print_exc()
+		print ex
 		self.failed = True
 
-class Builder:
-	base = ""
-	input_files = []
-	output_file = "a.exe"
-	include_dirs = []
-	libs = []
-	compile_args = []
-	link_args = []
-	build_dir = "build"
-	rebuild = False
+class Builder(object):
+	def __init__(self, target):
+		self.input_files = []
+		self.output_file = ""
+		self.include_dirs = []
+		self.libs = []
+		self.compile_args = []
+		self.link_args = []
+		self.build_dir = "build"
+		self.target = target
+		self.rebuild = False
+		self.bin = ""
+		self.file_compile_args = dict()
+		
+		self.buildTimeFile = "buildTime"
+		self.lastBuildTime = 0
+		self.buildTime = 0
 
 	def build(self):
 		self.failed = False
-		start_time = time.time()
+		self.buildTime = time.time()
+		self.ibuild_dir = join(self.build_dir, self.target)
+		try:
+			with open(join(self.ibuild_dir, self.buildTimeFile), "r") as f:
+				self.lastBuildTime = float(f.read())
+		except Exception as ex:
+			print "First build: "+str(ex)
 		
 		threads = []
 		for source in self.input_files:
 			sourceDir = os.path.dirname(source);
-			outputDir = join(self.base, self.build_dir, sourceDir)
+			outputDir = join(self.ibuild_dir, sourceDir)
 			if not os.path.exists(outputDir):
 				os.makedirs(outputDir)
-			#build(source)
+			#compile(self, source)
 			thread = threading.Thread(target=compile, args=[self, source])
 			thread.start()
 			threads.append(thread)
@@ -57,12 +92,22 @@ class Builder:
 		if self.failed:
 			print "BUILD FAILED"
 			return
-			
-		buildRet = subprocess.call(["g++"] + [join(self.base, self.build_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+join(self.base, self.output_file)] + self.link_args, stderr=subprocess.STDOUT)
+		
+		try:
+			with open(join(self.ibuild_dir, self.buildTimeFile), "w") as f:
+				f.write(str(self.buildTime))
+		except Exception as ex:
+			print ex
+		output_dir = os.path.dirname(self.output_file)
+		if not os.path.exists(output_dir):
+			os.makedirs(output_dir)
+		cmd = [self.bin] + [join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
+		buildRet = subprocess.call(cmd, stderr=subprocess.STDOUT)
 
 		if buildRet==0:
-			elapsed = time.time() - start_time
+			elapsed = time.time() - self.buildTime
 			print "Build finished in "+str(elapsed)+"s"
 		else:
+			print str(cmd)
 			print "Build failed with "+str(buildRet)
 			self.failed = True

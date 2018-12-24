@@ -17,7 +17,7 @@ class ObjParser{
 		SourceGetter<uint32_t*>* getIndexSource();
 		void freeCache();
 	private:
-		parseLine(char *line, float *buf);
+		int parseLine(char *line, float *buf);
 };
 
 #endif

@@ -1,10 +1,10 @@
 #include <windows.h>
-#include "GL/glwrapper.hpp"
 #include <stdio.h>
 #include <ctime>
-#include "Renderer.hpp"
-#include "graphic/Shader.hpp"
-#include "util/log.hpp"
+#include "../GL/glwrapper.hpp"
+#include "../Renderer.hpp"
+#include "../graphic/Shader.hpp"
+#include "../util/log.hpp"
 #include "engine.hpp"
 
 const char g_szClassName[] = "myWindowClass";
