@@ -64,7 +64,7 @@ void ShaderBuilder::addLighting(PointLighting& l){
 	sprintf(buff,"%f",l.depthMap->m_far);
 	fMain<<"vec3 "<<pos<<" = "<<positionVarying<<".xyz/"<<positionVarying<<".w;\n";
 	fMain<<"const float "<<_far<<" = "<<buff<<";\n";
-	float invOff0 = 1.0f / l.startBrightness;
+	float invOff0 = 1.0f / l.startBrightness+0.01f;
 	sprintf(buff,"%f",(1.0f/l.halfBrightness-invOff0)*4.0f/(l.depthMap->m_far*l.depthMap->m_far));
 	fMain<<"float "<<depth<<" = dot(vec4("<<_far<<","<<_far<<"/255.0,"<<_far<<"/255.0/255.0,"<<_far<<"/255.0/255.0/255.0),textureCube("<<textureUniform<<","<<pos<<"-"<<lightPosUniform<<"));\n";
 	fMain<<"if("<<depth<<"==0.0){"<<depth<<" = "<<_far<<";}\n";
@@ -80,7 +80,7 @@ void ShaderBuilder::addReflection(Reflection& r){
 	vMain<<positionVarying<<" = "<<screenPosition<<";\n";
 	char buff[100];
 	sprintf(buff,"%f",r.factor);
-	fMain<<fColor<<" += "<<buff<<"*texture2D("<<textureUniform<<",("<<positionVarying<<".xy/"<<positionVarying<<".w+1.0)/2.0);\n";
+	fMain<<fColor<<" += "<<buff<<"*texture2D("<<textureUniform<<",("<<positionVarying<<".xy/"<<positionVarying<<".w+1.0)/2.0).rgb;\n";
 }
 		
 void ShaderBuilder::addToFragmentColor(std::string s){

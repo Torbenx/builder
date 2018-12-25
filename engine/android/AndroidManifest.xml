@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<manifest
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	package="no.package">
+    <application android:label="TestGame">
+        <activity android:name="com.tt.engine.MainActivity">
+             <intent-filter>
+                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN"/>
+             </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,5 +1,5 @@
-#include "renderer.hpp"
-#include "GL/glwrapper.hpp"
+#include "Renderer.hpp"
+#include "gl/glwrapper.hpp"
 #include "math/Vec2.hpp"
 #include "math/Vec3.hpp"
 #include "math/Mat4x4.hpp"
@@ -11,7 +11,7 @@
 #include "lgraphic/ShaderBuilder.hpp"
 #include <cmath>
 #include <ctime>
-#include "GL/glLog.hpp"
+#include "gl/glLog.hpp"
 #include "resource/ObjParser.hpp"
 #include <fstream>
 #include "TestRenderer.hpp"

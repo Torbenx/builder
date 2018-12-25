@@ -7,7 +7,6 @@ class Builder(build.Builder):
 		super(Builder, self).__init__(target)
 		
 		self.input_files += [
-			"graphic/Buffer.cpp",
 			"graphic/CubeMap.cpp",
 			"graphic/FrameBuffer.cpp",
 			"graphic/RenderBuffer.cpp",
@@ -30,7 +29,7 @@ class Builder(build.Builder):
 
 		self.include_dirs += ["include"]
 
-		self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC", "-Wno-nonportable-include-path"]
+		self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]
 
 		self.link_args += ["-shared"]
 		

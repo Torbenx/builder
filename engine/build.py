@@ -38,7 +38,7 @@ def compile(self, source):
 		cmd = [self.bin] + [source] + ["-o"+output] + ["-iquote"+join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",""] + self.compile_args
 		if source in self.file_compile_args:
 			cmd += self.file_compile_args[source]
-		ret = subprocess.call(cmd, stderr=subprocess.STDOUT)
+		ret = subprocess.call(cmd)
 		if ret != 0:
 			print str(cmd)
 			self.failed = True
@@ -68,7 +68,7 @@ class Builder(object):
 	def build(self):
 		self.failed = False
 		self.buildTime = time.time()
-		self.ibuild_dir = join(self.build_dir, self.target)
+		self.ibuild_dir = self.build_dir
 		try:
 			with open(join(self.ibuild_dir, self.buildTimeFile), "r") as f:
 				self.lastBuildTime = float(f.read())
@@ -102,7 +102,7 @@ class Builder(object):
 		if not os.path.exists(output_dir):
 			os.makedirs(output_dir)
 		cmd = [self.bin] + [join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
-		buildRet = subprocess.call(cmd, stderr=subprocess.STDOUT)
+		buildRet = subprocess.call(cmd)
 
 		if buildRet==0:
 			elapsed = time.time() - self.buildTime

@@ -1,6 +1,6 @@
 #include "Shader.hpp"
 #include "../util/log.hpp"
-#include "../GL/glLog.hpp"
+#include "../gl/glLog.hpp"
 		
 Shader::Shader(std::string vertex,std::string fragment){
 	vertexSource = vertex;
@@ -15,7 +15,8 @@ bool Shader::init(){
 	if(!glIsProgram(glId)){
 		const char *vSource = vertexSource.c_str();
 		const char *fSource = fragmentSource.c_str();
-		//LOGD("%s\n\n%s\n\n", vSource, fSource);
+		LOGD("%s", vSource);
+		LOGD("%s", fSource);
 		glId = glCreateProgram();
 		GLuint shader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(shader,1,&vSource,0);
