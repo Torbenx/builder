@@ -7,6 +7,10 @@ import sys
 import string
 import traceback
 
+class arch:
+	x86 = 1
+	armv7a = 2
+
 def join(*paths):
 	ret = ""
 	for path in paths:
@@ -35,7 +39,7 @@ def compile(self, source):
 			return
 		print "Building "+source
 		sourceDir = os.path.dirname(source);
-		cmd = [self.bin] + [source] + ["-o"+output] + ["-iquote"+join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",""] + self.compile_args
+		cmd = self.compile_cmd + [source] + ["-o"+output] + ["-iquote"+join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",""] + self.compile_args
 		if source in self.file_compile_args:
 			cmd += self.file_compile_args[source]
 		ret = subprocess.call(cmd)
@@ -58,7 +62,8 @@ class Builder(object):
 		self.build_dir = "build"
 		self.target = target
 		self.rebuild = False
-		self.bin = ""
+		self.compile_cmd = []
+		self.link_cmd = []
 		self.file_compile_args = dict()
 		
 		self.buildTimeFile = "buildTime"
@@ -81,13 +86,13 @@ class Builder(object):
 			outputDir = join(self.ibuild_dir, sourceDir)
 			if not os.path.exists(outputDir):
 				os.makedirs(outputDir)
-			#compile(self, source)
+			compile(self, source)
 			thread = threading.Thread(target=compile, args=[self, source])
-			thread.start()
+			#thread.start()
 			threads.append(thread)
 			
-		for thread in threads:
-			thread.join()
+		#for thread in threads:
+		#	thread.join()
 
 		if self.failed:
 			print "BUILD FAILED"
@@ -101,7 +106,7 @@ class Builder(object):
 		output_dir = os.path.dirname(self.output_file)
 		if not os.path.exists(output_dir):
 			os.makedirs(output_dir)
-		cmd = [self.bin] + [join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
+		cmd = self.link_cmd + [join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
 		buildRet = subprocess.call(cmd)
 
 		if buildRet==0:

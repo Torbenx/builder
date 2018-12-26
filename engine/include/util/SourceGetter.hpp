@@ -59,7 +59,7 @@ template <typename S>
 class NullSourceGetter : public SourceGetter<S>{
 	public:
 		S getSource(){
-			return NULL;
+			return nullptr;
 		}
 };
 

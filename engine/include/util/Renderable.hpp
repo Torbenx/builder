@@ -12,6 +12,7 @@ class Renderable{
 			std::string positionAttrib,
 			std::string modelUniform
 		) = 0;
+		virtual ~Renderable(){}
 };
 
 #endif

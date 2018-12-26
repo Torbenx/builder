@@ -63,6 +63,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             break;
         case WM_CLOSE:
 			LOGD("WM_CLOSE");
+			renderer->destroy();
+			delete renderer;
             DestroyWindow(hwnd);
             break;
         case WM_DESTROY:

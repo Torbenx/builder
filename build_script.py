@@ -2,7 +2,7 @@ import os
 import msvcrt
 import subprocess
 import sys
-from engine import build
+from engine.build_lib import build
 
 class Builder(build.Builder):
 
@@ -25,7 +25,6 @@ class Builder(build.Builder):
 			self.libs += ["engine", "log", "GLESv2"]
 			self.input_files += ["engine/android/main.cpp"]
 			self.file_compile_args["engine/android/main.cpp"] = ["-iquoteengine/include"]
-			pass
 		
 	def build(self):
 		oldDir = os.getcwd()

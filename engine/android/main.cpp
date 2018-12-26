@@ -17,6 +17,11 @@ void android_drawFrame(){
 	renderer->drawFrame();
 }
 
+void android_destroy(){
+	renderer->destroy();
+	delete renderer;
+}
+
 extern "C" {
 	JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeCreate(JNIEnv env, jclass thiz){
 		android_create();
@@ -28,5 +33,9 @@ extern "C" {
 	
 	JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDrawFrame(JNIEnv env, jclass thiz){
 		android_drawFrame();
+	}
+	
+	JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDestroy(JNIEnv env, jclass thiz){
+		android_destroy();
 	}
 }

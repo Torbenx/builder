@@ -3,7 +3,9 @@
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	package="no.package">
     <application android:label="TestGame">
-        <activity android:name="com.tt.engine.MainActivity">
+        <activity android:name="com.tt.engine.MainActivity"
+			android:configChanges="orientation|screenSize|smallestScreenSize"
+			android:resizeableActivity="false">
              <intent-filter>
                 <category android:name="android.intent.category.LAUNCHER"/>
                 <action android:name="android.intent.action.MAIN"/>

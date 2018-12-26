@@ -64,12 +64,14 @@ void ShaderBuilder::addLighting(PointLighting& l){
 	sprintf(buff,"%f",l.depthMap->m_far);
 	fMain<<"vec3 "<<pos<<" = "<<positionVarying<<".xyz/"<<positionVarying<<".w;\n";
 	fMain<<"const float "<<_far<<" = "<<buff<<";\n";
-	float invOff0 = 1.0f / l.startBrightness+0.01f;
-	sprintf(buff,"%f",(1.0f/l.halfBrightness-invOff0)*4.0f/(l.depthMap->m_far*l.depthMap->m_far));
+	float invOff0 = 1.0f / l.startBrightness;
 	fMain<<"float "<<depth<<" = dot(vec4("<<_far<<","<<_far<<"/255.0,"<<_far<<"/255.0/255.0,"<<_far<<"/255.0/255.0/255.0),textureCube("<<textureUniform<<","<<pos<<"-"<<lightPosUniform<<"));\n";
 	fMain<<"if("<<depth<<"==0.0){"<<depth<<" = "<<_far<<";}\n";
 	fMain<<"float "<<distance<<" = distance("<<pos<<","<<lightPosUniform<<");\n";
-	fMain<<"if("<<distance<<"<="<<depth<<"*1.01){"<<colorMulti<<" = max("<<colorMulti<<","<<colorUniform<<"/("<<invOff0<<"+"<<buff<<"*"<<distance<<"*"<<distance<<"));}\n";
+	sprintf(buff,"%f",invOff0);
+	fMain<<"if("<<distance<<"<="<<depth<<"*1.01){"<<colorMulti<<" = max("<<colorMulti<<","<<colorUniform<<"/("<<buff<<"+";
+	sprintf(buff,"%f",(1.0f/l.halfBrightness-invOff0)*4.0f/(l.depthMap->m_far*l.depthMap->m_far));
+	fMain<<buff<<"*"<<distance<<"*"<<distance<<"));}\n";
 }
 
 void ShaderBuilder::addReflection(Reflection& r){

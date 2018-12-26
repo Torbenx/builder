@@ -1,5 +1,5 @@
 import os
-import build
+from build_lib import build
 
 class Builder(build.Builder):
 
@@ -23,7 +23,7 @@ class Builder(build.Builder):
 			"lgraphic/lighting/PointLighting.cpp",
 			"lgraphic/lighting/SpotLighting.cpp",
 			"lgraphic/reflection/Reflection.cpp",
-			"GL/glLog.cpp",
+			"gl/glLog.cpp",
 			"resource/ObjParser.cpp",
 		]
 
