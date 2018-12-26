@@ -13,62 +13,62 @@ Renderer *renderer;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
     switch(msg) {
-		case WM_CREATE:{
-			LOGD("WM_CREATE");
-			HDC hdc = GetDC(hwnd);
+        case WM_CREATE:{
+            LOGD("WM_CREATE");
+            HDC hdc = GetDC(hwnd);
     
-			PIXELFORMATDESCRIPTOR pfd = {
-				sizeof(PIXELFORMATDESCRIPTOR),
-				1,
-				PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,    //Flags
-				PFD_TYPE_RGBA,            //The kind of framebuffer. RGBA or palette.
-				32,                        //Colordepth of the framebuffer.
-				0, 0, 0, 0, 0, 0,
-				0,
-				0,
-				0,
-				0, 0, 0, 0,
-				24,                        //Number of bits for the depthbuffer
-				0,                        //Number of bits for the stencilbuffer
-				0,                        //Number of Aux buffers in the framebuffer.
-				PFD_MAIN_PLANE,
-				0,
-				0, 0, 0
-			};
+            PIXELFORMATDESCRIPTOR pfd = {
+                sizeof(PIXELFORMATDESCRIPTOR),
+                1,
+                PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,    //Flags
+                PFD_TYPE_RGBA,            //The kind of framebuffer. RGBA or palette.
+                32,                        //Colordepth of the framebuffer.
+                0, 0, 0, 0, 0, 0,
+                0,
+                0,
+                0,
+                0, 0, 0, 0,
+                24,                        //Number of bits for the depthbuffer
+                0,                        //Number of bits for the stencilbuffer
+                0,                        //Number of Aux buffers in the framebuffer.
+                PFD_MAIN_PLANE,
+                0,
+                0, 0, 0
+            };
 
-			SetPixelFormat(hdc,ChoosePixelFormat(hdc,&pfd),&pfd);
-			
-			HGLRC hglrc = wglCreateContext(hdc);
-			wglMakeCurrent(hdc,hglrc);
-			
-			glwrapper_init();
-			
-			renderer->create();
-			break;
-		}
-		case WM_SIZE:{
-			LOGD("WM_SIZE");
-			RECT rect;
-			if(GetClientRect(hwnd, &rect)){
-				renderer->change(rect.right, rect.bottom);
-			}else{
-				LOGW("GetClientRect failed");
-			}
-			break;
-		}
+            SetPixelFormat(hdc,ChoosePixelFormat(hdc,&pfd),&pfd);
+            
+            HGLRC hglrc = wglCreateContext(hdc);
+            wglMakeCurrent(hdc,hglrc);
+            
+            glwrapper_init();
+            
+            renderer->create();
+            break;
+        }
+        case WM_SIZE:{
+            LOGD("WM_SIZE");
+            RECT rect;
+            if(GetClientRect(hwnd, &rect)){
+                renderer->change(rect.right, rect.bottom);
+            }else{
+                LOGW("GetClientRect failed");
+            }
+            break;
+        }
         case WM_PAINT:
-			//LOGD("WM_PAINT");
-			renderer->drawFrame();
-			SwapBuffers(GetDC(hwnd));
+            //LOGD("WM_PAINT");
+            renderer->drawFrame();
+            SwapBuffers(GetDC(hwnd));
             break;
         case WM_CLOSE:
-			LOGD("WM_CLOSE");
-			renderer->destroy();
-			delete renderer;
+            LOGD("WM_CLOSE");
+            renderer->destroy();
+            delete renderer;
             DestroyWindow(hwnd);
             break;
         case WM_DESTROY:
-			LOGD("WM_DESTROY");
+            LOGD("WM_DESTROY");
             PostQuitMessage(0);
             break;
         default:
@@ -78,8 +78,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
 }
 
 int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
-	renderer = r;
-	
+    renderer = r;
+    
     WNDCLASSEX wc;
     wc.cbSize        = sizeof(WNDCLASSEX);
     wc.style         = CS_OWNDC;
@@ -99,8 +99,8 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
         return 0;
     }
 
-	int width = 1024;
-	int height = 512;
+    int width = 1024;
+    int height = 512;
     HWND hwnd = CreateWindowEx(
         WS_EX_CLIENTEDGE,
         g_szClassName,
@@ -108,7 +108,7 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, width, height,
         NULL, NULL, hInstance, NULL
-	);
+    );
 
     if(hwnd == NULL){
         MessageBox(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
@@ -117,7 +117,7 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
-	
+    
     MSG msg;
     while(GetMessage(&msg, NULL, 0, 0) > 0) {
         TranslateMessage(&msg);

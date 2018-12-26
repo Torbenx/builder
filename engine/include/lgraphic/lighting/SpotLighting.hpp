@@ -4,17 +4,17 @@
 #include "../DepthMap.hpp"
 
 class SpotLighting{
-	public:
-		Vec3 position,direction,up;
-		DepthMap *depthMap;
-		float hfov,vfov;
-		MvpMatrix mvpMatrix = MvpMatrix();
-		int width,height;
-		Vec3 color;
-		SpotLighting(Vec3 position,Vec3 direction,Vec3 up,float hfov,float vfov,int texWidth,int texHeight,Vec3 color,float far);
-		~SpotLighting();
-		void init();
-		void draw(Mat4x4 model,Renderable **ptrArray,int count);
+    public:
+        Vec3 position,direction,up;
+        DepthMap *depthMap;
+        float hfov,vfov;
+        MvpMatrix mvpMatrix = MvpMatrix();
+        int width,height;
+        Vec3 color;
+        SpotLighting(Vec3 position,Vec3 direction,Vec3 up,float hfov,float vfov,int texWidth,int texHeight,Vec3 color,float far);
+        ~SpotLighting();
+        void init();
+        void draw(Mat4x4 model,Renderable **ptrArray,int count);
 };
 
 #endif

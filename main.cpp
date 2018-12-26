@@ -2,5 +2,5 @@
 #include "main.hpp"
 
 Renderer *createRenderer(){
-	return new TestRenderer();
+    return new TestRenderer();
 }

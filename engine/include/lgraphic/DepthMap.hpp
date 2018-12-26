@@ -8,19 +8,19 @@
 #include <string.h>
 
 class DepthMap{
-	public:
-		Texture texture = Texture();
-		Renderbuffer renderbuffer = Renderbuffer();
-		Framebuffer framebuffer = Framebuffer();
-		bool divideByW;
-		int width,height;
-		float m_far;
-		Shader *shader;
-		std::string fSource,vSource;
-		DepthMap(bool divideByW,int width,int height,float far);
-		~DepthMap();
-		void init();
-		void draw(MvpMatrix& mvpMatrix,Renderable **ptrArray,int count);
+    public:
+        Texture texture = Texture();
+        Renderbuffer renderbuffer = Renderbuffer();
+        Framebuffer framebuffer = Framebuffer();
+        bool divideByW;
+        int width,height;
+        float m_far;
+        Shader *shader;
+        std::string fSource,vSource;
+        DepthMap(bool divideByW,int width,int height,float far);
+        ~DepthMap();
+        void init();
+        void draw(MvpMatrix& mvpMatrix,Renderable **ptrArray,int count);
 };
 
 #endif

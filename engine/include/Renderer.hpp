@@ -2,12 +2,12 @@
 #define HEADER_RENDERER_H
 
 class Renderer{
-	public:
-		virtual void create() = 0;
-		virtual void change(int w,int h) = 0;
-		virtual void drawFrame() = 0;
-		virtual void destroy() = 0;
-		virtual ~Renderer(){};
+    public:
+        virtual void create() = 0;
+        virtual void change(int w,int h) = 0;
+        virtual void drawFrame() = 0;
+        virtual void destroy() = 0;
+        virtual ~Renderer(){};
 };
 
 #endif

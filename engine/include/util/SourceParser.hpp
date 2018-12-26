@@ -5,8 +5,8 @@
 
 template<typename O>
 class SourceParser{
-	public:
-		virtual O parse(std::istream in) = 0;
+    public:
+        virtual O parse(std::istream in) = 0;
 };
 
 #endif

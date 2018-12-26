@@ -4,11 +4,11 @@
 #include "../../math/Vec4.hpp"
 
 class AmbientLighting{
-	public:
-		Vec3 color;
-		AmbientLighting(Vec3 color){
-			this->color = color;
-		}
+    public:
+        Vec3 color;
+        AmbientLighting(Vec3 color){
+            this->color = color;
+        }
 };
 
 #endif

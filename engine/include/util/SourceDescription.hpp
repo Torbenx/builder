@@ -4,7 +4,7 @@
 #include <iostream>
 
 class SourceDiscription{
-	virtual std::istream open() = 0;
+    virtual std::istream open() = 0;
 };
 
 #endif

@@ -6,13 +6,13 @@
 #include "../graphic/Shader.hpp"
 
 class Renderable{
-	public:
-		virtual void draw(
-			Shader *shader,
-			std::string positionAttrib,
-			std::string modelUniform
-		) = 0;
-		virtual ~Renderable(){}
+    public:
+        virtual void draw(
+            Shader *shader,
+            std::string positionAttrib,
+            std::string modelUniform
+        ) = 0;
+        virtual ~Renderable(){}
 };
 
 #endif
