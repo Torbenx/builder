@@ -25,9 +25,8 @@ class Builder(build.Builder):
             "lgraphic/reflection/Reflection.cpp",
             "gl/glLog.cpp",
             "resource/ObjParser.cpp",
+            "resource/asset_istream.cpp",
         ]
-
-        self.include_dirs += ["include"]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]
 
@@ -38,6 +37,7 @@ class Builder(build.Builder):
             self.input_files += ["windows/glwrapper.cpp", "windows/engine.cpp"]
         if target == "android":
             self.libs += ["android", "log", "GLESv2"]
+            self.input_files += ["android/engine.cpp", "android/assetbuf.cpp"]
     
     def build(self):
         oldDir = os.getcwd()

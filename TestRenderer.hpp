@@ -44,14 +44,12 @@ class DebugRenderable : public Renderable{
 class ObjRenderable : public Renderable{
     public:
         Bufferf* vertex;
-        Bufferi* index;
         Vec3 color;
         Mat4x4 model;
         int num;
         
-        ObjRenderable(Bufferf *v, Bufferi *i, Vec3 c, int n){
+        ObjRenderable(Bufferf *v, Vec3 c, int n){
             vertex = v;
-            index = i;
             color = c;
             num = n;
             model.setIdentity();
@@ -63,21 +61,18 @@ class ObjRenderable : public Renderable{
         void draw(Shader *shader, std::string positionAttrib, std::string modelUniform){
             shader->uniformMat4x4(modelUniform, model);
             shader->attribPointer(positionAttrib, 3, *vertex);
-            index->bind();
-            //glDrawElements(GL_QUADS, num, GL_UNSIGNED_INT, (void*)0);
+            glDrawArrays(GL_TRIANGLES, 0, num);
         }
         void draw2(Shader *shader, std::string positionAttrib, std::string modelUniform, std::string colorUniform){
             shader->uniformMat4x4(modelUniform, model);
             shader->uniformVec3(colorUniform, color);
             shader->attribPointer(positionAttrib, 3, *vertex);
-            index->bind();
-            //glDrawElements(GL_QUADS, num, GL_UNSIGNED_INT, (void*)0);
+            glDrawArrays(GL_TRIANGLES, 0, num);
         }
 };
 
 class TestRenderer : public Renderer{
     public:
-        TestRenderer();
         LShader* shader;
         LShader* refShader;
         DebugRenderable* obj1;
@@ -101,12 +96,12 @@ class TestRenderer : public Renderer{
         Bufferf d_texCoord;
         Bufferf tex_Coords;
         Bufferf pawnVertex;
-        Bufferi pawnIndex;
         MvpMatrix mvpMatrix;
         Shader depthShader;
         Shader texShader;
         Reflection reflection;
         
+        TestRenderer();
         void create();
         void change(int width, int height);
         void drawFrame();

@@ -4,6 +4,7 @@
 #include <string>
 #include "gl/glLog.hpp"
 #include "resource/ObjParser.hpp"
+#include "resource/asset_istream.hpp"
 #include <fstream>
 #include "TestRenderer.hpp"
 
@@ -13,19 +14,18 @@ TestRenderer::TestRenderer() :
                 Vec3(0,1,-2),
                 1024,1024,
                 Vec3(1,1,1),
-                15,
-                1.0f,
+                1000,
+                0.3f,
                 0.2f
             ),
         spotLight(
                 Vec3(0,3.5,0),
                 Vec3(0.1,-3,0.1),
-                Vec3(0,1,0),
-                M_PI*0.6,
-                M_PI*0.6,
+                M_PI*0.4,
+                M_PI*0.4,
                 2048,2048,
                 Vec3(1,1,1)*0.7f,
-                15
+                10
             ),
         ambientLight(Vec3(1, 1, 1)*0.2f),
         f1(GL_ARRAY_BUFFER),
@@ -37,7 +37,6 @@ TestRenderer::TestRenderer() :
         d_texCoord(GL_ARRAY_BUFFER),
         tex_Coords(GL_ARRAY_BUFFER),
         pawnVertex(GL_ARRAY_BUFFER),
-        pawnIndex(GL_ELEMENT_ARRAY_BUFFER),
         depthShader(
             "attribute vec4 a_position;\n"
             "attribute vec3 a_texCoord;\n"
@@ -49,10 +48,10 @@ TestRenderer::TestRenderer() :
             "uniform samplerCube u_texture;\n"
             "varying vec3 v_texCoord;\n"
             "void main(){\n"
-            "    float far = 15.0;\n"
+            "    float far = 1000.0;\n"
             "    vec4 bits = vec4(far,far/255.0,far/255.0/255.0,far/255.0/255.0/255.0);\n"
             "    vec4 f = textureCube(u_texture,v_texCoord);\n"
-            "    gl_FragColor = vec4(vec3(dot(bits,f))/far,1.0);\n"
+            "    gl_FragColor = vec4(vec3(dot(bits,f))/15.0,1.0);\n"
             "}"),
         texShader(
             "attribute vec4 a_position;\n"
@@ -134,13 +133,11 @@ void TestRenderer::create(){
     refShader->init();
     lticks = clock();
     ObjParser parser;
-    std::ifstream file("res/Pawn/Pawn.obj");
-    parser.parse(file,20000*3,20000*4);
+    asset_istream file("Pawn/Pawn.obj");
+    parser.parse(file, 20000, 20000);
     pawnVertex.init();
-    pawnVertex.bufferData(new DirectSourceGetter<float*>(parser.vertex),parser.n*4,GL_STATIC_DRAW);;
-    pawnIndex.init();
-    pawnIndex.bufferData(new DirectSourceGetter<uint32_t*>(parser.index),parser.ni*4,GL_STATIC_DRAW);
-    pawn = new ObjRenderable(&pawnVertex, &pawnIndex, Vec3(0,1,1), parser.ni);
+    pawnVertex.bufferData(new DirectSourceGetter<float*>(parser.vertex),parser.vertexSize*4,GL_STATIC_DRAW);;
+    pawn = new ObjRenderable(&pawnVertex, Vec3(0,1,1), parser.n);
     mvpMatrix.view.setLookAt(Vec3(7,1,0),Vec3(0,-1,0),up);
     Vec3 max(parser.vertex[0],parser.vertex[1],parser.vertex[2]);
     Vec3 min = max;

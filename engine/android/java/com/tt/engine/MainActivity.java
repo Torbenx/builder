@@ -11,6 +11,7 @@ import android.opengl.EGLContext;
 import android.graphics.PixelFormat;
 import android.view.View;
 import android.content.res.Configuration;
+import android.content.res.AssetManager;
 import android.util.Log;
 import android.util.DisplayMetrics;
 import static android.opengl.EGL14.*;
@@ -31,11 +32,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ru
 	Handler handler;
 	View view;
 	boolean running = false;
+    AssetManager assetManager;
 	
 	@Override
 	public void onCreate(Bundle saveInstaceState){
 		super.onCreate(saveInstaceState);
 		handler = new Handler();
+        assetManager = getResources().getAssets();
 		getWindow().takeSurface(this);
 		getWindow().setFormat(PixelFormat.RGBA_8888);
 		view = new View(this);
@@ -79,7 +82,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ru
 		if(display == EGL_NO_DISPLAY) System.out.println("bad display");
 		if(surface == EGL_NO_SURFACE) System.out.println("bad surface");
 		if(context == EGL_NO_CONTEXT) System.out.println("bad context");
-		nativeCreate();
+        nativeInit();
+		nativeCreate(assetManager);
 	}
 	
 	@Override
@@ -140,7 +144,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ru
 		
 	}
 	
-	native void nativeCreate();
+	native void nativeInit();
+	native void nativeCreate(AssetManager assetManager);
 	native void nativeChange(int width, int height);
 	native void nativeDrawFrame();
 	native void nativeDestroy();

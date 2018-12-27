@@ -42,8 +42,10 @@ void ShaderBuilder::addLighting(SpotLighting& l){
     char buff[100];
     sprintf(buff,"%f",l.depthMap->m_far);
     fMain<<"const float "<<m_far<<" = "<<buff<<";\n";
-    fMain<<"float "<<depth<<" = dot(vec4("<<m_far<<","<<m_far<<"/255.0,"<<m_far<<"/255.0/255.0,"<<m_far<<"/255.0/255.0/255.0),texture2D("<<textureUniform<<",("<<positionVarying<<".xy/"<<positionVarying<<".w+1.0)/2.0));\n";
-    fMain<<"if("<<positionVarying<<".z>0.0&&dot("<<positionVarying<<".xy,"<<positionVarying<<".xy)<=1.0&&"<<positionVarying<<".z<="<<depth<<"*1.01){"<<colorMulti<<" = max("<<colorMulti<<","<<colorUniform<<");}\n";
+    std::string pos = newVar();
+    fMain<<"vec2 "<<pos<<" = "<<positionVarying<<".xy/"<<positionVarying<<".w;\n";
+    fMain<<"float "<<depth<<" = dot(vec4("<<m_far<<","<<m_far<<"/255.0,"<<m_far<<"/255.0/255.0,"<<m_far<<"/255.0/255.0/255.0),texture2D("<<textureUniform<<",("<<pos<<"+1.0)/2.0));\n";
+    fMain<<"if("<<positionVarying<<".z>0.0&&dot("<<pos<<","<<pos<<")<=1.0&&"<<positionVarying<<".z<="<<depth<<"*1.01){"<<colorMulti<<" = max("<<colorMulti<<","<<colorUniform<<");}\n";
 }
         
 void ShaderBuilder::addLighting(PointLighting& l){

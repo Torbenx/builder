@@ -6,18 +6,14 @@
 
 class ObjParser{
     public:
-        float *vertex = NULL,*normal = NULL;
-        uint32_t *index = NULL;
-        int n, ni, polyType, dim;
+        float *vertex = nullptr;
+        int n, vertexSize /*in floats*/, polyType, dim;
         ObjParser();
         ~ObjParser();
-        void parse(std::istream& in, int num, int num_inidices);
+        void parse(std::istream& in, int nv, int ni);
         SourceGetter<float*>* getVertexSource();
         SourceGetter<float*>* getNormalSource();
-        SourceGetter<uint32_t*>* getIndexSource();
         void freeCache();
-    private:
-        int parseLine(char *line, float *buf);
 };
 
 #endif

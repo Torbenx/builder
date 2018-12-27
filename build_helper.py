@@ -8,26 +8,36 @@ import build_script
 import engine.build_script
 import traceback
 import shutil
-from engine.build_lib import build
-from engine.build_lib import android
+from engine.build_lib import build, android, assets
 
 cwd = os.getcwd()
 
 def choose_target():
     print "a for android, w for windows"
     key = msvcrt.getch()
-    global target
+    global platform
     global arch
     if key == "a":
-        target = "android"
-        arch = build.arch.armv7a
+        platform = "android"
+        print "1 for armv7a, 2 for arm64v7a, 3 for x86_32, 4 for x86_64"
+        key = msvcrt.getch()
+        if key == "1":
+            arch = build.arch_armv7a
+        elif key == "2":
+            arch = build.arch_arm64v8a
+        elif key == "3":
+            arch = build.arch_x86_32
+        elif key == "4":
+            arch = build.arch_x86_64
+        else:
+            print "invalid arch"
     elif key == "w":
-        target = "windows"
-        arch = build.arch.x86
+        platform = "windows"
+        arch = build.arch_x86_64
     else:
         print "Invalid target: "+key
 
-while not "target" in globals():
+while (not "platform" in globals()) or not "arch" in globals():
     choose_target()
     
 api = 26
@@ -37,7 +47,7 @@ toolchain_install_dir = "C:/Users/Torben/Documents/dev/c++/toolchains"
 
 while True:
 
-    print "Target: "+target
+    print "Target: "+platform+", "+build.arch_string(arch)
     print "e to exit, r to rebuild, t to change target"
     key = msvcrt.getch()
     if key == "e":
@@ -52,33 +62,34 @@ while True:
         
     try:
         reload(build)
+        reload(assets)
         reload(android)
         reload(engine.build_script)
         reload(build_script)
         
         base_build_dir = "build"
-        build_dir = base_build_dir+"/"+target
-        output_dir = base_build_dir+"/output/"+target
+        build_dir = base_build_dir+"/"+platform+"/"+build.arch_string(arch)
+        output_dir = base_build_dir+"/output/"+platform+"/"+build.arch_string(arch)
 
         engine_output = ""
         main_output = ""
         compile_cmd = []
         link_cmd = []
         compile_args = []
-        if target == "windows":
+        if platform == "windows":
             engine_output = build.join(output_dir,"engine.dll")
             main_output = build.join(output_dir,"main.exe")
             compile_cmd = ["g++"]
             link_cmd = ["g++"]
-            compile_args += ["-DTARGET_WINDOWS"]
-        if target == "android":
+            compile_args += ["-DPLATFORM_WINDOWS"]
+        if platform == "android":
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
             compile_cmd,link_cmd = android.setup(api, arch, toolchain_install_dir, sdk, build.join(build_dir, lib_dir_rel))
             engine_output = build.join(build_dir,lib_dir_rel,"libengine.so")
             main_output = build.join(build_dir,lib_dir_rel,"libmain.so")
-            compile_args += ["-DTARGET_ANDROID"]
+            compile_args += ["-DPLATFORM_ANDROID"]
     
-        eb = engine.build_script.Builder(target)
+        eb = engine.build_script.Builder(platform)
         eb.compile_cmd = compile_cmd
         eb.link_cmd = link_cmd
         eb.rebuild = rebuild
@@ -87,7 +98,7 @@ while True:
         eb.build_dir = build_dir
         eb.build()
         print "\n----------------\n"
-        mb = build_script.Builder(target)
+        mb = build_script.Builder(platform)
         mb.compile_cmd = compile_cmd
         mb.link_cmd = link_cmd
         mb.rebuild = rebuild
@@ -95,7 +106,7 @@ while True:
         mb.link_args += ["-L"+os.path.dirname(engine_output)]
         mb.compile_args += compile_args
         mb.build_dir = build_dir
-        if target == "android":
+        if platform == "android":
             mb.compile_args += ["-fPIC"]
             mb.link_args += ["-shared"]
         mb.build()
@@ -104,10 +115,11 @@ while True:
         if(eb.failed or mb.failed):
             continue
         
-        if target == "windows":
-            runRet = subprocess.call(build.join(output_dir,"main.exe"))
+        if platform == "windows":
+            assets.copy_assets("assets", output_dir)
+            runRet = subprocess.call(build.join(output_dir,"main.exe"), cwd=output_dir)
             print "Exit with "+str(runRet)
-        if target == "android":
+        if platform == "android":
             min_api = 21
             java_dir = "engine/android/java"
             java_source = ["com/tt/engine/MainActivity.java"]
@@ -119,7 +131,7 @@ while True:
             apk_output = build.join(output_dir,"main.apk")
             
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
-            android.android_build(build_dir, apk_output, sdk, jdk, build_tools_version, min_api, api, [build.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so", android.get_std_lib_name(arch)]], java_dir, java_source, android_manifest, package, 1, "1.0", keystore, keystore_password, key_alias, key_password)
+            android.android_build(build_dir, apk_output, sdk, jdk, build_tools_version, min_api, api, [build.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so", android.get_std_lib_name(arch)]], "assets", java_dir, java_source, android_manifest, package, 1, "1.0", keystore, keystore_password, key_alias, key_password)
             android.android_run(sdk, apk_output, package, "com.tt.engine.MainActivity")
             
             

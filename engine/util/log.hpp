@@ -5,7 +5,7 @@
 #ifndef UNTITLED1_LOG_HPP
 #define UNTITLED1_LOG_HPP
 
-#ifdef TARGET_WINDOWS
+#ifdef PLATFORM_WINDOWS
 
 #include<stdio.h>
 
@@ -16,7 +16,7 @@
 
 #endif
 
-#ifdef TARGET_ANDROID
+#ifdef PLATFORM_ANDROID
 
 #include <android/log.h>
 

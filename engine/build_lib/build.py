@@ -7,9 +7,21 @@ import sys
 import string
 import traceback
 
-class arch:
-    x86 = 1
-    armv7a = 2
+arch_x86_32 = 1
+arch_x86_64 = 2
+arch_armv7a = 3
+arch_arm64v8a = 4
+
+def arch_string(arch):
+    if arch==arch_x86_32:
+        return "x86_32"
+    if arch==arch_x86_64:
+        return "x86_64"
+    if arch==arch_armv7a:
+        return "armv7a"
+    if arch==arch_arm64v8a:
+        return "arm64v8a"
+    raise ValueError("invalid arch")
 
 def join(*paths):
     ret = ""
@@ -31,7 +43,7 @@ def compile(self, source):
                     for file in files:
                         if file == ":" or file == "\\":
                             continue
-                        if os.path.getmtime(file) > self.lastBuildTime:
+                        if (not os.path.exists(file)) or os.path.getmtime(file) > self.lastBuildTime:
                             rebuild = True
                             break
                     if rebuild: break
@@ -42,7 +54,7 @@ def compile(self, source):
         cmd = self.compile_cmd + [source] + ["-o"+output] + ["-iquote"+join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",""] + self.compile_args
         if source in self.file_compile_args:
             cmd += self.file_compile_args[source]
-        ret = subprocess.call(cmd)
+        ret = subprocess.call(cmd, shell=True)
         if ret != 0:
             print str(cmd)
             self.failed = True
@@ -107,7 +119,7 @@ class Builder(object):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         cmd = self.link_cmd + [join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
-        buildRet = subprocess.call(cmd)
+        buildRet = subprocess.call(cmd, shell=True)
 
         if buildRet==0:
             elapsed = time.time() - self.buildTime
