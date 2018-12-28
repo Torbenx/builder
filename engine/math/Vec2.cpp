@@ -31,27 +31,31 @@ void Vec2::set(Vec2& xy){
     set(xy.x,xy.y);
 }
 
-void Vec2::floor(){
+Vec2 Vec2::floor(){
     x = ::floor(x);
     y = ::floor(y);
+    return *this;
 }
         
-void Vec2::ceil(){
+Vec2 Vec2::ceil(){
     x = ::ceil(x);
     y = ::ceil(y);
+    return *this;
 }
         
-void Vec2::fract(){
+Vec2 Vec2::fract(){
     x = x-::floor(x);
     y = y-::floor(y);
+    return *this;
 }
         
 float Vec2::length(){
     return sqrt(dot(*this,*this));
 }
 
-void Vec2::normalize(){
+Vec2 Vec2::normalize(){
     *this *= 1.0f/length();
+    return *this;
 }
 
 Vec2 Vec2::operator+=(Vec2 right){

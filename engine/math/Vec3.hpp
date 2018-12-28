@@ -15,11 +15,11 @@ class Vec3{
         void set(Vec3 xyz);
         void set(float xyz);
         void set(Vec2 xy,float z);
-        void floor();
-        void ceil();
-        void fract();
+        Vec3 floor();
+        Vec3 ceil();
+        Vec3 fract();
         float length();
-        void normalize();
+        Vec3 normalize();
         Vec3 operator+=(Vec3 right);
         Vec3 operator+=(float right);
         Vec3 operator-=(Vec3 right);

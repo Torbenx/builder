@@ -9,8 +9,8 @@
 #include "graphic/Shader.hpp"
 #include "lgraphic/DepthMap.hpp"
 #include "lgraphic/ShaderBuilder.hpp"
+#include "input/Look3d.hpp"
 #include <cmath>
-#include <ctime>
 
 class DebugRenderable : public Renderable{
     public:
@@ -81,7 +81,9 @@ class TestRenderer : public Renderer{
         DebugRenderable* obj4;
         DebugRenderable* obj5;
         ObjRenderable* pawn;
-        clock_t lticks;
+        uint64_t lframe;
+        uint64_t lsecond;
+        int frameCounter;
         float obj5_coords[4*3];
         Vec3 up;
         PointLighting pointLight;
@@ -100,10 +102,12 @@ class TestRenderer : public Renderer{
         Shader depthShader;
         Shader texShader;
         Reflection reflection;
+        Look3d look;
         
         TestRenderer();
         void create();
         void change(int width, int height);
+        void pointer(PointerEvent event);
         void drawFrame();
         void destroy();
 };

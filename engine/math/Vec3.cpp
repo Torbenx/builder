@@ -40,30 +40,34 @@ void Vec3::set(float newX,float newY,float newZ){
     z = newZ;
 }
 
-void Vec3::floor(){
+Vec3 Vec3::floor(){
     x = ::floor(x);
     y = ::floor(y);
     z = ::floor(z);
+    return *this;
 }
 
-void Vec3::ceil(){
+Vec3 Vec3::ceil(){
     x = ::ceil(x);
     y = ::ceil(y);
     z = ::ceil(z);
+    return *this;
 }
 
-void Vec3::fract(){
+Vec3 Vec3::fract(){
     x = x-::floor(x);
     y = y-::floor(y);
     z = z-::floor(z);
+    return *this;
 }
 
 float Vec3::length(){
     return sqrt(dot(*this,*this));
 }
 
-void Vec3::normalize(){
+Vec3 Vec3::normalize(){
     *this *= 1.0f/length();
+    return *this;
 }
 
 Vec3 Vec3::operator+=(Vec3 right){

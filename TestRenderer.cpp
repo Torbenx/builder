@@ -7,6 +7,8 @@
 #include "resource/asset_istream.hpp"
 #include <fstream>
 #include "TestRenderer.hpp"
+#include "util/time.hpp"
+#include "util/target.hpp"
 
 TestRenderer::TestRenderer() :
         up(0,1,0),
@@ -24,7 +26,7 @@ TestRenderer::TestRenderer() :
                 M_PI*0.4,
                 M_PI*0.4,
                 2048,2048,
-                Vec3(1,1,1)*0.7f,
+                Vec3(1,1,1)*0.4f,
                 10
             ),
         ambientLight(Vec3(1, 1, 1)*0.2f),
@@ -68,7 +70,9 @@ TestRenderer::TestRenderer() :
             "    vec4 f = texture2D(u_texture, v_texPos);\n"
             "    gl_FragColor = f;\n"//vec4(vec3(dot(bits,f))/far,1.0);\n"
             "}"),
-        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.5f) {}
+        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.5f),
+        look(up, isAndroid())
+        {}
 
 void TestRenderer::create(){
     pointLight.init();
@@ -131,14 +135,14 @@ void TestRenderer::create(){
     refShader = rb.build();
     shader->init();
     refShader->init();
-    lticks = clock();
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
     parser.parse(file, 20000, 20000);
     pawnVertex.init();
-    pawnVertex.bufferData(new DirectSourceGetter<float*>(parser.vertex),parser.vertexSize*4,GL_STATIC_DRAW);;
+    pawnVertex.bufferData(new DirectSourceGetter<float*>(parser.vertex),parser.vertexSize*4,GL_STATIC_DRAW);
     pawn = new ObjRenderable(&pawnVertex, Vec3(0,1,1), parser.n);
-    mvpMatrix.view.setLookAt(Vec3(7,1,0),Vec3(0,-1,0),up);
+    look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
+    mvpMatrix.view.setLookAt(Vec3(7,1,0),look.dir,up);
     Vec3 max(parser.vertex[0],parser.vertex[1],parser.vertex[2]);
     Vec3 min = max;
     Vec3 avg(0);
@@ -158,6 +162,7 @@ void TestRenderer::create(){
     min.debug();
     LOGD("avg");
     (avg / parser.n).debug();
+    lframe = getNanos();
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
@@ -166,10 +171,23 @@ void TestRenderer::change(int newWidth,int newHeight){
     mvpMatrix.projection.setFrustum(-as,as,-1,1,1,100);
 }
 
+void TestRenderer::pointer(PointerEvent event){
+    trackPointerEvent(event);
+    look.pointer(event);
+    mvpMatrix.view.setLook(Vec3(7,1,0),look.dir,up);
+    look.teleportPointer(teleportCursor(0.0f, 0.0f));
+}
+
 void TestRenderer::drawFrame(){
-    clock_t ticks = clock();
-    float dt = (ticks - lticks)/(float)CLOCKS_PER_SEC;
-    lticks = ticks;
+    uint64_t now = getNanos();
+    if(now - lsecond >= NANOS_PER_SECOND){
+        LOGD("FPS: %d",frameCounter);
+        lsecond = now;
+        frameCounter = 0;
+    }
+    frameCounter++;
+    float dt = (now - lframe)/(float)NANOS_PER_SECOND;
+    lframe = now;
     Vec3 plp = pointLight.position;
     plp += Vec3(plp.z*dt, plp.z*dt/2.0, -plp.x*dt);
     pointLight.position = plp;

@@ -58,33 +58,36 @@ void Mat4x4::setIdentity(){
     m[15] = 1.0f;
 }
 
-void Mat4x4::setLookAt(Vec3 eye,Vec3 center,Vec3 up){
+void Mat4x4::setLook(Vec3 eye,Vec3 dir,Vec3 up){
     float *m = matrix;
-    Vec3 f = center-eye;
-    f.normalize();
-    Vec3 s = cross(f,up);
+    dir.normalize();
+    Vec3 s = cross(dir,up);
     s.normalize();
-    Vec3 u = cross(s,f);
+    Vec3 u = cross(s,dir);
     
     m[ 0] = s.x;
     m[ 1] = u.x;
-    m[ 2] = -f.x;
+    m[ 2] = -dir.x;
     m[ 3] = 0.0f;
     
     m[ 4] = s.y;
     m[ 5] = u.y;
-    m[ 6] = -f.y;
+    m[ 6] = -dir.y;
     m[ 7] = 0.0f;
     
     m[ 8] = s.z;
     m[ 9] = u.z;
-    m[10] = -f.z;
+    m[10] = -dir.z;
     m[11] = 0.0f;
     
     m[12] = -dot(s,eye);
     m[13] = -dot(u,eye);
-    m[14] = dot(f,eye);
+    m[14] = dot(dir,eye);
     m[15] = 1.0f;
+}
+
+void Mat4x4::setLookAt(Vec3 eye,Vec3 center,Vec3 up){
+    setLook(eye, center-eye, up);
 }
 
 void Mat4x4::setRotate(float radians,Vec3 vec){

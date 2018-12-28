@@ -13,6 +13,7 @@ class Mat4x4{
         void translate(Vec3 v);
         void translateRaw(Vec3 v);
         void setIdentity();
+        void setLook(Vec3 eye,Vec3 direction,Vec3 up);
         void setLookAt(Vec3 eye,Vec3 center,Vec3 up);
         void setRotate(float radians,Vec3 v);
         void setReflection(Vec3 r,Vec3 pos);

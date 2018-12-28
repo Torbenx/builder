@@ -11,11 +11,11 @@ class Vec2{
         void set(float x,float y);
         void set(float xy);
         void set(Vec2& xy);
-        void floor();
-        void ceil();
-        void fract();
+        Vec2 floor();
+        Vec2 ceil();
+        Vec2 fract();
         float length();
-        void normalize();
+        Vec2 normalize();
         Vec2 operator+=(Vec2 right);
         Vec2 operator+=(float right);
         Vec2 operator-=(Vec2 right);

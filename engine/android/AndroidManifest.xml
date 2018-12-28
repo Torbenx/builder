@@ -4,7 +4,7 @@
 	package="no.package">
     <application android:label="TestGame">
         <activity android:name="com.tt.engine.MainActivity"
-			android:configChanges="orientation|screenSize|smallestScreenSize"
+			android:configChanges="orientation|screenSize|smallestScreenSize|density|screenLayout"
 			android:resizeableActivity="false">
              <intent-filter>
                 <category android:name="android.intent.category.LAUNCHER"/>

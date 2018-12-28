@@ -26,6 +26,10 @@ class Builder(build.Builder):
             "gl/glLog.cpp",
             "resource/ObjParser.cpp",
             "resource/asset_istream.cpp",
+            "util/time.cpp",
+            "util/target.cpp",
+            "input/Pointer.cpp",
+            "input/Look3d.cpp",
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]

@@ -1,5 +1,4 @@
 #include "Framebuffer.hpp"
-#include "graphic.hpp"
 #include "../util/log.hpp"
 
 Framebuffer Framebuffer::DEFAULT(true);
@@ -48,7 +47,7 @@ void Framebuffer::bind(){
     if(status!=GL_FRAMEBUFFER_COMPLETE){
         LOGE("framebuffer not ready: 0x%x",status);
     }
-    teClearColor(clearColor);
+    glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
     glViewport(0,0,width,height);
     glDepthMask(dMask);
     glColorMask(rMask,gMask,bMask,aMask);

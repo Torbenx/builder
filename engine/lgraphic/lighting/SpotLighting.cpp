@@ -25,6 +25,6 @@ void SpotLighting::init(){
     
 void SpotLighting::draw(Mat4x4 model,Renderable **ptrArray,int count){
     mvpMatrix.model = model;
-    mvpMatrix.view.setLookAt(position,position+direction,up);
+    mvpMatrix.view.setLook(position,direction,up);
     depthMap->draw(mvpMatrix,ptrArray,count);
 }

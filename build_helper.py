@@ -84,7 +84,7 @@ while True:
             compile_args += ["-DPLATFORM_WINDOWS"]
         if platform == "android":
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
-            compile_cmd,link_cmd = android.setup(api, arch, toolchain_install_dir, sdk, build.join(build_dir, lib_dir_rel))
+            compile_cmd,link_cmd = android.setup(api, arch, toolchain_install_dir, sdk)
             engine_output = build.join(build_dir,lib_dir_rel,"libengine.so")
             main_output = build.join(build_dir,lib_dir_rel,"libmain.so")
             compile_args += ["-DPLATFORM_ANDROID"]
@@ -131,7 +131,7 @@ while True:
             apk_output = build.join(output_dir,"main.apk")
             
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
-            android.android_build(build_dir, apk_output, sdk, jdk, build_tools_version, min_api, api, [build.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so", android.get_std_lib_name(arch)]], "assets", java_dir, java_source, android_manifest, package, 1, "1.0", keystore, keystore_password, key_alias, key_password)
+            android.android_build(build_dir, apk_output, arch, sdk, jdk, build_tools_version, min_api, api, [build.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]], "assets", java_dir, java_source, android_manifest, package, 1, "1.0", keystore, keystore_password, key_alias, key_password, rebuild=rebuild)
             android.android_run(sdk, apk_output, package, "com.tt.engine.MainActivity")
             
             
