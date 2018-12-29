@@ -15,7 +15,7 @@ class Framebuffer{
         CubeMap *colorCube = 0,*depthCube = 0,*stencilCube = 0;
         GLenum colorCubeTarget,depthCubeTarget,stencilCubeTarget;
         Vec4 clearColor;
-        GLsizei width,height;
+        int offsetY,offsetX,width,height;
         bool isDefault,rMask = true,gMask = true,bMask = true,aMask = true,dMask = true;
         unsigned int sMask = 0xffffffff;
         Framebuffer();
@@ -36,7 +36,8 @@ class Framebuffer{
         void stencilAttachment(GLenum target,CubeMap& a);
         void setClearColor(float r,float g,float b,float a);
         void setClearColor(Vec4 color);
-        void viewport(float width,float height);
+        void viewport(int width,int height);
+        void viewport(int offsetX,int offsetY,int width,int height);
         void colorMask(bool r,bool g,bool b,bool a);
         void depthMask(bool d);
         void stencilMask(unsigned int s);

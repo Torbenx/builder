@@ -9,6 +9,7 @@
 #include "TestRenderer.hpp"
 #include "util/time.hpp"
 #include "util/target.hpp"
+#include "fullscreen.hpp"
 
 TestRenderer::TestRenderer() :
         up(0,1,0),
@@ -163,19 +164,25 @@ void TestRenderer::create(){
     LOGD("avg");
     (avg / parser.n).debug();
     lframe = getNanos();
+    
+    #ifdef PLATFORM_WINDOWS
+    goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
+    #else
+    goFullscreen(FullscreenConfig::DEFAULT);
+    #endif
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
-    mvpMatrix.projection.setFrustum(-as,as,-1,1,1,100);
+    mvpMatrix.projection.setFrustumH(67.0 * M_PI / 180.0 ,as ,1,100);
 }
 
 void TestRenderer::pointer(PointerEvent event){
     trackPointerEvent(event);
     look.pointer(event);
     mvpMatrix.view.setLook(Vec3(7,1,0),look.dir,up);
-    look.teleportPointer(teleportCursor(0.0f, 0.0f));
+    teleportCursor(0.0f, 0.0f);
 }
 
 void TestRenderer::drawFrame(){

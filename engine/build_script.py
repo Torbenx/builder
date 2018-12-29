@@ -38,10 +38,17 @@ class Builder(build.Builder):
         
         if target == "windows":
             self.libs += ["Gdi32", "Opengl32"]
-            self.input_files += ["windows/glwrapper.cpp", "windows/engine.cpp"]
+            self.input_files += [
+                "windows/glwrapper.cpp",
+                "windows/engine.cpp",
+                "windows/fullscreen.cpp",
+            ]
         if target == "android":
             self.libs += ["android", "log", "GLESv2"]
-            self.input_files += ["android/engine.cpp", "android/assetbuf.cpp"]
+            self.input_files += [
+                "android/engine.cpp",
+                "android/assetbuf.cpp",
+            ]
     
     def build(self):
         oldDir = os.getcwd()

@@ -48,7 +48,7 @@ void Framebuffer::bind(){
         LOGE("framebuffer not ready: 0x%x",status);
     }
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
-    glViewport(0,0,width,height);
+    glViewport(offsetX,offsetY,width,height);
     glDepthMask(dMask);
     glColorMask(rMask,gMask,bMask,aMask);
     glStencilMask(sMask);
@@ -139,8 +139,14 @@ void Framebuffer::setClearColor(float r,float g,float b,float a){
 void Framebuffer::setClearColor(Vec4 color){
     clearColor = color;
 }
-        
-void Framebuffer::viewport(float width,float height){
+
+void Framebuffer::viewport(int width, int height){
+    viewport(0, 0, width, height);
+}
+
+void Framebuffer::viewport(int offsetX, int offsetY, int width, int height){
+    this->offsetX = offsetX;
+    this->offsetY = offsetY;
     this->width = width;
     this->height = height;
 }

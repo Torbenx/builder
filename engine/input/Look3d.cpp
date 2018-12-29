@@ -14,8 +14,8 @@ void Look3d::pointer(PointerEvent event){
             float f = invert ? -1.0f : 1.0f;
             float dx = f*(pointer.x - lpointer.x) / 1000.0f;
             float dy = -f*(pointer.y - lpointer.y) / 1000.0f;
-            Vec3 ex = cross(dir,up).normalize();
-            Vec3 ey = cross(ex,dir);
+            Vec3 ex = cross(dir,up);
+            Vec3 ey = cross(ex,dir).normalize();
             dir += dx * ex + dy * ey;
             dir.normalize();
         }

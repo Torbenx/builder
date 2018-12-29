@@ -8,138 +8,26 @@
 #include "engine.hpp"
 #include <list>
 #include "../util/time.hpp"
+#include <map>
+#include "fullscreen.hpp"
 
 const char g_szClassName[] = "myWindowClass";
 
-bool equalDEVMODE(DEVMODE first, DEVMODE second){
-    return first.dmPelsWidth == second.dmPelsWidth && first.dmPelsHeight == second.dmPelsHeight && first.dmDisplayFrequency == second.dmDisplayFrequency;
-}
-
-bool equalDEVMODEIgnoreDisplayFrequency(DEVMODE first, DEVMODE second){
-    return first.dmPelsWidth == second.dmPelsWidth && first.dmPelsHeight == second.dmPelsHeight;
-}
-
-bool equalDEVMODEIgnoreResolution(DEVMODE first, DEVMODE second){
-    return first.dmDisplayFrequency == second.dmDisplayFrequency;
-}
-
-bool lessThenDEVMODEResolution(DEVMODE first, DEVMODE second){
-    if(first.dmPelsWidth < second.dmPelsWidth)return true;
-    if(first.dmPelsWidth > second.dmPelsWidth)return false;
-    if(first.dmPelsHeight < second.dmPelsHeight)return true;
-    if(first.dmPelsHeight > second.dmPelsHeight)return false;
-    return false;
-}
-
-bool lessThenDEVMODEDisplayFrequency(DEVMODE first, DEVMODE second){
-    if(first.dmDisplayFrequency < second.dmDisplayFrequency)return true;
-    return false;
-}
-
 Renderer *renderer;
-DEVMODE engine_devMode;
-std::string engine_adapterName;
 HWND engine_hwnd;
-
-void engine_fullscreen(HWND hwnd){
-    //return;
-    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW);
-    SetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP);
-    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, engine_devMode.dmPelsWidth, engine_devMode.dmPelsHeight, 0);
-    LOGD("setting %s to: %ldx%ld@%ld",engine_adapterName.c_str(),engine_devMode.dmPelsWidth,engine_devMode.dmPelsHeight,engine_devMode.dmDisplayFrequency);
-    long ret = ChangeDisplaySettingsEx(engine_adapterName.c_str(), &engine_devMode, NULL, CDS_FULLSCREEN, NULL);
-    switch(ret){
-        case DISP_CHANGE_SUCCESSFUL: LOGD("DISP_CHANGE_SUCCESSFUL"); break;
-        case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
-        case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
-        case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
-        case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
-        case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
-        case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
-        case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
-        default: LOGW("unknown return value: %ld", ret);
-    }
-    ShowWindow(hwnd, SW_SHOW);
-}
-
-void engine_endFullscreen(HWND hwnd){
-    //return;
-    //SetWindowLongPtr(hwnd, GWL_EXSTYLE, 0);
-    //SetWindowLongPtr(hwnd, GWL_STYLE, 0);
-    //SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0);
-    long ret = ChangeDisplaySettingsEx(engine_adapterName.c_str(), NULL, NULL, 0, NULL);
-    switch(ret){
-        case DISP_CHANGE_SUCCESSFUL: LOGD("DISP_CHANGE_SUCCESSFUL"); break;
-        case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
-        case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
-        case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
-        case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
-        case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
-        case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
-        case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
-        default: LOGW("unknown return value: %ld", ret);
-    }
-    ShowWindow(hwnd, SW_MINIMIZE);
-}
+int rendererState = RENDERER_STATE_INVISIBLE;
+int lastMouseX = 0;
+int lastMouseY = 0;
+std::map<unsigned int,unsigned int> counter;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
+    /*counter[msg]++;
+    if(counter[msg] - counter[msg] / 100 * 100 == 0){
+        LOGD("0x%x: %u", msg, counter[msg]);
+    }*/
     switch(msg) {
         case WM_CREATE:{
             LOGD("WM_CREATE");
-            int i = 0;
-            DISPLAY_DEVICE adapter;
-            adapter.cb = sizeof(DISPLAY_DEVICE);
-            std::map<std::string,std::string> monitors;
-            while(EnumDisplayDevices(nullptr, i++, &adapter, 0)){
-                LOGD("name: %s, string: %s", adapter.DeviceName, adapter.DeviceString);
-                int j = 0;
-                DISPLAY_DEVICE monitor;
-                monitor.cb = sizeof(DISPLAY_DEVICE);
-                while(EnumDisplayDevices(adapter.DeviceName, j++, &monitor, 0)){
-                    LOGD("    name: %s, string: %s", monitor.DeviceName, monitor.DeviceString);
-                    monitors[monitor.DeviceName] = adapter.DeviceName;
-                }
-            }
-            
-            std::string monitorName = monitors.begin()->first;
-            engine_adapterName = monitors[monitorName];
-            std::list<DEVMODE> configs;
-            int k = 0;
-            DEVMODE devMode;
-            devMode.dmSize = DM_SPECVERSION;
-            devMode.dmSize = sizeof(DEVMODE);
-            while(EnumDisplaySettings(engine_adapterName.c_str(), k++, &devMode)){
-                configs.push_back(devMode);
-            }
-            
-            std::list<DEVMODE> resolutions = configs;
-            resolutions.sort(lessThenDEVMODEResolution);
-            resolutions.unique(equalDEVMODEIgnoreDisplayFrequency);
-            for(std::list<DEVMODE>::iterator it=resolutions.begin();it!=resolutions.end();it++){
-                LOGD("%ldx%ld", it->dmPelsWidth, it->dmPelsHeight);
-            }
-            std::list<DEVMODE> refreshRates = configs;
-            refreshRates.sort(lessThenDEVMODEDisplayFrequency);
-            refreshRates.unique(equalDEVMODEIgnoreResolution);
-            for(std::list<DEVMODE>::iterator it=refreshRates.begin();it!=refreshRates.end();it++){
-                LOGD("%ld", it->dmDisplayFrequency);
-            }
-            
-            DEVMODE targetConfig;
-            targetConfig.dmPelsWidth = 1920;
-            targetConfig.dmPelsHeight = 1080;
-            targetConfig.dmDisplayFrequency = 144;
-            engine_devMode.dmSize = 0;
-            
-            for(std::list<DEVMODE>::iterator it=configs.begin();it!=configs.end();it++){
-                if(equalDEVMODE(targetConfig, *it)){
-                    engine_devMode = *it;
-                    break;
-                }
-            }
-            if(engine_devMode.dmSize != 0){
-                LOGD("config found for %s: %ldx%ld@%ld",engine_adapterName.c_str(),engine_devMode.dmPelsWidth,engine_devMode.dmPelsHeight,engine_devMode.dmDisplayFrequency);
-            }
             
             HDC hdc = GetDC(hwnd);
     
@@ -166,12 +54,29 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             
             HGLRC hglrc = wglCreateContext(hdc);
             wglMakeCurrent(hdc,hglrc);
-            
+            bool (*wglSwapIntervalEXT)(int) = (bool (*)(int)) wglGetProcAddress("wglSwapIntervalEXT");
+            if(wglSwapIntervalEXT(0)){
+                LOGD("disabled vsync");
+            }
             glwrapper_init();
             
             renderer->create();
-            break;
+            return 0;
         }
+        case WM_SYSCOMMAND:
+            switch(wParam){
+                case SC_MINIMIZE:
+                    LOGD("SC_MINIMIZE");
+                    if(rendererState == RENDERER_STATE_FOREGROUND){
+                        rendererState = RENDERER_STATE_BACKGROUND;
+                        renderer->background();
+                    }
+                    rendererState = RENDERER_STATE_INVISIBLE;
+                    renderer->invisible();
+                    return DefWindowProc(hwnd, msg, wParam, lParam);
+                default:
+                    return DefWindowProc(hwnd, msg, wParam, lParam);
+            }
         case WM_SIZE:{
             LOGD("WM_SIZE");
             RECT rect;
@@ -180,46 +85,89 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             }else{
                 LOGW("GetClientRect failed");
             }
-            break;
+            return 0;
         }
-        case WM_ACTIVATE:
-            LOGD("WM_ACTIVATE: %lld",wParam);
+        case WM_ACTIVATEAPP:
+            LOGD("WM_ACTIVATEAPP: %lld",wParam);
             if(wParam){
-                engine_fullscreen(hwnd);
+                if(rendererState == RENDERER_STATE_INVISIBLE){
+                    rendererState = RENDERER_STATE_BACKGROUND;
+                    renderer->visible();
+                }
+                rendererState = RENDERER_STATE_FOREGROUND;
+                renderer->foreground();
+                ShowCursor(false);
+                engine_goForeground();
             }else{
-                engine_endFullscreen(hwnd);
+                if(rendererState == RENDERER_STATE_FOREGROUND){
+                    rendererState = RENDERER_STATE_BACKGROUND;
+                    renderer->background();
+                }
+                ShowCursor(true);
+                if(!engine_goBackground() && rendererState == RENDERER_STATE_BACKGROUND){
+                    rendererState = RENDERER_STATE_INVISIBLE;
+                    renderer->invisible();
+                }
             }
-            break;
+            return 0;
         case WM_PAINT:
             //LOGD("WM_PAINT");
-            renderer->drawFrame();
-            SwapBuffers(GetDC(hwnd));
-            break;
-        case WM_SETCURSOR:
-            //LOGD("WM_SETCURSOR");
-            POINT point;
-            GetCursorPos(&point);
-            PointerEvent event;
-            event.pointerId = POINTER_ID_CURSOR;
-            event.event = POINTER_EVENT_MOVE;
-            event.x = point.x;
-            event.y = point.y;
-            renderer->pointer(event);
-            break;
+            if(rendererState != RENDERER_STATE_INVISIBLE){
+                renderer->drawFrame();
+                SwapBuffers(GetDC(hwnd));
+            }
+            return 0;
+        case WM_INPUT:
+            //LOGD("WM_INPUT");
+            if(rendererState == RENDERER_STATE_FOREGROUND){
+                UINT size;
+                GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &size, sizeof(RAWINPUTHEADER));
+                BYTE data[size];
+                GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data, &size, sizeof(RAWINPUTHEADER));
+                RAWINPUT *raw = (RAWINPUT*)data;
+                if(raw->header.dwType == RIM_TYPEMOUSE){
+                    PointerEvent event;
+                    event.pointerId = POINTER_ID_CURSOR;
+                    event.event = POINTER_EVENT_MOVE;
+                    if(raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE){
+                        lastMouseX = raw->data.mouse.lLastX;
+                        lastMouseY = raw->data.mouse.lLastY;
+                    }else{
+                        lastMouseX += raw->data.mouse.lLastX;
+                        lastMouseY += raw->data.mouse.lLastY;
+                    }
+                    //LOGD("%s: %d, %d -> %d, %d", std::bitset<64>(raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE).to_string().c_str(), raw->data.mouse.lLastX, raw->data.mouse.lLastY, lastMouseX, lastMouseY);
+                    event.x = lastMouseX;
+                    event.y = lastMouseY;
+                    renderer->pointer(event);
+                }
+            }
+            return 0;
         case WM_CLOSE:
             LOGD("WM_CLOSE");
-            renderer->destroy();
-            delete renderer;
             DestroyWindow(hwnd);
-            break;
+            return 0;
         case WM_DESTROY:
             LOGD("WM_DESTROY");
+            if(rendererState == RENDERER_STATE_FOREGROUND){
+                rendererState = RENDERER_STATE_BACKGROUND;
+                renderer->background();
+            }
+            if(rendererState == RENDERER_STATE_BACKGROUND){
+                rendererState = RENDERER_STATE_INVISIBLE;
+                renderer->invisible();
+            }
+            renderer->destroy();
+            delete renderer;
             PostQuitMessage(0);
-            break;
+            return 0;
         default:
             return DefWindowProc(hwnd, msg, wParam, lParam);
     }
-    return 0;
+}
+
+int Renderer::getState(){
+    return rendererState;
 }
 
 int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
@@ -244,6 +192,15 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
         MessageBox(NULL, "Window Registration Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
+    
+    int rawInputDeviceCount = 1;
+    RAWINPUTDEVICE rid[rawInputDeviceCount];
+    rid[0].usUsagePage = 0x01;
+    rid[0].usUsage = 0x02;
+    rid[0].dwFlags = 0;
+    rid[0].hwndTarget = 0;
+    
+    RegisterRawInputDevices(rid, rawInputDeviceCount, sizeof(RAWINPUTDEVICE));
 
     int width = 1024;
     int height = 512;
@@ -266,7 +223,6 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
     
     MSG msg;
     while(GetMessage(&msg, NULL, 0, 0) > 0){
-        TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
 

@@ -97,8 +97,8 @@ PointerEvent teleportCursor(float x, float y){
     RECT rect;
     GetWindowRect(engine_hwnd, &rect);
     event.pointerId = POINTER_ID_CURSOR;
-    event.x = rect.left + (x + 1.0f) * 0.5f * Framebuffer::DEFAULT.width;
-    event.y = rect.top + (y + 1.0f) * 0.5f * Framebuffer::DEFAULT.height;
+    event.x = rect.left + Framebuffer::DEFAULT.offsetX + (x + 1.0f) * 0.5f * Framebuffer::DEFAULT.width;
+    event.y = rect.top  + Framebuffer::DEFAULT.offsetY + (y + 1.0f) * 0.5f * Framebuffer::DEFAULT.height;
     SetCursorPos(event.x, event.y);
     #endif
     return event;
