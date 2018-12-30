@@ -2,7 +2,6 @@ package com.tt.engine;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.view.SurfaceHolder;
 import android.os.Handler;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLConfig;
@@ -12,6 +11,8 @@ import android.graphics.PixelFormat;
 import android.view.View;
 import android.view.Choreographer;
 import android.view.MotionEvent;
+import android.view.SurfaceHolder;
+import android.view.WindowManager;
 import android.content.res.Configuration;
 import android.content.res.AssetManager;
 import android.util.Log;
@@ -40,6 +41,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
     Choreographer choreographer;
     boolean callbackPosted = false;
     int format = PixelFormat.RGB_565;
+    boolean fullscreen = false;
+    boolean visible = false;
 	
 	@Override
 	public void onCreate(Bundle saveInstaceState){
@@ -52,9 +55,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
 		view = new View(this);
         view.setOnTouchListener(this);
 		setContentView(view);
-		view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         
-		getWindow().setFormat(format);
+		//getWindow().setFormat(format);
 		display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 		eglInitialize(display, null, 0, null, 0);
 		EGLConfig[] configs = new EGLConfig[1];
@@ -86,24 +88,62 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
         nativeInit();
 		nativeCreate(assetManager);
 	}
+    
+    public void applyWindowMode(){
+        int flags = WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+        getWindow().setFlags(fullscreen ? flags : 0, flags);
+        view.setSystemUiVisibility(fullscreen ? View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION : 0);
+    }
+    
+    @Override
+    public void onStart(){
+        super.onStart();
+        nativeStart();
+        visible = true;
+    }
+    
+    @Override
+    public void onResume(){
+        super.onResume();
+        applyWindowMode();
+        nativeResume();
+    }
 	
 	@Override
 	public void onConfigurationChanged(Configuration config){
 		super.onConfigurationChanged(config);
-		DisplayMetrics m = new DisplayMetrics();
+        applyWindowMode();
+		/*DisplayMetrics m = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(m);
 		int width = m.widthPixels;
 		int height = m.heightPixels;
 		Log.d("MainActivity","onConfigurationChanged, width: "+width+", height: "+height);
-		nativeChange(width,height);
+		nativeChange(width,height);*/
 	}
+    
+    @Override
+    public void onPause(){
+        super.onPause();
+        nativePause();
+    }
+    
+    @Override
+    public void onStop(){
+        super.onStop();
+        nativeStop();
+        visible = false;
+    }
     
     @Override
     public void onDestroy(){
         super.onDestroy();
         Log.d("MainActivity", "onDestroy");
 		nativeDestroy();
-        eglMakeCurrent(EGL_NO_DISPLAY, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        if(surface != EGL_NO_SURFACE){
+            eglDestroySurface(display, surface);
+            surface = EGL_NO_SURFACE;
+        }
 		eglDestroyContext(display, context);
 		eglTerminate(display);
 		context = EGL_NO_CONTEXT;
@@ -149,20 +189,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height){
 		Log.d("MainActivity", "surfaceChanged, format: "+format+", width: "+width+", height: "+height);
-		//if(format == this.format){
-			nativeChange(width, height);
-            if(!callbackPosted){
-                choreographer.postFrameCallback(this);
-                callbackPosted = true;
-            }
-		/*}else{
-			getWindow().setFormat(format);
-		}*/
+        if(!callbackPosted){
+            choreographer.postFrameCallback(this);
+            callbackPosted = true;
+        }
+        nativeChange(width, height);
 	}
 	
 	@Override
 	public void doFrame(long nanos){
         choreographer.postFrameCallback(this);
+        if(!visible)return;
 		nativeDrawFrame();
 		eglSwapBuffers(display, surface);
 	}
@@ -173,8 +210,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
         choreographer.removeFrameCallback(this);
         callbackPosted = false;
         eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
-		eglDestroySurface(display, surface);
-        surface = EGL_NO_SURFACE;
+		if(surface != EGL_NO_SURFACE){
+            eglDestroySurface(display, surface);
+            surface = EGL_NO_SURFACE;
+        }
 	}
 	
 	@Override
@@ -182,14 +221,29 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
 		
 	}
 	
+    @Override
 	public void surfaceRedrawNeededAsync(SurfaceHolder holder, Runnable drawingFinished){
 		
 	}
+    
+    public void goFullscreen(){
+        fullscreen = true;
+		applyWindowMode();
+    }
+    
+    public void exitFullscreen(){
+        fullscreen = false;
+        applyWindowMode();
+    }
 	
 	native void nativeInit();
 	native void nativeCreate(AssetManager assetManager);
+    native void nativeStart();
+    native void nativeResume();
+    native void nativePause();
+    native void nativeStop();
+	native void nativeDestroy();
 	native void nativeChange(int width, int height);
 	native void nativeDrawFrame();
     native void nativeTouch(int event, int pointerId, int x, int y);
-	native void nativeDestroy();
 }

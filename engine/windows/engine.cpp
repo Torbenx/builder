@@ -63,20 +63,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             renderer->create();
             return 0;
         }
-        case WM_SYSCOMMAND:
-            switch(wParam){
-                case SC_MINIMIZE:
-                    LOGD("SC_MINIMIZE");
-                    if(rendererState == RENDERER_STATE_FOREGROUND){
-                        rendererState = RENDERER_STATE_BACKGROUND;
-                        renderer->background();
-                    }
-                    rendererState = RENDERER_STATE_INVISIBLE;
-                    renderer->invisible();
-                    return DefWindowProc(hwnd, msg, wParam, lParam);
-                default:
-                    return DefWindowProc(hwnd, msg, wParam, lParam);
-            }
         case WM_SIZE:{
             LOGD("WM_SIZE");
             RECT rect;
@@ -87,29 +73,32 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             }
             return 0;
         }
-        case WM_ACTIVATEAPP:
-            LOGD("WM_ACTIVATEAPP: %lld",wParam);
-            if(wParam){
+        case WM_ACTIVATE:{
+            LOGD("WM_ACTIVATE: %llx",wParam);
+            bool activate = LOWORD(wParam);
+            bool minimized = HIWORD(wParam);
+            if(activate && !minimized){
                 if(rendererState == RENDERER_STATE_INVISIBLE){
                     rendererState = RENDERER_STATE_BACKGROUND;
                     renderer->visible();
                 }
                 rendererState = RENDERER_STATE_FOREGROUND;
                 renderer->foreground();
-                ShowCursor(false);
+                //ShowCursor(false);
                 engine_goForeground();
             }else{
                 if(rendererState == RENDERER_STATE_FOREGROUND){
                     rendererState = RENDERER_STATE_BACKGROUND;
                     renderer->background();
                 }
-                ShowCursor(true);
-                if(!engine_goBackground() && rendererState == RENDERER_STATE_BACKGROUND){
+                //ShowCursor(true);
+                if((!engine_goBackground() || minimized) && rendererState == RENDERER_STATE_BACKGROUND){
                     rendererState = RENDERER_STATE_INVISIBLE;
                     renderer->invisible();
                 }
             }
-            return 0;
+            return DefWindowProc(hwnd, msg, wParam, lParam);
+        }
         case WM_PAINT:
             //LOGD("WM_PAINT");
             if(rendererState != RENDERER_STATE_INVISIBLE){
@@ -142,7 +131,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                     renderer->pointer(event);
                 }
             }
-            return 0;
+            return DefWindowProc(hwnd, msg, wParam, lParam);;
         case WM_CLOSE:
             LOGD("WM_CLOSE");
             DestroyWindow(hwnd);

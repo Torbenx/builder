@@ -3,24 +3,25 @@
 
 Framebuffer Framebuffer::DEFAULT(true);
 
-Framebuffer::Framebuffer(){
+Framebuffer::Framebuffer() : glId(-1){
     
 }
 
-Framebuffer::Framebuffer(bool isDefault){
-    this->isDefault = isDefault;
-    glId = 0;
+Framebuffer::Framebuffer(bool isDefault) : glId(isDefault ? 0 : -1){
+    
 }
     
 Framebuffer::~Framebuffer(){
-    glDeleteFramebuffers(1,&glId);
+    if(glId.unref()){
+        glDeleteFramebuffers(1,&glId.value);
+    }
 }
     
 void Framebuffer::bind(){
     GLint fbo = 0;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING,&fbo);
-    if(glId!=fbo){
-        glBindFramebuffer(GL_FRAMEBUFFER,glId);
+    if(glId.value!=fbo){
+        glBindFramebuffer(GL_FRAMEBUFFER,glId.value);
     }
     if(colorTex){
         texture(GL_COLOR_ATTACHMENT0,colorTex);
@@ -56,23 +57,26 @@ void Framebuffer::bind(){
 }
     
 bool Framebuffer::init(){
-    if((!isDefault)&&!glIsFramebuffer(glId)){
-        glGenFramebuffers(1,&glId);
+    if(!glIsFramebuffer(glId.value)){
+        if(glId.refCount != 1){
+            LOGW("init on copy");
+        }
+        glGenFramebuffers(1,&glId.value);
         return true;
     }
     return false;
 }
     
 void Framebuffer::texture(GLenum attachment,Texture *a){
-    glFramebufferTexture2D(GL_FRAMEBUFFER,attachment,GL_TEXTURE_2D,a->glId,0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,attachment,GL_TEXTURE_2D,a->glId.value,0);
 }
     
 void Framebuffer::renderbuffer(GLenum attachment,Renderbuffer *a){
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER,attachment,GL_RENDERBUFFER,a->glId);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER,attachment,GL_RENDERBUFFER,a->glId.value);
 }
 
 void Framebuffer::cubeMap(GLenum attachment,GLenum target,CubeMap *a){
-    glFramebufferTexture2D(GL_FRAMEBUFFER,attachment,target,a->glId,0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,attachment,target,a->glId.value,0);
 }
     
 void Framebuffer::colorAttachment(Texture& a){

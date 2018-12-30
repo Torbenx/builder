@@ -31,17 +31,18 @@ bool lessThenDEVMODEDisplayFrequency(DEVMODE first, DEVMODE second){
 FullscreenConfig FullscreenConfig::DEFAULT;
 
 FullscreenConfig::FullscreenConfig(){
-    adapterName = "";
-    deviceMode.dmSize = 0;
+    impl = new FullscreenConfigImpl();
+    ((FullscreenConfigImpl*)impl)->adapterName = "";
+    ((FullscreenConfigImpl*)impl)->deviceMode.dmSize = 0;
 }
 
-FullscreenConfig::FullscreenConfig(std::string adapterName, DEVMODE deviceMode){
-    this->adapterName = adapterName;
-    this->deviceMode = deviceMode;
+FullscreenConfig::FullscreenConfig(const FullscreenConfig& config){
+    this->impl = new FullscreenConfigImpl();
+    *((FullscreenConfigImpl*)impl) = *((FullscreenConfigImpl*)config.impl);
 }
 
-void fullscreen_init(){
-    //delete me
+FullscreenConfig::~FullscreenConfig(){
+    delete (FullscreenConfigImpl*)impl;
 }
 
 std::list<std::string> getDisplayList(){
@@ -72,7 +73,10 @@ FullscreenConfig getFullscreenConfig(std::string adapterName, int width, int hei
     while(EnumDisplaySettings(adapterName.c_str(), i++, &devMode)){
         if(devMode.dmPelsWidth == width && devMode.dmPelsHeight == height && devMode.dmDisplayFrequency == refreshRate){
             LOGD("config found for %s: %ldx%ld@%ld",adapterName.c_str(),devMode.dmPelsWidth,devMode.dmPelsHeight,devMode.dmDisplayFrequency);
-            return FullscreenConfig(adapterName, devMode);
+            FullscreenConfig config;
+            ((FullscreenConfigImpl*)config.impl)->adapterName = adapterName;
+            ((FullscreenConfigImpl*)config.impl)->deviceMode = devMode;
+            return config;
         }
     }
     return FullscreenConfig::DEFAULT;
@@ -80,22 +84,12 @@ FullscreenConfig getFullscreenConfig(std::string adapterName, int width, int hei
 
 int saved_x, saved_y, saved_width, saved_height;
 bool engine_fullscreen = false;
-FullscreenConfig saved_config;
-void goFullscreen(FullscreenConfig config){
-    saved_config = config;
-    if(!engine_fullscreen){
-        engine_fullscreen = true;
-        RECT rect;
-        GetWindowRect(engine_hwnd, &rect);
-        saved_x = rect.left;
-        saved_y = rect.top;
-        saved_width = rect.right - rect.left;
-        saved_height = rect.bottom - rect.top;
-    }
+FullscreenConfigImpl saved_config;
+void goFullscreenImpl(FullscreenConfigImpl config){
     SetWindowLongPtr(engine_hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW);
     SetWindowLongPtr(engine_hwnd, GWL_STYLE, WS_POPUP);
     int width,height;
-    if(config.deviceMode.dmSize == 0){
+    if(saved_config.deviceMode.dmSize == 0){
         HMONITOR handle = MonitorFromWindow(engine_hwnd,MONITOR_DEFAULTTOPRIMARY);
         MONITORINFO info;
         info.cbSize = sizeof(MONITORINFO);
@@ -103,15 +97,15 @@ void goFullscreen(FullscreenConfig config){
         width = info.rcMonitor.right - info.rcMonitor.left;
         height = info.rcMonitor.bottom - info.rcMonitor.top;
     }else{
-        width = config.deviceMode.dmPelsWidth;
-        height = config.deviceMode.dmPelsHeight;
+        width = saved_config.deviceMode.dmPelsWidth;
+        height = saved_config.deviceMode.dmPelsHeight;
     }
     
     SetWindowPos(engine_hwnd, HWND_TOPMOST, 0, 0, width, height, 0);
-    LOGD("setting %s to: %dx%d@%ld", config.adapterName.c_str(), width, height, config.deviceMode.dmDisplayFrequency);
-    long ret = ChangeDisplaySettingsEx(config.adapterName.empty() ? NULL : config.adapterName.c_str(), config.deviceMode.dmSize == 0 ? NULL : &config.deviceMode, NULL, CDS_FULLSCREEN, NULL);
+    LOGD("setting %s to: %dx%d@%ld", saved_config.adapterName.c_str(), width, height, saved_config.deviceMode.dmDisplayFrequency);
+    long ret = ChangeDisplaySettingsEx(saved_config.adapterName.empty() ? NULL : saved_config.adapterName.c_str(), saved_config.deviceMode.dmSize == 0 ? NULL : &saved_config.deviceMode, NULL, CDS_FULLSCREEN, NULL);
     switch(ret){
-        case DISP_CHANGE_SUCCESSFUL: LOGD("DISP_CHANGE_SUCCESSFUL"); break;
+        case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
         case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
         case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
         case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
@@ -124,15 +118,29 @@ void goFullscreen(FullscreenConfig config){
     ShowWindow(engine_hwnd, SW_SHOW);
 }
 
-void exitFullscreen(){
-    if(!engine_fullscreen)return;
-    engine_fullscreen = false;
+void goFullscreen(FullscreenConfig config){
+    saved_config = *(FullscreenConfigImpl*)config.impl;
+    if(!engine_fullscreen){
+        engine_fullscreen = true;
+        RECT rect;
+        GetWindowRect(engine_hwnd, &rect);
+        saved_x = rect.left;
+        saved_y = rect.top;
+        saved_width = rect.right - rect.left;
+        saved_height = rect.bottom - rect.top;
+    }
+    if(Renderer::isForeground()){
+        goFullscreenImpl(*(FullscreenConfigImpl*)config.impl);
+    }
+}
+
+void exitFullscreenImpl(){
     SetWindowLongPtr(engine_hwnd, GWL_EXSTYLE, WS_EX_CLIENTEDGE);
     SetWindowLongPtr(engine_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(engine_hwnd, HWND_NOTOPMOST, saved_x, saved_y, saved_width, saved_height, 0);
     long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
     switch(ret){
-        case DISP_CHANGE_SUCCESSFUL: LOGD("DISP_CHANGE_SUCCESSFUL"); break;
+        case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
         case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
         case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
         case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
@@ -145,9 +153,17 @@ void exitFullscreen(){
     ShowWindow(engine_hwnd, SW_RESTORE);
 }
 
+void exitFullscreen(){
+    if(!engine_fullscreen)return;
+    engine_fullscreen = false;
+    if(Renderer::isForeground()){
+        exitFullscreenImpl();
+    }
+}
+
 void engine_goForeground(){
     if(engine_fullscreen){
-        goFullscreen(saved_config);
+        goFullscreenImpl(saved_config);
     }
 }
 
@@ -158,7 +174,7 @@ bool engine_goBackground(){
         SetWindowPos(engine_hwnd, HWND_NOTOPMOST, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, 0);
         long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
         switch(ret){
-            case DISP_CHANGE_SUCCESSFUL: LOGD("DISP_CHANGE_SUCCESSFUL"); break;
+            case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
             case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
             case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
             case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;

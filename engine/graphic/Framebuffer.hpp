@@ -5,11 +5,12 @@
 #include "Texture.hpp"
 #include "../math/Vec4.hpp"
 #include "CubeMap.hpp"
+#include "../util/Handle.hpp"
 
 class Framebuffer{
     public:
         static Framebuffer DEFAULT;
-        GLuint glId = -1;
+        Handle<GLuint> glId;
         Texture *colorTex = 0,*depthTex = 0,*stencilTex = 0;
         Renderbuffer *colorBuffer = 0,*depthBuffer = 0,*stencilBuffer = 0;
         CubeMap *colorCube = 0,*depthCube = 0,*stencilCube = 0;
@@ -19,6 +20,7 @@ class Framebuffer{
         bool isDefault,rMask = true,gMask = true,bMask = true,aMask = true,dMask = true;
         unsigned int sMask = 0xffffffff;
         Framebuffer();
+        Framebuffer(const Framebuffer& other);
         ~Framebuffer();
         void bind();
         bool init();

@@ -1,23 +1,28 @@
 #include "Texture.hpp"
 
-Texture::Texture(){
+Texture::Texture() : glId(-1){
     
 }
     
 Texture::~Texture(){
-    glDeleteTextures(1,&glId);
+    if(glId.unref()){
+        glDeleteTextures(1,&glId.value);
+    }
 }
     
 bool Texture::init(){
-    if(!glIsTexture(glId)){
-        glGenTextures(1,&glId);
+    if(!glIsTexture(glId.value)){
+        if(glId.refCount != 1){
+            LOGW("init on copy");
+        }
+        glGenTextures(1,&glId.value);
         return true;
     }
     return false;
 }
     
 void Texture::bind(){
-    glBindTexture(GL_TEXTURE_2D,glId);
+    glBindTexture(GL_TEXTURE_2D,glId.value);
 }
     
 void Texture::texture(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){

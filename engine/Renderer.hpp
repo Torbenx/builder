@@ -25,11 +25,11 @@
 
 class Renderer{
     public:
-        bool isInvisible();
-        bool inBackground();
-        bool inForeground();
-        int getState();
-        void exit();
+        static bool isInvisible();
+        static bool isBackground();
+        static bool isForeground();
+        static int getState();
+        static void exit();
         
         virtual void create(){}
         virtual void visible(){}

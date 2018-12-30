@@ -42,12 +42,15 @@ class Builder(build.Builder):
                 "windows/glwrapper.cpp",
                 "windows/engine.cpp",
                 "windows/fullscreen.cpp",
+                "windows/Renderer.cpp",
             ]
         if target == "android":
             self.libs += ["android", "log", "GLESv2"]
             self.input_files += [
                 "android/engine.cpp",
                 "android/assetbuf.cpp",
+                "android/fullscreen.cpp",
+                "android/Renderer.cpp",
             ]
     
     def build(self):

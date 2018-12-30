@@ -1,16 +1,21 @@
 #include "CubeMap.hpp"
 
-CubeMap::CubeMap(){
+CubeMap::CubeMap() : glId(-1){
     
 }
         
 CubeMap::~CubeMap(){
-    glDeleteTextures(1,&glId);
+    if(glId.unref()){
+        glDeleteTextures(1,&glId.value);
+    }
 }
         
 bool CubeMap::init(){
-    if(!glIsTexture(glId)){
-        glGenTextures(1,&glId);
+    if(!glIsTexture(glId.value)){
+        if(glId.refCount != 1){
+            LOGW("init on copy");
+        }
+        glGenTextures(1,&glId.value);
         applyTexParameter();
         return true;
     }
@@ -18,7 +23,7 @@ bool CubeMap::init(){
 }
         
 void CubeMap::bind(){
-    glBindTexture(GL_TEXTURE_CUBE_MAP,glId);
+    glBindTexture(GL_TEXTURE_CUBE_MAP,glId.value);
 }
         
 void CubeMap::texturePosX(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){

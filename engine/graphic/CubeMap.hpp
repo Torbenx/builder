@@ -3,11 +3,12 @@
 
 #include "../gl/glwrapper.hpp"
 #include "../util/SourceGetter.hpp"
+#include "../util/Handle.hpp"
 
 class CubeMap{
     public:
         SourceGetter<void*> *posX,*negX,*posY,*negY,*posZ,*negZ;
-        GLuint glId;
+        Handle<GLuint> glId;
         GLfloat minFilter = GL_LINEAR;
         GLfloat magFilter = GL_LINEAR;
         GLfloat wrapS = GL_CLAMP_TO_EDGE;

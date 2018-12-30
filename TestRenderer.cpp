@@ -10,6 +10,9 @@
 #include "util/time.hpp"
 #include "util/target.hpp"
 #include "fullscreen.hpp"
+#ifdef PLATFORM_WINDOWS
+#include "windows/fullscreen.hpp"
+#endif
 
 TestRenderer::TestRenderer() :
         up(0,1,0),
@@ -144,7 +147,7 @@ void TestRenderer::create(){
     pawn = new ObjRenderable(&pawnVertex, Vec3(0,1,1), parser.n);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
     mvpMatrix.view.setLookAt(Vec3(7,1,0),look.dir,up);
-    Vec3 max(parser.vertex[0],parser.vertex[1],parser.vertex[2]);
+    /*Vec3 max(parser.vertex[0],parser.vertex[1],parser.vertex[2]);
     Vec3 min = max;
     Vec3 avg(0);
     for(int i=1;i<parser.n;i+=3){
@@ -162,14 +165,14 @@ void TestRenderer::create(){
     LOGD("min");
     min.debug();
     LOGD("avg");
-    (avg / parser.n).debug();
+    (avg / parser.n).debug();*/
     lframe = getNanos();
     
-    #ifdef PLATFORM_WINDOWS
-    goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
-    #else
+    //#ifdef PLATFORM_WINDOWS
+    //goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
+    //#else
     goFullscreen(FullscreenConfig::DEFAULT);
-    #endif
+    //#endif
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
@@ -182,7 +185,7 @@ void TestRenderer::pointer(PointerEvent event){
     trackPointerEvent(event);
     look.pointer(event);
     mvpMatrix.view.setLook(Vec3(7,1,0),look.dir,up);
-    teleportCursor(0.0f, 0.0f);
+    //teleportCursor(0.0f, 0.0f);
 }
 
 void TestRenderer::drawFrame(){

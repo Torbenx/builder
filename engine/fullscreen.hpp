@@ -1,10 +1,16 @@
-#ifdef PLATFORM_WINDOWS
-#include "windows/fullscreen.hpp"
-#endif
+#ifndef HEADER_FULLSCREEN_H
+#define HEADER_FULLSCREEN_H
 
-#ifdef PLATFORM_ANDROID
-#include "android/fullscreen.hpp"
-#endif
+class FullscreenConfig{
+    public:
+        static FullscreenConfig DEFAULT;
+        void *impl;
+        FullscreenConfig();
+        FullscreenConfig(const FullscreenConfig& config);
+        ~FullscreenConfig();
+};
 
 void goFullscreen(FullscreenConfig config);
 void exitFullscreen();
+
+#endif

@@ -2,12 +2,13 @@
 #define HEADER_GRAPHIC_RENDERBUFFER_H
 
 #include "../gl/glwrapper.hpp"
+#include "../util/Handle.hpp"
 
 class Renderbuffer{
     public:
         GLsizei width,height;
         GLenum format;
-        GLuint glId;
+        Handle<GLuint> glId;
         Renderbuffer();
         ~Renderbuffer();
         bool init();

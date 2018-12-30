@@ -3,6 +3,7 @@
 
 #include "../gl/glwrapper.hpp"
 #include "../util/SourceGetter.hpp"
+#include "../util/Handle.hpp"
 #include <stdint.h>
 
 const static GLint TE_BUFFER = 0x00cf;
@@ -12,28 +13,33 @@ class Buffer{
     public:
         GLint target;
         GLint usage;
-        GLuint glId;
+        Handle<GLuint> glId;
         GLsizeiptr size;
         SourceGetter<T*> *source;
         
-        Buffer(GLint target){
+        Buffer(GLint target) : glId(-1){
             this->target = target;
         }
         
         ~Buffer(){
-            glDeleteBuffers(1,&glId);
+            if(glId.unref()){
+                glDeleteBuffers(1,&glId.value);
+            }
         }
         
         bool init(){
-            if(target!=TE_BUFFER&&!glIsBuffer(glId)){
-                glGenBuffers(1,&glId);
+            if(target!=TE_BUFFER&&!glIsBuffer(glId.value)){
+                if(glId.refCount != 1){
+                    LOGW("init on copy");
+                }
+                glGenBuffers(1,&glId.value);
                 return true;
             }
             return false;
         }
         
         void bind(){
-            glBindBuffer(target,glId);
+            glBindBuffer(target,glId.value);
         }
         
         void bufferData(SourceGetter<T*> *data,GLsizeiptr sizeInBytes,GLint usage){

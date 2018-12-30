@@ -3,10 +3,11 @@
 
 #include "../gl/glwrapper.hpp"
 #include "../util/SourceGetter.hpp"
+#include "../util/Handle.hpp"
 
 class Texture{
     public:
-        GLuint glId;
+        Handle<GLuint> glId;
         GLfloat minFilter = GL_LINEAR;
         GLfloat magFilter = GL_LINEAR;
         GLfloat wrapS = GL_CLAMP_TO_EDGE;

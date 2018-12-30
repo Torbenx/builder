@@ -2,46 +2,51 @@
 #include "../util/log.hpp"
 #include "../gl/glLog.hpp"
         
-Shader::Shader(std::string vertex,std::string fragment){
+Shader::Shader(std::string vertex,std::string fragment) : glId(-1){
     vertexSource = vertex;
     fragmentSource = fragment;
 }
 
 Shader::~Shader(){
-    glDeleteProgram(glId);
+    if(glId.unref()){
+        glDeleteProgram(glId.value);
+    }
 }
         
 bool Shader::init(){
-    if(!glIsProgram(glId)){
+    if(!glIsProgram(glId.value)){
+        if(glId.refCount != 1){
+            LOGW("init on copy");
+        }
         const char *vSource = vertexSource.c_str();
         const char *fSource = fragmentSource.c_str();
-        LOGD("%s", vSource);
-        LOGD("%s", fSource);
-        glId = glCreateProgram();
+        //LOGD("%s", vSource);
+        //LOGD("%s", fSource);
+        glId.value = glCreateProgram();
         GLuint shader = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(shader,1,&vSource,0);
         glCompileShader(shader);
-        glAttachShader(glId,shader);
+        glAttachShader(glId.value,shader);
         glDeleteShader(shader);
         shader = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(shader,1,&fSource,0);
         glCompileShader(shader);
-        glAttachShader(glId,shader);
+        glAttachShader(glId.value,shader);
         glDeleteShader(shader);
-        glLinkProgram(glId);
+        glLinkProgram(glId.value);
         return true;
     }
     return false;
 }
 
 void Shader::use(){
-    glUseProgram(glId);
+    glUseProgram(glId.value);
 }
 
 GLuint Shader::getAttrib(std::string attrib){
     std::map<std::string,GLint>::iterator it = locations.find(attrib);
     if(it==locations.end()){
-        GLuint a = glGetAttribLocation(glId,attrib.c_str());
+        GLuint a = glGetAttribLocation(glId.value,attrib.c_str());
         locations[attrib] = a;
         return a;
     }else{
@@ -58,7 +63,7 @@ GLuint Shader::getAndEnableAttrib(std::string attrib){
 GLint Shader::getUniform(std::string uniform){
     std::map<std::string,GLint>::iterator it = locations.find(uniform);
     if(it==locations.end()){
-        GLint u = glGetUniformLocation(glId,uniform.c_str());
+        GLint u = glGetUniformLocation(glId.value,uniform.c_str());
         locations[uniform] = u;
         return u;
     }else{

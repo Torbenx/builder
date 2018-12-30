@@ -4,6 +4,7 @@
 #include "../gl/glwrapper.hpp"
 #include "../util/SourceGetter.hpp"
 #include "../math/Vec4.hpp"
+#include "../util/Handle.hpp"
 #include "Buffer.hpp"
 #include "Texture.hpp"
 #include "CubeMap.hpp"
@@ -13,7 +14,7 @@
 class Shader{
     public:
         std::map<std::string,GLint> locations;
-        GLuint glId = -1;
+        Handle<GLuint> glId;
         std::string vertexSource;
         std::string fragmentSource;
         GLenum slots[32] = {

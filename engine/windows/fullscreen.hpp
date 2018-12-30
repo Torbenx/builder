@@ -1,17 +1,14 @@
 #ifndef HEADER_WINDOWS_FULLSCREEN_H
 #define HEADER_WINDOWS_FULLSCREEN_H
 
+#include "../fullscreen.hpp"
 #include <Windows.h>
 #include <string>
 #include <list>
 
-class FullscreenConfig{
-    public:
-        static FullscreenConfig DEFAULT;
-        FullscreenConfig();
-        FullscreenConfig(std::string adapterName, DEVMODE deviceMode);
-        std::string adapterName;
-        DEVMODE deviceMode;
+struct FullscreenConfigImpl{
+    std::string adapterName;
+    DEVMODE deviceMode;
 };
 
 void engine_goForeground();

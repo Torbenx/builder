@@ -1,6 +1,15 @@
 #include "assetbuf.hpp"
+#include "../resource/asset_istream.hpp"
 #include <string.h>
 #include "../util/log.hpp"
+
+asset_istream::asset_istream(std::string file) : std::istream(new assetbuf(file)){
+    
+}
+
+asset_istream::~asset_istream(){
+    delete rdbuf();
+}
 
 assetbuf::assetbuf(std::string file){
     asset = AAssetManager_open(assetManager, file.c_str(), AASSET_MODE_STREAMING);
