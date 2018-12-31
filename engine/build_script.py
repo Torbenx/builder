@@ -51,6 +51,7 @@ class Builder(build.Builder):
                 "android/assetbuf.cpp",
                 "android/fullscreen.cpp",
                 "android/Renderer.cpp",
+                "android/android_jni.cpp",
             ]
     
     def build(self):

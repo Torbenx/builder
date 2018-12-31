@@ -1,65 +1,235 @@
 #include <jni.h>
 #include "../Renderer.hpp"
 #include "engine.hpp"
+#include "../util/log.hpp"
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <egl/egl.h>
+#include <android/choreographer.h>
+#include <android/input.h>
 
-#include <android/asset_manager_jni.h>
+#define ENGINE_IDENT_CMD 1
+#define ENGINE_IDENT_INPUT 2
+
+ALooper *looper;
 
 Renderer *renderer;
-AAssetManager *assetManager;
-JavaVM *jvm;
-jobject activity;
-jmethodID goFullscreenID, exitFullscreenID;
 int rendererState = RENDERER_STATE_INVISIBLE;
+AChoreographer *choreographer;
 
 void setRenderer(Renderer *r){
     renderer = r;
 }
 
+void android_initThread(int cmdFd){
+    looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
+    ALooper_acquire(looper);
+    ALooper_addFd(looper, cmdFd, ENGINE_IDENT_CMD, ALOOPER_EVENT_INPUT, NULL, nullptr);
+    choreographer = AChoreographer_getInstance();
+}
+
+struct FrameCallbackData{
+    bool running;
+    EGLDisplay *display;
+    EGLSurface *surface;
+};
+void android_doFrame(long ignore, void *data){
+    EGLDisplay *display = ((FrameCallbackData*)data)->display;
+    EGLSurface *surface = ((FrameCallbackData*)data)->surface;
+    if(rendererState != RENDERER_STATE_INVISIBLE && *surface != EGL_NO_SURFACE){
+        AChoreographer_postFrameCallback(choreographer, android_doFrame, data);
+        renderer->drawFrame();
+        eglSwapBuffers(*display, *surface);
+    }
+    ((FrameCallbackData*)data)->running = false;
+}
+
+void android_runThread(){
+    bool running = true;
+    EGLDisplay display = EGL_NO_DISPLAY;
+    EGLConfig config;
+    EGLContext context = EGL_NO_CONTEXT;
+    EGLSurface surface = EGL_NO_SURFACE;
+    FrameCallbackData callbackData = {false, &display, &surface};
+    ANativeWindow *window;
+    while(running){
+        int fd;
+        int events;
+        void *pollData;
+        int ident = ALooper_pollOnce(-1, &fd, &events, &pollData);
+        switch(ident){
+            case ENGINE_IDENT_CMD:{
+                cmd_t cmd;
+                int readRet = read(fd, &cmd, sizeof(cmd_t));
+                if(readRet == sizeof(cmd_t)){
+                    switch(cmd){
+                        case ENGINE_CMD_CREATE:{
+                            display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+                            eglInitialize(display, nullptr, nullptr);
+                            EGLint attrib_list[] = {
+                                EGL_RED_SIZE, 5,
+                                EGL_GREEN_SIZE, 6,
+                                EGL_BLUE_SIZE, 5,
+                                EGL_ALPHA_SIZE, 0,
+                                EGL_DEPTH_SIZE, 16,
+                                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                                EGL_NONE
+                            };
+                            int num_configs;
+                            eglChooseConfig(display, attrib_list, &config, 1, &num_configs);
+                            EGLint context_attrib_list[] = {
+                                EGL_CONTEXT_CLIENT_VERSION, 2,
+                                EGL_NONE
+                            };
+                            context = eglCreateContext(display, config, EGL_NO_CONTEXT, context_attrib_list);
+                            eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
+                            renderer->create();
+                            break;
+                        }
+                        case ENGINE_CMD_VISIBLE:
+                            rendererState = RENDERER_STATE_BACKGROUND;
+                            renderer->visible();
+                            if(!callbackData.running){
+                                callbackData.running = true;
+                                AChoreographer_postFrameCallback(choreographer, android_doFrame, &callbackData);
+                            }
+                            break;
+                        case ENGINE_CMD_FOREGROUND:
+                            rendererState = RENDERER_STATE_FOREGROUND;
+                            renderer->foreground();
+                            break;
+                        case ENGINE_CMD_BACKGROUND:
+                            rendererState = RENDERER_STATE_BACKGROUND;
+                            renderer->background();
+                            break;
+                        case ENGINE_CMD_INVISIBLE:
+                            rendererState = RENDERER_STATE_INVISIBLE;
+                            renderer->invisible();
+                            break;
+                        case ENGINE_CMD_DESTROY:
+                            renderer->destroy();
+                            delete renderer;
+                            eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+                            eglDestroyContext(display, context);
+                            if(surface != EGL_NO_SURFACE){
+                                eglDestroySurface(display, surface);
+                            }
+                            eglTerminate(display);
+                            running = false;
+                            break;
+                            
+                        case ENGINE_CMD_SURFACE_CREATE:{
+                            struct SurfaceCmdData data;
+                            read(fd, &data, sizeof(struct SurfaceCmdData));
+                            if(surface != EGL_NO_SURFACE){
+                                LOGI("surfaceCreate() while other surface still present");
+                                eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
+                                eglDestroySurface(display, surface);
+                                ANativeWindow_release(window);
+                            }
+                            window = data.window;
+                            ANativeWindow_acquire(window);
+                            EGLint none = EGL_NONE;
+                            surface = eglCreateWindowSurface(display, config, window, &none);
+                            eglMakeCurrent(display, surface, surface, context);
+                            if(!callbackData.running){
+                                callbackData.running = true;
+                                AChoreographer_postFrameCallback(choreographer, android_doFrame, &callbackData);
+                            }
+                            break;
+                        }
+                        case ENGINE_CMD_SURFACE_CHANGE:{
+                            struct SurfaceChangeCmdData data;
+                            read(fd, &data, sizeof(struct SurfaceChangeCmdData));
+                            if(window != data.window && surface != EGL_NO_SURFACE){
+                                LOGD("surface generation increased");
+                                eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
+                                eglDestroySurface(display, surface);
+                                ANativeWindow_release(window);
+                                window = data.window;
+                                ANativeWindow_acquire(window);
+                                EGLint none = EGL_NONE;
+                                surface = eglCreateWindowSurface(display, config, window, &none);
+                                eglMakeCurrent(display, surface, surface, context);
+                            }
+                            renderer->change(data.width, data.height);
+                            break;
+                        }
+                        case ENGINE_CMD_SURFACE_DESTROY:{
+                            struct SurfaceCmdData data;
+                            read(fd, &data, sizeof(struct SurfaceCmdData));
+                            if(surface != EGL_NO_SURFACE){
+                                eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
+                                eglDestroySurface(display, surface);
+                                surface = EGL_NO_SURFACE;
+                                ANativeWindow_release(window);
+                            }
+                            break;
+                        }
+                    }
+                }else if(readRet == 0){
+                    LOGD("end of pipe?!");
+                }else if(readRet == -1){
+                    LOGW("error: %s", strerror(errno));
+                }else{
+                    LOGI("failed to read full cmd");
+                }
+                break;
+            }
+            case ENGINE_IDENT_INPUT:{
+                AInputQueue *queue = (AInputQueue*)pollData;
+                AInputEvent *event;
+                while(AInputQueue_getEvent(queue, &event) >= 0){
+                    if(AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION){
+                        int32_t rawAction = AMotionEvent_getAction(event);
+                        int32_t action = rawAction & AMOTION_EVENT_ACTION_MASK;
+                        int32_t index = (rawAction & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+                        PointerEvent pEvent;
+                        pEvent.event = -1;
+                        switch(action){
+                            case AMOTION_EVENT_ACTION_DOWN:
+                            case AMOTION_EVENT_ACTION_POINTER_DOWN:
+                                pEvent.event = POINTER_EVENT_DOWN;
+                                break;
+                            case AMOTION_EVENT_ACTION_MOVE:
+                                pEvent.event = POINTER_EVENT_MOVE;
+                                break;
+                            case AMOTION_EVENT_ACTION_UP:
+                            case AMOTION_EVENT_ACTION_POINTER_UP:
+                            case AMOTION_EVENT_ACTION_CANCEL:
+                                pEvent.event = POINTER_EVENT_UP;
+                                break;
+                        }
+                        if(pEvent.event != -1){
+                            pEvent.x = AMotionEvent_getX(event, index);
+                            pEvent.y = AMotionEvent_getY(event, index);
+                            pEvent.pointerId = AMotionEvent_getPointerId(event, index);
+                            renderer->pointer(pEvent);
+                        }
+                        AInputQueue_finishEvent(queue, event, pEvent.event != -1);
+                    }else{
+                        AInputQueue_finishEvent(queue, event, 0);
+                    }
+                }
+                break;
+            }
+            case ALOOPER_POLL_CALLBACK:
+            case ALOOPER_POLL_TIMEOUT:
+            case ALOOPER_POLL_ERROR:
+            case ALOOPER_POLL_WAKE:
+                break;
+        }
+    }
+    
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    env->DeleteGlobalRef(activity);
+    ALooper_release(looper);
+}
+
 int Renderer::getState(){
     return rendererState;
-}
-
-void android_create(JNIEnv *env, jobject thiz){
-    env->GetJavaVM(&jvm);
-    activity = env->NewGlobalRef(thiz);
-    jclass clazz = env->GetObjectClass(activity);
-    goFullscreenID = env->GetMethodID(clazz, "goFullscreen", "()V");
-    exitFullscreenID = env->GetMethodID(clazz, "exitFullscreen", "()V");
-    renderer->create();
-}
-
-void android_visible(){
-    rendererState = RENDERER_STATE_BACKGROUND;
-    renderer->visible();
-}
-
-void android_foreground(){
-    rendererState = RENDERER_STATE_FOREGROUND;
-    renderer->foreground();
-}
-
-void android_background(){
-    rendererState = RENDERER_STATE_BACKGROUND;
-    renderer->background();
-}
-
-void android_invisible(){
-    rendererState = RENDERER_STATE_INVISIBLE;
-    renderer->invisible();
-}
-
-void android_destroy(JNIEnv *env){
-    renderer->destroy();
-    delete renderer;
-    env->DeleteGlobalRef(activity);
-}
-
-void android_change(int width, int height){
-    renderer->change(width, height);
-}
-
-void android_drawFrame(){
-    renderer->drawFrame();
 }
 
 void android_touch(int ev, int pointerId, int x, int y){
@@ -69,56 +239,4 @@ void android_touch(int ev, int pointerId, int x, int y){
     event.x = x;
     event.y = y;
     renderer->pointer(event);
-}
-
-void android_goFullscreen(){
-    JNIEnv *env;
-    jvm->GetEnv((void**)&env ,JNI_VERSION_1_6);
-    env->CallVoidMethod(activity, goFullscreenID);
-}
-
-void android_exitFullscreen(){
-    JNIEnv *env;
-    jvm->GetEnv((void**)&env ,JNI_VERSION_1_6);
-    env->CallVoidMethod(activity, exitFullscreenID);
-}
-
-extern "C" {
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeCreate(JNIEnv *env, jobject thiz, jobject jAssetManager){
-        assetManager = AAssetManager_fromJava(env, jAssetManager);
-        android_create(env, thiz);
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeStart(JNIEnv *env, jobject thiz){
-        android_visible();
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeResume(JNIEnv *env, jobject thiz){
-        android_foreground();
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativePause(JNIEnv *env, jobject thiz){
-        android_background();
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeStop(JNIEnv *env, jobject thiz){
-        android_invisible();
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDestroy(JNIEnv *env, jobject thiz){
-        android_destroy(env);
-        assetManager = nullptr;
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeChange(JNIEnv *env, jobject thiz, jint width, jint height){
-        android_change(width, height);
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDrawFrame(JNIEnv *env, jobject thiz){
-        android_drawFrame();
-    }
-    
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeTouch(JNIEnv *env, jobject thiz, jint ev, jint pointerId, jint x, jint y){
-        android_touch(ev, pointerId, x, y);
-    }
 }

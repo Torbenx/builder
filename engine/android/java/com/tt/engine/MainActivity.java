@@ -3,6 +3,7 @@ package com.tt.engine;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.ParcelFileDescriptor;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLConfig;
 import android.opengl.EGLSurface;
@@ -13,13 +14,16 @@ import android.view.Choreographer;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.WindowManager;
+import android.view.Surface;
+import android.view.InputQueue;
 import android.content.res.Configuration;
 import android.content.res.AssetManager;
 import android.util.Log;
 import android.util.DisplayMetrics;
+import java.io.IOException;
 import static android.opengl.EGL14.*;
 
-public class MainActivity extends Activity implements SurfaceHolder.Callback2,Choreographer.FrameCallback,View.OnTouchListener{
+public class MainActivity extends Activity implements SurfaceHolder.Callback2,InputQueue.Callback,Runnable{
     static final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
     static final int POINTER_EVENT_DOWN = 1;
     static final int POINTER_EVENT_MOVE = 2;
@@ -42,7 +46,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
     boolean callbackPosted = false;
     int format = PixelFormat.RGB_565;
     boolean fullscreen = false;
-    boolean visible = false;
+    Thread thread;
+    ParcelFileDescriptor read, write;
+    int cmdFd;
 	
 	@Override
 	public void onCreate(Bundle saveInstaceState){
@@ -52,42 +58,41 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
         choreographer = Choreographer.getInstance();
         assetManager = getResources().getAssets();
 		getWindow().takeSurface(this);
+        getWindow().takeInputQueue(this);
+        Log.d("MainActivity", "window: "+getWindow());
 		view = new View(this);
-        view.setOnTouchListener(this);
 		setContentView(view);
         
-		//getWindow().setFormat(format);
-		display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-		eglInitialize(display, null, 0, null, 0);
-		EGLConfig[] configs = new EGLConfig[1];
-		int[] num_configs = new int[1];
-        int red,green,blue,alpha;
-        switch(format){
-            case PixelFormat.RGBA_8888:
-                red = green = blue = alpha = 8;
-                break;
-            case PixelFormat.RGB_565:
-                red = 5; green = 6; blue = 5; alpha = 0;
-                break;
-            default:
-                throw new UnsupportedOperationException("invalid format "+format);
+        thread = new Thread(this, "engine");
+        thread.start();
+        try{
+            synchronized(thread){
+                thread.wait();
+            }
+        }catch(InterruptedException e){
+            e.printStackTrace();
         }
-		eglChooseConfig(display, new int[]{
-			EGL_RED_SIZE, red,
-			EGL_GREEN_SIZE, green,
-			EGL_BLUE_SIZE, blue,
-			EGL_ALPHA_SIZE, alpha,
-			EGL_DEPTH_SIZE, 16,
-			EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-			EGL_NONE
-		}, 0, configs, 0, configs.length, num_configs, 0);
-		System.out.println("num: "+num_configs[0]);
-		config = configs[0];
-		context = eglCreateContext(display, config, EGL_NO_CONTEXT, new int[]{EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE}, 0);
-        eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
-        nativeInit();
-		nativeCreate(assetManager);
+		nativeCreate(cmdFd);
 	}
+    
+    @Override
+    public void run(){
+        nativeInit();
+        ParcelFileDescriptor[] fds;
+        try{
+            fds = ParcelFileDescriptor.createPipe();
+        }catch(IOException e){
+            throw new RuntimeException(e);
+        }
+        read = fds[0];
+        write = fds[1];
+        cmdFd = write.getFd();
+        nativeThreadInit(assetManager, read.getFd());
+        synchronized(thread){
+            thread.notifyAll();
+        }
+        nativeThreadLoop();
+    }
     
     public void applyWindowMode(){
         int flags = WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
@@ -98,59 +103,42 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
     @Override
     public void onStart(){
         super.onStart();
-        nativeStart();
-        visible = true;
+        nativeStart(cmdFd);
     }
     
     @Override
     public void onResume(){
         super.onResume();
         applyWindowMode();
-        nativeResume();
+        nativeResume(cmdFd);
     }
 	
 	@Override
 	public void onConfigurationChanged(Configuration config){
 		super.onConfigurationChanged(config);
         applyWindowMode();
-		/*DisplayMetrics m = new DisplayMetrics();
-		getWindowManager().getDefaultDisplay().getMetrics(m);
-		int width = m.widthPixels;
-		int height = m.heightPixels;
-		Log.d("MainActivity","onConfigurationChanged, width: "+width+", height: "+height);
-		nativeChange(width,height);*/
 	}
     
     @Override
     public void onPause(){
         super.onPause();
-        nativePause();
+        nativePause(cmdFd);
     }
     
     @Override
     public void onStop(){
         super.onStop();
-        nativeStop();
-        visible = false;
+        nativeStop(cmdFd);
     }
     
     @Override
     public void onDestroy(){
         super.onDestroy();
         Log.d("MainActivity", "onDestroy");
-		nativeDestroy();
-        eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        if(surface != EGL_NO_SURFACE){
-            eglDestroySurface(display, surface);
-            surface = EGL_NO_SURFACE;
-        }
-		eglDestroyContext(display, context);
-		eglTerminate(display);
-		context = EGL_NO_CONTEXT;
-		display = EGL_NO_DISPLAY;
+		nativeDestroy(cmdFd);
     }
     
-    @Override
+    //delete me
     public boolean onTouch(View v, MotionEvent event){
         int action = event.getActionMasked();
         int ev;
@@ -175,45 +163,25 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
         int x = Math.round(event.getX(index));
         int y = Math.round(event.getY(index));
         int pointerId = event.getPointerId(index);
-        nativeTouch(ev, pointerId, x, y);
         return true;
     }
 	
 	@Override
-	public void surfaceCreated(final SurfaceHolder holder){
+	public void surfaceCreated(SurfaceHolder holder){
 		Log.d("MainActivity","surfaceCreated");
-		surface = eglCreateWindowSurface(display, config, holder.getSurface(), new int[]{EGL_NONE}, 0);
-		eglMakeCurrent(display, surface, surface, context);
+        nativeSurfaceCreate(cmdFd, holder.getSurface());
 	}
-	
+    
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height){
-		Log.d("MainActivity", "surfaceChanged, format: "+format+", width: "+width+", height: "+height);
-        if(!callbackPosted){
-            choreographer.postFrameCallback(this);
-            callbackPosted = true;
-        }
-        nativeChange(width, height);
-	}
-	
-	@Override
-	public void doFrame(long nanos){
-        choreographer.postFrameCallback(this);
-        if(!visible)return;
-		nativeDrawFrame();
-		eglSwapBuffers(display, surface);
+        Log.d("MainActivity", "surfaceChanged format: "+format+", width: "+width+", height: "+height);
+        nativeSurfaceChange(cmdFd, holder.getSurface(), width, height);
 	}
 	
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder){
 		Log.d("MainActivity", "surfaceDestroyed");
-        choreographer.removeFrameCallback(this);
-        callbackPosted = false;
-        eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
-		if(surface != EGL_NO_SURFACE){
-            eglDestroySurface(display, surface);
-            surface = EGL_NO_SURFACE;
-        }
+        nativeSurfaceDestroy(cmdFd, holder.getSurface());
 	}
 	
 	@Override
@@ -226,24 +194,52 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,Ch
 		
 	}
     
+    @Override
+    public void onInputQueueCreated(InputQueue inputQueue){
+        nativeCreateInputQueue(inputQueue);
+    }
+    
+    @Override
+    public void onInputQueueDestroyed(InputQueue inputQueue){
+        nativeDestroyInputQueue(inputQueue);
+    }
+    
     public void goFullscreen(){
-        fullscreen = true;
-		applyWindowMode();
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                fullscreen = true;
+                applyWindowMode();
+            }
+        });
     }
     
     public void exitFullscreen(){
-        fullscreen = false;
-        applyWindowMode();
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                fullscreen = false;
+                applyWindowMode();
+            }
+        });
     }
 	
 	native void nativeInit();
-	native void nativeCreate(AssetManager assetManager);
-    native void nativeStart();
-    native void nativeResume();
-    native void nativePause();
-    native void nativeStop();
-	native void nativeDestroy();
-	native void nativeChange(int width, int height);
-	native void nativeDrawFrame();
-    native void nativeTouch(int event, int pointerId, int x, int y);
+    
+    native void nativeThreadInit(AssetManager assetManager, int cmdFd);
+    native void nativeThreadLoop();
+    
+	native void nativeCreate(int cmdFd);
+    native void nativeStart(int cmdFd);
+    native void nativeResume(int cmdFd);
+    native void nativePause(int cmdFd);
+    native void nativeStop(int cmdFd);
+	native void nativeDestroy(int cmdFd);
+    
+	native void nativeSurfaceCreate(int cmdFd,Surface surface);
+	native void nativeSurfaceChange(int cmdFd,Surface surface, int width, int height);
+	native void nativeSurfaceDestroy(int cmdFd,Surface surface);
+    
+    native void nativeCreateInputQueue(InputQueue inputQueue);
+    native void nativeDestroyInputQueue(InputQueue inputQueue);
 }
