@@ -28,19 +28,19 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     static final int POINTER_EVENT_DOWN = 1;
     static final int POINTER_EVENT_MOVE = 2;
     static final int POINTER_EVENT_UP = 3;
-	
-	static{
-		System.loadLibrary("c++_shared");
-		System.loadLibrary("engine");
-		System.loadLibrary("main");
-	}
-	
-	EGLDisplay display = EGL_NO_DISPLAY;
-	EGLSurface surface = EGL_NO_SURFACE;
-	EGLContext context = EGL_NO_CONTEXT;
-	EGLConfig config;
-	Handler handler;
-	View view;
+    
+    static{
+        System.loadLibrary("c++_shared");
+        System.loadLibrary("engine");
+        System.loadLibrary("main");
+    }
+    
+    EGLDisplay display = EGL_NO_DISPLAY;
+    EGLSurface surface = EGL_NO_SURFACE;
+    EGLContext context = EGL_NO_CONTEXT;
+    EGLConfig config;
+    Handler handler;
+    View view;
     AssetManager assetManager;
     Choreographer choreographer;
     boolean callbackPosted = false;
@@ -49,19 +49,19 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     Thread thread;
     ParcelFileDescriptor read, write;
     int cmdFd;
-	
-	@Override
-	public void onCreate(Bundle saveInstaceState){
-		super.onCreate(saveInstaceState);
+    
+    @Override
+    public void onCreate(Bundle saveInstaceState){
+        super.onCreate(saveInstaceState);
         Log.d("MainActivity", "onCreate");
-		handler = new Handler();
+        handler = new Handler();
         choreographer = Choreographer.getInstance();
         assetManager = getResources().getAssets();
-		getWindow().takeSurface(this);
+        getWindow().takeSurface(this);
         getWindow().takeInputQueue(this);
         Log.d("MainActivity", "window: "+getWindow());
-		view = new View(this);
-		setContentView(view);
+        view = new View(this);
+        setContentView(view);
         
         thread = new Thread(this, "engine");
         thread.start();
@@ -72,8 +72,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
         }catch(InterruptedException e){
             e.printStackTrace();
         }
-		nativeCreate(cmdFd);
-	}
+        nativeCreate(cmdFd);
+    }
     
     @Override
     public void run(){
@@ -112,12 +112,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
         applyWindowMode();
         nativeResume(cmdFd);
     }
-	
-	@Override
-	public void onConfigurationChanged(Configuration config){
-		super.onConfigurationChanged(config);
+    
+    @Override
+    public void onConfigurationChanged(Configuration config){
+        super.onConfigurationChanged(config);
         applyWindowMode();
-	}
+    }
     
     @Override
     public void onPause(){
@@ -135,7 +135,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     public void onDestroy(){
         super.onDestroy();
         Log.d("MainActivity", "onDestroy");
-		nativeDestroy(cmdFd);
+        nativeDestroy(cmdFd);
     }
     
     //delete me
@@ -165,34 +165,34 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
         int pointerId = event.getPointerId(index);
         return true;
     }
-	
-	@Override
-	public void surfaceCreated(SurfaceHolder holder){
-		Log.d("MainActivity","surfaceCreated");
-        nativeSurfaceCreate(cmdFd, holder.getSurface());
-	}
     
-	@Override
-	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height){
+    @Override
+    public void surfaceCreated(SurfaceHolder holder){
+        Log.d("MainActivity","surfaceCreated");
+        nativeSurfaceCreate(cmdFd, holder.getSurface());
+    }
+    
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height){
         Log.d("MainActivity", "surfaceChanged format: "+format+", width: "+width+", height: "+height);
         nativeSurfaceChange(cmdFd, holder.getSurface(), width, height);
-	}
-	
-	@Override
-	public void surfaceDestroyed(SurfaceHolder holder){
-		Log.d("MainActivity", "surfaceDestroyed");
-        nativeSurfaceDestroy(cmdFd, holder.getSurface());
-	}
-	
-	@Override
-	public void surfaceRedrawNeeded(SurfaceHolder holder){
-		
-	}
-	
+    }
+    
     @Override
-	public void surfaceRedrawNeededAsync(SurfaceHolder holder, Runnable drawingFinished){
-		
-	}
+    public void surfaceDestroyed(SurfaceHolder holder){
+        Log.d("MainActivity", "surfaceDestroyed");
+        nativeSurfaceDestroy(cmdFd, holder.getSurface());
+    }
+    
+    @Override
+    public void surfaceRedrawNeeded(SurfaceHolder holder){
+        
+    }
+    
+    @Override
+    public void surfaceRedrawNeededAsync(SurfaceHolder holder, Runnable drawingFinished){
+        
+    }
     
     @Override
     public void onInputQueueCreated(InputQueue inputQueue){
@@ -223,22 +223,22 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
             }
         });
     }
-	
-	native void nativeInit();
+    
+    native void nativeInit();
     
     native void nativeThreadInit(AssetManager assetManager, int cmdFd);
     native void nativeThreadLoop();
     
-	native void nativeCreate(int cmdFd);
+    native void nativeCreate(int cmdFd);
     native void nativeStart(int cmdFd);
     native void nativeResume(int cmdFd);
     native void nativePause(int cmdFd);
     native void nativeStop(int cmdFd);
-	native void nativeDestroy(int cmdFd);
+    native void nativeDestroy(int cmdFd);
     
-	native void nativeSurfaceCreate(int cmdFd,Surface surface);
-	native void nativeSurfaceChange(int cmdFd,Surface surface, int width, int height);
-	native void nativeSurfaceDestroy(int cmdFd,Surface surface);
+    native void nativeSurfaceCreate(int cmdFd,Surface surface);
+    native void nativeSurfaceChange(int cmdFd,Surface surface, int width, int height);
+    native void nativeSurfaceDestroy(int cmdFd,Surface surface);
     
     native void nativeCreateInputQueue(InputQueue inputQueue);
     native void nativeDestroyInputQueue(InputQueue inputQueue);
