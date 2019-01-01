@@ -131,15 +131,20 @@ Vec3 Vec3::operator=(Vec3 right){
     return *this;
 }
 
+Vec3 Vec3::operator*=(Mat3x3 right){
+    *this = *this*right;
+    return *this;
+}
+
 void Vec3::debug(){
     LOGD("Vec3(%f,%f,%f)",x,y,z);
 }
 
-float dot(Vec3 left,Vec3 right){
+float Vec3::dot(Vec3 left,Vec3 right){
     return left.x*right.x+left.y*right.y+left.z*right.z;
 }
 
-Vec3 cross(Vec3 left,Vec3 right){
+Vec3 Vec3::cross(Vec3 left,Vec3 right){
     Vec3 re(
         left.y*right.z-left.z*right.y,
         left.z*right.x-left.x*right.z,
@@ -198,4 +203,22 @@ bool operator==(Vec3 left,Vec3 right){
 
 bool operator!=(Vec3 left,Vec3 right){
     return !(left==right);
+}
+
+Vec3 operator*(Vec3 left, Mat3x3 right){
+    float *m = right.matrix;
+    Vec3 re;
+    re.x = m[0]*left.x + m[1]*left.y + m[2]*left.z;
+    re.y = m[3]*left.x + m[4]*left.y + m[5]*left.z;
+    re.z = m[6]*left.x + m[7]*left.y + m[8]*left.z;
+    return re;
+}
+
+Vec3 operator*(Mat3x3 left, Vec3 right){
+    float *m = left.matrix;
+    Vec3 re;
+    re.x = m[0]*right.x + m[3]*right.y + m[6]*right.z;
+    re.y = m[1]*right.x + m[4]*right.y + m[7]*right.z;
+    re.z = m[2]*right.x + m[5]*right.y + m[8]*right.z;
+    return re;
 }

@@ -71,7 +71,7 @@ void DepthCubeMap::draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int cou
     MvpMatrix mvpMatrix;
     float *m;
     //mvpMatrix.projection.setFrustum(-1, 1, -1, 1, 1, 10);
-    mvpMatrix.projection.setIdentity();
+    mvpMatrix.projection = Mat4x4::Id;
     m = mvpMatrix.projection.matrix;
     m[4+4+4+3] = 0;
     m[4+4+3] = -1;
@@ -83,7 +83,7 @@ void DepthCubeMap::draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int cou
     shader->uniformVec3("u_lightPos",position);
     int face,i;
     for(face=0;face<6;face++){
-        mvpMatrix.view.setIdentity();
+        mvpMatrix.view = Mat4x4::Id;
         m = mvpMatrix.view.matrix;
         if(face==0){
             //dir = Vec3(1,0,0);
@@ -92,7 +92,6 @@ void DepthCubeMap::draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int cou
             m[4+4+2] = 0;
             m[4+4] = -1;
             m[2] = -1;
-            //mvpMatrix.view.setLookAt(position,position+Vec3(1,0,0),Vec3(0,1,0));
         }else if(face==1){
             //dir = Vec3(-1,0,0);
             m[4+1] = -1;
@@ -100,33 +99,28 @@ void DepthCubeMap::draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int cou
             m[4+4+2] = 0;
             m[4+4] = 1;
             m[2] = 1;
-            //mvpMatrix.view.setLookAt(position,position+Vec3(-1,0,0),Vec3(0,1,0));
         }else if(face==2){
             //dir = Vec3(0,1,0);
             m[4+1] = 0;
             m[4+4+2] = 0;
             m[4+4+1] = 1;
             m[4+2] = -1;
-            //mvpMatrix.view.setLookAt(position,position+Vec3(0,1,0),Vec3(0,0,-1));
         }else if(face==3){
             //dir = Vec3(0,-1,0);
             m[4+1] = 0;
             m[4+4+2] = 0;
             m[4+4+1] = -1;
             m[4+2] = 1;
-            //mvpMatrix.view.setLookAt(position,position+Vec3(0,-1,0),Vec3(0,0,-1));
         }else if(face==4){
             //dir = Vec3(0,0,1);
             m[4+1] = -1;
             m[4+4+2] = -1;
-            //mvpMatrix.view.setLookAt(position,position+Vec3(0,0,1),Vec3(0,1,0));
         }else if(face==5){
             //dir = Vec3(0,0,-1);
             m[0] = -1;
             m[4+1] = -1;
-            //mvpMatrix.view.setLookAt(position,position+Vec3(0,0,-1),Vec3(0,1,0));
         }
-        mvpMatrix.view.translate(position*-1);
+        mvpMatrix.view *= Mat4x4::translate(position*-1);
         shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
         //mvpMatrix.view.debug();
         framebuffer.colorAttachment(targets[face],texture);

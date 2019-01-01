@@ -160,7 +160,7 @@ void Vec4::debug(){
     LOGD("Vec4(%f,%f,%f,%f)",x,y,z,w);
 }
 
-float dot(Vec4 left,Vec4 right){
+float Vec4::dot(Vec4 left,Vec4 right){
     return left.x*right.x + left.y*right.y + left.z*right.z + left.w*right.w;
 }
 
@@ -216,16 +216,22 @@ bool operator!=(Vec4 left,Vec4 right){
     return !(left==right);
 }
 
-Vec4 operator*(Vec4 left,Mat4x4 right){
+Vec4 operator*(Vec4 left, Mat4x4 right){
     Vec4 re;
     float *m = right.matrix;
-    re.x = left.x*m[ 0] + left.y*m[ 4] + left.z*m[ 8] + left.w*m[12];
-    re.y = left.x*m[ 1] + left.y*m[ 5] + left.z*m[ 9] + left.w*m[13];
-    re.z = left.x*m[ 2] + left.y*m[ 6] + left.z*m[10] + left.w*m[14];
-    re.w = left.x*m[ 3] + left.y*m[ 7] + left.z*m[11] + left.w*m[15];
+    re.x = left.x*m[ 0] + left.y*m[ 1] + left.z*m[ 2] + left.w*m[ 3];
+    re.y = left.x*m[ 4] + left.y*m[ 5] + left.z*m[ 6] + left.w*m[ 7];
+    re.z = left.x*m[ 8] + left.y*m[ 9] + left.z*m[10] + left.w*m[11];
+    re.w = left.x*m[12] + left.y*m[13] + left.z*m[14] + left.w*m[15];
     return re;
 }
 
 Vec4 operator*(Mat4x4 left,Vec4 right){
-    return right*left;
+    Vec4 re;
+    float *m = left.matrix;
+    re.x = right.x*m[ 0] + right.y*m[ 4] + right.z*m[ 8] + right.w*m[12];
+    re.y = right.x*m[ 1] + right.y*m[ 5] + right.z*m[ 9] + right.w*m[13];
+    re.z = right.x*m[ 2] + right.y*m[ 6] + right.z*m[10] + right.w*m[14];
+    re.w = right.x*m[ 3] + right.y*m[ 7] + right.z*m[11] + right.w*m[15];
+    return re;
 }

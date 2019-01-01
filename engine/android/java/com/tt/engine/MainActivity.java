@@ -2,16 +2,8 @@ package com.tt.engine;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.ParcelFileDescriptor;
-import android.opengl.EGLDisplay;
-import android.opengl.EGLConfig;
-import android.opengl.EGLSurface;
-import android.opengl.EGLContext;
-import android.graphics.PixelFormat;
 import android.view.View;
-import android.view.Choreographer;
-import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.WindowManager;
 import android.view.Surface;
@@ -19,15 +11,9 @@ import android.view.InputQueue;
 import android.content.res.Configuration;
 import android.content.res.AssetManager;
 import android.util.Log;
-import android.util.DisplayMetrics;
 import java.io.IOException;
-import static android.opengl.EGL14.*;
 
 public class MainActivity extends Activity implements SurfaceHolder.Callback2,InputQueue.Callback,Runnable{
-    static final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
-    static final int POINTER_EVENT_DOWN = 1;
-    static final int POINTER_EVENT_MOVE = 2;
-    static final int POINTER_EVENT_UP = 3;
     
     static{
         System.loadLibrary("c++_shared");
@@ -35,16 +21,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
         System.loadLibrary("main");
     }
     
-    EGLDisplay display = EGL_NO_DISPLAY;
-    EGLSurface surface = EGL_NO_SURFACE;
-    EGLContext context = EGL_NO_CONTEXT;
-    EGLConfig config;
-    Handler handler;
     View view;
     AssetManager assetManager;
-    Choreographer choreographer;
-    boolean callbackPosted = false;
-    int format = PixelFormat.RGB_565;
     boolean fullscreen = false;
     Thread thread;
     ParcelFileDescriptor read, write;
@@ -54,12 +32,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     public void onCreate(Bundle saveInstaceState){
         super.onCreate(saveInstaceState);
         Log.d("MainActivity", "onCreate");
-        handler = new Handler();
-        choreographer = Choreographer.getInstance();
         assetManager = getResources().getAssets();
         getWindow().takeSurface(this);
         getWindow().takeInputQueue(this);
-        Log.d("MainActivity", "window: "+getWindow());
         view = new View(this);
         setContentView(view);
         
@@ -103,12 +78,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     @Override
     public void onStart(){
         super.onStart();
+        Log.d("MainActivity", "onStart");
         nativeStart(cmdFd);
     }
     
     @Override
     public void onResume(){
         super.onResume();
+        Log.d("MainActivity", "onResume");
         applyWindowMode();
         nativeResume(cmdFd);
     }
@@ -122,12 +99,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     @Override
     public void onPause(){
         super.onPause();
+        Log.d("MainActivity", "onPause");
         nativePause(cmdFd);
     }
     
     @Override
     public void onStop(){
         super.onStop();
+        Log.d("MainActivity", "onStop");
         nativeStop(cmdFd);
     }
     
@@ -136,34 +115,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
         super.onDestroy();
         Log.d("MainActivity", "onDestroy");
         nativeDestroy(cmdFd);
-    }
-    
-    //delete me
-    public boolean onTouch(View v, MotionEvent event){
-        int action = event.getActionMasked();
-        int ev;
-        switch(action){
-            case MotionEvent.ACTION_POINTER_DOWN:
-            case MotionEvent.ACTION_DOWN:
-                ev = POINTER_EVENT_DOWN;
-                break;
-            case MotionEvent.ACTION_MOVE:
-                ev = POINTER_EVENT_MOVE;
-                break;
-            case MotionEvent.ACTION_POINTER_UP:
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                ev = POINTER_EVENT_UP;
-                break;
-            default:
-                Log.d("MainActivity", "unsupported touch action: "+action);
-                return true;
-        }
-        int index = event.getActionIndex();
-        int x = Math.round(event.getX(index));
-        int y = Math.round(event.getY(index));
-        int pointerId = event.getPointerId(index);
-        return true;
     }
     
     @Override
@@ -236,9 +187,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     native void nativeStop(int cmdFd);
     native void nativeDestroy(int cmdFd);
     
-    native void nativeSurfaceCreate(int cmdFd,Surface surface);
-    native void nativeSurfaceChange(int cmdFd,Surface surface, int width, int height);
-    native void nativeSurfaceDestroy(int cmdFd,Surface surface);
+    native void nativeSurfaceCreate(int cmdFd, Surface surface);
+    native void nativeSurfaceChange(int cmdFd, Surface surface, int width, int height);
+    native void nativeSurfaceDestroy(int cmdFd, Surface surface);
     
     native void nativeCreateInputQueue(InputQueue inputQueue);
     native void nativeDestroyInputQueue(InputQueue inputQueue);

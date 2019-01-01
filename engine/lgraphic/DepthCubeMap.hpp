@@ -4,7 +4,6 @@
 #include "../graphic/Shader.hpp"
 #include "../graphic/Framebuffer.hpp"
 #include "../util/Renderable.hpp"
-#include "../util/util.hpp"
 
 class DepthCubeMap{
     public:

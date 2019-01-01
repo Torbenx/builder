@@ -26,9 +26,8 @@ class Vec2{
         Vec2 operator/=(float right);
         Vec2 operator=(Vec2 right);
         void debug();
+        static float dot(Vec2 left, Vec2 right);
 };
-
-float dot(Vec2 left,Vec2 right);
 
 Vec2 operator+(Vec2 left,Vec2 right);
 Vec2 operator+(Vec2 left,float right);

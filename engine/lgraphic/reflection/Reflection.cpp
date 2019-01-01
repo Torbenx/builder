@@ -9,7 +9,7 @@ Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float 
 }
     
 void Reflection::getReflectionModel(Mat4x4& model){
-    model.setReflection(reflection,position);
+    model = Mat4x4::reflection(reflection,position);
 }
 
 void Reflection::init(){

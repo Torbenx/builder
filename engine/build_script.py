@@ -13,6 +13,7 @@ class Builder(build.Builder):
             "graphic/Shader.cpp",
             "graphic/Texture.cpp",
             "math/Mat4x4.cpp",
+            "math/Mat3x3.cpp",
             "math/Vec2.cpp",
             "math/Vec3.cpp",
             "math/Vec4.cpp",

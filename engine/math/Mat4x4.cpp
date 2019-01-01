@@ -1,6 +1,5 @@
 #include "Mat4x4.hpp"
 #include <cmath>
-#include <cstring>
 #include "../util/log.hpp"
 
 Mat4x4 Mat4x4::Id(true);
@@ -11,104 +10,92 @@ Mat4x4::Mat4x4(){
 
 Mat4x4::Mat4x4(bool id){
     if(id){
-        setIdentity();
+        float *m = matrix;
+        m[ 0] = 1.0f;
+        m[ 1] = 0.0f;
+        m[ 2] = 0.0f;
+        m[ 3] = 0.0f;
+        
+        m[ 4] = 0.0f;
+        m[ 5] = 1.0f;
+        m[ 6] = 0.0f;
+        m[ 7] = 0.0f;
+        
+        m[ 8] = 0.0f;
+        m[ 9] = 0.0f;
+        m[10] = 1.0f;
+        m[11] = 0.0f;
+        
+        m[12] = 0.0f;
+        m[13] = 0.0f;
+        m[14] = 0.0f;
+        m[15] = 1.0f;
     }
 }
 
-Mat4x4::~Mat4x4(){
-    
+Mat4x4 Mat4x4::translate(Vec3 v){
+    Mat4x4 re(true);
+    float *m = re.matrix;
+    m[12] = v.x;
+    m[13] = v.y;
+    m[14] = v.z;
+    return re;
 }
 
-void Mat4x4::translate(Vec3 v){
-    float *m = matrix;
-    m[12] += m[ 0] * v.x + m[ 4] * v.y + m[ 8] * v.z;
-    m[13] += m[ 1] * v.x + m[ 5] * v.y + m[ 9] * v.z;
-    m[14] += m[ 2] * v.x + m[ 6] * v.y + m[10] * v.z;
-    m[15] += m[ 3] * v.x + m[ 7] * v.y + m[11] * v.z;
-}
-
-void Mat4x4::translateRaw(Vec3 v){
-    float *m = matrix;
-    m[12] += v.x;
-    m[13] += v.y;
-    m[14] += v.z;
-}
-
-void Mat4x4::setIdentity(){
-    float *m = matrix;
-    
-    m[ 0] = 1.0f;
-    m[ 1] = 0.0f;
-    m[ 2] = 0.0f;
-    m[ 3] = 0.0f;
-    
-    m[ 4] = 0.0f;
-    m[ 5] = 1.0f;
-    m[ 6] = 0.0f;
-    m[ 7] = 0.0f;
-    
-    m[ 8] = 0.0f;
-    m[ 9] = 0.0f;
-    m[10] = 1.0f;
-    m[11] = 0.0f;
-    
-    m[12] = 0.0f;
-    m[13] = 0.0f;
-    m[14] = 0.0f;
-    m[15] = 1.0f;
-}
-
-void Mat4x4::setLook(Vec3 eye,Vec3 dir,Vec3 up){
-    float *m = matrix;
+Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
+    Mat4x4 re;
+    float *m = re.matrix;
     dir.normalize();
-    Vec3 s = cross(dir,up);
-    s.normalize();
-    Vec3 u = cross(s,dir);
+    Vec3 ex = Vec3::cross(dir,up);
+    ex.normalize();
+    Vec3 ey = Vec3::cross(ex,dir); //already unit length
     
-    m[ 0] = s.x;
-    m[ 1] = u.x;
+    m[ 0] = ex.x;
+    m[ 1] = ey.x;
     m[ 2] = -dir.x;
     m[ 3] = 0.0f;
     
-    m[ 4] = s.y;
-    m[ 5] = u.y;
+    m[ 4] = ex.y;
+    m[ 5] = ey.y;
     m[ 6] = -dir.y;
     m[ 7] = 0.0f;
     
-    m[ 8] = s.z;
-    m[ 9] = u.z;
+    m[ 8] = ex.z;
+    m[ 9] = ey.z;
     m[10] = -dir.z;
     m[11] = 0.0f;
     
-    m[12] = -dot(s,eye);
-    m[13] = -dot(u,eye);
-    m[14] = dot(dir,eye);
+    m[12] = -Vec3::dot(ex,eye);
+    m[13] = -Vec3::dot(ey,eye);
+    m[14] = Vec3::dot(dir,eye);
     m[15] = 1.0f;
+    return re;
 }
 
-void Mat4x4::setLookAt(Vec3 eye,Vec3 center,Vec3 up){
-    setLook(eye, center-eye, up);
+Mat4x4 Mat4x4::lookAt(Vec3 eye, Vec3 center, Vec3 up){
+    return look(eye, center-eye, up);
 }
 
-void Mat4x4::setRotate(float radians,Vec3 vec){
-    float *m = matrix;
+Mat4x4 Mat4x4::rotate(float radians, Vec3 axis){
+    Mat4x4 re;
+    float *m = re.matrix;
     float c = cos(radians);
     float s = sin(radians);
     float nc = 1.0f-c;
-    Vec3 v(vec);
+    Vec3 v = axis;
     v.normalize();
     
     m[ 0] = v.x * v.x * nc +       c;
-    m[ 1] = v.x * v.y * nc + v.y * s;
+    m[ 1] = v.y * v.x * nc + v.y * s;
     m[ 2] = v.z * v.x * nc - v.y * s;
     m[ 3] = 0.0f;
     
     m[ 4] = v.x * v.y * nc - v.z * s;
     m[ 5] = v.y * v.y * nc +       c;
-    m[ 6] = v.y * v.z * nc + v.x * s;
+    m[ 6] = v.z * v.y * nc + v.x * s;
     m[ 7] = 0.0f;
     
-    m[ 8] = v.z * v.x * nc + v.y * s;
+    m[ 8] = v.x * v.z * nc + v.y * s;
     m[ 9] = v.y * v.z * nc - v.x * s;
     m[10] = v.z * v.z * nc +       c;
     m[11] = 0.0f;
@@ -117,38 +104,41 @@ void Mat4x4::setRotate(float radians,Vec3 vec){
     m[13] = 0.0f;
     m[14] = 0.0f;
     m[15] = 1.0f;
+    return re;
 }
 
-void Mat4x4::setReflection(Vec3 ref,Vec3 pos){
-    float *m = matrix;
+Mat4x4 Mat4x4::reflection(Vec3 n, Vec3 pos){
+    Mat4x4 re;
+    float *m = re.matrix;
     
-    Vec3 r = ref;
-    r.normalize();
+    n.normalize();
     
-    m[ 0] = 1.0f-2.0f*r.x*r.x;
-    m[ 1] =     -2.0f*r.x*r.y;
-    m[ 2] =     -2.0f*r.x*r.z;
+    m[ 0] = 1.0f-2.0f*n.x*n.x;
+    m[ 1] =     -2.0f*n.x*n.y;
+    m[ 2] =     -2.0f*n.x*n.z;
     m[ 3] = 0.0f;
     
-    m[ 4] =     -2.0f*r.y*r.x;
-    m[ 5] = 1.0f-2.0f*r.y*r.y;
-    m[ 6] =     -2.0f*r.y*r.z;
+    m[ 4] =     -2.0f*n.y*n.x;
+    m[ 5] = 1.0f-2.0f*n.y*n.y;
+    m[ 6] =     -2.0f*n.y*n.z;
     m[ 7] = 0.0f;
     
-    m[ 8] =     -2.0f*r.z*r.x;
-    m[ 9] =     -2.0f*r.z*r.y;
-    m[10] = 1.0f-2.0f*r.z*r.z;
+    m[ 8] =     -2.0f*n.z*n.x;
+    m[ 9] =     -2.0f*n.z*n.y;
+    m[10] = 1.0f-2.0f*n.z*n.z;
     m[11] = 0.0f;
     
-    float l = 2.0f*dot(r,pos);
-    m[12] = l*r.x;
-    m[13] = l*r.y;
-    m[14] = l*r.z;
+    float l = 2.0f*Vec3::dot(n,pos);
+    m[12] = l*n.x;
+    m[13] = l*n.y;
+    m[14] = l*n.z;
     m[15] = 1.0f;
+    return re;
 }
 
-void Mat4x4::setFrustum(float left,float right,float bottom,float top,float near,float far){
-    float *m = matrix;
+Mat4x4 Mat4x4::frustum(float left, float right, float bottom, float top, float near, float far){
+    Mat4x4 re;
+    float *m = re.matrix;
     float r_width  = 1.0f / (right - left);
     float r_height = 1.0f / (top - bottom);
     float r_depth  = 1.0f / (near - far);
@@ -178,26 +168,28 @@ void Mat4x4::setFrustum(float left,float right,float bottom,float top,float near
     m[13] = 0.0f;
     m[14] = d;
     m[15] = 0.0f;
+    return re;
 }
 
-void Mat4x4::setFrustumVH(float vfov,float hfov,float near,float far){
+Mat4x4 Mat4x4::frustumVH(float vfov, float hfov, float near, float far){
     hfov = tan(hfov/2.0f);
     vfov = tan(vfov/2.0f);
-    setFrustum(-vfov,vfov,-hfov,hfov,near,far);
+    return frustum(-vfov,vfov,-hfov,hfov,near,far);
 }
         
-void Mat4x4::setFrustumV(float vfov,float aspect,float near,float far){
+Mat4x4 Mat4x4::frustumV(float vfov, float aspect, float near, float far){
     vfov = tan(vfov/2.0f);
-    setFrustum(-vfov,vfov,-vfov*aspect,vfov*aspect,near,far);
+    return frustum(-vfov,vfov,-vfov*aspect,vfov*aspect,near,far);
 }
         
-void Mat4x4::setFrustumH(float hfov,float aspect,float near,float far){
+Mat4x4 Mat4x4::frustumH(float hfov, float aspect, float near, float far){
     hfov = tan(hfov/2.0f);
-    setFrustum(-hfov*aspect,hfov*aspect,-hfov,hfov,near,far);
+    return frustum(-hfov*aspect,hfov*aspect,-hfov,hfov,near,far);
 }
 
-void Mat4x4::setOrtho(float left,float right,float bottom,float top,float near,float far){
-    float *m = matrix;
+Mat4x4 Mat4x4::ortho(float left, float right, float bottom, float top, float near, float far){
+    Mat4x4 re;
+    float *m = re.matrix;
     
     m[ 0] = 2.0f/(right-left);
     m[ 1] = 0.0f;
@@ -218,72 +210,51 @@ void Mat4x4::setOrtho(float left,float right,float bottom,float top,float near,f
     m[13] = -(top+bottom)/(top-bottom);
     m[14] = -(far+near)/(far-near);
     m[15] = 1.0f;
+    
+    return re;
 }
 
-void Mat4x4::scale(Vec3 v){
-    float *m = matrix;
-    
-    m[ 0] *= v.x;
-    m[ 1] *= v.x;
-    m[ 2] *= v.x;
-    m[ 3] *= v.x;
-    
-    m[ 4] *= v.y;
-    m[ 5] *= v.y;
-    m[ 6] *= v.y;
-    m[ 7] *= v.y;
-    
-    m[ 8] *= v.z;
-    m[ 9] *= v.z;
-    m[10] *= v.z;
-    m[11] *= v.z;
-    
-    m[12] *= v.x;
-    m[13] *= v.y;
-    m[14] *= v.z;
-}
+Mat4x4 Mat4x4::invert(Mat4x4 matrix){
+    float *m = matrix.matrix;
 
-void Mat4x4::invert(){
-    float *m = matrix;
-    
     float  src0 = m[ 0];
     float  src4 = m[ 1];
     float  src8 = m[ 2];
     float src12 = m[ 3];
-    
+
     float  src1 = m[ 4];
     float  src5 = m[ 5];
     float  src9 = m[ 6];
     float src13 = m[ 7];
-    
+
     float  src2 = m[ 8];
     float  src6 = m[ 9];
     float src10 = m[10];
     float src14 = m[11];
-    
+
     float  src3 = m[12];
     float  src7 = m[13];
     float src11 = m[14];
     float src15 = m[15];
-    
+
     float atmp0  = src10 * src15;
     float atmp1  = src11 * src14;
     float atmp2  = src9  * src15;
     float atmp3  = src11 * src13;
     float atmp4  = src9  * src14;
-       float atmp5  = src10 * src13;
+    float atmp5  = src10 * src13;
     float atmp6  = src8  * src15;
-       float atmp7  = src11 * src12;
+    float atmp7  = src11 * src12;
     float atmp8  = src8  * src14;
     float atmp9  = src10 * src12;
     float atmp10 = src8  * src13;
     float atmp11 = src9  * src12;
-    
+
     float dst0  = (atmp0 * src5 + atmp3 * src6 + atmp4  * src7)
                 - (atmp1 * src5 + atmp2 * src6 + atmp5  * src7);
     float dst1  = (atmp1 * src4 + atmp6 * src6 + atmp9  * src7)
                 - (atmp0 * src4 + atmp7 * src6 + atmp8  * src7);
-       float dst2  = (atmp2 * src4 + atmp7 * src5 + atmp10 * src7)
+    float dst2  = (atmp2 * src4 + atmp7 * src5 + atmp10 * src7)
                 - (atmp3 * src4 + atmp6 * src5 + atmp11 * src7);
     float dst3  = (atmp5 * src4 + atmp8 * src5 + atmp11 * src6)
                 - (atmp4 * src4 + atmp9 * src5 + atmp10 * src6);
@@ -308,7 +279,7 @@ void Mat4x4::invert(){
     float btmp9  = src2 * src4;
     float btmp10 = src0 * src5;
     float btmp11 = src1 * src4;
-    
+
     float dst8  = (btmp0  * src13 + btmp3  * src14 + btmp4  * src15)
                 - (btmp1  * src13 + btmp2  * src14 + btmp5  * src15);
     float dst9  = (btmp1  * src12 + btmp6  * src14 + btmp9  * src15)
@@ -328,30 +299,77 @@ void Mat4x4::invert(){
                 
     float det = src0 * dst0 + src1 * dst1 + src2 * dst2 + src3 * dst3;
     float invdet = 1.0f / det;
-    
+
+    Mat4x4 re;
+    m = re.matrix;
     m[ 0] =  dst0*invdet;
     m[ 1] =  dst1*invdet;
     m[ 2] =  dst2*invdet;
     m[ 3] =  dst3*invdet;
-    
+
     m[ 4] =  dst4*invdet;
     m[ 5] =  dst5*invdet;
     m[ 6] =  dst6*invdet;
     m[ 7] =  dst7*invdet;
-    
+
     m[ 8] =  dst8*invdet;
     m[ 9] =  dst9*invdet;
     m[10] = dst10*invdet;
     m[11] = dst11*invdet;
-    
+
     m[12] = dst12*invdet;
     m[13] = dst13*invdet;
     m[14] = dst14*invdet;
     m[15] = dst15*invdet;
+    
+    return re;
+}
+
+Mat4x4 Mat4x4::diagonal(Vec3 v){
+    Mat4x4 re;
+    float *m = re.matrix;
+    m[ 0] = v.x;
+    m[ 1] = 0.0f;
+    m[ 2] = 0.0f;
+    m[ 3] = 0.0f;
+    m[ 4] = 0.0f;
+    m[ 5] = v.y;
+    m[ 6] = 0.0f;
+    m[ 7] = 0.0f;
+    m[ 8] = 0.0f;
+    m[ 9] = 0.0f;
+    m[10] = v.z;
+    m[11] = 0.0f;
+    m[12] = 0.0f;
+    m[13] = 0.0f;
+    m[14] = 0.0f;
+    m[15] = 1.0f;
+    return re;
 }
 
 Mat4x4 Mat4x4::operator*=(Mat4x4 right){
     *this = *this*right;
+    return *this;
+}
+
+Mat4x4 Mat4x4::operator*=(float right){
+    float *m = matrix;
+    m[ 0] *= right;
+    m[ 1] *= right;
+    m[ 2] *= right;
+    m[ 3] *= right;
+    m[ 4] *= right;
+    m[ 5] *= right;
+    m[ 6] *= right;
+    m[ 7] *= right;
+    m[ 8] *= right;
+    m[ 9] *= right;
+    m[10] *= right;
+    m[11] *= right;
+    m[12] *= right;
+    m[13] *= right;
+    m[14] *= right;
+    m[15] *= right;
     return *this;
 }
 
@@ -411,5 +429,28 @@ Mat4x4 operator*(Mat4x4 left,Mat4x4 right){
     m0[14] = m1[12] * m2[ 2] + m1[13] * m2[ 6] + m1[14] * m2[10] + m1[15] * m2[14];
     m0[15] = m1[12] * m2[ 3] + m1[13] * m2[ 7] + m1[14] * m2[11] + m1[15] * m2[15];
     
+    return re;
+}
+
+Mat4x4 operator*(Mat4x4 left, float right){
+    Mat4x4 re;
+    float *m1 = re.matrix;
+    float *m2 = left.matrix;
+    m1[ 0] = m2[ 0] * right;
+    m1[ 1] = m2[ 1] * right;
+    m1[ 2] = m2[ 2] * right;
+    m1[ 3] = m2[ 3] * right;
+    m1[ 4] = m2[ 4] * right;
+    m1[ 5] = m2[ 5] * right;
+    m1[ 6] = m2[ 6] * right;
+    m1[ 7] = m2[ 7] * right;
+    m1[ 8] = m2[ 8] * right;
+    m1[ 9] = m2[ 9] * right;
+    m1[10] = m2[10] * right;
+    m1[11] = m2[11] * right;
+    m1[12] = m2[12] * right;
+    m1[13] = m2[13] * right;
+    m1[14] = m2[14] * right;
+    m1[15] = m2[15] * right;
     return re;
 }

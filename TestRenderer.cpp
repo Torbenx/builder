@@ -124,7 +124,7 @@ void TestRenderer::create(){
     obj3 = new DebugRenderable(&f3,Vec4(1,1,1,1));
     obj4 = new DebugRenderable(&f4,Vec4(1,1,0,1));
     obj5 = new DebugRenderable(&f5,Vec4(0,0,1,1));
-    mvpMatrix.model.setIdentity();
+    mvpMatrix.model = Mat4x4::Id;
     ShaderBuilder b;
     b.setVertexPositionAttrib("a_position");
     b.setFragmentColorUniform("u_color");
@@ -146,7 +146,6 @@ void TestRenderer::create(){
     pawnVertex.bufferData(new DirectSourceGetter<float*>(parser.vertex),parser.vertexSize*4,GL_STATIC_DRAW);
     pawn = new ObjRenderable(&pawnVertex, Vec3(0,1,1), parser.n);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
-    mvpMatrix.view.setLookAt(Vec3(7,1,0),look.dir,up);
     /*Vec3 max(parser.vertex[0],parser.vertex[1],parser.vertex[2]);
     Vec3 min = max;
     Vec3 avg(0);
@@ -171,21 +170,37 @@ void TestRenderer::create(){
     //#ifdef PLATFORM_WINDOWS
     //goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
     //#else
-    goFullscreen(FullscreenConfig::DEFAULT);
+    //goFullscreen(FullscreenConfig::DEFAULT);
     //#endif
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
-    mvpMatrix.projection.setFrustumH(67.0 * M_PI / 180.0 ,as ,1,100);
+    mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0 ,as ,1,100);
 }
 
+int lookPointerId = POINTER_ID_INVALID;
 void TestRenderer::pointer(PointerEvent event){
+    if(!rawInput()){
+        if(event.event == POINTER_EVENT_DOWN && lookPointerId == POINTER_ID_INVALID){
+            lookPointerId = event.pointerId;
+        }else if(lookPointerId == event.pointerId){
+            if(event.event == POINTER_EVENT_UP){
+                lookPointerId = POINTER_ID_INVALID;
+            }else if(event.event == POINTER_EVENT_MOVE){
+                Pointer oldPointer = getPointerById(lookPointerId);
+                look.move(event.x - oldPointer.x, event.y - oldPointer.y);
+                mvpMatrix.view = Mat4x4::look(Vec3(7,1,0), look.dir, up);
+            }
+        }
+    }
     trackPointerEvent(event);
-    look.pointer(event);
-    mvpMatrix.view.setLook(Vec3(7,1,0),look.dir,up);
-    //teleportCursor(0.0f, 0.0f);
+}
+
+void TestRenderer::rawPointer(int dx, int dy){
+    look.move(dx, dy);
+    mvpMatrix.view = Mat4x4::look(Vec3(7,1,0), look.dir, up);
 }
 
 void TestRenderer::drawFrame(){
@@ -235,7 +250,7 @@ void TestRenderer::drawFrame(){
     obj2->draw2(shader,"a_position","u_color");
     obj4->draw2(shader,"a_position","u_color");
     reflection.unbind();
-    mvpMatrix.model.setIdentity();
+    mvpMatrix.model = Mat4x4::Id;
     shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
     obj1->draw2(shader,"a_position","u_color");
     obj2->draw2(shader,"a_position","u_color");

@@ -115,7 +115,7 @@ void Vec2::debug(){
     LOGD("Vec2(%f,%f)",x,y);
 }
 
-float dot(Vec2 left,Vec2 right){
+float Vec2::dot(Vec2 left,Vec2 right){
     return left.x*right.x+left.y*right.y;
 }
 

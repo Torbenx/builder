@@ -78,15 +78,13 @@ int getPointerCount(){
     return pointers.size();
 }
 
-#ifdef PLATFORM_WINDOWS
-#include "../windows/engine.hpp"
-#include "../graphic/Framebuffer.hpp"
-#endif
-
+#ifndef PLATFORM_WINDOWS
 void setCursorVisible(bool visible){
-    #ifdef PLATFORM_WINDOWS
-    ShowCursor(visible);
-    #endif
+    
+}
+
+PointerEvent teleportCursor(int x, int y){
+    
 }
 
 PointerEvent teleportCursor(float x, float y){
@@ -103,3 +101,4 @@ PointerEvent teleportCursor(float x, float y){
     #endif
     return event;
 }
+#endif

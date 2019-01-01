@@ -35,9 +35,8 @@ class Vec4{
         Vec4 operator=(Vec4 right);
         Vec4 operator*=(Mat4x4 right);
         void debug();
+        static float dot(Vec4 left,Vec4 right);
 };
-
-float dot(Vec4 left,Vec4 right);
 
 Vec4 operator+(Vec4 left,Vec4 right);
 Vec4 operator+(Vec4 left,float right);
@@ -55,7 +54,7 @@ Vec4 operator-(Vec4 left,float right);
 bool operator==(Vec4 left,Vec4 right);
 bool operator!=(Vec4 left,Vec4 right);
 
-Vec4 operator*(Vec4 left,Mat4x4 right);
-Vec4 operator*(Mat4x4 left,Vec4 right);
+Vec4 operator*(Vec4 left, Mat4x4 right);
+Vec4 operator*(Mat4x4 left, Vec4 right);
 
 #endif

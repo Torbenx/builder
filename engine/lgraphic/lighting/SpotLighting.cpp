@@ -12,7 +12,7 @@ SpotLighting::SpotLighting(Vec3 position,Vec3 direction,float hfov,float vfov,in
     width = texWidth;
     height = texHeight;
     this->color = color;
-    mvpMatrix.projection.setFrustumVH(vfov,hfov,1,depthMap->m_far);
+    mvpMatrix.projection = Mat4x4::frustumVH(vfov,hfov,1,depthMap->m_far);
 }
     
 SpotLighting::~SpotLighting(){
@@ -25,6 +25,6 @@ void SpotLighting::init(){
     
 void SpotLighting::draw(Mat4x4 model,Renderable **ptrArray,int count){
     mvpMatrix.model = model;
-    mvpMatrix.view.setLook(position,direction,up);
+    mvpMatrix.view = Mat4x4::look(position,direction,up);
     depthMap->draw(mvpMatrix,ptrArray,count);
 }

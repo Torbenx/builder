@@ -52,11 +52,7 @@ class ObjRenderable : public Renderable{
             vertex = v;
             color = c;
             num = n;
-            model.setIdentity();
-            model.setRotate(-M_PI/2.0, Vec3(1,0,0));
-            model.translate(Vec3(-16,-11,0));
-            model.scale(Vec3(1,1,1)*0.2f);
-            //model.translateRaw(Vec3(0,0.5f,0));
+            model = Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0));
         }
         void draw(Shader *shader, std::string positionAttrib, std::string modelUniform){
             shader->uniformMat4x4(modelUniform, model);
@@ -108,6 +104,7 @@ class TestRenderer : public Renderer{
         void create();
         void change(int width, int height);
         void pointer(PointerEvent event);
+        void rawPointer(int dx, int dy);
         void drawFrame();
         void destroy();
 };

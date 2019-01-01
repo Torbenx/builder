@@ -1,4 +1,4 @@
-#include <windows.h>
+#include <Windows.h>
 #include <stdio.h>
 #include <ctime>
 #include "../GL/glwrapper.hpp"
@@ -10,14 +10,15 @@
 #include "../util/time.hpp"
 #include <map>
 #include "fullscreen.hpp"
+#include <Windowsx.h>
 
 const char g_szClassName[] = "myWindowClass";
 
 Renderer *renderer;
 HWND engine_hwnd;
 int rendererState = RENDERER_STATE_INVISIBLE;
-int lastMouseX = 0;
-int lastMouseY = 0;
+int lastMouseX = INT_MAX;
+int lastMouseY = INT_MAX;
 std::map<unsigned int,unsigned int> counter;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
@@ -115,23 +116,37 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data, &size, sizeof(RAWINPUTHEADER));
                 RAWINPUT *raw = (RAWINPUT*)data;
                 if(raw->header.dwType == RIM_TYPEMOUSE){
-                    PointerEvent event;
-                    event.pointerId = POINTER_ID_CURSOR;
-                    event.event = POINTER_EVENT_MOVE;
+                    int dx,dy;
                     if(raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE){
+                        if(lastMouseX != INT_MAX){
+                            LOGW("switched from relative to absolute input");
+                            dx = raw->data.mouse.lLastX - lastMouseX;
+                            dy = raw->data.mouse.lLastY - lastMouseY;
+                        }else{
+                            dx = 0;
+                            dy = 0;
+                        }
                         lastMouseX = raw->data.mouse.lLastX;
                         lastMouseY = raw->data.mouse.lLastY;
                     }else{
-                        lastMouseX += raw->data.mouse.lLastX;
-                        lastMouseY += raw->data.mouse.lLastY;
+                        dx = raw->data.mouse.lLastX;
+                        dy = raw->data.mouse.lLastY;
+                        lastMouseX = INT_MAX;
+                        lastMouseY = INT_MAX;
                     }
-                    //LOGD("%s: %d, %d -> %d, %d", std::bitset<64>(raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE).to_string().c_str(), raw->data.mouse.lLastX, raw->data.mouse.lLastY, lastMouseX, lastMouseY);
-                    event.x = lastMouseX;
-                    event.y = lastMouseY;
-                    renderer->pointer(event);
+                    //LOGD("%d, %d -> %d, %d", raw->data.mouse.lLastX, raw->data.mouse.lLastY, dx, dy);
+                    renderer->rawPointer(dx, dy);
                 }
             }
             return DefWindowProc(hwnd, msg, wParam, lParam);;
+        case WM_MOUSEMOVE:
+            PointerEvent event;
+            event.pointerId = POINTER_ID_CURSOR;
+            event.event = POINTER_EVENT_MOVE;
+            event.x = GET_X_LPARAM(lParam);
+            event.y = GET_Y_LPARAM(lParam);
+            renderer->pointer(event);
+            return 0;
         case WM_CLOSE:
             LOGD("WM_CLOSE");
             DestroyWindow(hwnd);

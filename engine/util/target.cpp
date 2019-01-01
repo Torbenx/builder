@@ -7,3 +7,7 @@ bool isWindows(){
 bool isAndroid(){
     return IS_ANDROID;
 }
+
+bool rawInput(){
+    return IS_WINDOWS;
+}

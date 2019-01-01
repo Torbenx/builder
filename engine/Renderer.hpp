@@ -41,6 +41,7 @@ class Renderer{
         virtual void change(int w,int h){}
         virtual void drawFrame(){}
         virtual void pointer(PointerEvent event){}
+        virtual void rawPointer(int dx, int dy){}
         virtual ~Renderer(){}
 };
 

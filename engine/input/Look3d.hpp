@@ -11,9 +11,7 @@ class Look3d{
         Vec3 dir,up;
         bool invert;
         Look3d(Vec3 up,bool invert);
-        void pointer(PointerEvent event);
-        Vec3 getDirection();
-        void teleportPointer(PointerEvent event);
+        void move(int dx, int dy);
 };
 
 #endif

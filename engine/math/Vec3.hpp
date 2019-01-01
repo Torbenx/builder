@@ -2,6 +2,7 @@
 #define HEADER_MATH_VEC3_H
 
 #include "Vec2.hpp"
+#include "Mat3x3.hpp"
 
 class Vec3{
     public:
@@ -29,11 +30,11 @@ class Vec3{
         Vec3 operator/=(Vec3 right);
         Vec3 operator/=(float right);
         Vec3 operator=(Vec3 right);
+        Vec3 operator*=(Mat3x3 right);
         void debug();
+        static float dot(Vec3 left,Vec3 right);
+        static Vec3 cross(Vec3 left,Vec3 right);
 };
-
-float dot(Vec3 left,Vec3 right);
-Vec3 cross(Vec3 left,Vec3 right);
 
 Vec3 operator*(Vec3 left,Vec3 right);
 Vec3 operator*(Vec3 left,float right);
@@ -50,5 +51,8 @@ Vec3 operator-(Vec3 left,float right);
 
 bool operator==(Vec3 left,Vec3 right);
 bool operator!=(Vec3 left,Vec3 right);
+
+Vec3 operator*(Vec3 left, Mat3x3 right);
+Vec3 operator*(Mat3x3 left, Vec3 right);
 
 #endif

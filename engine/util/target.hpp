@@ -15,5 +15,6 @@
 
 bool isWindows();
 bool isAndroid();
+bool rawInput();
 
 #endif

@@ -9,6 +9,7 @@
 #include "../util/log.hpp"
 #include "LShader.hpp"
 #include "reflection/Reflection.hpp"
+#include <sstream>
 
 class ShaderBuilder{
     public:
