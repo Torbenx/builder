@@ -51,6 +51,9 @@ Vec4 operator/(Vec4 left,float right);
 Vec4 operator-(Vec4 left,Vec4 right);
 Vec4 operator-(Vec4 left,float right);
 
+Vec4 operator-(Vec4 v);
+Vec4 operator+(Vec4 v);
+
 bool operator==(Vec4 left,Vec4 right);
 bool operator!=(Vec4 left,Vec4 right);
 

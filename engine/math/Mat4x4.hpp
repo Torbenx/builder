@@ -23,6 +23,7 @@ class Mat4x4{
         static Mat4x4 look(Vec3 eye, Vec3 direction, Vec3 up);
         static Mat4x4 lookAt(Vec3 eye, Vec3 center, Vec3 up);
         static Mat4x4 rotate(float radians, Vec3 axis);
+        static Mat4x4 rotateAbout(Vec3 pos, float radians, Vec3 axis);
         static Mat4x4 reflection(Vec3 normal, Vec3 pos);
         static Mat4x4 frustum(float left, float right, float bottom, float top, float near, float far);
         static Mat4x4 frustumVH(float vfov, float hfov, float near, float far);

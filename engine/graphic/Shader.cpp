@@ -154,6 +154,10 @@ void Shader::uniformVec4(std::string uniform,Vec4 u){
 void Shader::uniformMat4x4(std::string uniform,Mat4x4 u){
     uniformMatrix4f(uniform,u.matrix);
 }
+
+void Shader::attribPointer(std::string attrib,int size,float *a){
+    attribPointer(attrib,size,0,a);
+}
         
 void Shader::attribPointer(std::string attrib,int size,int stride,float *a){
     glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a);

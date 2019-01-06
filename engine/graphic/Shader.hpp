@@ -57,6 +57,7 @@ class Shader{
         void uniformTexture(std::string uniform,Texture& u,GLuint slot);
         void uniformCubeMap(std::string uniform,CubeMap& u,GLuint slot);
         
+        void attribPointer(std::string attrib,int size,float *a);
         void attribPointer(std::string attrib,int size,int stride,float *a);
         void attribPointer(std::string attrib,int size,Bufferf& a);
         void attribPointer(std::string attrib,int offset,int size,int stride,Bufferf& a);

@@ -19,6 +19,7 @@ class Mat3x3{
         Mat3x3();
         Mat3x3(bool id);
         static Mat3x3 rotate(float radians);
+        static Mat3x3 rotateAbout(Vec2 c, float radians);
         static Mat3x3 translate(Vec2 v);
         static Mat3x3 reflection(Vec2 normal, Vec2 pos);
         static Mat3x3 diagonal(Vec2 v);

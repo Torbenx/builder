@@ -165,33 +165,27 @@ float Vec4::dot(Vec4 left,Vec4 right){
 }
 
 Vec4 operator+(Vec4 left,Vec4 right){
-    Vec4 re(left.x+right.x,left.y+right.y,left.z+right.z,left.w+right.w);
-    return re;
+    return Vec4(left.x+right.x,left.y+right.y,left.z+right.z,left.w+right.w);
 }
 
 Vec4 operator+(Vec4 left,float right){
-    Vec4 re(left.x+right,left.y+right,left.z+right,left.w+right);
-    return re;
+    return Vec4(left.x+right,left.y+right,left.z+right,left.w+right);
 }
 
 Vec4 operator-(Vec4 left,Vec4 right){
-    Vec4 re(left.x-right.x,left.y-right.y,left.z-right.z,left.w-right.w);
-    return re;
+    return Vec4(left.x-right.x,left.y-right.y,left.z-right.z,left.w-right.w);
 }
 
 Vec4 operator-(Vec4 left,float right){
-    Vec4 re(left.x-right,left.y-right,left.z-right,left.w-right);
-    return re;
+    return Vec4(left.x-right,left.y-right,left.z-right,left.w-right);
 }
 
 Vec4 operator*(Vec4 left,Vec4 right){
-    Vec4 re(left.x*right.x,left.y*right.y,left.z*right.z,left.w*right.w);
-    return re;
+    return Vec4(left.x*right.x,left.y*right.y,left.z*right.z,left.w*right.w);
 }
 
 Vec4 operator*(Vec4 left,float right){
-    Vec4 re(left.x*right,left.y*right,left.z*right,left.w*right);
-    return re;
+    return Vec4(left.x*right,left.y*right,left.z*right,left.w*right);
 }
 
 Vec4 operator*(float left,Vec4 right){
@@ -199,13 +193,19 @@ Vec4 operator*(float left,Vec4 right){
 }
 
 Vec4 operator/(Vec4 left,Vec4 right){
-    Vec4 re(left.x/right.x,left.y/right.y,left.z/right.z,left.w/right.w);
-    return re;
+    return Vec4(left.x/right.x,left.y/right.y,left.z/right.z,left.w/right.w);
 }
 
 Vec4 operator/(Vec4 left,float right){
-    Vec4 re(left.x/right,left.y/right,left.z/right,left.w/right);
-    return re;
+    return Vec4(left.x/right,left.y/right,left.z/right,left.w/right);
+}
+
+Vec4 operator-(Vec4 v){
+    return Vec4(-v.x, -v.y, -v.z, -v.z);
+}
+
+Vec4 operator+(Vec4 v){
+    return v;
 }
 
 bool operator==(Vec4 left,Vec4 right){

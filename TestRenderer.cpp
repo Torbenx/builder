@@ -10,6 +10,8 @@
 #include "util/time.hpp"
 #include "util/target.hpp"
 #include "fullscreen.hpp"
+#include "ui/TestComponent.hpp"
+
 #ifdef PLATFORM_WINDOWS
 #include "windows/fullscreen.hpp"
 #endif
@@ -119,11 +121,11 @@ void TestRenderer::create(){
          -1,-1,-1, -1,1,-1, -1,-1,1,    -1,1,-1, -1,-1,1, -1,1,1, //negX
          1,-1,-1, 1,1,-1, 1,-1,1,       1,1,-1, 1,-1,1, 1,1,1, //posX
     }),6*2*3*3*4,GL_STATIC_DRAW);
-    obj1 = new DebugRenderable(&f1,Vec4(1,0,0,1));
-    obj2 = new DebugRenderable(&f2,Vec4(0,1,0,1));
-    obj3 = new DebugRenderable(&f3,Vec4(1,1,1,1));
-    obj4 = new DebugRenderable(&f4,Vec4(1,1,0,1));
-    obj5 = new DebugRenderable(&f5,Vec4(0,0,1,1));
+    obj1 = new DebugRenderable(&f1,Vec3(1,0,0));
+    obj2 = new DebugRenderable(&f2,Vec3(0,1,0));
+    obj3 = new DebugRenderable(&f3,Vec3(0.5,0.5,0.5));
+    obj4 = new DebugRenderable(&f4,Vec3(1,1,0));
+    obj5 = new DebugRenderable(&f5,Vec3(0,0,1));
     mvpMatrix.model = Mat4x4::Id;
     ShaderBuilder b;
     b.setVertexPositionAttrib("a_position");
@@ -172,6 +174,20 @@ void TestRenderer::create(){
     //#else
     //goFullscreen(FullscreenConfig::DEFAULT);
     //#endif
+    
+    UiComponentHandle handle = layout.add(new TestComponent(Vec3(1,0,0)));
+    layout.width(handle, 0.25f);
+    layout.height(handle, 0.25f);
+    layout.top(handle, 0.0f);
+    layout.left(handle, 0.0f);
+    
+    UiComponentHandle below = layout.add(new TestComponent(Vec3(0,0,1)));
+    layout.width(below, 0.3f);
+    layout.height(below, 0.25f);
+    layout.right(below, 0.0f);
+    layout.above(handle, below, 0.1f);
+    
+    layout.setTransform(Mat4x4::Id);
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
@@ -276,6 +292,8 @@ void TestRenderer::drawFrame(){
     texShader.attribPointer("a_position", 2, tex_Coords);
     texShader.uniformTexture("u_texture", spotLight.depthMap->texture, 0);
     //glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisable(GL_DEPTH_TEST);
+    layout.draw();
 }
 
 void TestRenderer::destroy(){

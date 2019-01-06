@@ -43,6 +43,10 @@ Mat3x3 Mat3x3::rotate(float radians){
     return re;
 }
 
+Mat3x3 Mat3x3::rotateAbout(Vec2 c, float radians){
+    return translate(c) * rotate(radians) * translate(-c);
+}
+
 Mat3x3 Mat3x3::translate(Vec2 v){
     Mat3x3 re(true);
     float *m = re.matrix;

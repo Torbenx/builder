@@ -42,6 +42,9 @@ Vec2 operator/(Vec2 left,float right);
 Vec2 operator-(Vec2 left,Vec2 right);
 Vec2 operator-(Vec2 left,float right);
 
+Vec2 operator-(Vec2 v);
+Vec2 operator+(Vec2 v);
+
 bool operator==(Vec2 left,Vec2 right);
 bool operator!=(Vec2 left,Vec2 right);
 

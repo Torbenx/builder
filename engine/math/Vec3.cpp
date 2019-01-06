@@ -145,42 +145,35 @@ float Vec3::dot(Vec3 left,Vec3 right){
 }
 
 Vec3 Vec3::cross(Vec3 left,Vec3 right){
-    Vec3 re(
+    return Vec3(
         left.y*right.z-left.z*right.y,
         left.z*right.x-left.x*right.z,
         left.x*right.y-left.y*right.x
     );
-    return re;
 }
 
 Vec3 operator+(Vec3 left,Vec3 right){
-    Vec3 re(left.x+right.x,left.y+right.y,left.z+right.z);
-    return re;
+    return Vec3(left.x+right.x,left.y+right.y,left.z+right.z);
 }
 
 Vec3 operator+(Vec3 left,float right){
-    Vec3 re(left.x+right,left.y+right,left.z+right);
-    return re;
+    return Vec3(left.x+right,left.y+right,left.z+right);
 }
 
 Vec3 operator-(Vec3 left,Vec3 right){
-    Vec3 re(left.x-right.x,left.y-right.y,left.z-right.z);
-    return re;
+    return Vec3(left.x-right.x,left.y-right.y,left.z-right.z);
 }
 
 Vec3 operator-(Vec3& left,float right){
-    Vec3 re(left.x-right,left.y-right,left.z-right);
-    return re;
+    return Vec3(left.x-right,left.y-right,left.z-right);
 }
 
 Vec3 operator*(Vec3 left,Vec3 right){
-    Vec3 re(left.x*right.x,left.y*right.y,left.z*right.z);
-    return re;
+    return Vec3(left.x*right.x,left.y*right.y,left.z*right.z);
 }
 
 Vec3 operator*(Vec3 left,float right){
-    Vec3 re(left.x*right,left.y*right,left.z*right);
-    return re;
+    return Vec3(left.x*right,left.y*right,left.z*right);
 }
 
 Vec3 operator*(float left,Vec3 right){
@@ -188,13 +181,19 @@ Vec3 operator*(float left,Vec3 right){
 }
 
 Vec3 operator/(Vec3 left,Vec3 right){
-    Vec3 re(left.x/right.x,left.y/right.y,left.z/right.z);
-    return re;
+    return Vec3(left.x/right.x,left.y/right.y,left.z/right.z);
 }
 
 Vec3 operator/(Vec3 left,float right){
-    Vec3 re(left.x/right,left.y/right,left.z/right);
-    return re;
+    return Vec3(left.x/right,left.y/right,left.z/right);
+}
+
+Vec3 operator-(Vec3 v){
+    return Vec3(-v.x, -v.y, -v.z);
+}
+
+Vec3 operator+(Vec3 v){
+    return v;
 }
 
 bool operator==(Vec3 left,Vec3 right){

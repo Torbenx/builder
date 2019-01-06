@@ -107,6 +107,10 @@ Mat4x4 Mat4x4::rotate(float radians, Vec3 axis){
     return re;
 }
 
+Mat4x4 Mat4x4::rotateAbout(Vec3 pos, float radians, Vec3 axis){
+    return translate(pos) * rotate(radians, axis) * translate(-pos);
+}
+
 Mat4x4 Mat4x4::reflection(Vec3 n, Vec3 pos){
     Mat4x4 re;
     float *m = re.matrix;

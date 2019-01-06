@@ -31,6 +31,8 @@ class Builder(build.Builder):
             "util/target.cpp",
             "input/Pointer.cpp",
             "input/Look3d.cpp",
+            "ui/Layout.cpp",
+            "ui/TestComponent.cpp",
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]

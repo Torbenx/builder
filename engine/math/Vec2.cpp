@@ -120,23 +120,19 @@ float Vec2::dot(Vec2 left,Vec2 right){
 }
 
 Vec2 operator+(Vec2 left,Vec2 right){
-    Vec2 re(left.x+right.x,left.y+right.y);
-    return re;
+    return Vec2(left.x+right.x,left.y+right.y);
 }
 
 Vec2 operator+(Vec2 left,float right){
-    Vec2 re(left.x+right,left.y+right);
-    return re;
+    return Vec2(left.x+right,left.y+right);
 }
 
 Vec2 operator*(Vec2 left,Vec2 right){
-    Vec2 re(left.x*right.x,left.y*right.y);
-    return re;
+    return Vec2(left.x*right.x,left.y*right.y);
 }
 
 Vec2 operator*(Vec2 left,float right){
-    Vec2 re(left.x*right,left.y*right);
-    return re;
+    return Vec2(left.x*right,left.y*right);
 }
 
 Vec2 operator*(float left,Vec2 right){
@@ -144,23 +140,28 @@ Vec2 operator*(float left,Vec2 right){
 }
 
 Vec2 operator/(Vec2 left,Vec2 right){
-    Vec2 re(left.x/right.x,left.y/right.y);
-    return re;
+    return Vec2(left.x/right.x,left.y/right.y);
 }
 
 Vec2 operator/(Vec2 left,float right){
-    Vec2 re(left.x/right,left.x/right);
-    return re;
+    return Vec2(left.x/right,left.x/right);
 }
 
 Vec2 operator-(Vec2 left,Vec2 right){
-    Vec2 re(left.x-right.x,left.y-right.y);
-    return re;
+    return Vec2(left.x-right.x,left.y-right.y);
 }
 
 Vec2 operator-(Vec2 left,float right){
     Vec2 re(left.x-right,left.y-right);
     return re;
+}
+
+Vec2 operator-(Vec2 v){
+   return Vec2(-v.x, -v.y);
+}
+
+Vec2 operator+(Vec2 v){
+    return v;
 }
 
 bool operator==(Vec2 left,Vec2 right){

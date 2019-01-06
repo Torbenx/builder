@@ -10,13 +10,14 @@
 #include "lgraphic/DepthMap.hpp"
 #include "lgraphic/ShaderBuilder.hpp"
 #include "input/Look3d.hpp"
+#include "ui/Layout.hpp"
 #include <cmath>
 
 class DebugRenderable : public Renderable{
     public:
         Bufferf *source;
-        Vec4 color;
-        DebugRenderable(Bufferf *s,Vec4 c){
+        Vec3 color;
+        DebugRenderable(Bufferf *s,Vec3 c){
             source = s;
             color = c;
         }
@@ -35,7 +36,7 @@ class DebugRenderable : public Renderable{
             std::string positionAttrib,
             std::string colorUnifrom
         ){
-            shader->uniformVec3(colorUnifrom, color.xyz());
+            shader->uniformVec3(colorUnifrom, color);
             shader->attribPointer(positionAttrib,3,*source);
             glDrawArrays(GL_TRIANGLE_STRIP,0,4);
         }
@@ -99,6 +100,7 @@ class TestRenderer : public Renderer{
         Shader texShader;
         Reflection reflection;
         Look3d look;
+        Layout layout;
         
         TestRenderer();
         void create();

@@ -49,6 +49,9 @@ Vec3 operator+(Vec3 left,float right);
 Vec3 operator-(Vec3 left,Vec3 right);
 Vec3 operator-(Vec3 left,float right);
 
+Vec3 operator-(Vec3 v);
+Vec3 operator+(Vec3 v);
+
 bool operator==(Vec3 left,Vec3 right);
 bool operator!=(Vec3 left,Vec3 right);
 
