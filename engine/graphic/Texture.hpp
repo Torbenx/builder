@@ -3,11 +3,10 @@
 
 #include "../gl/glwrapper.hpp"
 #include "../util/SourceGetter.hpp"
-#include "../util/Handle.hpp"
 
 class Texture{
     public:
-        Handle<GLuint> glId;
+        GLuint glId;
         GLfloat minFilter = GL_LINEAR;
         GLfloat magFilter = GL_LINEAR;
         GLfloat wrapS = GL_CLAMP_TO_EDGE;
@@ -23,6 +22,8 @@ class Texture{
         void subTexture(GLvoid *data,GLint xoffset,GLint yoffset,GLsizei width,GLsizei height,GLenum type);
         void setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,GLfloat wrapt);
         void applyTexParameter();
+    private:
+        Texture(const Texture& other);
 };
 
 #endif

@@ -1,28 +1,23 @@
 #include "Renderbuffer.hpp"
 
-Renderbuffer::Renderbuffer() : glId(-1){
+Renderbuffer::Renderbuffer(){
     
 }
     
 Renderbuffer::~Renderbuffer(){
-    if(glId.unref()){
-        glDeleteRenderbuffers(1,&glId.value);
-    }
+    glDeleteRenderbuffers(1,&glId);
 }
     
 bool Renderbuffer::init(){
-    if(!glIsRenderbuffer(glId.value)){
-        if(glId.refCount != 1){
-            LOGW("init on copy");
-        }
-        glGenRenderbuffers(1,&glId.value);
+    if(!glIsRenderbuffer(glId)){
+        glGenRenderbuffers(1,&glId);
         return true;
     }
     return false;
 }
     
 void Renderbuffer::bind(){
-    glBindRenderbuffer(GL_RENDERBUFFER,glId.value);
+    glBindRenderbuffer(GL_RENDERBUFFER,glId);
 }
     
 void Renderbuffer::storage(GLenum format,GLsizei width,GLsizei height){

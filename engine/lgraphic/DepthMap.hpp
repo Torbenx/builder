@@ -8,9 +8,9 @@
 
 class DepthMap{
     public:
-        Texture texture = Texture();
-        Renderbuffer renderbuffer = Renderbuffer();
-        Framebuffer framebuffer = Framebuffer();
+        Texture texture;
+        Renderbuffer renderbuffer;
+        Framebuffer framebuffer;
         bool divideByW;
         int width,height;
         float m_far;

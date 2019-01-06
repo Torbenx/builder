@@ -3,12 +3,11 @@
 
 #include "../gl/glwrapper.hpp"
 #include "../util/SourceGetter.hpp"
-#include "../util/Handle.hpp"
 
 class CubeMap{
     public:
         SourceGetter<void*> *posX,*negX,*posY,*negY,*posZ,*negZ;
-        Handle<GLuint> glId;
+        GLuint glId;
         GLfloat minFilter = GL_LINEAR;
         GLfloat magFilter = GL_LINEAR;
         GLfloat wrapS = GL_CLAMP_TO_EDGE;
@@ -28,6 +27,7 @@ class CubeMap{
         void applyTexParameter();
         void setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,GLfloat wrapt);
     private:
+        CubeMap(const CubeMap& other);
         void texture(GLenum target,SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
 };
 

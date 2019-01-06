@@ -6,9 +6,9 @@
 
 class Reflection{
     public:
-        Framebuffer framebuffer = Framebuffer();
-        Renderbuffer renderbuffer = Renderbuffer();
-        Texture texture = Texture();
+        Framebuffer framebuffer;
+        Renderbuffer renderbuffer;
+        Texture texture;
         Vec3 reflection,position;
         float factor;
         int width,height;

@@ -7,9 +7,9 @@
 
 class DepthCubeMap{
     public:
-        CubeMap texture = CubeMap();
-        Renderbuffer renderbuffer = Renderbuffer();
-        Framebuffer framebuffer = Framebuffer();
+        CubeMap texture;
+        Renderbuffer renderbuffer;
+        Framebuffer framebuffer;
         int width,height;
         float m_far;
         Shader *shader;
