@@ -7,7 +7,6 @@
 #include "../util/log.hpp"
 #include "engine.hpp"
 #include <list>
-#include "../util/time.hpp"
 #include <map>
 #include "fullscreen.hpp"
 #include <Windowsx.h>
@@ -16,10 +15,15 @@ const char g_szClassName[] = "myWindowClass";
 
 Renderer *renderer;
 HWND engine_hwnd;
+ID3D11Device *dxDevice;
+HANDLE hDxDevice;
 int rendererState = RENDERER_STATE_INVISIBLE;
 int lastMouseX = INT_MAX;
 int lastMouseY = INT_MAX;
 std::map<unsigned int,unsigned int> counter;
+
+void text_init();
+void time_init();
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
     /*counter[msg]++;
@@ -55,11 +59,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             
             HGLRC hglrc = wglCreateContext(hdc);
             wglMakeCurrent(hdc,hglrc);
-            bool (*wglSwapIntervalEXT)(int) = (bool (*)(int)) wglGetProcAddress("wglSwapIntervalEXT");
+            
+            glwrapper_init();
+            
+            ID3D11DeviceContext *dxContext;
+            D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
+            HANDLE (*wglDXOpenDeviceNV)(void* dev) = (HANDLE (*)(void *dev))wglGetProcAddress("wglDXOpenDeviceNV");
+            hDxDevice = wglDXOpenDeviceNV(dxDevice);
+            text_init();
+            
             if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
             }
-            glwrapper_init();
             
             renderer->create();
             return 0;
@@ -178,6 +189,14 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
     renderer = r;
     time_init();
     
+    int rawInputDeviceCount = 1;
+    RAWINPUTDEVICE rid[rawInputDeviceCount];
+    rid[0].usUsagePage = 0x01;
+    rid[0].usUsage = 0x02;
+    rid[0].dwFlags = 0;
+    rid[0].hwndTarget = 0;
+    RegisterRawInputDevices(rid, rawInputDeviceCount, sizeof(RAWINPUTDEVICE));
+    
     WNDCLASSEX wc;
     wc.cbSize        = sizeof(WNDCLASSEX);
     wc.style         = CS_OWNDC;
@@ -196,15 +215,6 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
         MessageBox(NULL, "Window Registration Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
-    
-    int rawInputDeviceCount = 1;
-    RAWINPUTDEVICE rid[rawInputDeviceCount];
-    rid[0].usUsagePage = 0x01;
-    rid[0].usUsage = 0x02;
-    rid[0].dwFlags = 0;
-    rid[0].hwndTarget = 0;
-    
-    RegisterRawInputDevices(rid, rawInputDeviceCount, sizeof(RAWINPUTDEVICE));
 
     int width = 1024;
     int height = 512;

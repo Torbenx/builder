@@ -40,12 +40,13 @@ class Builder(build.Builder):
         self.link_args += ["-shared"]
         
         if target == "windows":
-            self.libs += ["Gdi32", "Opengl32"]
+            self.libs += ["Gdi32", "Opengl32", "D3D11", "D2D1"]
             self.input_files += [
                 "windows/glwrapper.cpp",
                 "windows/engine.cpp",
                 "windows/fullscreen.cpp",
                 "windows/Renderer.cpp",
+                "windows/text.cpp",
             ]
         if target == "android":
             self.libs += ["android", "log", "GLESv2"]

@@ -101,6 +101,7 @@ class TestRenderer : public Renderer{
         Reflection reflection;
         Look3d look;
         Layout layout;
+        Texture textTexture;
         
         TestRenderer();
         void create();

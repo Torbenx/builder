@@ -9,6 +9,14 @@ PROC glwrapper_load(LPCSTR name){
     return wglGetProcAddress(name);
 }
 
+f_wglSWAPINTERVALEXT wglSwapIntervalEXT;
+f_wglDXOPENDEVICENV wglDXOpenDeviceNV;
+f_wglDXCLOSEDEVICENV wglDXCloseDeviceNV;
+f_wglDXREGISTEROBJECTNV wglDXRegisterObjectNV;
+f_wglDXUNREGISTEROBJECTNV wglDXUnregisterObjectNV;
+f_wglDXLOCKOBJECTSNV wglDXLockObjectsNV;
+f_wglDXUNLOCKOBJECTSNV wglDXUnlockObjectsNV;
+
 f_glACTIVETEXTURE glActiveTexture;
 f_glATTACHSHADER glAttachShader;
 f_glBEGINCONDITIONALRENDER glBeginConditionalRender;
@@ -169,6 +177,14 @@ f_glGENVERTEXARRAYS glGenVertexArrays;
 f_glBINDVERTEXARRAY glBindVertexArray;
 
 void glwrapper_init(){
+wglSwapIntervalEXT = (f_wglSWAPINTERVALEXT) glwrapper_load("wglSwapIntervalEXT");
+wglDXOpenDeviceNV = (f_wglDXOPENDEVICENV) glwrapper_load("wglDXOpenDeviceNV");
+wglDXCloseDeviceNV = (f_wglDXCLOSEDEVICENV) glwrapper_load("wglDXCloseDeviceNV");
+wglDXRegisterObjectNV = (f_wglDXREGISTEROBJECTNV) glwrapper_load("wglDXRegisterObjectNV");
+wglDXUnregisterObjectNV = (f_wglDXUNREGISTEROBJECTNV) glwrapper_load("wglDXUnregisterObjectNV");
+wglDXLockObjectsNV = (f_wglDXLOCKOBJECTSNV) glwrapper_load("wglDXLockObjectsNV");
+wglDXUnlockObjectsNV = (f_wglDXUNLOCKOBJECTSNV) glwrapper_load("wglDXUnlockObjectsNV");
+
 glActiveTexture = (f_glACTIVETEXTURE) glwrapper_load("glActiveTexture");
 glAttachShader = (f_glATTACHSHADER) glwrapper_load("glAttachShader");
 glBeginConditionalRender = (f_glBEGINCONDITIONALRENDER) glwrapper_load("glBeginConditionalRender");

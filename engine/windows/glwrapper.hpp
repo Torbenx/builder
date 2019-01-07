@@ -9,6 +9,10 @@
 
 void glwrapper_init();
 
+#define WGL_ACCESS_READ_ONLY_NV 0x0000
+#define WGL_ACCESS_READ_WRITE_NV 0x0001
+#define WGL_ACCESS_WRITE_DISCARD_NV 0x0002
+
 #define GL_ZERO 0
 #define GL_FALSE 0
 #define GL_NONE 0
@@ -1283,6 +1287,14 @@ void glVertex4sv (const GLshort *v);
 void glVertexPointer (GLint size, GLenum type, GLsizei stride, const void *pointer);
 void glViewport (GLint x, GLint y, GLsizei width, GLsizei height);
 
+typedef BOOL ( * f_wglSWAPINTERVALEXT) (int interval);
+typedef HANDLE ( * f_wglDXOPENDEVICENV) (void *dxDevice);
+typedef BOOL ( * f_wglDXCLOSEDEVICENV) (HANDLE hDevice);
+typedef HANDLE ( * f_wglDXREGISTEROBJECTNV) (HANDLE hDevice, void* dxResource, GLuint name, GLenum type, GLenum access);
+typedef BOOL ( * f_wglDXUNREGISTEROBJECTNV) (HANDLE hDevice, HANDLE hObject);
+typedef BOOL ( * f_wglDXLOCKOBJECTSNV) (HANDLE hDevice, GLint count, HANDLE *hObjects);
+typedef BOOL ( * f_wglDXUNLOCKOBJECTSNV) (HANDLE hDevice, GLint count, HANDLE *hObjects);
+
 typedef void ( * f_glCOPYTEXSUBIMAGE3D) (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
 typedef void ( * f_glDRAWRANGEELEMENTS) (GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices);
 typedef void ( * f_glTEXIMAGE3D) (GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels);
@@ -1700,6 +1712,14 @@ typedef void ( * f_glVERTEXATTRIB4USV) (GLuint index, const GLushort* v);
 typedef void ( * f_glVERTEXATTRIBPOINTER) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer);
 typedef void ( * f_glGENVERTEXARRAYS) (GLsizei n, GLuint* arrays);
 typedef void ( * f_glBINDVERTEXARRAY) (GLuint array);
+
+extern f_wglSWAPINTERVALEXT wglSwapIntervalEXT;
+extern f_wglDXOPENDEVICENV wglDXOpenDeviceNV;
+extern f_wglDXCLOSEDEVICENV wglDXCloseDeviceNV;
+extern f_wglDXREGISTEROBJECTNV wglDXRegisterObjectNV;
+extern f_wglDXUNREGISTEROBJECTNV wglDXUnregisterObjectNV;
+extern f_wglDXLOCKOBJECTSNV wglDXLockObjectsNV;
+extern f_wglDXUNLOCKOBJECTSNV wglDXUnlockObjectsNV;
 
 extern f_glACTIVETEXTURE glActiveTexture;
 extern f_glATTACHSHADER glAttachShader;

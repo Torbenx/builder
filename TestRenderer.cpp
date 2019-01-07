@@ -11,6 +11,7 @@
 #include "util/target.hpp"
 #include "fullscreen.hpp"
 #include "ui/TestComponent.hpp"
+#include "ui/text.hpp"
 
 #ifdef PLATFORM_WINDOWS
 #include "windows/fullscreen.hpp"
@@ -188,6 +189,9 @@ void TestRenderer::create(){
     layout.above(handle, below, 0.1f);
     
     layout.setTransform(Mat4x4::Id);
+    
+    textTexture.init();
+    initalizeTextureForText(textTexture, 1024, 1024);
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
@@ -290,10 +294,10 @@ void TestRenderer::drawFrame(){
     texShader.init();
     texShader.use();
     texShader.attribPointer("a_position", 2, tex_Coords);
-    texShader.uniformTexture("u_texture", spotLight.depthMap->texture, 0);
-    //glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    texShader.uniformTexture("u_texture", textTexture, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glDisable(GL_DEPTH_TEST);
-    layout.draw();
+    //layout.draw();
 }
 
 void TestRenderer::destroy(){
