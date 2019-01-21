@@ -11,7 +11,6 @@
 #include "util/target.hpp"
 #include "fullscreen.hpp"
 #include "ui/TestComponent.hpp"
-#include "ui/text.hpp"
 
 #ifdef PLATFORM_WINDOWS
 #include "windows/fullscreen.hpp"
@@ -45,6 +44,7 @@ TestRenderer::TestRenderer() :
         d_coord(GL_ARRAY_BUFFER),
         d_texCoord(GL_ARRAY_BUFFER),
         tex_Coords(GL_ARRAY_BUFFER),
+        tex_Position(GL_ARRAY_BUFFER),
         pawnVertex(GL_ARRAY_BUFFER),
         depthShader(
             "attribute vec4 a_position;\n"
@@ -64,13 +64,15 @@ TestRenderer::TestRenderer() :
             "}"),
         texShader(
             "attribute vec4 a_position;\n"
+            "attribute vec2 a_texCoord;\n"
             "varying vec2 v_texPos;\n"
             "void main(){\n"
             "    gl_Position = a_position;\n"
-            "    v_texPos = (a_position.xy + 1.0) / 2.0;\n"
+            "    v_texPos = a_texCoord;\n"
             "}",
+            TEXT_TEXTURE_GLSL_HEADER
             "varying vec2 v_texPos;\n"
-            "uniform sampler2D u_texture;\n"
+            "uniform " TEXT_TEXTURE_GLSL_SAMPLER " u_texture;\n"
             "void main(){\n"
             "    float far = 20.0;\n"
             "    vec4 bits = vec4(far,far/255.0,far/255.0/255.0,far/255.0/255.0/255.0);\n"
@@ -78,7 +80,8 @@ TestRenderer::TestRenderer() :
             "    gl_FragColor = f;\n"//vec4(vec3(dot(bits,f))/far,1.0);\n"
             "}"),
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.5f),
-        look(up, isAndroid())
+        look(up, isAndroid()),
+        pos(7,1,0)
         {}
 
 void TestRenderer::create(){
@@ -98,7 +101,8 @@ void TestRenderer::create(){
     f5.init();
     f5.bufferData(new DirectSourceGetter<float*>(obj5_coords),3*4*4,GL_DYNAMIC_DRAW);
     tex_Coords.init();
-    tex_Coords.bufferData(new DirectSourceGetter<float*>(new float[2*4]{-1,-1, 1,-1, -1,1, 1,1}), 2*4*4, GL_STATIC_DRAW);
+    tex_Coords.bufferData(new DirectSourceGetter<float*>(new float[3*4]{0,1, 1,1, 0,0, 1,0}),3*4*4,GL_STATIC_DRAW);
+    tex_Position.init();
     d_coord.init();
     float x1 = -1;
     float x2 = 0;
@@ -170,11 +174,11 @@ void TestRenderer::create(){
     (avg / parser.n).debug();*/
     lframe = getNanos();
     
-    //#ifdef PLATFORM_WINDOWS
+    #ifdef PLATFORM_WINDOWS
     //goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
-    //#else
-    //goFullscreen(FullscreenConfig::DEFAULT);
-    //#endif
+    #else
+    goFullscreen(FullscreenConfig::DEFAULT);
+    #endif
     
     UiComponentHandle handle = layout.add(new TestComponent(Vec3(1,0,0)));
     layout.width(handle, 0.25f);
@@ -190,14 +194,15 @@ void TestRenderer::create(){
     
     layout.setTransform(Mat4x4::Id);
     
-    textTexture.init();
-    initalizeTextureForText(textTexture, 1024, 1024);
+    textTexture.init(1000, 500);
+    textTexture.drawText("Hello World gpq\nline2", -1, 50, Vec4(1,0,0,1));
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
     mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0 ,as ,1,100);
+    tex_Position.bufferData(new DirectSourceGetter<float*>(new float[2*4]{-1,-1, textTexture.texture.width * 2.0f / newWidth - 1.0f,-1, -1, textTexture.texture.height * 2.0f / newHeight - 1.0f, textTexture.texture.width * 2.0f / newWidth - 1.0f, textTexture.texture.height * 2.0f / newHeight - 1.0f}), 2*4*4, GL_STATIC_DRAW);
 }
 
 int lookPointerId = POINTER_ID_INVALID;
@@ -211,7 +216,6 @@ void TestRenderer::pointer(PointerEvent event){
             }else if(event.event == POINTER_EVENT_MOVE){
                 Pointer oldPointer = getPointerById(lookPointerId);
                 look.move(event.x - oldPointer.x, event.y - oldPointer.y);
-                mvpMatrix.view = Mat4x4::look(Vec3(7,1,0), look.dir, up);
             }
         }
     }
@@ -220,7 +224,30 @@ void TestRenderer::pointer(PointerEvent event){
 
 void TestRenderer::rawPointer(int dx, int dy){
     look.move(dx, dy);
-    mvpMatrix.view = Mat4x4::look(Vec3(7,1,0), look.dir, up);
+}
+
+void TestRenderer::key(int32_t keycode, bool down){
+    if(w == -1){
+        w = keycode;
+        LOGD("w=0x%x", keycode);
+    }else if(keycode == w){
+        wd = down;
+    }else if(a == -1){
+        a = keycode;
+        LOGD("a=0x%x", keycode);
+    }else if(keycode == a){
+        ad = down;
+    }else if(s == -1){
+        s = keycode;
+        LOGD("s=0x%x", keycode);
+    }else if(keycode == s){
+        sd = down;
+    }else if(d == -1){
+        d = keycode;
+        LOGD("d=0x%x", keycode);
+    }else if(keycode == d){
+        dd = down;
+    }
 }
 
 void TestRenderer::drawFrame(){
@@ -232,6 +259,20 @@ void TestRenderer::drawFrame(){
     }
     frameCounter++;
     float dt = (now - lframe)/(float)NANOS_PER_SECOND;
+    Vec3 dirX = (look.dir - Vec3::dot(look.dir, up) * up).normalize();
+    if(wd){
+        pos += dt * dirX;
+    }
+    if(sd){
+        pos -= dt * dirX;
+    }
+    if(ad){
+        pos -= dt * Vec3::cross(dirX, up);
+    }
+    if(dd){
+        pos += dt * Vec3::cross(dirX, up);
+    }
+    mvpMatrix.view = Mat4x4::look(pos, look.dir, up);
     lframe = now;
     Vec3 plp = pointLight.position;
     plp += Vec3(plp.z*dt, plp.z*dt/2.0, -plp.x*dt);
@@ -285,6 +326,10 @@ void TestRenderer::drawFrame(){
     refShader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
     refShader->uniformMat4x4("u_model",Mat4x4::Id);
     obj3->draw2(refShader,"a_position","u_color");
+    glDisable(GL_DEPTH_TEST);
+    
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
     depthShader.init();
     depthShader.use();
     depthShader.attribPointer("a_position",2,d_coord);
@@ -293,10 +338,12 @@ void TestRenderer::drawFrame(){
     //glDrawArrays(GL_TRIANGLES,0,6*2*3);
     texShader.init();
     texShader.use();
-    texShader.attribPointer("a_position", 2, tex_Coords);
-    texShader.uniformTexture("u_texture", textTexture, 0);
+    texShader.attribPointer("a_position", 2, tex_Position);
+    texShader.attribPointer("a_texCoord", 2, tex_Coords);
+    texShader.uniformTexture("u_texture", textTexture.texture, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    
     //layout.draw();
 }
 

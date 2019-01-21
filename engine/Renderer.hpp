@@ -2,6 +2,7 @@
 #define HEADER_RENDERER_H
 
 #include "input/Pointer.hpp"
+#include <stdint.h>
 
 /*
   method        | old state     | new state
@@ -42,6 +43,7 @@ class Renderer{
         virtual void drawFrame(){}
         virtual void pointer(PointerEvent event){}
         virtual void rawPointer(int dx, int dy){}
+        virtual void key(int32_t keycode, bool down){}
         virtual ~Renderer(){}
 };
 

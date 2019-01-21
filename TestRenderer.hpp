@@ -11,6 +11,7 @@
 #include "lgraphic/ShaderBuilder.hpp"
 #include "input/Look3d.hpp"
 #include "ui/Layout.hpp"
+#include "ui/text.hpp"
 #include <cmath>
 
 class DebugRenderable : public Renderable{
@@ -94,6 +95,7 @@ class TestRenderer : public Renderer{
         Bufferf d_coord;
         Bufferf d_texCoord;
         Bufferf tex_Coords;
+        Bufferf tex_Position;
         Bufferf pawnVertex;
         MvpMatrix mvpMatrix;
         Shader depthShader;
@@ -101,13 +103,17 @@ class TestRenderer : public Renderer{
         Reflection reflection;
         Look3d look;
         Layout layout;
-        Texture textTexture;
+        TextTexture textTexture;
+        int32_t w = -1,a = -1,s = -1,d = -1;
+        Vec3 pos;
+        bool wd = false, ad = false, sd = false, dd = false; 
         
         TestRenderer();
         void create();
         void change(int width, int height);
         void pointer(PointerEvent event);
         void rawPointer(int dx, int dy);
+        void key(int32_t keycode, bool down);
         void drawFrame();
         void destroy();
 };

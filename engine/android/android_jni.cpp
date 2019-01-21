@@ -11,18 +11,52 @@ JavaVM *jvm;
 jobject activity;
 AAssetManager *assetManager;
 
-jmethodID goFullscreenID, exitFullscreenID, InputQueue_getNativePtrID;
+jclass textClass;
+jmethodID goFullscreenID, exitFullscreenID, InputQueue_getNativePtrID, textConstructorID, drawTextID, textReleaseID;
 
 void android_engineThreadInit(JNIEnv *env, jobject thiz, jobject jAssetManager, int cmdFd){
     env->GetJavaVM(&jvm);
+    
     activity = env->NewGlobalRef(thiz);
+    
     jclass clazz = env->GetObjectClass(activity);
     goFullscreenID = env->GetMethodID(clazz, "goFullscreen", "()V");
     exitFullscreenID = env->GetMethodID(clazz, "exitFullscreen", "()V");
+    
     clazz = env->FindClass("android/view/InputQueue");
     InputQueue_getNativePtrID = env->GetMethodID(clazz, "getNativePtr", "()J");
+    
+    clazz = env->FindClass("com/tt/engine/Text");
+    textClass = (jclass)env->NewGlobalRef(clazz);
+    textConstructorID = env->GetMethodID(clazz, "<init>", "(III)V");
+    drawTextID = env->GetMethodID(clazz, "drawText", "(Ljava/lang/String;IFFFFF)[F");
+    textReleaseID = env->GetMethodID(clazz, "release", "()V");
+    
     assetManager = AAssetManager_fromJava(env, jAssetManager);
+    
     android_initThread(cmdFd);
+}
+
+jobject android_textConstructor(int glId, int width, int height){
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    jobject obj = env->NewObject(textClass, textConstructorID, glId, width, height);
+    return env->NewGlobalRef(obj);
+}
+
+void android_drawText(jobject thiz, const char *text, int maxWidth, float textSize, float r, float g, float b, float a, Mat4x4& matrix){
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    jstring jText = env->NewStringUTF(text);
+    jfloatArray jMatrix = (jfloatArray)env->CallObjectMethod(thiz, drawTextID, jText, maxWidth, textSize, r, g, b, a);
+    env->GetFloatArrayRegion(jMatrix, 0, 16, matrix.matrix);
+}
+
+void android_textRelease(jobject thiz){
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    env->CallVoidMethod(thiz, textReleaseID);
+    env->DeleteGlobalRef(thiz);
 }
 
 void android_goFullscreen(){

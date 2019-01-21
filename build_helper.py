@@ -49,6 +49,8 @@ while True:
 
     print "Target: "+platform+", "+build.arch_string(arch)
     print "e to exit, r to rebuild, t to change target"
+    while msvcrt.kbhit():
+        msvcrt.getch()
     key = msvcrt.getch()
     if key == "e":
         break
@@ -120,19 +122,32 @@ while True:
             runRet = subprocess.call(build.join(output_dir,"main.exe"), cwd=output_dir)
             print "Exit with "+str(runRet)
         if platform == "android":
-            min_api = 21
-            java_dir = "engine/android/java"
-            java_source = ["com/tt/engine/MainActivity.java"]
-            android_manifest = "engine/android/AndroidManifest.xml"
-            package = "com.tt.testgame"
-            build_tools_version = "28.0.3"
+            an = android.Android()
+            an.min_api = 21
+            an.java_dir = "engine/android/java"
+            an.java_source = ["com/tt/engine/MainActivity.java", "com/tt/engine/Text.java"]
+            an.android_manifest = "engine/android/AndroidManifest.xml"
+            an.package = "com.tt.testgame"
+            an.build_tools_version = "28.0.3"
             
-            keystore, keystore_password, key_alias, key_password = android.debug_keystore(toolchain_install_dir, jdk)
-            apk_output = build.join(output_dir,"main.apk")
+            an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(toolchain_install_dir, jdk)
+            an.apk_output = build.join(output_dir,"main.apk")
             
+            an.build_dir = build_dir
+            an.arch = arch
+            an.api = api
+            an.sdk = sdk
+            an.jdk = jdk
+            an.install_dir = toolchain_install_dir
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
-            android.android_build(build_dir, apk_output, arch, sdk, jdk, build_tools_version, min_api, api, [build.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]], "assets", java_dir, java_source, android_manifest, package, 1, "1.0", keystore, keystore_password, key_alias, key_password, rebuild=rebuild)
-            android.android_run(sdk, apk_output, package, "com.tt.engine.MainActivity")
+            an.native_libs = [build.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]]
+            an.native_libs_changed = [eb.changed, mb.changed]
+            an.assets_dir = "assets"
+            an.version_code = 1
+            an.version_name = "1.0"
+            an.rebuild = rebuild
+            an.build()
+            an.run("com.tt.engine.MainActivity")
             
             
     except Exception as ex:

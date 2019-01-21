@@ -126,27 +126,35 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 BYTE data[size];
                 GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data, &size, sizeof(RAWINPUTHEADER));
                 RAWINPUT *raw = (RAWINPUT*)data;
-                if(raw->header.dwType == RIM_TYPEMOUSE){
-                    int dx,dy;
-                    if(raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE){
-                        if(lastMouseX != INT_MAX){
-                            LOGW("switched from relative to absolute input");
-                            dx = raw->data.mouse.lLastX - lastMouseX;
-                            dy = raw->data.mouse.lLastY - lastMouseY;
+                switch(raw->header.dwType){
+                    case RIM_TYPEMOUSE:{
+                        int dx,dy;
+                        if(raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE){
+                            if(lastMouseX != INT_MAX){
+                                LOGW("switched from relative to absolute input");
+                                dx = raw->data.mouse.lLastX - lastMouseX;
+                                dy = raw->data.mouse.lLastY - lastMouseY;
+                            }else{
+                                dx = 0;
+                                dy = 0;
+                            }
+                            lastMouseX = raw->data.mouse.lLastX;
+                            lastMouseY = raw->data.mouse.lLastY;
                         }else{
-                            dx = 0;
-                            dy = 0;
+                            dx = raw->data.mouse.lLastX;
+                            dy = raw->data.mouse.lLastY;
+                            lastMouseX = INT_MAX;
+                            lastMouseY = INT_MAX;
                         }
-                        lastMouseX = raw->data.mouse.lLastX;
-                        lastMouseY = raw->data.mouse.lLastY;
-                    }else{
-                        dx = raw->data.mouse.lLastX;
-                        dy = raw->data.mouse.lLastY;
-                        lastMouseX = INT_MAX;
-                        lastMouseY = INT_MAX;
+                        //LOGD("%d, %d -> %d, %d", raw->data.mouse.lLastX, raw->data.mouse.lLastY, dx, dy);
+                        renderer->rawPointer(dx, dy);
+                        break;
                     }
-                    //LOGD("%d, %d -> %d, %d", raw->data.mouse.lLastX, raw->data.mouse.lLastY, dx, dy);
-                    renderer->rawPointer(dx, dy);
+                    case RIM_TYPEKEYBOARD:{
+                        //LOGD("key: 0x%x, flags: %d%d%d", raw->data.keyboard.VKey, raw->data.keyboard.Flags & 1, (raw->data.keyboard.Flags & 2) >> 1, (raw->data.keyboard.Flags & 4) >> 2);
+                        renderer->key(raw->data.keyboard.VKey, !(raw->data.keyboard.Flags & RI_KEY_BREAK));
+                        break;
+                    }
                 }
             }
             return DefWindowProc(hwnd, msg, wParam, lParam);;
@@ -189,12 +197,18 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
     renderer = r;
     time_init();
     
-    int rawInputDeviceCount = 1;
+    int rawInputDeviceCount = 2;
     RAWINPUTDEVICE rid[rawInputDeviceCount];
+    
     rid[0].usUsagePage = 0x01;
     rid[0].usUsage = 0x02;
     rid[0].dwFlags = 0;
     rid[0].hwndTarget = 0;
+    
+    rid[1].usUsagePage = 0x01;
+    rid[1].usUsage = 0x06;
+    rid[1].dwFlags = 0;
+    rid[1].hwndTarget = 0;
     RegisterRawInputDevices(rid, rawInputDeviceCount, sizeof(RAWINPUTDEVICE));
     
     WNDCLASSEX wc;

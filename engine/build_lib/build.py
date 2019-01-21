@@ -55,6 +55,7 @@ def compile(self, source):
         if source in self.file_compile_args:
             cmd += self.file_compile_args[source]
         ret = subprocess.call(cmd, shell=True)
+        self.changed = True
         if ret != 0:
             print str(cmd)
             self.failed = True
@@ -84,6 +85,7 @@ class Builder(object):
 
     def build(self):
         self.failed = False
+        self.changed = False
         self.buildTime = time.time()
         self.ibuild_dir = self.build_dir
         try:
@@ -108,6 +110,10 @@ class Builder(object):
 
         if self.failed:
             print "BUILD FAILED"
+            return
+            
+        if (not self.changed) and not self.rebuild:
+            print "NOTHING TO DO"
             return
         
         try:

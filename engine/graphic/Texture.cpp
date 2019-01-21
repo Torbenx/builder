@@ -3,6 +3,10 @@
 Texture::Texture(){
     
 }
+
+Texture::Texture(GLenum target){
+    this->target = target;
+}
     
 Texture::~Texture(){
     glDeleteTextures(1,&glId);
@@ -17,7 +21,7 @@ bool Texture::init(){
 }
     
 void Texture::bind(){
-    glBindTexture(GL_TEXTURE_2D,glId);
+    glBindTexture(target,glId);
 }
     
 void Texture::texture(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
@@ -31,12 +35,12 @@ void Texture::texture(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLe
     this->format = format;
     this->type = type;
     bind();
-    glTexImage2D(GL_TEXTURE_2D,0,format,width,height,0,format,type,source->getSource());
+    glTexImage2D(target,0,format,width,height,0,format,type,source->getSource());
     applyTexParameter();
 }
     
 void Texture::subTexture(GLvoid *data,GLint xoffset,GLint yoffset,GLsizei width,GLsizei height,GLenum type){
-    glTexSubImage2D(GL_TEXTURE_2D,0,xoffset,yoffset,width,height,format,type,data);
+    glTexSubImage2D(target,0,xoffset,yoffset,width,height,format,type,data);
 }
     
 void Texture::setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,GLfloat wrapt){
@@ -49,8 +53,8 @@ void Texture::setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,
     
 void Texture::applyTexParameter(){
     bind();
-    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,minFilter);
-    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,magFilter);
-    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,wrapS);
-    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,wrapT);
+    glTexParameterf(target,GL_TEXTURE_MIN_FILTER,minFilter);
+    glTexParameterf(target,GL_TEXTURE_MAG_FILTER,magFilter);
+    glTexParameterf(target,GL_TEXTURE_WRAP_S,wrapS);
+    glTexParameterf(target,GL_TEXTURE_WRAP_T,wrapT);
 }

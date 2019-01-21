@@ -2,6 +2,7 @@
 #define HEADER_ANDROID_ENGINE_H
 
 #include "../Renderer.hpp"
+#include "../math/Mat4x4.hpp"
 #include <android/asset_manager.h>
 #include <jni.h>
 #include <android/looper.h>
@@ -39,6 +40,9 @@ struct SurfaceChangeCmdData{
 };
 
 void setRenderer(Renderer *renderer);
+jobject android_textConstructor(int glId, int width, int height);
+void android_drawText(jobject thiz, const char* text, int maxWidth, float textSize, float r, float g, float b, float a, Mat4x4& matrix);
+void android_textRelease(jobject thiz);
 void android_goFullscreen();
 void android_exitFullscreen();
 void android_initThread(int cmdFd);

@@ -40,7 +40,7 @@ class Builder(build.Builder):
         self.link_args += ["-shared"]
         
         if target == "windows":
-            self.libs += ["Gdi32", "Opengl32", "D3D11", "D2D1"]
+            self.libs += ["Gdi32", "Opengl32", "D3D11", "D2D1", "Dwrite"]
             self.input_files += [
                 "windows/glwrapper.cpp",
                 "windows/engine.cpp",
@@ -56,6 +56,7 @@ class Builder(build.Builder):
                 "android/fullscreen.cpp",
                 "android/Renderer.cpp",
                 "android/android_jni.cpp",
+                "android/text.cpp",
             ]
     
     def build(self):
