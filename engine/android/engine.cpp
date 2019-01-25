@@ -12,6 +12,9 @@
 #define ENGINE_IDENT_CMD 1
 #define ENGINE_IDENT_INPUT 2
 
+#define CHECK_EGL(ret, fret, fun) if(ret == fret){LOGD(fun " failed: 0x%x", eglGetError());}
+#define CHECK_EGL_BOOL(ret, fun) CHECK_EGL(ret, false, fun)
+
 ALooper *looper;
 
 Renderer *renderer;
@@ -66,24 +69,25 @@ void android_runThread(){
                     switch(cmd){
                         case ENGINE_CMD_CREATE:{
                             display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-                            eglInitialize(display, nullptr, nullptr);
+                            CHECK_EGL_BOOL(eglInitialize(display, nullptr, nullptr), "eglInitialize");
                             EGLint attrib_list[] = {
-                                EGL_RED_SIZE, 5,
-                                EGL_GREEN_SIZE, 6,
-                                EGL_BLUE_SIZE, 5,
-                                EGL_ALPHA_SIZE, 0,
+                                EGL_RED_SIZE, 8,
+                                EGL_GREEN_SIZE, 8,
+                                EGL_BLUE_SIZE, 8,
+                                EGL_ALPHA_SIZE, 8,
                                 EGL_DEPTH_SIZE, 16,
                                 EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
                                 EGL_NONE
                             };
                             int num_configs;
-                            eglChooseConfig(display, attrib_list, &config, 1, &num_configs);
+                            CHECK_EGL_BOOL(eglChooseConfig(display, attrib_list, &config, 1, &num_configs), "eglChooseConfig");
                             EGLint context_attrib_list[] = {
                                 EGL_CONTEXT_CLIENT_VERSION, 2,
                                 EGL_NONE
                             };
                             context = eglCreateContext(display, config, EGL_NO_CONTEXT, context_attrib_list);
-                            eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
+                            CHECK_EGL(context, EGL_NO_CONTEXT, "eglCreateContext");
+                            CHECK_EGL_BOOL(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context), "eglMakeCurrent (init)");
                             renderer->create();
                             break;
                         }
@@ -124,7 +128,7 @@ void android_runThread(){
                             read(fd, &data, sizeof(struct SurfaceCmdData));
                             if(surface != EGL_NO_SURFACE){
                                 LOGI("surfaceCreate() while other surface still present");
-                                eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
+                                CHECK_EGL_BOOL(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context), "eglMakeCurrent (clear for new surface)");
                                 eglDestroySurface(display, surface);
                                 ANativeWindow_release(window);
                             }
@@ -132,7 +136,8 @@ void android_runThread(){
                             ANativeWindow_acquire(window);
                             EGLint none = EGL_NONE;
                             surface = eglCreateWindowSurface(display, config, window, &none);
-                            eglMakeCurrent(display, surface, surface, context);
+                            CHECK_EGL(surface, EGL_NO_SURFACE, "eglCreateWindowSurface");
+                            CHECK_EGL_BOOL(eglMakeCurrent(display, surface, surface, context), "eglMakeCurrent (set surface)");
                             if(!callbackData.running){
                                 callbackData.running = true;
                                 AChoreographer_postFrameCallback(choreographer, android_doFrame, &callbackData);
@@ -191,21 +196,27 @@ void android_runThread(){
                             case AMOTION_EVENT_ACTION_DOWN:
                             case AMOTION_EVENT_ACTION_POINTER_DOWN:
                                 pEvent.event = POINTER_EVENT_DOWN;
+                                pEvent.pointerId = AMotionEvent_getPointerId(event, index);
+                                pEvent.x = AMotionEvent_getX(event, index);
+                                pEvent.y = AMotionEvent_getY(event, index);
+                                renderer->pointer(pEvent);
                                 break;
                             case AMOTION_EVENT_ACTION_MOVE:
                                 pEvent.event = POINTER_EVENT_MOVE;
+                                for(int i=0;i<AMotionEvent_getPointerCount(event);i++){
+                                    pEvent.pointerId = AMotionEvent_getPointerId(event, i);
+                                    pEvent.x = AMotionEvent_getX(event, i);
+                                    pEvent.y = AMotionEvent_getY(event, i);
+                                    renderer->pointer(pEvent);
+                                }
                                 break;
                             case AMOTION_EVENT_ACTION_UP:
                             case AMOTION_EVENT_ACTION_POINTER_UP:
                             case AMOTION_EVENT_ACTION_CANCEL:
                                 pEvent.event = POINTER_EVENT_UP;
+                                pEvent.pointerId = AMotionEvent_getPointerId(event, index);
+                                renderer->pointer(pEvent);
                                 break;
-                        }
-                        if(pEvent.event != -1){
-                            pEvent.x = AMotionEvent_getX(event, index);
-                            pEvent.y = AMotionEvent_getY(event, index);
-                            pEvent.pointerId = AMotionEvent_getPointerId(event, index);
-                            renderer->pointer(pEvent);
                         }
                         AInputQueue_finishEvent(queue, event, pEvent.event != -1);
                     }else{

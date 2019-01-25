@@ -106,7 +106,10 @@ class TestRenderer : public Renderer{
         TextTexture textTexture;
         int32_t w = -1,a = -1,s = -1,d = -1;
         Vec3 pos;
-        bool wd = false, ad = false, sd = false, dd = false; 
+        bool wd = false, ad = false, sd = false, dd = false;
+        int lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
+        int navBaseX, navBaseY;
+        int navDeltaX = 0, navDeltaY = 0;
         
         TestRenderer();
         void create();

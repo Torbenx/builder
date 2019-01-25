@@ -19,7 +19,7 @@ def choose_target():
     global arch
     if key == "a":
         platform = "android"
-        print "1 for armv7a, 2 for arm64v7a, 3 for x86_32, 4 for x86_64"
+        print "1 for armv7a, 2 for arm64v8a, 3 for x86_32, 4 for x86_64"
         key = msvcrt.getch()
         if key == "1":
             arch = build.arch_armv7a
@@ -40,7 +40,7 @@ def choose_target():
 while (not "platform" in globals()) or not "arch" in globals():
     choose_target()
     
-api = 26
+api = 27
 jdk = "C:/Program Files/Java/jdk1.8.0_131"
 sdk = "C:/Users/Torben/AppData/Local/Android/sdk"
 toolchain_install_dir = "C:/Users/Torben/Documents/dev/c++/toolchains"

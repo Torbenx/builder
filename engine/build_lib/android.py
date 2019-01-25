@@ -123,6 +123,7 @@ class Android(object):
         self.key_password = ""
         self.install_dir = ""
         self.rebuild = False
+        self.debug = True
         
     def build(self):
         build_tools = build.join(self.sdk,"build-tools",self.build_tools_version)
@@ -180,7 +181,7 @@ class Android(object):
         apk_empty = False
         if self.rebuild or assets_changed or (not os.path.exists(apk_unaligned)) or os.path.getmtime(self.android_manifest) > os.path.getmtime(apk_unaligned):
             apk_empty = True
-            aapt_p_ret = subprocess.call([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package], shell=True)
+            aapt_p_ret = subprocess.call([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package] + (["--debug-mode"] if self.debug else []), shell=True)
             assert aapt_p_ret==0, "aapt package failed with %d" % aapt_p_ret
             
         aapt_ar_start = time.time()

@@ -11,6 +11,7 @@
 #include "util/target.hpp"
 #include "fullscreen.hpp"
 #include "ui/TestComponent.hpp"
+#include "util/draw_util.hpp"
 
 #ifdef PLATFORM_WINDOWS
 #include "windows/fullscreen.hpp"
@@ -205,12 +206,24 @@ void TestRenderer::change(int newWidth,int newHeight){
     tex_Position.bufferData(new DirectSourceGetter<float*>(new float[2*4]{-1,-1, textTexture.texture.width * 2.0f / newWidth - 1.0f,-1, -1, textTexture.texture.height * 2.0f / newHeight - 1.0f, textTexture.texture.width * 2.0f / newWidth - 1.0f, textTexture.texture.height * 2.0f / newHeight - 1.0f}), 2*4*4, GL_STATIC_DRAW);
 }
 
-int lookPointerId = POINTER_ID_INVALID;
 void TestRenderer::pointer(PointerEvent event){
     if(!rawInput()){
-        if(event.event == POINTER_EVENT_DOWN && lookPointerId == POINTER_ID_INVALID){
+        if(event.event == POINTER_EVENT_DOWN && navPointerId == POINTER_ID_INVALID){
+            navPointerId = event.pointerId;
+            navBaseX = event.x;
+            navBaseY = event.y;
+        }else if(event.event == POINTER_EVENT_DOWN && lookPointerId == POINTER_ID_INVALID){
             lookPointerId = event.pointerId;
-        }else if(lookPointerId == event.pointerId){
+        }else if(event.pointerId == navPointerId){
+            if(event.event == POINTER_EVENT_UP){
+                navDeltaX = 0;
+                navDeltaY = 0;
+                navPointerId = POINTER_ID_INVALID;
+            }else if(event.event == POINTER_EVENT_MOVE){
+                navDeltaX = event.x - navBaseX;
+                navDeltaY = event.y - navBaseY;
+            }
+        }else if(event.pointerId == lookPointerId){
             if(event.event == POINTER_EVENT_UP){
                 lookPointerId = POINTER_ID_INVALID;
             }else if(event.event == POINTER_EVENT_MOVE){
@@ -258,20 +271,31 @@ void TestRenderer::drawFrame(){
         frameCounter = 0;
     }
     frameCounter++;
+    
+    
+    float maxSpeed = 2.0f;
     float dt = (now - lframe)/(float)NANOS_PER_SECOND;
     Vec3 dirX = (look.dir - Vec3::dot(look.dir, up) * up).normalize();
     if(wd){
-        pos += dt * dirX;
+        pos += maxSpeed * dt * dirX;
     }
     if(sd){
-        pos -= dt * dirX;
+        pos -= maxSpeed * dt * dirX;
     }
     if(ad){
-        pos -= dt * Vec3::cross(dirX, up);
+        pos -= maxSpeed * dt * Vec3::cross(dirX, up);
     }
     if(dd){
-        pos += dt * Vec3::cross(dirX, up);
+        pos += maxSpeed * dt * Vec3::cross(dirX, up);
     }
+    float navMult = 0.007f;
+    Vec2 navD = Vec2(navDeltaX, navDeltaY) * navMult;
+    float navM = navD.length();
+    if(navM >= maxSpeed){
+        navD *= maxSpeed / navM;
+    }
+    pos += navD.x * dt * Vec3::cross(dirX, up);
+    pos -= navD.y * dt * dirX;
     mvpMatrix.view = Mat4x4::look(pos, look.dir, up);
     lframe = now;
     Vec3 plp = pointLight.position;
@@ -328,6 +352,17 @@ void TestRenderer::drawFrame(){
     obj3->draw2(refShader,"a_position","u_color");
     glDisable(GL_DEPTH_TEST);
     
+    if(navPointerId != POINTER_ID_INVALID){
+        Vec2 center(navBaseX * 2.0f / Framebuffer::DEFAULT.width - 1.0f, navBaseY * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
+        Vec2 radius(maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.width, maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.height);
+        util_drawCircle(center, radius, Vec4(0.7f, 0.7f, 0.7f, 1.0f));
+        
+        center.set((navBaseX + navD.x / navMult) * 2.0f / Framebuffer::DEFAULT.width - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
+        radius *= 0.25f;
+        util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
+    }
+    //layout.draw();
+    
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     depthShader.init();
@@ -343,8 +378,6 @@ void TestRenderer::drawFrame(){
     texShader.uniformTexture("u_texture", textTexture.texture, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glDisable(GL_BLEND);
-    
-    //layout.draw();
 }
 
 void TestRenderer::destroy(){

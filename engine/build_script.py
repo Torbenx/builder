@@ -29,6 +29,7 @@ class Builder(build.Builder):
             "resource/asset_istream.cpp",
             "util/time.cpp",
             "util/target.cpp",
+            "util/draw_util.cpp",
             "input/Pointer.cpp",
             "input/Look3d.cpp",
             "ui/Layout.cpp",
@@ -49,7 +50,7 @@ class Builder(build.Builder):
                 "windows/text.cpp",
             ]
         if target == "android":
-            self.libs += ["android", "log", "GLESv2"]
+            self.libs += ["android", "log", "GLESv2", "egl"]
             self.input_files += [
                 "android/engine.cpp",
                 "android/assetbuf.cpp",

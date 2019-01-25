@@ -8,6 +8,8 @@ import android.view.SurfaceHolder;
 import android.view.WindowManager;
 import android.view.Surface;
 import android.view.InputQueue;
+import android.graphics.PixelFormat;
+import android.graphics.Canvas;
 import android.content.res.Configuration;
 import android.content.res.AssetManager;
 import android.util.Log;
@@ -137,12 +139,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     
     @Override
     public void surfaceRedrawNeeded(SurfaceHolder holder){
-        
     }
     
     @Override
     public void surfaceRedrawNeededAsync(SurfaceHolder holder, Runnable drawingFinished){
-        
+        drawingFinished.run();
     }
     
     @Override
