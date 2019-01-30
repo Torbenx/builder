@@ -2,7 +2,6 @@
 #define HEADER_RESOURCE_OBJPARSER_H
 
 #include <istream>
-#include "../util/SourceGetter.hpp"
 
 class ObjParser{
     public:
@@ -11,8 +10,6 @@ class ObjParser{
         ObjParser();
         ~ObjParser();
         void parse(std::istream& in, int nv, int ni);
-        SourceGetter<float*>* getVertexSource();
-        SourceGetter<float*>* getNormalSource();
         void freeCache();
 };
 

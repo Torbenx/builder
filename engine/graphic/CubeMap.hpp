@@ -2,11 +2,10 @@
 #define HEADER_GRAPHIC_CUBEMAP_H
 
 #include "../gl/glwrapper.hpp"
-#include "../util/SourceGetter.hpp"
 
 class CubeMap{
     public:
-        SourceGetter<void*> *posX,*negX,*posY,*negY,*posZ,*negZ;
+        void *posX,*negX,*posY,*negY,*posZ,*negZ;
         GLuint glId;
         GLfloat minFilter = GL_LINEAR;
         GLfloat magFilter = GL_LINEAR;
@@ -18,17 +17,17 @@ class CubeMap{
         ~CubeMap();
         bool init();
         void bind();
-        void texturePosX(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
-        void textureNegX(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
-        void texturePosY(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
-        void textureNegY(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
-        void texturePosZ(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
-        void textureNegZ(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
+        void texturePosX(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
+        void textureNegX(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
+        void texturePosY(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
+        void textureNegY(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
+        void texturePosZ(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
+        void textureNegZ(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
         void applyTexParameter();
         void setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,GLfloat wrapt);
     private:
         CubeMap(const CubeMap& other);
-        void texture(GLenum target,SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type);
+        void texture(GLenum target,void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
 };
 
 #endif

@@ -6,7 +6,7 @@ ShaderBuilder::ShaderBuilder(){
     
 }
 
-ShaderBuilder::ShaderBuilder(ShaderBuilder& s){
+ShaderBuilder::ShaderBuilder(const ShaderBuilder& s){
     rawPosition = s.rawPosition;
     worldPositionMulti = s.worldPositionMulti;
     rawPositionMulti = s.rawPositionMulti;
@@ -21,13 +21,13 @@ ShaderBuilder::ShaderBuilder(ShaderBuilder& s){
     fInit << s.fInit.str();
 }
 
-void ShaderBuilder::addLighting(AmbientLighting& l){
+void ShaderBuilder::addLight(AmbientLight& l){
     std::string colorUniform = newUniform(&(l.color));
     addFragmentUniform("vec3", colorUniform);
     fMain<<colorMulti<<" = max("<<colorMulti<<","<<colorUniform<<");\n";
 }
         
-void ShaderBuilder::addLighting(SpotLighting& l){
+void ShaderBuilder::addLight(SpotLight& l){
     std::string mvpUniform = newUniform(&l);
     std::string textureUniform = newUniform(l.depthMap);
     std::string colorUniform = newUniform(&(l.color));
@@ -48,7 +48,7 @@ void ShaderBuilder::addLighting(SpotLighting& l){
     fMain<<"if("<<positionVarying<<".z>0.0&&dot("<<pos<<","<<pos<<")<=1.0&&"<<positionVarying<<".z<="<<depth<<"*1.01){"<<colorMulti<<" += "<<colorUniform<<";}\n";
 }
         
-void ShaderBuilder::addLighting(PointLighting& l){
+void ShaderBuilder::addLight(PointLight& l){
     std::string textureUniform = newUniform(l.depthMap);
     std::string colorUniform = newUniform(&(l.color));
     std::string lightPosUniform = newUniform(&(l.position));

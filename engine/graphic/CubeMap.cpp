@@ -21,12 +21,8 @@ void CubeMap::bind(){
     glBindTexture(GL_TEXTURE_CUBE_MAP,glId);
 }
         
-void CubeMap::texturePosX(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
-    if(data){
-        posX = data;
-    }else{
-        posX = new NullSourceGetter<void*>();
-    }
+void CubeMap::texturePosX(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+    posX = data;
     posXwidth = width;
     posXheight = height;
     posXformat = format;
@@ -34,12 +30,8 @@ void CubeMap::texturePosX(SourceGetter<void*> *data,GLsizei width,GLsizei height
     texture(GL_TEXTURE_CUBE_MAP_POSITIVE_X,posX,width,height,format,type);
 }
         
-void CubeMap::textureNegX(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
-    if(data){
-        negX = data;
-    }else{
-        negX = new NullSourceGetter<void*>();
-    }
+void CubeMap::textureNegX(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+    negX = data;
     negXwidth = width;
     negXheight = height;
     negXformat = format;
@@ -47,12 +39,8 @@ void CubeMap::textureNegX(SourceGetter<void*> *data,GLsizei width,GLsizei height
     texture(GL_TEXTURE_CUBE_MAP_NEGATIVE_X,negX,width,height,format,type);
 }
         
-void CubeMap::texturePosY(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
-    if(data){
-        posY = data;
-    }else{
-        posY = new NullSourceGetter<void*>();
-    }
+void CubeMap::texturePosY(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+    posY = data;
     posYwidth = width;
     posYheight = height;
     posYformat = format;
@@ -60,12 +48,8 @@ void CubeMap::texturePosY(SourceGetter<void*> *data,GLsizei width,GLsizei height
     texture(GL_TEXTURE_CUBE_MAP_POSITIVE_Y,posY,width,height,format,type);
 }
         
-void CubeMap::textureNegY(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
-    if(data){
-        negY = data;
-    }else{
-        negY = new NullSourceGetter<void*>();
-    }
+void CubeMap::textureNegY(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+    negY = data;
     negYwidth = width;
     negYheight = height;
     negYformat = format;
@@ -73,12 +57,8 @@ void CubeMap::textureNegY(SourceGetter<void*> *data,GLsizei width,GLsizei height
     texture(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,negY,width,height,format,type);
 }
         
-void CubeMap::texturePosZ(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
-    if(data){
-        posZ = data;
-    }else{
-        posZ = new NullSourceGetter<void*>();
-    }
+void CubeMap::texturePosZ(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+    posZ = data;
     posZwidth = width;
     posZheight = height;
     posZformat = format;
@@ -86,12 +66,8 @@ void CubeMap::texturePosZ(SourceGetter<void*> *data,GLsizei width,GLsizei height
     texture(GL_TEXTURE_CUBE_MAP_POSITIVE_Z,posZ,width,height,format,type);
 }
         
-void CubeMap::textureNegZ(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
-    if(data){
-        negZ = data;
-    }else{
-        negZ = new NullSourceGetter<void*>();
-    }
+void CubeMap::textureNegZ(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+    negZ = data;
     negZwidth = width;
     negZheight = height;
     negZformat = format;
@@ -115,7 +91,7 @@ void CubeMap::setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,
     applyTexParameter();
 }
         
-void CubeMap::texture(GLenum target,SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+void CubeMap::texture(GLenum target,void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
     bind();
-    glTexImage2D(target,0,format,width,height,0,format,type,data->getSource());
+    glTexImage2D(target,0,format,width,height,0,format,type,data);
 }

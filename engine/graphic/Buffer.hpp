@@ -2,7 +2,6 @@
 #define HEADER_GRAPHIC_BUFFER_H
 
 #include "../gl/glwrapper.hpp"
-#include "../util/SourceGetter.hpp"
 #include <stdint.h>
 
 const static GLint TE_BUFFER = 0x00cf;
@@ -14,7 +13,7 @@ class Buffer{
         GLint usage;
         GLuint glId;
         GLsizeiptr size;
-        SourceGetter<T*> *source;
+        T *source;
         
         Buffer(GLint target){
             this->target = target;
@@ -36,13 +35,13 @@ class Buffer{
             glBindBuffer(target,glId);
         }
         
-        void bufferData(SourceGetter<T*> *data,GLsizeiptr sizeInBytes,GLint usage){
+        void bufferData(T* data,GLsizeiptr sizeInBytes,GLint usage){
             source = data;
             size = sizeInBytes;
             this->usage = usage;
             if(target!=TE_BUFFER){
                 bind();
-                glBufferData(target,sizeInBytes,data->getSource(),usage);
+                glBufferData(target,sizeInBytes,data,usage);
             }
         }
         

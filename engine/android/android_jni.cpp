@@ -12,7 +12,8 @@ jobject activity;
 AAssetManager *assetManager;
 
 jclass textClass;
-jmethodID goFullscreenID, exitFullscreenID, InputQueue_getNativePtrID, textConstructorID, drawTextID, textReleaseID;
+jmethodID goFullscreenID, exitFullscreenID, InputQueue_getNativePtrID;
+jmethodID textTextureConstructorID, drawTextID, textTextureReleaseID, createTextFormatID, getTextFormatWidthID, getTextFormatHeightID, getTextFormatLineCountID;
 
 void android_engineThreadInit(JNIEnv *env, jobject thiz, jobject jAssetManager, int cmdFd){
     env->GetJavaVM(&jvm);
@@ -28,34 +29,54 @@ void android_engineThreadInit(JNIEnv *env, jobject thiz, jobject jAssetManager, 
     
     clazz = env->FindClass("com/tt/engine/Text");
     textClass = (jclass)env->NewGlobalRef(clazz);
-    textConstructorID = env->GetMethodID(clazz, "<init>", "(III)V");
-    drawTextID = env->GetMethodID(clazz, "drawText", "(Ljava/lang/String;IFFFFF)[F");
-    textReleaseID = env->GetMethodID(clazz, "release", "()V");
+    textTextureConstructorID = env->GetMethodID(clazz, "<init>", "(III)V");
+    drawTextID = env->GetMethodID(clazz, "drawText", "(Landroid/text/StaticLayout;FFFFFFZ)[F");
+    textTextureReleaseID = env->GetMethodID(clazz, "release", "()V");
+    createTextFormatID = env->GetStaticMethodID(clazz, "createTextFormat", "(Ljava/lang/String;IF)Landroid/text/StaticLayout;");
+    getTextFormatWidthID = env->GetStaticMethodID(clazz, "getTextFormatWidth", "(Landroid/text/StaticLayout;)F");
+    getTextFormatHeightID = env->GetStaticMethodID(clazz, "getTextFormatHeight", "(Landroid/text/StaticLayout;)F");
+    getTextFormatLineCountID = env->GetStaticMethodID(clazz, "getTextFormatLineCount", "(Landroid/text/StaticLayout;)I");
     
     assetManager = AAssetManager_fromJava(env, jAssetManager);
     
     android_initThread(cmdFd);
 }
 
-jobject android_textConstructor(int glId, int width, int height){
-    JNIEnv *env;
-    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-    jobject obj = env->NewObject(textClass, textConstructorID, glId, width, height);
-    return env->NewGlobalRef(obj);
-}
-
-void android_drawText(jobject thiz, const char *text, int maxWidth, float textSize, float r, float g, float b, float a, Mat4x4& matrix){
+jobject android_createTextFormat(const char *text, int maxWidth, float textSize, float *width, float *height, int *lineCount){
     JNIEnv *env;
     jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
     jstring jText = env->NewStringUTF(text);
-    jfloatArray jMatrix = (jfloatArray)env->CallObjectMethod(thiz, drawTextID, jText, maxWidth, textSize, r, g, b, a);
+    jobject jFormat = env->CallStaticObjectMethod(textClass, createTextFormatID, jText, maxWidth, textSize);
+    *width = env->CallStaticFloatMethod(textClass, getTextFormatWidthID, jFormat);
+    *height = env->CallStaticFloatMethod(textClass, getTextFormatHeightID, jFormat);
+    *lineCount = env->CallStaticIntMethod(textClass, getTextFormatLineCountID, jFormat);
+    return env->NewGlobalRef(jFormat);
+}
+
+void android_releaseTextFormat(jobject jFormat){
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    env->DeleteGlobalRef(jFormat);
+}
+
+jobject android_textTextureConstructor(int glId, int width, int height){
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    jobject obj = env->NewObject(textClass, textTextureConstructorID, glId, width, height);
+    return env->NewGlobalRef(obj);
+}
+
+void android_drawText(jobject thiz, jobject jFormat, float posX, float posY, float r, float g, float b, float a, bool clear, Mat4x4& matrix){
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    jfloatArray jMatrix = (jfloatArray)env->CallObjectMethod(thiz, drawTextID, jFormat, posX, posY, r, g, b, a, clear);
     env->GetFloatArrayRegion(jMatrix, 0, 16, matrix.matrix);
 }
 
-void android_textRelease(jobject thiz){
+void android_textTextureRelease(jobject thiz){
     JNIEnv *env;
     jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-    env->CallVoidMethod(thiz, textReleaseID);
+    env->CallVoidMethod(thiz, textTextureReleaseID);
     env->DeleteGlobalRef(thiz);
 }
 

@@ -202,15 +202,17 @@ class Android(object):
             assert aapt_a_ret==0, "aapt add failed with %d" % aapt_a_ret
         
         align_start = time.time()
-        align_ret = subprocess.call([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], shell=True)
-        assert align_ret==0, "zipalign failed with %d" % align_ret
+        if add_files or apk_empty:
+            align_ret = subprocess.call([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], shell=True)
+            assert align_ret==0, "zipalign failed with %d" % align_ret
         
         sign_start = time.time()
-        sign_ret = subprocess.call([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], shell=True)
-        assert sign_ret==0, "sign failed with %d" % sign_ret
+        if add_files or apk_empty:
+            sign_ret = subprocess.call([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], shell=True)
+            assert sign_ret==0, "sign failed with %d" % sign_ret
         
         end = time.time()
-        print ("Android build finished in {total}s"+("\njavac: {javac}s\ndx: {dx}s\naapt package: {aapt_p}s\naapt add/remove: {aapt_ar}\nalign: {align}s\nsign: {sign}s" if True else "")).format(total=end-start_time, javac=dx_start-javac_start, dx=aapt_p_start-dx_start, aapt_p=aapt_ar_start-aapt_p_start, aapt_ar=align_start-aapt_ar_start, align=sign_start-align_start, sign=end-sign_start)
+        print ("Android build finished in {total}s"+("\njavac: {javac}s\ndx: {dx}s\naapt package: {aapt_p}s\naapt add/remove: {aapt_ar}\nalign: {align}s\nsign: {sign}s" if False else "")).format(total=end-start_time, javac=dx_start-javac_start, dx=aapt_p_start-dx_start, aapt_p=aapt_ar_start-aapt_p_start, aapt_ar=align_start-aapt_ar_start, align=sign_start-align_start, sign=end-sign_start)
         
     
     LOG_USAGE = "r to refresh pid, p to log package, c to clear, s to start, k to kill, e to exit logger"

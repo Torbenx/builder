@@ -24,18 +24,14 @@ void Texture::bind(){
     glBindTexture(target,glId);
 }
     
-void Texture::texture(SourceGetter<void*> *data,GLsizei width,GLsizei height,GLenum format,GLenum type){
-    if(data){
-        source = data;
-    }else{
-        source = new NullSourceGetter<void*>();
-    }
+void Texture::texture(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
+    source = data;
     this->width = width;
     this->height = height;
     this->format = format;
     this->type = type;
     bind();
-    glTexImage2D(target,0,format,width,height,0,format,type,source->getSource());
+    glTexImage2D(target,0,format,width,height,0,format,type,source);
     applyTexParameter();
 }
     

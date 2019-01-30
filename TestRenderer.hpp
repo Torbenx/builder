@@ -84,9 +84,9 @@ class TestRenderer : public Renderer{
         int frameCounter;
         float obj5_coords[4*3];
         Vec3 up;
-        PointLighting pointLight;
-        SpotLighting spotLight;
-        AmbientLighting ambientLight;
+        PointLight pointLight;
+        SpotLight spotLight;
+        AmbientLight ambientLight;
         Bufferf f1;
         Bufferf f2;
         Bufferf f3;

@@ -1,5 +1,4 @@
 #include "Renderer.hpp"
-#include "util/SourceGetter.hpp"
 #include "util/log.hpp"
 #include <string>
 #include "gl/glLog.hpp"
@@ -20,22 +19,22 @@
 TestRenderer::TestRenderer() :
         up(0,1,0),
         pointLight(
-                Vec3(0,1,-2),
-                1024,1024,
-                Vec3(1,1,1),
-                1000,
-                0.3f,
-                0.2f
-            ),
+            Vec3(0,1,-2),
+            1024,1024,
+            Vec3(1,1,1),
+            1000,
+            0.3f,
+            0.2f
+        ),
         spotLight(
-                Vec3(0,3.5,0),
-                Vec3(0.1,-3,0.1),
-                M_PI*0.4,
-                M_PI*0.4,
-                2048,2048,
-                Vec3(1,1,1)*0.4f,
-                10
-            ),
+            Vec3(0,3.5,0),
+            Vec3(0.1,-3,0.1),
+            M_PI*0.4,
+            M_PI*0.4,
+            2048,2048,
+            Vec3(1,1,1)*0.4f,
+            10
+        ),
         ambientLight(Vec3(1, 1, 1)*0.2f),
         f1(GL_ARRAY_BUFFER),
         f2(GL_ARRAY_BUFFER),
@@ -92,17 +91,22 @@ void TestRenderer::create(){
     reflection.framebuffer.setClearColor(0,0,0,1);
     Framebuffer::DEFAULT.setClearColor(0,0,0,1);
     f1.init();
-    f1.bufferData(new DirectSourceGetter<float*>(new float[3*4]{-1,-0,-1,1,-0,-1,-1,-0,1,1,-0,1}),3*4*4,GL_STATIC_DRAW);
+    float f1Src[] = {-1,-0,-1,1,-0,-1,-1,-0,1,1,-0,1};
+    f1.bufferData(f1Src,3*4*4,GL_STATIC_DRAW);
     f2.init();
-    f2.bufferData(new DirectSourceGetter<float*>(new float[3*4]{-1,3,0,1,3,0,-1,3,2,1,3,2}),3*4*4,GL_STATIC_DRAW);
+    float f2Src[] = {-1,3,0,1,3,0,-1,3,2,1,3,2};
+    f2.bufferData(f2Src,3*4*4,GL_STATIC_DRAW);
     f3.init();
-    f3.bufferData(new DirectSourceGetter<float*>(new float[3*4]{-10,-2,-10,-10,-2,10,10,-2,-10,10,-2,10}),3*4*4,GL_STATIC_DRAW);
+    float f3Src[] = {-10,-2,-10,-10,-2,10,10,-2,-10,10,-2,10};
+    f3.bufferData(f3Src,3*4*4,GL_STATIC_DRAW);
     f4.init();
-    f4.bufferData(new DirectSourceGetter<float*>(new float[3*4]{-10,4,-10,-10,4,10,10,4,-10,10,4,10}),3*4*4,GL_STATIC_DRAW);
+    float f4Src[] = {-10,4,-10,-10,4,10,10,4,-10,10,4,10};
+    f4.bufferData(f4Src,3*4*4,GL_STATIC_DRAW);
     f5.init();
-    f5.bufferData(new DirectSourceGetter<float*>(obj5_coords),3*4*4,GL_DYNAMIC_DRAW);
+    f5.bufferData(obj5_coords,3*4*4,GL_DYNAMIC_DRAW);
     tex_Coords.init();
-    tex_Coords.bufferData(new DirectSourceGetter<float*>(new float[3*4]{0,1, 1,1, 0,0, 1,0}),3*4*4,GL_STATIC_DRAW);
+    float tex_CoordsSrc[] = {0,1, 1,1, 0,0, 1,0};
+    tex_Coords.bufferData(tex_CoordsSrc,3*4*4,GL_STATIC_DRAW);
     tex_Position.init();
     d_coord.init();
     float x1 = -1;
@@ -110,23 +114,25 @@ void TestRenderer::create(){
     float y1 = -1;
     float add = 1.0f/3.0f;
     float y2 = -1+add;
-    d_coord.bufferData(new DirectSourceGetter<float*>(new float[6*2*3*2]{
+    float d_coordSrc[] = {
          x1,y1,x2,y1,x1,y2, x2,y1,x1,y2,x2,y2,
          x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
          x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
          x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
          x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
          x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2
-    }),6*2*3*2*4,GL_STATIC_DRAW);
+    };
+    d_coord.bufferData(d_coordSrc,6*2*3*2*4,GL_STATIC_DRAW);
     d_texCoord.init();
-    d_texCoord.bufferData(new DirectSourceGetter<float*>(new float[6*2*3*3]{
+    float d_texCoordSrc[] = {
          -1,-1,-1, 1,-1,-1, -1,1,-1,    1,-1,-1, -1,1,-1, 1,1,-1, //negZ
          -1,-1,1, 1,-1,1, -1,1,1,       1,-1,1, -1,1,1, 1,1,1, //posZ
          -1,-1,-1, 1,-1,-1, -1,-1,1,    1,-1,-1, -1,-1,1, 1,-1,1, //negY
          -1,1,-1, 1,1,-1, -1,1,1,       1,1,-1, -1,1,1, 1,1,1, //posY
          -1,-1,-1, -1,1,-1, -1,-1,1,    -1,1,-1, -1,-1,1, -1,1,1, //negX
          1,-1,-1, 1,1,-1, 1,-1,1,       1,1,-1, 1,-1,1, 1,1,1, //posX
-    }),6*2*3*3*4,GL_STATIC_DRAW);
+    };
+    d_texCoord.bufferData(d_texCoordSrc, 6*2*3*3*4, GL_STATIC_DRAW);
     obj1 = new DebugRenderable(&f1,Vec3(1,0,0));
     obj2 = new DebugRenderable(&f2,Vec3(0,1,0));
     obj3 = new DebugRenderable(&f3,Vec3(0.5,0.5,0.5));
@@ -138,9 +144,9 @@ void TestRenderer::create(){
     b.setFragmentColorUniform("u_color");
     b.setScreenMvpMatrixUniform("u_mvpMatrix");
     b.setWorldModelMatrixUniform("u_model");
-    b.addLighting(ambientLight);
-    b.addLighting(pointLight);
-    b.addLighting(spotLight);
+    b.addLight(ambientLight);
+    b.addLight(pointLight);
+    b.addLight(spotLight);
     shader = b.build();
     ShaderBuilder rb(b);
     rb.addReflection(reflection);
@@ -151,28 +157,9 @@ void TestRenderer::create(){
     asset_istream file("Pawn/Pawn.obj");
     parser.parse(file, 20000, 20000);
     pawnVertex.init();
-    pawnVertex.bufferData(new DirectSourceGetter<float*>(parser.vertex),parser.vertexSize*4,GL_STATIC_DRAW);
+    pawnVertex.bufferData(parser.vertex,parser.vertexSize*4,GL_STATIC_DRAW);
     pawn = new ObjRenderable(&pawnVertex, Vec3(0,1,1), parser.n);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
-    /*Vec3 max(parser.vertex[0],parser.vertex[1],parser.vertex[2]);
-    Vec3 min = max;
-    Vec3 avg(0);
-    for(int i=1;i<parser.n;i+=3){
-        Vec3 c(parser.vertex[i+0],parser.vertex[i+1],parser.vertex[i+2]);
-        if(c.x > max.x)max.x = c.x;
-        if(c.x < min.x)min.x = c.x;
-        if(c.y > max.y)max.y = c.y;
-        if(c.y < min.y)min.y = c.y;
-        if(c.z > max.z)max.z = c.z;
-        if(c.z < min.z)min.z = c.z;
-        avg += c;
-    }
-    LOGD("max");
-    max.debug();
-    LOGD("min");
-    min.debug();
-    LOGD("avg");
-    (avg / parser.n).debug();*/
     lframe = getNanos();
     
     #ifdef PLATFORM_WINDOWS
@@ -195,15 +182,17 @@ void TestRenderer::create(){
     
     layout.setTransform(Mat4x4::Id);
     
-    textTexture.init(1000, 500);
-    textTexture.drawText("Hello World gpq\nline2", -1, 50, Vec4(1,0,0,1));
+    TextFormat textFormat("Hello World gpq\nline2", -1, 50);
+    textTexture.init((int)(textFormat.getWidth()+1.0f) + 50, (int)(textFormat.getHeight()+1.0f) + 50);
+    textTexture.drawText(textFormat, Vec2(50.0f, 50.0f), Vec4(1,0,0,1), true);
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
     mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0 ,as ,1,100);
-    tex_Position.bufferData(new DirectSourceGetter<float*>(new float[2*4]{-1,-1, textTexture.texture.width * 2.0f / newWidth - 1.0f,-1, -1, textTexture.texture.height * 2.0f / newHeight - 1.0f, textTexture.texture.width * 2.0f / newWidth - 1.0f, textTexture.texture.height * 2.0f / newHeight - 1.0f}), 2*4*4, GL_STATIC_DRAW);
+    float text_PositionSrc[] = {-1,-1, textTexture.texture.width * 2.0f / newWidth - 1.0f,-1, -1, textTexture.texture.height * 2.0f / newHeight - 1.0f, textTexture.texture.width * 2.0f / newWidth - 1.0f, textTexture.texture.height * 2.0f / newHeight - 1.0f};
+    tex_Position.bufferData(text_PositionSrc, 2*4*4, GL_STATIC_DRAW);
 }
 
 void TestRenderer::pointer(PointerEvent event){
@@ -324,9 +313,9 @@ void TestRenderer::drawFrame(){
     pointLight.draw(mvpMatrix.model,ptrs,5);
     spotLight.draw(mvpMatrix.model,ptrs,5);
     shader->use();
-    shader->lighting(pointLight,mvpMatrix.model);
-    shader->lighting(spotLight,mvpMatrix.model);
-    shader->lighting(ambientLight);
+    shader->light(pointLight,mvpMatrix.model);
+    shader->light(spotLight,mvpMatrix.model);
+    shader->light(ambientLight);
     shader->uniformMat4x4("u_model",Mat4x4::Id);
     reflection.bind();
     reflection.getReflectionModel(mvpMatrix.model);
@@ -343,10 +332,10 @@ void TestRenderer::drawFrame(){
     obj5->draw2(shader,"a_position","u_color");
     pawn->draw2(shader,"a_position","u_model","u_color");
     refShader->use();
-    refShader->lighting(ambientLight);
+    refShader->light(ambientLight);
     refShader->reflection(reflection);
-    refShader->lighting(pointLight,mvpMatrix.model);
-    refShader->lighting(spotLight,mvpMatrix.model);
+    refShader->light(pointLight,mvpMatrix.model);
+    refShader->light(spotLight,mvpMatrix.model);
     refShader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
     refShader->uniformMat4x4("u_model",Mat4x4::Id);
     obj3->draw2(refShader,"a_position","u_color");

@@ -1,7 +1,7 @@
-#include "PointLighting.hpp"
+#include "PointLight.hpp"
 #include <cmath>
     
-PointLighting::PointLighting(Vec3 position,int width,int height,Vec3 color,float _far,float startBrightness,float halfBrightness){
+PointLight::PointLight(Vec3 position,int width,int height,Vec3 color,float _far,float startBrightness,float halfBrightness){
     depthMap = new DepthCubeMap(width,height,_far);
     this->position = position;
     this->color = color;
@@ -9,14 +9,14 @@ PointLighting::PointLighting(Vec3 position,int width,int height,Vec3 color,float
     this->halfBrightness = halfBrightness;
 }
     
-PointLighting::~PointLighting(){
+PointLight::~PointLight(){
     delete depthMap;
 }
     
-void PointLighting::init(){
+void PointLight::init(){
     depthMap->init();
 }
     
-void PointLighting::draw(Mat4x4 model,Renderable **ptrArray,int count){
+void PointLight::draw(Mat4x4 model,Renderable **ptrArray,int count){
     depthMap->draw(model,position,ptrArray,count);
 }

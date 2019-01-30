@@ -1,7 +1,7 @@
-#include "SpotLighting.hpp"
+#include "SpotLight.hpp"
 #include "../../util/log.hpp"
 
-SpotLighting::SpotLighting(Vec3 position,Vec3 direction,float hfov,float vfov,int texWidth,int texHeight,Vec3 color,float _far){
+SpotLight::SpotLight(Vec3 position,Vec3 direction,float hfov,float vfov,int texWidth,int texHeight,Vec3 color,float _far){
     //LOGI("Spot(v: %f ; h: %f ; %d x %d ; %f)",vfov,hfov,texWidth,texHeight,far);
     depthMap = new DepthMap(false,texWidth,texHeight,_far);
     this->position = position;
@@ -15,15 +15,15 @@ SpotLighting::SpotLighting(Vec3 position,Vec3 direction,float hfov,float vfov,in
     mvpMatrix.projection = Mat4x4::frustumVH(vfov,hfov,1,depthMap->m_far);
 }
     
-SpotLighting::~SpotLighting(){
+SpotLight::~SpotLight(){
     delete depthMap;
 }
     
-void SpotLighting::init(){
+void SpotLight::init(){
     depthMap->init();
 }
     
-void SpotLighting::draw(Mat4x4 model,Renderable **ptrArray,int count){
+void SpotLight::draw(Mat4x4 model,Renderable **ptrArray,int count){
     mvpMatrix.model = model;
     mvpMatrix.view = Mat4x4::look(position,direction,up);
     depthMap->draw(mvpMatrix,ptrArray,count);

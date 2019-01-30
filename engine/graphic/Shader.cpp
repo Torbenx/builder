@@ -164,7 +164,7 @@ void Shader::attribPointer(std::string attrib,int size,Bufferf& a){
         
 void Shader::attribPointer(std::string attrib,int offset,int size,int stride,Bufferf& a){
     if(a.target==TE_BUFFER){
-        glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a.source->getSource()+offset);
+        glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a.source+offset);
     }else{
         a.bind();
         glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,(void*)offset);

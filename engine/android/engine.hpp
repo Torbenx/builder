@@ -40,11 +40,17 @@ struct SurfaceChangeCmdData{
 };
 
 void setRenderer(Renderer *renderer);
-jobject android_textConstructor(int glId, int width, int height);
-void android_drawText(jobject thiz, const char* text, int maxWidth, float textSize, float r, float g, float b, float a, Mat4x4& matrix);
-void android_textRelease(jobject thiz);
+
+jobject android_createTextFormat(const char* text, int maxWidth, float textSize, float *width, float *height, int *lineCount);
+void android_releaseTextFormat(jobject obj);
+
+jobject android_textTextureConstructor(int glId, int width, int height);
+void android_drawText(jobject thiz, jobject jFormat, float posX, float posY, float r, float g, float b, float a, bool clear, Mat4x4& matrix);
+void android_textTextureRelease(jobject thiz);
+
 void android_goFullscreen();
 void android_exitFullscreen();
+
 void android_initThread(int cmdFd);
 void android_runThread();
 

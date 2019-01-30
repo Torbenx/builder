@@ -3,12 +3,8 @@
 
 #include "../graphic/Shader.hpp"
 #include <list>
-#include "lighting/AmbientLighting.hpp"
-#include "lighting/SpotLighting.hpp"
-#include "lighting/PointLighting.hpp"
 #include "../util/log.hpp"
 #include "LShader.hpp"
-#include "reflection/Reflection.hpp"
 #include <sstream>
 
 class ShaderBuilder{
@@ -18,10 +14,10 @@ class ShaderBuilder{
         int uCount = 0,aCount = 0,vCount = 0,varCount = 0;
         std::ostringstream vMain,fMain,vInit,fInit;
         ShaderBuilder();
-        ShaderBuilder(ShaderBuilder& source);
-        void addLighting(AmbientLighting& l);
-        void addLighting(SpotLighting& l);
-        void addLighting(PointLighting& l);
+        ShaderBuilder(const ShaderBuilder& source);
+        void addLight(AmbientLight& l);
+        void addLight(SpotLight& l);
+        void addLight(PointLight& l);
         void addReflection(Reflection& r);
         void setFragmentColor(std::string s);
         void addToFragmentColor(std::string s);

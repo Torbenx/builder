@@ -13,6 +13,18 @@
 #define TEXT_TEXTURE_GLSL_HEADER
 #endif
 
+class TextFormat{
+    public:
+        void *internal;
+        TextFormat(std::string, int maxWidth, float textSize);
+        ~TextFormat();
+        float getWidth();
+        float getHeight();
+        int getLineCount();
+    private:
+        TextFormat(const TextFormat& other){};
+};
+
 class TextTexture{
     public:
         void* internal;
@@ -20,7 +32,9 @@ class TextTexture{
         TextTexture();
         ~TextTexture();
         void init(int width, int height);
-        void drawText(std::string text, int maxWidth, float textSize, Vec4 color);
+        void drawText(const TextFormat& text, Vec2 position, Vec4 color, bool clear);
+    private:
+        TextTexture(const TextTexture& other){};
 };
 
 #endif

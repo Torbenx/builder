@@ -2,7 +2,6 @@
 #define HEADER_GRAPHIC_SHADER_H
 
 #include "../gl/glwrapper.hpp"
-#include "../util/SourceGetter.hpp"
 #include "../math/Vec4.hpp"
 #include "Buffer.hpp"
 #include "Texture.hpp"

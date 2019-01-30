@@ -16,7 +16,7 @@ typedef struct{
     HANDLE sharedTexture;
     ID3D11Texture2D *dxTexture;
     ID2D1Bitmap1 *dxBitmap;
-} DxTextImpl;
+} DxTextTextureImpl;
 
 void text_init(){
     ID2D1Factory1 *d2Factroy;
@@ -30,12 +30,55 @@ void text_init(){
     DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown**)&writeFactory);
 }
 
+TextFormat::TextFormat(std::string text, int maxWidth, float textSize){
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    std::wstring wText = converter.from_bytes(text.data());
+    
+    IDWriteTextFormat *format;
+    writeFactory->CreateTextFormat(L"Verdana", NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, textSize, L"", &format);
+    
+    IDWriteTextLayout *layout;
+    writeFactory->CreateTextLayout(wText.data(), text.length(), format, maxWidth < 0 ? INFINITY : maxWidth, INFINITY, &layout);
+    
+    format->Release();
+
+    internal = layout;
+}
+
+float TextFormat::getWidth(){
+    IDWriteTextLayout *layout = (IDWriteTextLayout*)internal;
+    DWRITE_TEXT_METRICS metrics;
+    layout->GetMetrics(&metrics);
+    return metrics.width;
+}
+
+float TextFormat::getHeight(){
+    IDWriteTextLayout *layout = (IDWriteTextLayout*)internal;
+    DWRITE_TEXT_METRICS metrics;
+    layout->GetMetrics(&metrics);
+    return metrics.height;
+}
+
+int TextFormat::getLineCount(){
+    IDWriteTextLayout *layout = (IDWriteTextLayout*)internal;
+    DWRITE_TEXT_METRICS metrics;
+    layout->GetMetrics(&metrics);
+    return metrics.lineCount;
+}
+
+TextFormat::~TextFormat(){
+    IDWriteTextLayout *layout = (IDWriteTextLayout*)internal;
+    layout->Release();
+}
+
+
+
 TextTexture::TextTexture(){
-    internal = new DxTextImpl();
+    internal = new DxTextTextureImpl();
 }
 
 void TextTexture::init(int width, int height){
-    DxTextImpl *impl = (DxTextImpl*)internal;
+    DxTextTextureImpl *impl = (DxTextTextureImpl*)internal;
     texture.init();
     D3D11_TEXTURE2D_DESC desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE);
     HRESULT hr = dxDevice->CreateTexture2D(&desc, NULL, &impl->dxTexture);
@@ -60,35 +103,30 @@ void TextTexture::init(int width, int height){
     texture.type = GL_UNSIGNED_INT;
 }
 
-void TextTexture::drawText(std::string text, int maxWidth, float textSize, Vec4 color){
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    std::wstring wText = converter.from_bytes(text.data());
-    
-    DxTextImpl *impl = (DxTextImpl*)internal;
+void TextTexture::drawText(const TextFormat& text, Vec2 position, Vec4 color, bool clear){
+    DxTextTextureImpl *impl = (DxTextTextureImpl*)internal;
     wglDXUnlockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
     d2Context->SetTarget(impl->dxBitmap);
     
     ID2D1SolidColorBrush *brush;
     d2Context->CreateSolidColorBrush(D2D1::ColorF(color.x, color.y, color.z, color.w), &brush);
     
-    IDWriteTextFormat *textFormat;
-    writeFactory->CreateTextFormat(L"Verdana", NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, textSize, L"", &textFormat);
-    
     d2Context->BeginDraw();
     
-    d2Context->Clear();
-    d2Context->DrawText(wText.data(), text.length(), textFormat, D2D1::RectF(0, 0, maxWidth < 0 ? INFINITY : maxWidth, texture.height), brush);
+    if(clear){
+        d2Context->Clear();
+    }
+    d2Context->DrawTextLayout({position.x, position.y}, (IDWriteTextLayout*)text.internal, brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
     
     d2Context->EndDraw();
     
     brush->Release();
-    textFormat->Release();
     
     wglDXLockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
 }
 
 TextTexture::~TextTexture(){
-    DxTextImpl *impl = (DxTextImpl*)internal;
+    DxTextTextureImpl *impl = (DxTextTextureImpl*)internal;
     wglDXUnregisterObjectNV(hDxDevice, impl->sharedTexture);
     impl->dxBitmap->Release();
     impl->dxTexture->Release();
