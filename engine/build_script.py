@@ -17,6 +17,7 @@ class Builder(build.Builder):
             "math/Vec2.cpp",
             "math/Vec3.cpp",
             "math/Vec4.cpp",
+            "math/Rect.cpp",
             "lgraphic/DepthCubeMap.cpp",
             "lgraphic/DepthMap.cpp",
             "lgraphic/LShader.cpp",
@@ -32,8 +33,9 @@ class Builder(build.Builder):
             "util/draw_util.cpp",
             "input/Pointer.cpp",
             "input/Look3d.cpp",
-            "ui/Layout.cpp",
             "ui/TestComponent.cpp",
+            "ui/TextureComponent.cpp",
+            "ui/TextComponent.cpp",
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]

@@ -10,8 +10,8 @@
 #include "lgraphic/DepthMap.hpp"
 #include "lgraphic/ShaderBuilder.hpp"
 #include "input/Look3d.hpp"
-#include "ui/Layout.hpp"
 #include "ui/text.hpp"
+#include "ui/TextComponent.hpp"
 #include <cmath>
 
 class DebugRenderable : public Renderable{
@@ -102,14 +102,14 @@ class TestRenderer : public Renderer{
         Shader texShader;
         Reflection reflection;
         Look3d look;
-        Layout layout;
-        TextTexture textTexture;
+        TextComponent textComp;
         int32_t w = -1,a = -1,s = -1,d = -1;
         Vec3 pos;
         bool wd = false, ad = false, sd = false, dd = false;
         int lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
         int navBaseX, navBaseY;
         int navDeltaX = 0, navDeltaY = 0;
+        TextureComponent refTextureComp;
         
         TestRenderer();
         void create();

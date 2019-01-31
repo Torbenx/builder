@@ -168,31 +168,23 @@ void TestRenderer::create(){
     goFullscreen(FullscreenConfig::DEFAULT);
     #endif
     
-    UiComponentHandle handle = layout.add(new TestComponent(Vec3(1,0,0)));
-    layout.width(handle, 0.25f);
-    layout.height(handle, 0.25f);
-    layout.top(handle, 0.0f);
-    layout.left(handle, 0.0f);
+    textComp.text = "Hello World";
+    textComp.textSize = 0.1f;
+    textComp.textColor = Vec4(1, 0, 0, 1);
+    textComp.rect = Rect::bltr(-1, -1, 0, -0.5f);
     
-    UiComponentHandle below = layout.add(new TestComponent(Vec3(0,0,1)));
-    layout.width(below, 0.3f);
-    layout.height(below, 0.25f);
-    layout.right(below, 0.0f);
-    layout.above(handle, below, 0.1f);
-    
-    layout.setTransform(Mat4x4::Id);
-    
-    TextFormat textFormat("Hello World gpq\nline2", -1, 50);
-    textTexture.init((int)(textFormat.getWidth()+1.0f) + 50, (int)(textFormat.getHeight()+1.0f) + 50);
-    textTexture.drawText(textFormat, Vec2(50.0f, 50.0f), Vec4(1,0,0,1), true);
+    refTextureComp.texture = &reflection.texture;
+    refTextureComp.rect = Rect::bltr(-0.5f, -0.5f, 0.5f, 0.5f);
+    refTextureComp.updateRect();
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
     mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0 ,as ,1,100);
-    float text_PositionSrc[] = {-1,-1, textTexture.texture.width * 2.0f / newWidth - 1.0f,-1, -1, textTexture.texture.height * 2.0f / newHeight - 1.0f, textTexture.texture.width * 2.0f / newWidth - 1.0f, textTexture.texture.height * 2.0f / newHeight - 1.0f};
-    tex_Position.bufferData(text_PositionSrc, 2*4*4, GL_STATIC_DRAW);
+    textComp.screenWidth = newWidth;
+    textComp.screenHeight = newHeight;
+    textComp.updateRect();
 }
 
 void TestRenderer::pointer(PointerEvent event){
@@ -316,16 +308,18 @@ void TestRenderer::drawFrame(){
     shader->light(pointLight,mvpMatrix.model);
     shader->light(spotLight,mvpMatrix.model);
     shader->light(ambientLight);
-    shader->uniformMat4x4("u_model",Mat4x4::Id);
     reflection.bind();
     reflection.getReflectionModel(mvpMatrix.model);
     shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
+    shader->uniformMat4x4("u_model",Mat4x4::Id);
     obj1->draw2(shader,"a_position","u_color");
     obj2->draw2(shader,"a_position","u_color");
     obj4->draw2(shader,"a_position","u_color");
+    pawn->draw2(shader,"a_position","u_model","u_color");
     reflection.unbind();
     mvpMatrix.model = Mat4x4::Id;
     shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
+    shader->uniformMat4x4("u_model",Mat4x4::Id);
     obj1->draw2(shader,"a_position","u_color");
     obj2->draw2(shader,"a_position","u_color");
     obj4->draw2(shader,"a_position","u_color");
@@ -350,23 +344,16 @@ void TestRenderer::drawFrame(){
         radius *= 0.25f;
         util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
-    //layout.draw();
     
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_BLEND);
+    //refTextureComp.draw();
+    textComp.draw();
+    
     depthShader.init();
     depthShader.use();
     depthShader.attribPointer("a_position",2,d_coord);
     depthShader.attribPointer("a_texCoord",3,d_texCoord);
     depthShader.uniformCubeMap("u_texture",pointLight.depthMap->texture,0);
     //glDrawArrays(GL_TRIANGLES,0,6*2*3);
-    texShader.init();
-    texShader.use();
-    texShader.attribPointer("a_position", 2, tex_Position);
-    texShader.attribPointer("a_texCoord", 2, tex_Coords);
-    texShader.uniformTexture("u_texture", textTexture.texture, 0);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glDisable(GL_BLEND);
 }
 
 void TestRenderer::destroy(){
