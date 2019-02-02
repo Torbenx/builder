@@ -10,15 +10,15 @@ void LShader::light(AmbientLight& l){
 }
         
 void LShader::light(SpotLight& l,Mat4x4 model){
-    uniformVec3(locations[&(l.color)],l.color);
+    uniformVec3(locations[&l.color],l.color);
     uniformMat4x4(locations[&l],l.mvpMatrix.setupMvp(model));
-    uniformTexture(locations[l.depthMap],l.depthMap->texture,getTextureSlot(&(l.depthMap->texture)));
+    uniformTexture(locations[&l.depthMap],l.depthMap.texture,getTextureSlot(&l.depthMap.texture));
 }    
         
 void LShader::light(PointLight& l,Mat4x4 model){
-    uniformVec3(locations[&(l.color)],l.color);
-    uniformVec3(locations[&(l.position)],l.position);
-    uniformCubeMap(locations[l.depthMap],l.depthMap->texture,getTextureSlot(&(l.depthMap->texture)));
+    uniformVec3(locations[&l.color],l.color);
+    uniformVec3(locations[&l.position],l.position);
+    uniformCubeMap(locations[&l.depthMap],l.depthMap.texture,getTextureSlot(&l.depthMap.texture));
 }
 
 void LShader::reflection(Reflection& r){

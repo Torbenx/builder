@@ -10,7 +10,7 @@
 #define TEXT_TEXTURE_GLSL_HEADER "#extension GL_OES_EGL_image_external : require\n"
 #else
 #define TEXT_TEXTURE_GLSL_SAMPLER "sampler2D"
-#define TEXT_TEXTURE_GLSL_HEADER
+#define TEXT_TEXTURE_GLSL_HEADER ""
 #endif
 
 class TextFormat{

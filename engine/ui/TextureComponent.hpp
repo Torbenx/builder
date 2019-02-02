@@ -11,10 +11,11 @@ class TextureComponent : public UiComponent{
         float coords[4*2];
         float texCoords[4*2];
         TextureComponent();
-        TextureComponent(std::string header, std::string sampler, std::string texFunc);
+        TextureComponent(std::string header, std::string sampler, std::string texFunc, std::string modColor);
         void setTexRect(Rect rect);
         void draw();
         void updateRect();
+        virtual void doUniforms(){}
 };
 
 #endif

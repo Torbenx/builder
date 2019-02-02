@@ -37,13 +37,14 @@ def compile(self, source):
         dep = join(self.ibuild_dir, source+".d")
         rebuild = self.rebuild or (not os.path.exists(output)) or (not os.path.exists(dep))
         if not rebuild:
+            lastBuildTime = os.path.getmtime(output);
             with open(dep, "r") as f:
                 for line in f:
                     files = string.split(line)
                     for file in files:
                         if file == ":" or file == "\\":
                             continue
-                        if (not os.path.exists(file)) or os.path.getmtime(file) > self.lastBuildTime:
+                        if os.path.getmtime(file) > lastBuildTime:
                             rebuild = True
                             break
                     if rebuild: break
@@ -78,25 +79,16 @@ class Builder(object):
         self.compile_cmd = []
         self.link_cmd = []
         self.file_compile_args = dict()
-        
-        self.buildTimeFile = "buildTime"
-        self.lastBuildTime = 0
-        self.buildTime = 0
 
     def build(self):
         self.failed = False
         self.changed = False
         self.buildTime = time.time()
         self.ibuild_dir = self.build_dir
-        try:
-            with open(join(self.ibuild_dir, self.buildTimeFile), "r") as f:
-                self.lastBuildTime = float(f.read())
-        except Exception as ex:
-            print "First build: "+str(ex)
         
         threads = []
         for source in self.input_files:
-            sourceDir = os.path.dirname(source);
+            sourceDir = os.path.dirname(source)
             outputDir = join(self.ibuild_dir, sourceDir)
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
@@ -107,20 +99,15 @@ class Builder(object):
             
         #for thread in threads:
         #    thread.join()
+            
+        if (not self.changed) and not self.rebuild:
+            print "NOTHING TO DO"
+            return
 
         if self.failed:
             print "BUILD FAILED"
             return
             
-        if (not self.changed) and not self.rebuild:
-            print "NOTHING TO DO"
-            return
-        
-        try:
-            with open(join(self.ibuild_dir, self.buildTimeFile), "w") as f:
-                f.write(str(self.buildTime))
-        except Exception as ex:
-            print ex
         output_dir = os.path.dirname(self.output_file)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)

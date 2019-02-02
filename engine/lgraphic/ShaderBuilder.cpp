@@ -29,8 +29,8 @@ void ShaderBuilder::addLight(AmbientLight& l){
         
 void ShaderBuilder::addLight(SpotLight& l){
     std::string mvpUniform = newUniform(&l);
-    std::string textureUniform = newUniform(l.depthMap);
-    std::string colorUniform = newUniform(&(l.color));
+    std::string textureUniform = newUniform(&l.depthMap);
+    std::string colorUniform = newUniform(&l.color);
     std::string positionVarying = newVarying();
     addVertexUniform("mat4",mvpUniform);
     addFragmentUniform("sampler2D",textureUniform);
@@ -40,7 +40,7 @@ void ShaderBuilder::addLight(SpotLight& l){
     std::string depth = newVar();
     vMain<<positionVarying<<" = "<<mvpUniform<<" * "<<worldPosition<<";\n";
     char buff[100];
-    sprintf(buff,"%f",l.depthMap->m_far);
+    sprintf(buff,"%f",l.depthMap.m_far);
     fMain<<"const float "<<m_far<<" = "<<buff<<";\n";
     std::string pos = newVar();
     fMain<<"vec2 "<<pos<<" = "<<positionVarying<<".xy/"<<positionVarying<<".w;\n";
@@ -49,9 +49,9 @@ void ShaderBuilder::addLight(SpotLight& l){
 }
         
 void ShaderBuilder::addLight(PointLight& l){
-    std::string textureUniform = newUniform(l.depthMap);
-    std::string colorUniform = newUniform(&(l.color));
-    std::string lightPosUniform = newUniform(&(l.position));
+    std::string textureUniform = newUniform(&l.depthMap);
+    std::string colorUniform = newUniform(&l.color);
+    std::string lightPosUniform = newUniform(&l.position);
     std::string positionVarying = newVarying();
     addFragmentUniform("samplerCube",textureUniform);
     addFragmentUniform("vec3",colorUniform);
@@ -63,7 +63,7 @@ void ShaderBuilder::addLight(PointLight& l){
     std::string pos = newVar();
     std::string distance = newVar();
     char buff[100];
-    sprintf(buff,"%f",l.depthMap->m_far);
+    sprintf(buff,"%f",l.depthMap.m_far);
     fMain<<"vec3 "<<pos<<" = "<<positionVarying<<".xyz/"<<positionVarying<<".w;\n";
     fMain<<"const float "<<_far<<" = "<<buff<<";\n";
     float invOff0 = 1.0f / l.startBrightness;
@@ -72,7 +72,7 @@ void ShaderBuilder::addLight(PointLight& l){
     fMain<<"float "<<distance<<" = distance("<<pos<<","<<lightPosUniform<<");\n";
     sprintf(buff,"%f",invOff0);
     fMain<<"if("<<distance<<"<="<<depth<<"*1.01){"<<colorMulti<<" = "<<colorUniform<<"/("<<buff<<"+";
-    sprintf(buff,"%f",(1.0f/l.halfBrightness-invOff0)*4.0f/(l.depthMap->m_far*l.depthMap->m_far));
+    sprintf(buff,"%f",(1.0f/l.halfBrightness-invOff0)*4.0f/(l.depthMap.m_far*l.depthMap.m_far));
     fMain<<buff<<"*"<<distance<<"*"<<distance<<");}\n";
 }
 

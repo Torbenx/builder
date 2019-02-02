@@ -9,8 +9,8 @@
 #include "util/time.hpp"
 #include "util/target.hpp"
 #include "fullscreen.hpp"
-#include "ui/TestComponent.hpp"
 #include "util/draw_util.hpp"
+#include "ui/RectBuilder.hpp"
 
 #ifdef PLATFORM_WINDOWS
 #include "windows/fullscreen.hpp"
@@ -41,44 +41,7 @@ TestRenderer::TestRenderer() :
         f3(GL_ARRAY_BUFFER),
         f4(GL_ARRAY_BUFFER),
         f5(TE_BUFFER),
-        d_coord(GL_ARRAY_BUFFER),
-        d_texCoord(GL_ARRAY_BUFFER),
-        tex_Coords(GL_ARRAY_BUFFER),
-        tex_Position(GL_ARRAY_BUFFER),
         pawnVertex(GL_ARRAY_BUFFER),
-        depthShader(
-            "attribute vec4 a_position;\n"
-            "attribute vec3 a_texCoord;\n"
-            "varying vec3 v_texCoord;\n"
-            "void main(){\n"
-            "    gl_Position = a_position;\n"
-            "    v_texCoord = a_texCoord;\n"
-            "}",
-            "uniform samplerCube u_texture;\n"
-            "varying vec3 v_texCoord;\n"
-            "void main(){\n"
-            "    float far = 1000.0;\n"
-            "    vec4 bits = vec4(far,far/255.0,far/255.0/255.0,far/255.0/255.0/255.0);\n"
-            "    vec4 f = textureCube(u_texture,v_texCoord);\n"
-            "    gl_FragColor = vec4(vec3(dot(bits,f))/15.0,1.0);\n"
-            "}"),
-        texShader(
-            "attribute vec4 a_position;\n"
-            "attribute vec2 a_texCoord;\n"
-            "varying vec2 v_texPos;\n"
-            "void main(){\n"
-            "    gl_Position = a_position;\n"
-            "    v_texPos = a_texCoord;\n"
-            "}",
-            TEXT_TEXTURE_GLSL_HEADER
-            "varying vec2 v_texPos;\n"
-            "uniform " TEXT_TEXTURE_GLSL_SAMPLER " u_texture;\n"
-            "void main(){\n"
-            "    float far = 20.0;\n"
-            "    vec4 bits = vec4(far,far/255.0,far/255.0/255.0,far/255.0/255.0/255.0);\n"
-            "    vec4 f = texture2D(u_texture, v_texPos);\n"
-            "    gl_FragColor = f;\n"//vec4(vec3(dot(bits,f))/far,1.0);\n"
-            "}"),
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.5f),
         look(up, isAndroid()),
         pos(7,1,0)
@@ -104,35 +67,6 @@ void TestRenderer::create(){
     f4.bufferData(f4Src,3*4*4,GL_STATIC_DRAW);
     f5.init();
     f5.bufferData(obj5_coords,3*4*4,GL_DYNAMIC_DRAW);
-    tex_Coords.init();
-    float tex_CoordsSrc[] = {0,1, 1,1, 0,0, 1,0};
-    tex_Coords.bufferData(tex_CoordsSrc,3*4*4,GL_STATIC_DRAW);
-    tex_Position.init();
-    d_coord.init();
-    float x1 = -1;
-    float x2 = 0;
-    float y1 = -1;
-    float add = 1.0f/3.0f;
-    float y2 = -1+add;
-    float d_coordSrc[] = {
-         x1,y1,x2,y1,x1,y2, x2,y1,x1,y2,x2,y2,
-         x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
-         x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
-         x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
-         x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2,
-         x1,y1+=add,x2,y1,x1,y2+=add, x2,y1,x1,y2,x2,y2
-    };
-    d_coord.bufferData(d_coordSrc,6*2*3*2*4,GL_STATIC_DRAW);
-    d_texCoord.init();
-    float d_texCoordSrc[] = {
-         -1,-1,-1, 1,-1,-1, -1,1,-1,    1,-1,-1, -1,1,-1, 1,1,-1, //negZ
-         -1,-1,1, 1,-1,1, -1,1,1,       1,-1,1, -1,1,1, 1,1,1, //posZ
-         -1,-1,-1, 1,-1,-1, -1,-1,1,    1,-1,-1, -1,-1,1, 1,-1,1, //negY
-         -1,1,-1, 1,1,-1, -1,1,1,       1,1,-1, -1,1,1, 1,1,1, //posY
-         -1,-1,-1, -1,1,-1, -1,-1,1,    -1,1,-1, -1,-1,1, -1,1,1, //negX
-         1,-1,-1, 1,1,-1, 1,-1,1,       1,1,-1, 1,-1,1, 1,1,1, //posX
-    };
-    d_texCoord.bufferData(d_texCoordSrc, 6*2*3*3*4, GL_STATIC_DRAW);
     obj1 = new DebugRenderable(&f1,Vec3(1,0,0));
     obj2 = new DebugRenderable(&f2,Vec3(0,1,0));
     obj3 = new DebugRenderable(&f3,Vec3(0.5,0.5,0.5));
@@ -168,14 +102,16 @@ void TestRenderer::create(){
     goFullscreen(FullscreenConfig::DEFAULT);
     #endif
     
+    
+    
     textComp.text = "Hello World";
     textComp.textSize = 0.1f;
     textComp.textColor = Vec4(1, 0, 0, 1);
-    textComp.rect = Rect::bltr(-1, -1, 0, -0.5f);
+    textComp.noBreaks = true;
     
-    refTextureComp.texture = &reflection.texture;
-    refTextureComp.rect = Rect::bltr(-0.5f, -0.5f, 0.5f, 0.5f);
-    refTextureComp.updateRect();
+    cubeComp.farDepth = 10.0f;
+    cubeComp.cubeMap = &pointLight.depthMap.texture;
+    cubeComp.positiveZ(Rect::bltr(-1, -1, 1, 1));
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
@@ -184,7 +120,25 @@ void TestRenderer::change(int newWidth,int newHeight){
     mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0 ,as ,1,100);
     textComp.screenWidth = newWidth;
     textComp.screenHeight = newHeight;
+    textComp.updateText();
+    
+    
+    RectBuilder cubeRect;
+    cubeRect.top(0.0f);
+    cubeRect.height(0.5f);
+    cubeRect.right(1.0f);
+    cubeRect.left(0.5f);
+    
+    RectBuilder textRect;
+    textRect.centerVertical(1.0f, -1.0f);
+    textRect.centerHorizontal(-1.0f, 1.0f);
+    textRect.width(textComp.getTextWidth());
+    textRect.height(textComp.getTextHeight());
+    
+    textComp.rect = textRect.build();
     textComp.updateRect();
+    cubeComp.rect = cubeRect.build();
+    cubeComp.updateRect();
 }
 
 void TestRenderer::pointer(PointerEvent event){
@@ -345,15 +299,8 @@ void TestRenderer::drawFrame(){
         util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
     
-    //refTextureComp.draw();
+    cubeComp.draw();
     textComp.draw();
-    
-    depthShader.init();
-    depthShader.use();
-    depthShader.attribPointer("a_position",2,d_coord);
-    depthShader.attribPointer("a_texCoord",3,d_texCoord);
-    depthShader.uniformCubeMap("u_texture",pointLight.depthMap->texture,0);
-    //glDrawArrays(GL_TRIANGLES,0,6*2*3);
 }
 
 void TestRenderer::destroy(){

@@ -1,10 +1,10 @@
 #include "TextureComponent.hpp"
 
-TextureComponent::TextureComponent() : TextureComponent("", "sampler2D", "texture2D"){
+TextureComponent::TextureComponent() : TextureComponent("", "sampler2D", "texture2D", ""){
     
 }
 
-TextureComponent::TextureComponent(std::string header, std::string sampler, std::string texFunc) : 
+TextureComponent::TextureComponent(std::string header, std::string sampler, std::string texFunc, std::string modColor) : 
 shader(
 "attribute vec4 a_position;\n"
 "attribute vec2 a_texPosition;\n"
@@ -18,6 +18,7 @@ header+
 "varying vec2 v_texPosition;\n"
 "void main(){\n"
 "   gl_FragColor = "+texFunc+"(u_texture, v_texPosition);\n"
++modColor+
 "}"){
     setTexRect(Rect::bltr(0.0f, 0.0f, 1.0f, 1.0f));
 }
@@ -28,6 +29,7 @@ void TextureComponent::draw(){
     shader.attribPointer("a_position", 2, coords);
     shader.attribPointer("a_texPosition", 2, texCoords);
     shader.uniformTexture("u_texture", *texture, 0);
+    doUniforms();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 

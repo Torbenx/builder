@@ -5,8 +5,7 @@
 
 class Rect{
     public:
-        Vec2 tl;
-        Vec2 br;
+        float top,bottom,left,right;
         Rect();
         float getWidth();
         float getHeight();
@@ -18,9 +17,10 @@ class Rect{
         Vec2 getTopRight();
         Vec2 getBottomRight();
         Vec2 getBottomLeft();
-        Rect operator+=(Vec2 right);
-        Rect operator-=(Vec2 right);
-        Rect operator=(Rect right);
+        bool contains(Vec2 p);
+        Rect operator+=(Vec2 v);
+        Rect operator-=(Vec2 v);
+        Rect operator=(Rect other);
         static Rect btlr(float bottom, float top, float left, float right);
         static Rect bltr(float bottom, float left, float top, float right);
         static Rect tlbr(float top, float left, float bottom, float right);

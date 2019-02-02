@@ -6,7 +6,7 @@
 class SpotLight{
     public:
         Vec3 position,direction,up;
-        DepthMap *depthMap;
+        DepthMap depthMap;
         float hfov,vfov;
         MvpMatrix mvpMatrix;
         int width,height;

@@ -36,6 +36,10 @@ class Builder(build.Builder):
             "ui/TestComponent.cpp",
             "ui/TextureComponent.cpp",
             "ui/TextComponent.cpp",
+            "ui/DepthMapComponent.cpp",
+            "ui/CubeMapComponent.cpp",
+            "ui/DepthCubeMapComponent.cpp",
+            "ui/RectBuilder.cpp",
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]

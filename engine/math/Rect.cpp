@@ -5,80 +5,96 @@ Rect::Rect(){
 }
 
 float Rect::getWidth(){
-    return br.x - tl.x;
+    return right - left;
 }
 
 float Rect::getHeight(){
-    return tl.y - br.y;
+    return top - bottom;
 }
 
 float Rect::getTop(){
-    return tl.y;
+    return top;
 }
 
 float Rect::getBottom(){
-    return br.y;
+    return bottom;
 }
 
 float Rect::getLeft(){
-    return tl.x;
+    return left;
 }
 
 float Rect::getRight(){
-    return br.x;
+    return right;
 }
 
 Vec2 Rect::getTopLeft(){
-    return tl;
+    return Vec2(left, top);
 }
 
 Vec2 Rect::getTopRight(){
-    return Vec2(br.x, tl.y);
+    return Vec2(right, top);
 }
 
 Vec2 Rect::getBottomRight(){
-    return br;
+    return Vec2(right, bottom);
 }
 
 Vec2 Rect::getBottomLeft(){
-    return Vec2(tl.x, br.y);
+    return Vec2(left, bottom);
 }
 
-Rect Rect::operator+=(Vec2 right){
-    tl += right;
-    br += right;
+bool Rect::contains(Vec2 p){
+    return left <= p.x && p.x <= right && bottom <= p.y && p.y <= top;
+}
+
+Rect Rect::operator+=(Vec2 v){
+    top += v.y;
+    bottom += v.y;
+    left += v.x;
+    right += v.x;
     return *this;
 }
 
-Rect Rect::operator-=(Vec2 right){
-    tl -= right;
-    br -= right;
+Rect Rect::operator-=(Vec2 v){
+    top -= v.y;
+    bottom -= v.y;
+    left -= v.x;
+    right -= v.x;
     return *this;
 }
 
 Rect Rect::operator=(Rect other){
-    tl = other.tl;
-    br = other.br;
+    top = other.top;
+    bottom = other.bottom;
+    left = other.left;
+    right = other.right;
     return *this;
 }
 
 Rect Rect::btlr(float bottom, float top, float left, float right){
     Rect rect;
-    rect.tl = Vec2(left, top);
-    rect.br = Vec2(right, bottom);
+    rect.top = top;
+    rect.bottom = bottom;
+    rect.left = left;
+    rect.right = right;
     return rect;
 }
 
 Rect Rect::bltr(float bottom, float left, float top, float right){
     Rect rect;
-    rect.tl = Vec2(left, top);
-    rect.br = Vec2(right, bottom);
+    rect.top = top;
+    rect.bottom = bottom;
+    rect.left = left;
+    rect.right = right;
     return rect;
 }
 
 Rect Rect::tlbr(float top, float left, float bottom, float right){
     Rect rect;
-    rect.tl = Vec2(left, top);
-    rect.br = Vec2(right, bottom);
+    rect.top = top;
+    rect.bottom = bottom;
+    rect.left = left;
+    rect.right = right;
     return rect;
 }

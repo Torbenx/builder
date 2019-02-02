@@ -6,7 +6,7 @@
 class PointLight{
     public:
         Vec3 position;
-        DepthCubeMap *depthMap;
+        DepthCubeMap depthMap;
         Vec3 color;
         float halfBrightness,startBrightness;
         PointLight(Vec3 position,int width,int height,Vec3 color,float far,float startBrightness,float halfBrightness);

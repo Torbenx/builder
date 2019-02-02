@@ -12,6 +12,7 @@
 #include "input/Look3d.hpp"
 #include "ui/text.hpp"
 #include "ui/TextComponent.hpp"
+#include "ui/DepthCubeMapComponent.hpp"
 #include <cmath>
 
 class DebugRenderable : public Renderable{
@@ -92,14 +93,8 @@ class TestRenderer : public Renderer{
         Bufferf f3;
         Bufferf f4;
         Bufferf f5;
-        Bufferf d_coord;
-        Bufferf d_texCoord;
-        Bufferf tex_Coords;
-        Bufferf tex_Position;
         Bufferf pawnVertex;
         MvpMatrix mvpMatrix;
-        Shader depthShader;
-        Shader texShader;
         Reflection reflection;
         Look3d look;
         TextComponent textComp;
@@ -109,7 +104,7 @@ class TestRenderer : public Renderer{
         int lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
         int navBaseX, navBaseY;
         int navDeltaX = 0, navDeltaY = 0;
-        TextureComponent refTextureComp;
+        DepthCubeMapComponent cubeComp;
         
         TestRenderer();
         void create();

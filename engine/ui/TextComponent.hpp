@@ -11,6 +11,7 @@ class TextComponent : public TextureComponent{
         Vec4 textColor = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         std::string text;
         float textSize;
+        bool noBreaks = false;
         TextComponent();
         void draw();
         void updateRect();
