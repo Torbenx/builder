@@ -1,4 +1,5 @@
 #include "Rect.hpp"
+#include "../util/log.hpp"
 
 Rect::Rect(){
     
@@ -46,6 +47,10 @@ Vec2 Rect::getBottomLeft(){
 
 bool Rect::contains(Vec2 p){
     return left <= p.x && p.x <= right && bottom <= p.y && p.y <= top;
+}
+
+void Rect::debug(){
+    LOGD("top=%f, bottom=%f, left=%f, right=%f", top, bottom, left, right);
 }
 
 Rect Rect::operator+=(Vec2 v){

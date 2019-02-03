@@ -112,6 +112,10 @@ void TestRenderer::create(){
     cubeComp.farDepth = 10.0f;
     cubeComp.cubeMap = &pointLight.depthMap.texture;
     cubeComp.positiveZ(Rect::bltr(-1, -1, 1, 1));
+    
+    rComp.color = Vec4(1,0,0,1);
+    gComp.color = Vec4(0,1,0,1);
+    bComp.color = Vec4(0,0,1,1);
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
@@ -124,14 +128,14 @@ void TestRenderer::change(int newWidth,int newHeight){
     
     
     RectBuilder cubeRect;
-    cubeRect.top(0.0f);
+    cubeRect.alignTop(nullptr, -1.0f);
     cubeRect.height(0.5f);
-    cubeRect.right(1.0f);
-    cubeRect.left(0.5f);
+    cubeRect.alignRight(nullptr, -1.0f);
+    cubeRect.alignLeft(nullptr, 0.0f);
     
     RectBuilder textRect;
-    textRect.centerVertical(1.0f, -1.0f);
-    textRect.centerHorizontal(-1.0f, 1.0f);
+    textRect.centerVerticalInside(nullptr);
+    textRect.centerHorizontalInside(nullptr, 1.0f/3.0f);
     textRect.width(textComp.getTextWidth());
     textRect.height(textComp.getTextHeight());
     
@@ -139,6 +143,41 @@ void TestRenderer::change(int newWidth,int newHeight){
     textComp.updateRect();
     cubeComp.rect = cubeRect.build();
     cubeComp.updateRect();
+    
+    RectBuilder parentRect,rRect,gRect,bRect;
+    rRect.name="r";
+    gRect.name="g";
+    bRect.name="b";
+    rRect.width(0.5f);
+    gRect.width(0.5f);
+    bRect.width(0.5f);
+    rRect.height(0.2f);
+    gRect.height(0.2f);
+    bRect.height(0.2f);
+    
+    parentRect.alignBottom(&bRect);
+    parentRect.centerVerticalInside(nullptr);
+    rRect.alignTop(&parentRect);
+    gRect.below(&rRect,0.05f);
+    bRect.below(&gRect, 0.05f);
+    
+    parentRect.centerHorizontalInside(nullptr, 2.0f/3.0f);
+    rRect.alignLeft(&parentRect);
+    gRect.alignLeft(&parentRect);
+    bRect.alignLeft(&parentRect);
+    parentRect.alignRight(&rRect);
+    
+    parentRect.build().debug();
+    
+    rComp.rect = rRect.build();
+    rComp.rect.debug();
+    rComp.updateRect();
+    gComp.rect = gRect.build();
+    gComp.rect.debug();
+    gComp.updateRect();
+    bComp.rect = bRect.build();
+    bComp.rect.debug();
+    bComp.updateRect();
 }
 
 void TestRenderer::pointer(PointerEvent event){
@@ -299,7 +338,10 @@ void TestRenderer::drawFrame(){
         util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
     
-    cubeComp.draw();
+    rComp.draw();
+    gComp.draw();
+    bComp.draw();
+    //cubeComp.draw();
     textComp.draw();
 }
 

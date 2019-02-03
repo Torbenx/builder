@@ -7,9 +7,9 @@
 class TestComponent : public UiComponent{
     public:
         Shader shader;
-        Vec3 color;
+        Vec4 color;
         float coords[4*2];
-        TestComponent(Vec3 color);
+        TestComponent();
         void draw();
         void updateRect();
 };

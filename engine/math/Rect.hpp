@@ -18,6 +18,7 @@ class Rect{
         Vec2 getBottomRight();
         Vec2 getBottomLeft();
         bool contains(Vec2 p);
+        void debug();
         Rect operator+=(Vec2 v);
         Rect operator-=(Vec2 v);
         Rect operator=(Rect other);

@@ -12,6 +12,7 @@
 #include "input/Look3d.hpp"
 #include "ui/text.hpp"
 #include "ui/TextComponent.hpp"
+#include "ui/TestComponent.hpp"
 #include "ui/DepthCubeMapComponent.hpp"
 #include <cmath>
 
@@ -105,6 +106,7 @@ class TestRenderer : public Renderer{
         int navBaseX, navBaseY;
         int navDeltaX = 0, navDeltaY = 0;
         DepthCubeMapComponent cubeComp;
+        TestComponent rComp, gComp, bComp;
         
         TestRenderer();
         void create();
