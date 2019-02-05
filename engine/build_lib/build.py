@@ -100,7 +100,7 @@ class Builder(object):
         #for thread in threads:
         #    thread.join()
             
-        if (not self.changed) and not self.rebuild:
+        if (not self.changed) and os.path.exists(self.output_file) and not self.rebuild:
             print "NOTHING TO DO"
             return
 

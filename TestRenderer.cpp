@@ -105,7 +105,7 @@ void TestRenderer::create(){
     
     
     textComp.text = "Hello World";
-    textComp.textSize = 0.1f;
+    textComp.textSize = TypedSize::gl(0.1f);
     textComp.textColor = Vec4(1, 0, 0, 1);
     textComp.noBreaks = true;
     
@@ -122,44 +122,51 @@ void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
     mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0 ,as ,1,100);
-    textComp.screenWidth = newWidth;
-    textComp.screenHeight = newHeight;
-    textComp.updateText();
+    ScreenMatrics metrics;
+    metrics.x.size = newWidth;
+    metrics.y.size = newHeight;
+    textComp.metrics = metrics;
+    textComp.updateContent();
     
     
     RectBuilder cubeRect;
-    cubeRect.alignTop(nullptr, -1.0f);
-    cubeRect.height(0.5f);
-    cubeRect.alignRight(nullptr, -1.0f);
-    cubeRect.alignLeft(nullptr, 0.0f);
-    
+    cubeRect.name = "cube";
     RectBuilder textRect;
-    textRect.centerVerticalInside(nullptr);
-    textRect.centerHorizontalInside(nullptr, 1.0f/3.0f);
-    textRect.width(textComp.getTextWidth());
-    textRect.height(textComp.getTextHeight());
+    textRect.name = "text";
     
-    textComp.rect = textRect.build();
+    TypedSize pad = TypedSize::gl(0.02f);
+    textRect.alignLeft(&cubeRect, -pad);
+    textRect.alignBottom(&cubeRect, -pad);
+    textRect.width(textComp.getContentWidth());
+    textRect.height(textComp.getContentHeight());
+    cubeRect.alignRight(&textRect, pad);
+    cubeRect.alignTop(&textRect, pad);
+    cubeRect.centerVerticalInside(nullptr);
+    cubeRect.centerHorizontalInside(nullptr, 1.0f/3.0f);
+    
+    textComp.rect = textRect.build(metrics);
+    textComp.rect.debug();
     textComp.updateRect();
-    cubeComp.rect = cubeRect.build();
+    cubeComp.rect = cubeRect.build(metrics);
+    cubeComp.rect.debug();
     cubeComp.updateRect();
     
     RectBuilder parentRect,rRect,gRect,bRect;
     rRect.name="r";
     gRect.name="g";
     bRect.name="b";
-    rRect.width(0.5f);
-    gRect.width(0.5f);
-    bRect.width(0.5f);
-    rRect.height(0.2f);
-    gRect.height(0.2f);
-    bRect.height(0.2f);
+    rRect.width(TypedSize::gl(0.5f));
+    gRect.width(TypedSize::gl(0.5f));
+    bRect.width(TypedSize::gl(0.5f));
+    rRect.height(TypedSize::gl(0.2f));
+    gRect.height(TypedSize::gl(0.2f));
+    bRect.height(TypedSize::gl(0.2f));
     
     parentRect.alignBottom(&bRect);
     parentRect.centerVerticalInside(nullptr);
     rRect.alignTop(&parentRect);
-    gRect.below(&rRect,0.05f);
-    bRect.below(&gRect, 0.05f);
+    gRect.below(&rRect,TypedSize::gl(0.05f));
+    bRect.below(&gRect, TypedSize::gl(0.05f));
     
     parentRect.centerHorizontalInside(nullptr, 2.0f/3.0f);
     rRect.alignLeft(&parentRect);
@@ -167,15 +174,15 @@ void TestRenderer::change(int newWidth,int newHeight){
     bRect.alignLeft(&parentRect);
     parentRect.alignRight(&rRect);
     
-    parentRect.build().debug();
+    parentRect.build(metrics).debug();
     
-    rComp.rect = rRect.build();
+    rComp.rect = rRect.build(metrics);
     rComp.rect.debug();
     rComp.updateRect();
-    gComp.rect = gRect.build();
+    gComp.rect = gRect.build(metrics);
     gComp.rect.debug();
     gComp.updateRect();
-    bComp.rect = bRect.build();
+    bComp.rect = bRect.build(metrics);
     bComp.rect.debug();
     bComp.updateRect();
 }
@@ -341,7 +348,7 @@ void TestRenderer::drawFrame(){
     rComp.draw();
     gComp.draw();
     bComp.draw();
-    //cubeComp.draw();
+    cubeComp.draw();
     textComp.draw();
 }
 

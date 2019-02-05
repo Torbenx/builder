@@ -1,21 +1,21 @@
 #ifndef HEADER_UI_UICOMPONENT_H
 #define HEADER_UI_UICOMPONENT_H
 
+#include "TypedSize.hpp"
 #include "../math/Rect.hpp"
 #include <tgmath.h>
+#include <cmath>
 
 class UiComponent{
     public:
         Rect rect;
-        int screenWidth;
-        int screenHeight;
+        ScreenMatrics metrics;
+        virtual void updateContent(){}
+        virtual TypedSize getContentWidth(){return TypedSize::nan;}
+        virtual TypedSize getContentHeight(){return TypedSize::nan;}
         virtual void updateRect() = 0;
         virtual void draw() = 0;
-        virtual ~UiComponent(){};
-        int toPixelWidth(float width){return (int)ceil(width*0.5f*screenWidth);}
-        int toPixelHeight(float height){return (int)ceil(height*0.5f*screenHeight);}
-        float toGLWidth(float pixelWidth){return pixelWidth * 2.0f / screenWidth;}
-        float toGLHeight(float pixelHeight){return pixelHeight * 2.0f / screenHeight;}
+        virtual ~UiComponent(){}
 };
 
 #endif

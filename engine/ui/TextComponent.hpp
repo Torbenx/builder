@@ -10,14 +10,14 @@ class TextComponent : public TextureComponent{
         TextTexture *textTexture = nullptr;
         Vec4 textColor = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         std::string text;
-        float textSize;
+        TypedSize textSize;
         bool noBreaks = false;
         TextComponent();
         void draw();
         void updateRect();
-        void updateText();
-        float getTextWidth();
-        float getTextHeight();
+        void updateContent();
+        TypedSize getContentWidth();
+        TypedSize getContentHeight();
         ~TextComponent();
 };
 

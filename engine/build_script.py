@@ -40,6 +40,7 @@ class Builder(build.Builder):
             "ui/CubeMapComponent.cpp",
             "ui/DepthCubeMapComponent.cpp",
             "ui/RectBuilder.cpp",
+            "ui/TypedSize.cpp",
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]
@@ -56,7 +57,7 @@ class Builder(build.Builder):
                 "windows/text.cpp",
             ]
         if target == "android":
-            self.libs += ["android", "log", "GLESv2", "egl"]
+            self.libs += ["android", "log", "GLESv2", "EGL"]
             self.input_files += [
                 "android/engine.cpp",
                 "android/assetbuf.cpp",

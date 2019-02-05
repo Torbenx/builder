@@ -4,11 +4,11 @@ TextComponent::TextComponent() : TextureComponent(TEXT_TEXTURE_GLSL_HEADER, TEXT
     setTexRect(Rect::bltr(1.0f, 0.0f, 0.0f, 1.0f)); //invert y-direction
 }
 
-void TextComponent::updateText(){
+void TextComponent::updateContent(){
     if(textFormat){
         delete textFormat;
     }
-    textFormat = new TextFormat(text, noBreaks ? -1 : toPixelWidth(rect.getWidth()), toPixelHeight(textSize));
+    textFormat = new TextFormat(text, noBreaks ? -1 : TypedSize::gl(rect.getWidth()).toPixels(metrics.x), textSize.toPixelsF(metrics.y));
     if(textTexture){
         textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
     }
@@ -20,19 +20,19 @@ void TextComponent::updateRect(){
         delete textTexture;
         textTexture = nullptr;
     }
-    updateText();
+    updateContent();
     textTexture = new TextTexture();
-    textTexture->init(toPixelWidth(rect.getWidth()), toPixelHeight(rect.getHeight()));
+    textTexture->init(TypedSize::gl(rect.getWidth()).toPixels(metrics.x), TypedSize::gl(rect.getHeight()).toPixels(metrics.y));
     textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
     texture = &textTexture->texture;
 }
 
-float TextComponent::getTextWidth(){
-    return toGLWidth(textFormat->getWidth());
+TypedSize TextComponent::getContentWidth(){
+    return TypedSize::pixels(textFormat->getWidth());
 }
 
-float TextComponent::getTextHeight(){
-    return toGLHeight(textFormat->getHeight());
+TypedSize TextComponent::getContentHeight(){
+    return TypedSize::pixels(textFormat->getHeight());
 }
 
 void TextComponent::draw(){
