@@ -11,6 +11,7 @@
 #include "fullscreen.hpp"
 #include "util/draw_util.hpp"
 #include "ui/RectBuilder.hpp"
+#include "input/keycodes.hpp"
 
 #ifdef PLATFORM_WINDOWS
 #include "windows/fullscreen.hpp"
@@ -97,12 +98,16 @@ void TestRenderer::create(){
     lframe = getNanos();
     
     #ifdef PLATFORM_WINDOWS
+    //goFullscreen(FullscreenConfig::DEFAULT);
     //goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
     #else
     goFullscreen(FullscreenConfig::DEFAULT);
     #endif
     
-    
+    w = charToKeycode('w');
+    a = charToKeycode('a');
+    s = charToKeycode('s');
+    d = charToKeycode('d');
     
     textComp.text = "Hello World";
     textComp.textSize = TypedSize::gl(0.1f);
@@ -121,7 +126,7 @@ void TestRenderer::create(){
 void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
-    mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0 ,as ,1,100);
+    mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0, as, 1, 100);
     ScreenMatrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
@@ -145,10 +150,8 @@ void TestRenderer::change(int newWidth,int newHeight){
     cubeRect.centerHorizontalInside(nullptr, 1.0f/3.0f);
     
     textComp.rect = textRect.build(metrics);
-    textComp.rect.debug();
     textComp.updateRect();
     cubeComp.rect = cubeRect.build(metrics);
-    cubeComp.rect.debug();
     cubeComp.updateRect();
     
     RectBuilder parentRect,rRect,gRect,bRect;
@@ -165,7 +168,7 @@ void TestRenderer::change(int newWidth,int newHeight){
     parentRect.alignBottom(&bRect);
     parentRect.centerVerticalInside(nullptr);
     rRect.alignTop(&parentRect);
-    gRect.below(&rRect,TypedSize::gl(0.05f));
+    gRect.below(&rRect, TypedSize::gl(0.05f));
     bRect.below(&gRect, TypedSize::gl(0.05f));
     
     parentRect.centerHorizontalInside(nullptr, 2.0f/3.0f);
@@ -174,16 +177,11 @@ void TestRenderer::change(int newWidth,int newHeight){
     bRect.alignLeft(&parentRect);
     parentRect.alignRight(&rRect);
     
-    parentRect.build(metrics).debug();
-    
     rComp.rect = rRect.build(metrics);
-    rComp.rect.debug();
     rComp.updateRect();
     gComp.rect = gRect.build(metrics);
-    gComp.rect.debug();
     gComp.updateRect();
     bComp.rect = bRect.build(metrics);
-    bComp.rect.debug();
     bComp.updateRect();
 }
 
@@ -221,24 +219,12 @@ void TestRenderer::rawPointer(int dx, int dy){
 }
 
 void TestRenderer::key(int32_t keycode, bool down){
-    if(w == -1){
-        w = keycode;
-        LOGD("w=0x%x", keycode);
-    }else if(keycode == w){
+    if(keycode == w){
         wd = down;
-    }else if(a == -1){
-        a = keycode;
-        LOGD("a=0x%x", keycode);
     }else if(keycode == a){
         ad = down;
-    }else if(s == -1){
-        s = keycode;
-        LOGD("s=0x%x", keycode);
     }else if(keycode == s){
         sd = down;
-    }else if(d == -1){
-        d = keycode;
-        LOGD("d=0x%x", keycode);
     }else if(keycode == d){
         dd = down;
     }

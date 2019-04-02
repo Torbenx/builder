@@ -55,6 +55,7 @@ class Builder(build.Builder):
                 "windows/fullscreen.cpp",
                 "windows/Renderer.cpp",
                 "windows/text.cpp",
+                "windows/keycodes.cpp",
             ]
         if target == "android":
             self.libs += ["android", "log", "GLESv2", "EGL"]

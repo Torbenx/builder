@@ -103,7 +103,12 @@ void goFullscreenImpl(FullscreenConfigImpl config){
     
     SetWindowPos(engine_hwnd, HWND_TOPMOST, 0, 0, width, height, 0);
     LOGD("setting %s to: %dx%d@%ld", saved_config.adapterName.c_str(), width, height, saved_config.deviceMode.dmDisplayFrequency);
-    long ret = ChangeDisplaySettingsEx(saved_config.adapterName.empty() ? NULL : saved_config.adapterName.c_str(), saved_config.deviceMode.dmSize == 0 ? NULL : &saved_config.deviceMode, NULL, CDS_FULLSCREEN, NULL);
+    long ret;
+    if(saved_config.deviceMode.dmSize == 0){
+        ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, CDS_FULLSCREEN, NULL);
+    }else{
+        ret = ChangeDisplaySettingsEx(saved_config.adapterName.c_str(), &saved_config.deviceMode, NULL, CDS_FULLSCREEN, NULL);
+    }
     switch(ret){
         case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
         case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
@@ -172,17 +177,20 @@ bool engine_goBackground(){
         RECT rect;
         GetWindowRect(engine_hwnd, &rect);
         SetWindowPos(engine_hwnd, HWND_NOTOPMOST, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, 0);
-        long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
-        switch(ret){
-            case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
-            case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
-            case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
-            case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
-            case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
-            case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
-            case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
-            case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
-            default: LOGW("unknown return value: %ld", ret);
+        if(saved_config.deviceMode.dmSize != 0){
+            long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
+            switch(ret){
+                case DISP_CHANGE_SUCCESSFUL: //LOGD("DISP_CHANGE_SUCCESSFUL");
+                    break;
+                case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
+                case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
+                case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
+                case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
+                case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
+                case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
+                case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
+                default: LOGW("unknown return value: %ld", ret);
+        }
         }
         ShowWindow(engine_hwnd, SW_MINIMIZE);
         return false;

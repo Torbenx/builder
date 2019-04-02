@@ -1,0 +1,23 @@
+#ifndef HEADER_INPUT_KEYCODES_H
+#define HEADER_INPUT_KEYCODES_H
+
+#include <stdint.h>
+
+#define SPECIAL_KEY_BASE 0x7f
+#define SPECIAL_KEY_SHIFT (SPECIAL_KEY_BASE+1)
+#define SPECIAL_KEY_CTRL (SPECIAL_KEY_BASE+2)
+#define SPECIAL_KEY_ALT (SPECIAL_KEY_BASE+3)
+#define SPECIAL_KEY_ESC (SPECIAL_KEY_BASE+4)
+#define SPECIAL_KEY_UP (SPECIAL_KEY_BASE+5)
+#define SPECIAL_KEY_DOWN (SPECIAL_KEY_BASE+6)
+#define SPECIAL_KEY_LEFT (SPECIAL_KEY_BASE+7)
+#define SPECIAL_KEY_RIGHT (SPECIAL_KEY_BASE+8)
+
+#define SPECIAL_KEY_F_BASE (SPECIAL_KEY_BASE+16)
+#define SPECIAL_KEY_F(x) (SPECIAL_KEY_F_BASE+(x))
+
+unsigned char keycodeToChar(uint32_t keycode);
+
+uint32_t charToKeycode(unsigned char c);
+
+#endif

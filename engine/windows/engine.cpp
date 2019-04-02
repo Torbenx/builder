@@ -79,7 +79,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             LOGD("WM_SIZE");
             RECT rect;
             if(GetClientRect(hwnd, &rect)){
-                renderer->change(rect.right, rect.bottom);
+                if(rect.right != 0 && rect.bottom != 0){
+                    renderer->change(rect.right, rect.bottom);
+                }
             }else{
                 LOGW("GetClientRect failed");
             }
@@ -104,7 +106,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                     renderer->background();
                 }
                 //ShowCursor(true);
-                if((!engine_goBackground() || minimized) && rendererState == RENDERER_STATE_BACKGROUND){
+                bool visible = engine_goBackground();
+                if(((!visible) || minimized) && rendererState == RENDERER_STATE_BACKGROUND){
                     rendererState = RENDERER_STATE_INVISIBLE;
                     renderer->invisible();
                 }
