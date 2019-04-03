@@ -291,8 +291,8 @@ void TestRenderer::drawFrame(){
     pointLight.draw(mvpMatrix.model,ptrs,5);
     spotLight.draw(mvpMatrix.model,ptrs,5);
     shader->use();
-    shader->light(pointLight,mvpMatrix.model);
-    shader->light(spotLight,mvpMatrix.model);
+    shader->light(pointLight, mvpMatrix.model);
+    shader->light(spotLight, mvpMatrix.model);
     shader->light(ambientLight);
     reflection.bind();
     reflection.getReflectionModel(mvpMatrix.model);

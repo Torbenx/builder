@@ -12,7 +12,7 @@ class PointLight{
         PointLight(Vec3 position,int width,int height,Vec3 color,float far,float startBrightness,float halfBrightness);
         ~PointLight();
         void init();
-        void draw(Mat4x4 model,Renderable **ptrArray,int count);
+        void draw(Mat4x4 model, Renderable **ptrArray, int count);
 };
 
 #endif

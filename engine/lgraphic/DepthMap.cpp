@@ -61,10 +61,10 @@ void DepthMap::init(){
     framebuffer.setClearColor(1,1,1,1);
 }
         
-void DepthMap::draw(MvpMatrix& mvpMatrix,Renderable **ptrArray,int count){
+void DepthMap::draw(MvpMatrix& mvpMatrix, Renderable **ptrArray, int count){
     framebuffer.bind();
     shader->use();
-    shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
+    shader->uniformMat4x4("u_mvpMatrix", mvpMatrix.setupMvp());
     GLboolean depthTest = glIsEnabled(GL_DEPTH_TEST);
     glEnable(GL_DEPTH_TEST);
     int i;

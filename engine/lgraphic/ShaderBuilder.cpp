@@ -91,16 +91,12 @@ void ShaderBuilder::addToFragmentColor(std::string s){
     fMain<<fColor<<" += "<<s<<";\n";
 }
         
-void ShaderBuilder::setVertexPosition(std::string s){
-    rawPosition = s;
-}
-        
 void ShaderBuilder::setFragmentColorUniform(std::string s){
     addFragmentUniform("vec3",s);
     addToFragmentColor(s);
 }
         
-void ShaderBuilder::setFragmentColorUniformTexture(std::string texType,std::string textureUniform,std::string texCoordAttrib){
+void ShaderBuilder::setFragmentColorUniformTexture(std::string texType, std::string textureUniform, std::string texCoordAttrib){
     std::string texCoordVarying = newVarying();
     std::string color = newVar();
     addVarying("vec2",texCoordVarying);
@@ -133,7 +129,7 @@ void ShaderBuilder::setWorldModelMatrixUniform(std::string s){
         
 void ShaderBuilder::setVertexPositionAttrib(std::string s){
     addAttrib("vec4",s);
-    setVertexPosition(s);
+    rawPosition = s;
 }
         
 LShader* ShaderBuilder::build(){
@@ -163,17 +159,27 @@ std::string ShaderBuilder::buildFStr(){
 }
         
 std::string ShaderBuilder::newUniform(void *obj){
+    std::string s = newUniform();
+    locations[obj] = s;
+    return s;
+}
+
+std::string ShaderBuilder::newUniform(){
     std::ostringstream s;
     s<<"u_"<<(uCount++);
-    locations[obj] = s.str();
-    return locations[obj];
+    return s.str();
 }
         
 std::string ShaderBuilder::newAttrib(void *obj){
+    std::string s = newAttrib();
+    locations[obj] = s;
+    return s;
+}
+
+std::string ShaderBuilder::newAttrib(){
     std::ostringstream s;
     s<<"a_"<<(aCount++);
-    locations[obj] = s.str();
-    return locations[obj];
+    return s.str();
 }
         
 std::string ShaderBuilder::newVarying(){

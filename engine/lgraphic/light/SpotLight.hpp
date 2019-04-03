@@ -14,7 +14,7 @@ class SpotLight{
         SpotLight(Vec3 position,Vec3 direction,float hfov,float vfov,int texWidth,int texHeight,Vec3 color,float far);
         ~SpotLight();
         void init();
-        void draw(Mat4x4 model,Renderable **ptrArray,int count);
+        void draw(Mat4x4 model, Renderable **ptrArray, int count);
 };
 
 #endif

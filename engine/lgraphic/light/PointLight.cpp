@@ -16,6 +16,6 @@ void PointLight::init(){
     depthMap.init();
 }
     
-void PointLight::draw(Mat4x4 model,Renderable **ptrArray,int count){
-    depthMap.draw(model,position,ptrArray,count);
+void PointLight::draw(Mat4x4 model, Renderable **ptrArray, int count){
+    depthMap.draw(model, position, ptrArray, count);
 }

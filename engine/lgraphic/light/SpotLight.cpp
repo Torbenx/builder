@@ -24,6 +24,6 @@ void SpotLight::init(){
     
 void SpotLight::draw(Mat4x4 model,Renderable **ptrArray,int count){
     mvpMatrix.model = model;
-    mvpMatrix.view = Mat4x4::look(position,direction,up);
-    depthMap.draw(mvpMatrix,ptrArray,count);
+    mvpMatrix.view = Mat4x4::look(position, direction, up);
+    depthMap.draw(mvpMatrix, ptrArray, count);
 }

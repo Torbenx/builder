@@ -66,7 +66,7 @@ void DepthCubeMap::init(){
     framebuffer.viewport(width,height);
 }
         
-void DepthCubeMap::draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int count){
+void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count){
     shader->use();
     MvpMatrix mvpMatrix;
     float *m;

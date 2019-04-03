@@ -2,11 +2,63 @@
 #define HEADER_3D_SCENE_H
 
 #include "../lgraphic/ShaderBuilder.hpp"
+#include <vector>
+
+struct ColorSources{
+    int nUniforms;
+    int nTextures;
+    int nAttribs;
+    int nReflections;
+};
+
+struct ShaderLocationHandle{
+    std::string name;
+};
+
+struct SceneDrawData{
+    ShaderLocationHandle positionAttrib;
+    ShaderLocationHandle modelUniform;
+    ShaderLocationHandle *uniforms;
+    std::string *textureTypes;
+    ShaderLocationHandle *textureUniforms;
+    ShaderLocationHandle *texPositionAttribs;
+    ShaderLocationHandle *attribs;
+};
+
+class SceneObject : public Renderable{
+    public:
+        virtual ColorSources getColorSources() = 0;
+        virtual std::string *getTextureTypes(){ return nullptr; }
+        virtual Reflection **getReflections(){ return nullptr; }
+        virtual void draw2(LShader *shader, SceneDrawData& data) = 0;
+};
+
+struct SceneShader{
+    LShader* shader;
+    SceneDrawData data;
+    std::vector<SceneObject*> objects;
+};
 
 class Scene{
-    void addLight(PointLight *light);
-    void addLight(SpotLight *light);
-    void addLight(AmbientLight *light);
+    public:
+        ShaderBuilder baseBuilder;
+        std::list<SceneShader> shaders;
+        std::vector<Renderable*> renderables;
+        std::vector<PointLight*> pointLights;
+        std::vector<SpotLight*> spotLights;
+        std::vector<AmbientLight*> ambientLights;
+        std::vector<Reflection*> reflections;
+        Scene();
+        ~Scene();
+        void addLight(PointLight& light);
+        void addLight(SpotLight& light);
+        void addLight(AmbientLight& light);
+        void addReflection(Reflection& ref);
+        void addObject(SceneObject *obj);
+        void draw(MvpMatrix mvp);
+        void doDraw(MvpMatrix& mvp);
 };
+
+
 
 #endif

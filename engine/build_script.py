@@ -41,6 +41,7 @@ class Builder(build.Builder):
             "ui/DepthCubeMapComponent.cpp",
             "ui/RectBuilder.cpp",
             "ui/TypedSize.cpp",
+            "3d/Scene.cpp"
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-fPIC"]
@@ -66,6 +67,7 @@ class Builder(build.Builder):
                 "android/Renderer.cpp",
                 "android/android_jni.cpp",
                 "android/text.cpp",
+                "android/keycodes.cpp",
             ]
     
     def build(self):
