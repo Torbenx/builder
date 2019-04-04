@@ -212,6 +212,58 @@ void RectBuilder::height(TypedSize height){
     }
 }
 
+RectX rb_lazyx(RectBuilderData data, ScreenMatrics m){
+    RectX r;
+    r.rect = data.lazyx.rect;
+    r.baseLeft = data.lazyx.baseLeft;
+    r.dx = data.lazyx.dx.get();
+    if(!r.baseLeft)r.dx = -r.dx;
+    return r;
+}
+
+RectY rb_lazyy(RectBuilderData data, ScreenMatrics m){
+    RectY r;
+    r.rect = data.lazyy.rect;
+    r.baseBottom = data.lazyy.baseBottom;
+    r.dy = data.lazyy.dy.get();
+    if(!r.baseBottom)r.dy = -r.dy;
+    return r;
+}
+
+void RectBuilder::width(TypedSizeGetter width){
+    if(rightF == 0 || leftF != 0){
+        rightF = rb_lazyx;
+        rightD.lazyx.rect = this;
+        rightD.lazyx.baseLeft = true;
+        rightD.lazyx.dx = width;
+        useRightForWidth = true;
+    }
+    if(leftF == 0){
+        leftF = rb_lazyx;
+        leftD.lazyx.rect = this;
+        leftD.lazyx.baseLeft = false;
+        leftD.lazyx.dx = width;
+        useLeftForWidth = true;
+    }
+}
+
+void RectBuilder::height(TypedSizeGetter height){
+    if(bottomF == 0 || topF != 0){
+        bottomF = rb_lazyy;
+        bottomD.lazyy.rect = this;
+        bottomD.lazyy.baseBottom = false;
+        bottomD.lazyy.dy = height;
+        useBottomForHeight = true;
+    }
+    if(topF == 0){
+        topF = rb_lazyy;
+        topD.lazyy.rect = this;
+        topD.lazyy.baseBottom = true;
+        topD.lazyy.dy = height;
+        useTopForHeight = true;
+    }
+}
+
 
 void RectBuilder::above(RectBuilder *b, TypedSize padding){
     bottomF = rb_rely;

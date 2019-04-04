@@ -40,6 +40,16 @@ struct TypedSize{
     static TypedSize add(TypedSize left, TypedSize right, TYPED_SIZE_TYPE outType, SizeMetrics m);
 };
 
+struct TypedSizeGetter{
+    union{
+        void *data;
+        TypedSize size;
+    } data;
+    TypedSize(*getSize)(TypedSizeGetter *thiz);
+    TypedSize get();
+    static TypedSizeGetter from(TypedSize size);
+};
+
 TypedSize operator-(TypedSize size);
 
 #endif

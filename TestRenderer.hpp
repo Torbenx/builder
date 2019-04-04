@@ -14,73 +14,76 @@
 #include "ui/TextComponent.hpp"
 #include "ui/TestComponent.hpp"
 #include "ui/DepthCubeMapComponent.hpp"
+#include "3d/Scene.hpp"
 #include <cmath>
 
-class DebugRenderable : public Renderable{
+class DebugRenderable : public SceneObject{
     public:
         Bufferf *source;
         Vec3 color;
-        DebugRenderable(Bufferf *s,Vec3 c){
+        Mat4x4 model;
+        int num;
+        GLenum mode = GL_TRIANGLES;
+        
+        DebugRenderable(Bufferf *s, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             color = c;
-        }
-        void draw(
-            Shader *shader,
-            std::string positionAttrib,
-            std::string modelUniform
-        ){
-            shader->uniformMat4x4(modelUniform, Mat4x4::Id);
-            shader->attribPointer(positionAttrib,3,*source);
-            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            num = n;
+            model = m;
         }
         
-        void draw2(
-            Shader *shader,
-            std::string positionAttrib,
-            std::string colorUnifrom
-        ){
-            shader->uniformVec3(colorUnifrom, color);
-            shader->attribPointer(positionAttrib,3,*source);
-            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+        ColorSources getColorSources(){
+            ColorSources colors;
+            colors.nUniforms = 1;
+            return colors;
+        }        
+        
+        void draw(Shader *shader, std::string positionAttrib, std::string modelUniform){
+            shader->uniformMat4x4(modelUniform, model);
+            shader->attribPointer(positionAttrib, 3, *source);
+            glDrawArrays(mode, 0, num);
+        }
+        
+        void draw2(LShader *shader, SceneDrawData& data){
+            shader->uniformMat4x4(data.modelUniform.name, model);
+            shader->uniformVec3(data.uniforms[0].name, color);
+            shader->attribPointer(data.positionAttrib.name, 3, *source);
+            glDrawArrays(mode, 0, num);
         }
 };
 
-class ObjRenderable : public Renderable{
+class ReflectionDebugRenderable : public DebugRenderable{
     public:
-        Bufferf* vertex;
-        Vec3 color;
-        Mat4x4 model;
-        int num;
+        Reflection *reflection;
         
-        ObjRenderable(Bufferf *v, Vec3 c, int n){
-            vertex = v;
-            color = c;
-            num = n;
-            model = Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0));
+        ReflectionDebugRenderable(Bufferf *s, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, c, n, m){
+            reflection = r;
         }
-        void draw(Shader *shader, std::string positionAttrib, std::string modelUniform){
-            shader->uniformMat4x4(modelUniform, model);
-            shader->attribPointer(positionAttrib, 3, *vertex);
-            glDrawArrays(GL_TRIANGLES, 0, num);
+        
+        ColorSources getColorSources(){
+            ColorSources colors = DebugRenderable::getColorSources();
+            colors.nReflections = 1;
+            return colors;
         }
-        void draw2(Shader *shader, std::string positionAttrib, std::string modelUniform, std::string colorUniform){
-            shader->uniformMat4x4(modelUniform, model);
-            shader->uniformVec3(colorUniform, color);
-            shader->attribPointer(positionAttrib, 3, *vertex);
-            glDrawArrays(GL_TRIANGLES, 0, num);
+        
+        Reflection** getReflections(){
+            return &reflection;
+        }
+        
+        void draw2(LShader *shader, SceneDrawData& data){
+            shader->reflection(*reflection);
+            DebugRenderable::draw2(shader, data);
         }
 };
 
 class TestRenderer : public Renderer{
     public:
-        LShader* shader;
-        LShader* refShader;
         DebugRenderable* obj1;
         DebugRenderable* obj2;
-        DebugRenderable* obj3;
+        ReflectionDebugRenderable* obj3;
         DebugRenderable* obj4;
         DebugRenderable* obj5;
-        ObjRenderable* pawn;
+        DebugRenderable* pawn;
         uint64_t lframe;
         uint64_t lsecond;
         int frameCounter;
@@ -99,7 +102,7 @@ class TestRenderer : public Renderer{
         Reflection reflection;
         Look3d look;
         TextComponent textComp;
-        int32_t w = -1,a = -1,s = -1,d = -1;
+        uint32_t w = -1,a = -1,s = -1,d = -1, fullscreen = -1, exitKey = -1;
         Vec3 pos;
         bool wd = false, ad = false, sd = false, dd = false;
         int lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
@@ -107,13 +110,15 @@ class TestRenderer : public Renderer{
         int navDeltaX = 0, navDeltaY = 0;
         DepthCubeMapComponent cubeComp;
         TestComponent rComp, gComp, bComp;
+        TextureComponent refComp;
+        Scene scene;
         
         TestRenderer();
         void create();
         void change(int width, int height);
         void pointer(PointerEvent event);
         void rawPointer(int dx, int dy);
-        void key(int32_t keycode, bool down);
+        void key(uint32_t keycode, bool down);
         void drawFrame();
         void destroy();
 };

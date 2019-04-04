@@ -5,10 +5,10 @@
 #include <vector>
 
 struct ColorSources{
-    int nUniforms;
-    int nTextures;
-    int nAttribs;
-    int nReflections;
+    int nUniforms = 0;
+    int nTextures = 0;
+    int nAttribs = 0;
+    int nReflections = 0;
 };
 
 struct ShaderLocationHandle{
@@ -56,7 +56,7 @@ class Scene{
         void addReflection(Reflection& ref);
         void addObject(SceneObject *obj);
         void draw(MvpMatrix mvp);
-        void doDraw(MvpMatrix& mvp);
+        void doDraw(MvpMatrix& mvp, bool drawReflections=true);
 };
 
 

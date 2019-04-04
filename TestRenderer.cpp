@@ -68,39 +68,32 @@ void TestRenderer::create(){
     f4.bufferData(f4Src,3*4*4,GL_STATIC_DRAW);
     f5.init();
     f5.bufferData(obj5_coords,3*4*4,GL_DYNAMIC_DRAW);
-    obj1 = new DebugRenderable(&f1,Vec3(1,0,0));
-    obj2 = new DebugRenderable(&f2,Vec3(0,1,0));
-    obj3 = new DebugRenderable(&f3,Vec3(0.5,0.5,0.5));
-    obj4 = new DebugRenderable(&f4,Vec3(1,1,0));
-    obj5 = new DebugRenderable(&f5,Vec3(0,0,1));
+    obj1 = new DebugRenderable(&f1,Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
+    obj2 = new DebugRenderable(&f2,Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
+    obj3 = new ReflectionDebugRenderable(&f3, Vec3(0.5,0.5,0.5), 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
+    obj4 = new DebugRenderable(&f4,Vec3(1,1,0), 4); obj4->mode = GL_TRIANGLE_STRIP;
+    obj5 = new DebugRenderable(&f5,Vec3(0,0,1), 4); obj5->mode = GL_TRIANGLE_STRIP;
     mvpMatrix.model = Mat4x4::Id;
-    ShaderBuilder b;
-    b.setVertexPositionAttrib("a_position");
-    b.setFragmentColorUniform("u_color");
-    b.setScreenMvpMatrixUniform("u_mvpMatrix");
-    b.setWorldModelMatrixUniform("u_model");
-    b.addLight(ambientLight);
-    b.addLight(pointLight);
-    b.addLight(spotLight);
-    shader = b.build();
-    ShaderBuilder rb(b);
-    rb.addReflection(reflection);
-    refShader = rb.build();
-    shader->init();
-    refShader->init();
+    scene.addLight(ambientLight);
+    scene.addLight(pointLight);
+    scene.addLight(spotLight);
+    scene.addObject(obj1);
+    scene.addObject(obj2);
+    scene.addObject(obj3);
+    scene.addObject(obj4);
+    scene.addObject(obj5);
+    scene.addReflection(reflection);
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
     parser.parse(file, 20000, 20000);
     pawnVertex.init();
     pawnVertex.bufferData(parser.vertex,parser.vertexSize*4,GL_STATIC_DRAW);
-    pawn = new ObjRenderable(&pawnVertex, Vec3(0,1,1), parser.n);
+    pawn = new DebugRenderable(&pawnVertex, Vec3(0,1,1), parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
+    scene.addObject(pawn);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
     lframe = getNanos();
     
-    #ifdef PLATFORM_WINDOWS
-    //goFullscreen(FullscreenConfig::DEFAULT);
-    //goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
-    #else
+    #ifdef PLATFORM_ANDROID
     goFullscreen(FullscreenConfig::DEFAULT);
     #endif
     
@@ -108,6 +101,8 @@ void TestRenderer::create(){
     a = charToKeycode('a');
     s = charToKeycode('s');
     d = charToKeycode('d');
+    fullscreen = charToKeycode(SPECIAL_KEY_F(11));
+    exitKey = charToKeycode(SPECIAL_KEY_ESC);
     
     textComp.text = "Hello World";
     textComp.textSize = TypedSize::gl(0.1f);
@@ -121,6 +116,8 @@ void TestRenderer::create(){
     rComp.color = Vec4(1,0,0,1);
     gComp.color = Vec4(0,1,0,1);
     bComp.color = Vec4(0,0,1,1);
+    
+    refComp.texture = &reflection.texture;
 }
 
 void TestRenderer::change(int newWidth,int newHeight){
@@ -142,8 +139,8 @@ void TestRenderer::change(int newWidth,int newHeight){
     TypedSize pad = TypedSize::gl(0.02f);
     textRect.alignLeft(&cubeRect, -pad);
     textRect.alignBottom(&cubeRect, -pad);
-    textRect.width(textComp.getContentWidth());
-    textRect.height(textComp.getContentHeight());
+    textRect.width(textComp.contentWidthGetter);
+    textRect.height(textComp.contentHeightGetter);
     cubeRect.alignRight(&textRect, pad);
     cubeRect.alignTop(&textRect, pad);
     cubeRect.centerVerticalInside(nullptr);
@@ -183,6 +180,14 @@ void TestRenderer::change(int newWidth,int newHeight){
     gComp.updateRect();
     bComp.rect = bRect.build(metrics);
     bComp.updateRect();
+    
+    RectBuilder refRect;
+    refRect.alignTop(nullptr);
+    refRect.alignBottom(nullptr);
+    refRect.alignLeft(nullptr);
+    refRect.width(TypedSize::gl(1.0f));
+    refComp.rect = refRect.build(metrics);
+    refComp.updateRect();
 }
 
 void TestRenderer::pointer(PointerEvent event){
@@ -218,7 +223,7 @@ void TestRenderer::rawPointer(int dx, int dy){
     look.move(dx, dy);
 }
 
-void TestRenderer::key(int32_t keycode, bool down){
+void TestRenderer::key(uint32_t keycode, bool down){
     if(keycode == w){
         wd = down;
     }else if(keycode == a){
@@ -227,6 +232,19 @@ void TestRenderer::key(int32_t keycode, bool down){
         sd = down;
     }else if(keycode == d){
         dd = down;
+    }else if(keycode == fullscreen){
+        if(down){
+            if(!isFullscreen()){
+                #ifdef PLATFORM_WINDOWS
+                //goFullscreen(FullscreenConfig::DEFAULT);
+                goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
+                #endif
+            }else{
+                exitFullscreen();
+            }
+        }
+    }else if(keycode == exitKey){
+        if(down)exit();
     }
 }
 
@@ -287,38 +305,7 @@ void TestRenderer::drawFrame(){
     glEnable(GL_DEPTH_TEST);
     Framebuffer::DEFAULT.bind();
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-    Renderable *ptrs[] = {obj1,obj2,obj3,obj4,pawn};
-    pointLight.draw(mvpMatrix.model,ptrs,5);
-    spotLight.draw(mvpMatrix.model,ptrs,5);
-    shader->use();
-    shader->light(pointLight, mvpMatrix.model);
-    shader->light(spotLight, mvpMatrix.model);
-    shader->light(ambientLight);
-    reflection.bind();
-    reflection.getReflectionModel(mvpMatrix.model);
-    shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
-    shader->uniformMat4x4("u_model",Mat4x4::Id);
-    obj1->draw2(shader,"a_position","u_color");
-    obj2->draw2(shader,"a_position","u_color");
-    obj4->draw2(shader,"a_position","u_color");
-    pawn->draw2(shader,"a_position","u_model","u_color");
-    reflection.unbind();
-    mvpMatrix.model = Mat4x4::Id;
-    shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
-    shader->uniformMat4x4("u_model",Mat4x4::Id);
-    obj1->draw2(shader,"a_position","u_color");
-    obj2->draw2(shader,"a_position","u_color");
-    obj4->draw2(shader,"a_position","u_color");
-    obj5->draw2(shader,"a_position","u_color");
-    pawn->draw2(shader,"a_position","u_model","u_color");
-    refShader->use();
-    refShader->light(ambientLight);
-    refShader->reflection(reflection);
-    refShader->light(pointLight,mvpMatrix.model);
-    refShader->light(spotLight,mvpMatrix.model);
-    refShader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
-    refShader->uniformMat4x4("u_model",Mat4x4::Id);
-    obj3->draw2(refShader,"a_position","u_color");
+    scene.draw(mvpMatrix);
     glDisable(GL_DEPTH_TEST);
     
     if(navPointerId != POINTER_ID_INVALID){
@@ -336,6 +323,7 @@ void TestRenderer::drawFrame(){
     bComp.draw();
     cubeComp.draw();
     textComp.draw();
+    //refComp.draw();
 }
 
 void TestRenderer::destroy(){
@@ -345,6 +333,4 @@ void TestRenderer::destroy(){
     delete obj4;
     delete obj5;
     delete pawn;
-    delete shader;
-    delete refShader;
 }

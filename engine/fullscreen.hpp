@@ -10,6 +10,7 @@ class FullscreenConfig{
         ~FullscreenConfig();
 };
 
+bool isFullscreen();
 void goFullscreen(FullscreenConfig config);
 void exitFullscreen();
 

@@ -196,6 +196,10 @@ int Renderer::getState(){
     return rendererState;
 }
 
+void Renderer::exit(){
+    DestroyWindow(engine_hwnd);
+}
+
 int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
     renderer = r;
     time_init();

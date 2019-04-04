@@ -51,6 +51,8 @@ void android_textTextureRelease(jobject thiz);
 void android_goFullscreen();
 void android_exitFullscreen();
 
+void android_exit();
+
 void android_initThread(int cmdFd);
 void android_runThread();
 

@@ -43,7 +43,7 @@ class Renderer{
         virtual void drawFrame(){}
         virtual void pointer(PointerEvent event){}
         virtual void rawPointer(int dx, int dy){}
-        virtual void key(int32_t keycode, bool down){}
+        virtual void key(uint32_t keycode, bool down){}
         virtual ~Renderer(){}
 };
 

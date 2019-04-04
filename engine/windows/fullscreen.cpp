@@ -143,17 +143,19 @@ void exitFullscreenImpl(){
     SetWindowLongPtr(engine_hwnd, GWL_EXSTYLE, WS_EX_CLIENTEDGE);
     SetWindowLongPtr(engine_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(engine_hwnd, HWND_NOTOPMOST, saved_x, saved_y, saved_width, saved_height, 0);
-    long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
-    switch(ret){
-        case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
-        case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
-        case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
-        case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
-        case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
-        case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
-        case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
-        case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
-        default: LOGW("unknown return value: %ld", ret);
+    if(saved_config.deviceMode.dmSize != 0){
+        long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
+        switch(ret){
+            case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
+            case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
+            case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
+            case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
+            case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
+            case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
+            case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
+            case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
+            default: LOGW("unknown return value: %ld", ret);
+        }
     }
     ShowWindow(engine_hwnd, SW_RESTORE);
 }
@@ -164,6 +166,10 @@ void exitFullscreen(){
     if(Renderer::isForeground()){
         exitFullscreenImpl();
     }
+}
+
+bool isFullscreen(){
+    return engine_fullscreen;
 }
 
 void engine_goForeground(){
@@ -190,7 +196,7 @@ bool engine_goBackground(){
                 case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
                 case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
                 default: LOGW("unknown return value: %ld", ret);
-        }
+            }
         }
         ShowWindow(engine_hwnd, SW_MINIMIZE);
         return false;

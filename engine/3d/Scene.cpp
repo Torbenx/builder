@@ -6,6 +6,12 @@ Scene::Scene(){
     baseBuilder.setWorldModelMatrixUniform("u_model");
 }
 
+Scene::~Scene(){
+    for(std::list<SceneShader>::iterator it = shaders.begin(); it != shaders.end(); it++){
+        delete it->shader;
+    }
+}
+
 void Scene::addLight(PointLight& light){
     baseBuilder.addLight(light);
     pointLights.push_back(&light);
@@ -68,6 +74,7 @@ void Scene::addObject(SceneObject *obj){
     SceneShader shader;
     shader.shader = nullptr;
     shader.objects.push_back(obj);
+    shaders.push_back(shader);
 }
 
 void Scene::draw(MvpMatrix mvp){
@@ -80,18 +87,20 @@ void Scene::draw(MvpMatrix mvp){
     for(std::vector<Reflection*>::iterator rit=reflections.begin();rit!=reflections.end();rit++){
         (*rit)->bind();
         (*rit)->getReflectionModel(mvp.model);
-        doDraw(mvp);
+        doDraw(mvp, false);
         (*rit)->unbind();
     }
+    mvp.model = Mat4x4::Id;
     doDraw(mvp);
 }
 
-void Scene::doDraw(MvpMatrix& mvp){
+void Scene::doDraw(MvpMatrix& mvp, bool drawReflections){
     Mat4x4 matrix = mvp.setupMvp();
     for(std::list<SceneShader>::iterator it = shaders.begin(); it != shaders.end(); it++){
         LShader *shader = it->shader;
         SceneObject *obj = it->objects.front();
         ColorSources colors = obj->getColorSources();
+        if(colors.nReflections > 0 && !drawReflections)continue;
         if(!shader){
             ShaderBuilder builder(baseBuilder);
             it->data.positionAttrib = {"a_position"};
@@ -118,9 +127,15 @@ void Scene::doDraw(MvpMatrix& mvp){
                 it->data.attribs[i] = {s};
                 builder.setFragmentColorAttrib(s);
             }
+            Reflection **refs = obj->getReflections();
+            for(int i=0;i<colors.nReflections;i++){
+                builder.addReflection(*refs[i]);
+            }
             shader = builder.build();
             it->shader = shader;
+            shader->init();
         }
+        shader->use();
         Reflection **refs = obj->getReflections();
         for(int i=0;i<colors.nReflections;i++){
             shader->reflection(*refs[i]);

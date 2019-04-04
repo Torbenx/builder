@@ -4,7 +4,7 @@
 class UiSceneBuilder{
     public:
         void *scene;
-        RectBuilder rect;
+        RectBuilder builder;
         
         UiSceneBuilder& above(UiComponent& other, TypedSize padding=TypedSize::zero);
         UiSceneBuilder& below(UiComponent& other, TypedSize padding=TypedSize::zero);
@@ -14,22 +14,24 @@ class UiSceneBuilder{
         UiSceneBuilder& alignTop(UiComponent& other, TypedSize padding=TypedSize::zero);
         UiSceneBuilder& alignBottom(UiComponent& other, TypedSize padding=TypedSize::zero);
         UiSceneBuilder& alignLeft(UiComponent& other, TypedSize padding=TypedSize::zero);
-        UiSceneBuilder& alignBottom(UiComponent& other, TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& alignRight(UiComponent& other, TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& alignHorizontal(UiComponent& other, TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& alignHorizontal(UiComponent& other, TypedSize paddingLeft, TypedSize paddingRight);
+        UiSceneBuilder& alignVertical(UiComponent& other, TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& alignVertical(UiComponent& other, TypedSize paddingTop, TypedSize paddingBottom);
+        UiSceneBuilder& align(UiComponent& other, TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& align(UiComponent& other, TypedSize paddingTop, TypedSize paddingLeft, TypedSize paddingBottom, TypedSize paddingRight);
         
-        UiSceneBuilder& width(TypedSize padding=TypedSize::zero);
-        UiSceneBuilder& height(TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& width(TypedSize width);
+        UiSceneBuilder& height(TypedSize height);
         
-        UiSceneBuilder& wrapContentWidth(TypedSize paddingLeft, TypedSize paddingRight);
         UiSceneBuilder& wrapContentWidth(TypedSize padding=TypedSize::zero);
-        UiSceneBuilder& wrapContentHeight(TypedSize paddingTop, TypedSize paddingBottom);
         UiSceneBuilder& wrapContentHeight(TypedSize padding=TypedSize::zero);
         UiSceneBuilder& wrapContent(TypedSize padding=TypedSize::zero);
         
-        /*UiSceneBuilder& wrapHorizontal(UiComponent& other, float paddingLeft, float paddingRight);
-        UiSceneBuilder& wrapHorizontal(UiComponent& other, float padding=0.0f);
-        UiSceneBuilder& wrapVertical(UiComponent& other, float paddingTop, float paddingBottom);
-        UiSceneBuilder& wrapVertical(UiComponent& other, float paddingTop, float paddingBottomfloat padding=0.0f);
-        UiSceneBuilder& wrap(UiComponent& other, float padding=0.0f);*/
+        UiSceneBuilder& wrapContentWidthOf(UiComponent& other, TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& wrapContentHeightOf(UiComponent& other, TypedSize padding=TypedSize::zero);
+        UiSceneBuilder& wrapContentOf(UiComponent& other, TypedSize padding=TypedSize::zero);
 };
 
 class UiScene{

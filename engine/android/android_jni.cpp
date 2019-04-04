@@ -12,7 +12,7 @@ jobject activity;
 AAssetManager *assetManager;
 
 jclass textClass;
-jmethodID goFullscreenID, exitFullscreenID, InputQueue_getNativePtrID;
+jmethodID goFullscreenID, exitFullscreenID, InputQueue_getNativePtrID, finishID;
 jmethodID textTextureConstructorID, drawTextID, textTextureReleaseID, createTextFormatID, getTextFormatWidthID, getTextFormatHeightID, getTextFormatLineCountID;
 
 void android_engineThreadInit(JNIEnv *env, jobject thiz, jobject jAssetManager, int cmdFd){
@@ -23,6 +23,7 @@ void android_engineThreadInit(JNIEnv *env, jobject thiz, jobject jAssetManager, 
     jclass clazz = env->GetObjectClass(activity);
     goFullscreenID = env->GetMethodID(clazz, "goFullscreen", "()V");
     exitFullscreenID = env->GetMethodID(clazz, "exitFullscreen", "()V");
+    finishID = env->GetMethodID(clazz, "finish", "()V");
     
     clazz = env->FindClass("android/view/InputQueue");
     InputQueue_getNativePtrID = env->GetMethodID(clazz, "getNativePtr", "()J");
@@ -103,6 +104,12 @@ void android_sendBuf(int fd, void *buf, int size){
 
 void android_sendCmd(int fd, cmd_t cmd){
     android_sendBuf(fd, &cmd, sizeof(cmd_t));
+}
+
+void android_exit(){
+    JNIEnv *env;
+    jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    env->CallVoidMethod(activity, finishID);
 }
 
 extern "C" {

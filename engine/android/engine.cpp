@@ -239,6 +239,10 @@ void android_runThread(){
     ALooper_release(looper);
 }
 
+void Renderer::exit(){
+    android_exit();
+}
+
 int Renderer::getState(){
     return rendererState;
 }

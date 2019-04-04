@@ -41,6 +41,7 @@ class Builder(build.Builder):
             "ui/DepthCubeMapComponent.cpp",
             "ui/RectBuilder.cpp",
             "ui/TypedSize.cpp",
+            "ui/UiComponent.cpp",
             "3d/Scene.cpp"
         ]
 

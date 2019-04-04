@@ -1,7 +1,8 @@
-#include "fullscreen.hpp"
+#include "../fullscreen.hpp"
 #include "engine.hpp"
 
 FullscreenConfig FullscreenConfig::DEFAULT;
+bool engine_fullscreen = false;
 
 FullscreenConfig::FullscreenConfig(){
     
@@ -21,4 +22,8 @@ void goFullscreen(FullscreenConfig config){
 
 void exitFullscreen(){
     android_exitFullscreen();
+}
+
+bool isFullscreen(){
+    return engine_fullscreen;
 }
