@@ -1,26 +1,25 @@
 import sys
 sys.dont_write_bytecode = True
 
-import msvcrt
 import os
 import subprocess
 import build_script
 import engine.build_script
 import traceback
 import shutil
-from engine.build_lib import build, android, assets
+from engine.build_lib import build, android, assets, getch
 
 cwd = os.getcwd()
 
 def choose_target():
     print "a for android, w for windows"
-    key = msvcrt.getch()
+    key = getch.getch()
     global platform
     global arch
     if key == "a":
         platform = "android"
         print "1 for armv7a, 2 for arm64v8a, 3 for x86_32, 4 for x86_64"
-        key = msvcrt.getch()
+        key = getch.getch()
         if key == "1":
             arch = build.arch_armv7a
         elif key == "2":
@@ -49,9 +48,9 @@ while True:
 
     print "Target: "+platform+", "+build.arch_string(arch)
     print "e to exit, r to rebuild, t to change target"
-    while msvcrt.kbhit():
-        msvcrt.getch()
-    key = msvcrt.getch()
+    while getch.kbhit():
+        getch.getch()
+    key = getch.getch()
     if key == "e":
         break
     os.system("cls")

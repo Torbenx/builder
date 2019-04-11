@@ -16,7 +16,7 @@ void Reflection::init(){
     texture.init();
     renderbuffer.init();
     framebuffer.init();
-    texture.texture(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
+    texture.texture(nullptr,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
     renderbuffer.storageDepth16(width, height);
     framebuffer.colorAttachment(texture);
     framebuffer.depthAttachment(renderbuffer);

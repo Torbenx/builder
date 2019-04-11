@@ -2,7 +2,7 @@ import build
 import subprocess
 import os
 import shutil
-import msvcrt
+import getch
 import time
 import assets
 
@@ -220,14 +220,14 @@ class Android(object):
     def log_package(self, adb_bin):
         print "Logging "+self.package+", "+self.LOG_USAGE
         p = subprocess.Popen([adb_bin, "logcat", "-e", self.package])
-        key = msvcrt.getch()
+        key = getch.getch()
         p.kill()
         return key
         
     def log_pid(self, pid, adb_bin):
         print "Logging "+str(pid)+", "+self.LOG_USAGE
         p = subprocess.Popen([adb_bin, "logcat", "--pid="+str(pid)])
-        key = msvcrt.getch()
+        key = getch.getch()
         p.kill()
         return key
         
@@ -256,7 +256,7 @@ class Android(object):
                 pid = self.find_pid(adb_bin)
                 if pid == -1:
                     print "process not running, "+self.LOG_USAGE
-                    key = msvcrt.getch()
+                    key = getch.getch()
                 else:
                     key = self.log_pid(pid, adb_bin)
             elif key == "p":
@@ -264,17 +264,17 @@ class Android(object):
             elif key == "c":
                 os.system("cls")
                 print self.LOG_USAGE
-                key = msvcrt.getch()
+                key = getch.getch()
             elif key == "k":
                 subprocess.call([adb_bin, "shell", "am force-stop "+self.package])
                 print self.LOG_USAGE
-                key = msvcrt.getch()
+                key = getch.getch()
             elif key == "s":
                 subprocess.call([adb_bin, "shell", "am", "start", self.package+"/"+activity])
                 print self.LOG_USAGE
-                key = msvcrt.getch()
+                key = getch.getch()
             elif key == "e":
                 break
             else:
                 print self.LOG_USAGE
-                key = msvcrt.getch()
+                key = getch.getch()

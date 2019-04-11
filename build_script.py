@@ -1,5 +1,4 @@
 import os
-import msvcrt
 import subprocess
 import sys
 from engine.build_lib import build
