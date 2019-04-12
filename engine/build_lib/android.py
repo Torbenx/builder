@@ -146,9 +146,9 @@ class Android(object):
         assets_copy_dir = build.join(self.build_dir, "assets")
         
         if self.dx_bin: dx_bin = self.dx_bin
-        if self.aapt_bin: dx_bin = self.aapt_bin
-        if self.zip_align_bin: dx_bin = self.zip_align_bin
-        if self.apk_sign_bin: dx_bin = self.apk_sign_bin
+        if self.aapt_bin: aapt_bin = self.aapt_bin
+        if self.zip_align_bin: zip_align_bin = self.zip_align_bin
+        if self.apk_sign_bin: apk_sign_bin = self.apk_sign_bin
         
         start_time = time.time()
         
@@ -252,13 +252,18 @@ class Android(object):
         else:
             return int(out)
         
-    def run(self, activity):
+    def run(self, activity, apk_path="", use_pm=False):
+        if(not apk_path):
+            apk_path = self.apk_output
         adb_bin = build.join(self.sdk,"platform-tools","adb.exe")
         
         adb_state = subprocess.check_output([adb_bin, "get-state"])
         assert adb_state.startswith("device"), "Wrong adb state: "+adb_state
         
-        install_ret = build.exec_cmd([adb_bin, "install", "-r", self.apk_output], False, False)
+        if not use_pm:
+            install_ret = build.exec_cmd([adb_bin, "install", "-r", apk_path], False, False)
+        else:
+            install_ret = build.exec_cmd([adb_bin], "shell", "pm"
         assert install_ret==0, "install failed with %d" % install_ret
         
         build.exec_cmd([adb_bin, "shell", "am", "start", self.package+"/"+activity], False, False)
