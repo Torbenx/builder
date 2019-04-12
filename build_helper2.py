@@ -139,6 +139,8 @@ while True:
             an.assets_dir = "assets"
             an.version_code = 1
             an.version_name = "1.0"
+            an.aapt_bin = "aapt"
+            an.zip_align_bin = "zipalign"
             an.rebuild = rebuild
             an.build()
             an.run("com.tt.engine.MainActivity")

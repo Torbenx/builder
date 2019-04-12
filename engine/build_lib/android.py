@@ -124,6 +124,11 @@ class Android(object):
         self.install_dir = ""
         self.rebuild = False
         self.debug = True
+        self.dx_bin = ""
+        self.aapt_bin = ""
+        self.zip_align_bin = ""
+        self.apk_sign_bin = ""
+        self.std_lib_src = ""
         
     def build(self):
         build_tools = build.join(self.sdk,"build-tools",self.build_tools_version)
@@ -139,6 +144,11 @@ class Android(object):
         javac_bin = build.join(self.jdk,"bin","javac")
         assets_copy_dir = build.join(self.build_dir, "assets")
         
+        if self.dx_bin: dx_bin = self.dx_bin
+        if self.aapt_bin: dx_bin = self.aapt_bin
+        if self.zip_align_bin: dx_bin = self.zip_align_bin
+        if self.apk_sign_bin: dx_bin = self.apk_sign_bin
+        
         start_time = time.time()
         
         if not os.path.exists(class_output):
@@ -150,13 +160,15 @@ class Android(object):
         
         std_lib_changed = False
         lib_dir_rel = build.join("lib", get_lib_dir_name(self.arch))
-        lib_dir = build.join(self.build_dir, lib_dir_rel);
-        std_lib_dest = build.join(lib_dir, get_std_lib_name(self.arch))
+        lib_dir = build.join(self.build_dir, lib_dir_rel)
+        std_lib_dest = build.join(lib_dir, "libc++_shared.so")
+        std_lib_src = build.join(self.install_dir, get_toolchain_dir_name(self.api, self.arch), get_std_lib_dir_name(self.api, self.arch), get_std_lib_name(self.arch));
+        if self.std_lib_src: std_lib_src = self.std_lib_src
         if self.rebuild or not os.path.exists(std_lib_dest):
             std_lib_changed = True
             if not os.path.exists(lib_dir):
                 os.makedirs(lib_dir)
-            shutil.copyfile(build.join(self.install_dir, get_toolchain_dir_name(self.api, self.arch), get_std_lib_dir_name(self.api, self.arch), get_std_lib_name(self.arch)), std_lib_dest)
+            shutil.copyfile(std_lib_src, std_lib_dest)
             
         javac_start = time.time()
         java_changed = False
