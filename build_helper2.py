@@ -45,7 +45,7 @@ while True:
     key = getch.getch()
     if key == "e":
         break
-    os.system("cls")
+    getch.clear()
     rebuild = False
     if key == "r":
         rebuild = True

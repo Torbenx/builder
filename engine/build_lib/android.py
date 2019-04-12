@@ -44,7 +44,7 @@ def get_std_lib_dir_name(api, arch):
 def get_std_lib_name(arch):
     return "libc++_shared.so"
 
-def install_toolchain(api, arch, install_dir, sdk):
+def install_toolchain(api, arch, install_dir, sdk, concat_cmd=False):
     toolchain_dir = build.join(install_dir,get_toolchain_dir_name(api, arch))
     if os.path.exists(toolchain_dir):
         return False
@@ -61,7 +61,7 @@ def install_toolchain(api, arch, install_dir, sdk):
         cmd += ["--arch", "x86_64"]
     else:
         raise ValueError("invalid arch")
-    install_ret = subprocess.call(cmd, shell=True)
+    install_ret = build.exec_cmd(cmd, True, concat_cmd)
     assert install_ret==0, "Toolchain installation failed with %d" % install_ret
     print "Toolchain install successfully"
     return True
@@ -84,7 +84,7 @@ def setup(api, arch, install_dir, sdk):
 def gen_key(keystore, keystore_password, key_alias, key_password, dname, validity, jdk):
     keytool_bin = build.join(jdk,"bin","keytool")
     #validity in days
-    gen_ret = subprocess.call([keytool_bin, "-genkey", "-keystore", keystore, "-keyalg", "RSA", "-keysize", "2048", "-validity", str(validity), "-storepass", keystore_password, "-alias", key_alias, "-keypass", key_password, "-dname", dname])
+    gen_ret = build.exec_cmd([keytool_bin, "-genkey", "-keystore", keystore, "-keyalg", "RSA", "-keysize", "2048", "-validity", str(validity), "-storepass", keystore_password, "-alias", key_alias, "-keypass", key_password, "-dname", dname], False, False)
     assert gen_ret==0, "Key generation failed with %d" % gen_ret
         
 def debug_keystore(dir, jdk):
@@ -180,21 +180,21 @@ class Android(object):
                 continue
             print "Building "+file
             java_changed = True
-            javac_ret = subprocess.call([javac_bin, "-d", class_output, "-classpath", self.java_dir, "-bootclasspath", android_jar, java_file], shell=True)
+            javac_ret = build.exec_cmd([javac_bin, "-d", class_output, "-classpath", self.java_dir, "-bootclasspath", android_jar, java_file], True, self.concat_cmd)
             assert javac_ret==0, "javac for %s failed with %d" % {file, javac_ret}
         
         dx_start = time.time()
         dx_changed = False
         if java_changed or self.rebuild or not os.path.exists(build.join(self.build_dir,"classes.dex")):
             dx_changed = True
-            dx_ret = subprocess.call([dx_bin, "--dex", "--output", build.join(self.build_dir,"classes.dex"), class_output], shell=True)
+            dx_ret = build.exec_cmd([dx_bin, "--dex", "--output", build.join(self.build_dir,"classes.dex"), class_output], True, self.concat_cmd)
             assert dx_ret==0, "dx failed with %d" % dx_ret
         
         aapt_p_start = time.time()
         apk_empty = False
         if self.rebuild or assets_changed or (not os.path.exists(apk_unaligned)) or os.path.getmtime(self.android_manifest) > os.path.getmtime(apk_unaligned):
             apk_empty = True
-            aapt_p_ret = subprocess.call([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package] + (["--debug-mode"] if self.debug else []), shell=True)
+            aapt_p_ret = build.exec_cmd([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package] + (["--debug-mode"] if self.debug else []), True, self.concat_cmd)
             assert aapt_p_ret==0, "aapt package failed with %d" % aapt_p_ret
             
         aapt_ar_start = time.time()
@@ -208,20 +208,20 @@ class Android(object):
                 add_files += [lib]
         if add_files:
             if not apk_empty:
-                aapt_r_ret = subprocess.call([aapt_bin, "remove", apk_unaligned] + add_files, shell=True)
+                aapt_r_ret = build.exec_cmd([aapt_bin, "remove", apk_unaligned] + add_files, True, self.concat_cmd)
                 assert aapt_r_ret==0, "aapt remove failed with %d" % aapt_r_ret
             
-            aapt_a_ret = subprocess.call([aapt_bin, "add", apk_unaligned_name] + add_files, cwd=self.build_dir, shell=True)
+            aapt_a_ret = build.exec_cmd([aapt_bin, "add", apk_unaligned_name] + add_files, True, self.concat_cmd, cwd=self.build_dir)
             assert aapt_a_ret==0, "aapt add failed with %d" % aapt_a_ret
         
         align_start = time.time()
         if add_files or apk_empty:
-            align_ret = subprocess.call([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], shell=True)
+            align_ret = build.exec_cmd([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], True, self.concat_cmd)
             assert align_ret==0, "zipalign failed with %d" % align_ret
         
         sign_start = time.time()
         if add_files or apk_empty:
-            sign_ret = subprocess.call([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], shell=True)
+            sign_ret = build.exec_cmd([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], True, self.concat_cmd)
             assert sign_ret==0, "sign failed with %d" % sign_ret
         
         end = time.time()
@@ -258,10 +258,10 @@ class Android(object):
         adb_state = subprocess.check_output([adb_bin, "get-state"])
         assert adb_state.startswith("device"), "Wrong adb state: "+adb_state
         
-        install_ret = subprocess.call([adb_bin, "install", "-r", self.apk_output])
+        install_ret = build.exec_cmd([adb_bin, "install", "-r", self.apk_output], False, False)
         assert install_ret==0, "install failed with %d" % install_ret
         
-        subprocess.call([adb_bin, "shell", "am", "start", self.package+"/"+activity])
+        build.exec_cmd([adb_bin, "shell", "am", "start", self.package+"/"+activity], False, False)
         
         key = "r"
         while True:
@@ -279,11 +279,11 @@ class Android(object):
                 print self.LOG_USAGE
                 key = getch.getch()
             elif key == "k":
-                subprocess.call([adb_bin, "shell", "am force-stop "+self.package])
+                build.exec_cmd([adb_bin, "shell", "am force-stop "+self.package], False, False)
                 print self.LOG_USAGE
                 key = getch.getch()
             elif key == "s":
-                subprocess.call([adb_bin, "shell", "am", "start", self.package+"/"+activity])
+                build.exec_cmd([adb_bin, "shell", "am", "start", self.package+"/"+activity], False, False)
                 print self.LOG_USAGE
                 key = getch.getch()
             elif key == "e":

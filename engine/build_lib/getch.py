@@ -1,12 +1,17 @@
+import os
+
 try:
-	import msvcrt
-	
-	def getch():
-		return msvcrt.getch()
-		
-	def kbhit():
-		return msvcrt.kbhit()
-		
+    import msvcrt
+    
+    def getch():
+        return msvcrt.getch()
+        
+    def kbhit():
+        return msvcrt.kbhit()
+        
+    def clear():
+        os.system("cls")
+        
 except ImportError:
     
     def getch():
@@ -15,3 +20,6 @@ except ImportError:
         
     def kbhit():
         return False
+        
+    def clear():
+        os.system("clear")
