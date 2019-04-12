@@ -32,9 +32,9 @@ while (not "platform" in globals()) or not "arch" in globals():
     choose_target()
     
 api = 27
-jdk = "usr/lib/jvm/java-8-openjdk-arm64"
+jdk = "/usr/lib/jvm/java-8-openjdk-arm64"
 sdk = "~/sdk"
-toolchain_install_dir = ""
+toolchain_install_dir = ".."
 
 while True:
 
@@ -77,8 +77,8 @@ while True:
             compile_args += ["-DPLATFORM_WINDOWS"]
         if platform == "android":
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
-            compile_cmd = ["g++", "-idirafter", "~/ndk/include/sysroot"]
-            link_cmd = ["g++"]
+            compile_cmd = ["g++", "-idirafter", "~/ndk/include/sysroot", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]
+            link_cmd = ["g++", "-L", "~/ndk/lib"]
             engine_output = build.join(build_dir,lib_dir_rel,"libengine.so")
             main_output = build.join(build_dir,lib_dir_rel,"libmain.so")
             compile_args += ["-DPLATFORM_ANDROID"]

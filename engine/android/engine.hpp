@@ -1,6 +1,8 @@
 #ifndef HEADER_ANDROID_ENGINE_H
 #define HEADER_ANDROID_ENGINE_H
 
+#define __RENAME_IF_FILE_OFFSET64(x)
+#include <android/versioning.h>
 #include "../Renderer.hpp"
 #include "../math/Mat4x4.hpp"
 #include <android/asset_manager.h>
