@@ -141,7 +141,9 @@ while True:
             an.version_name = "1.0"
             an.aapt_bin = "aapt"
             an.zip_align_bin = "zipalign"
+            an.std_lib_src = "/usr/lib/gcc/aarch64-linux-gnu/6/libstdc++.so"
             an.rebuild = rebuild
+            an.concat_cmd = True
             an.build()
             an.run("com.tt.engine.MainActivity")
             

@@ -129,6 +129,7 @@ class Android(object):
         self.zip_align_bin = ""
         self.apk_sign_bin = ""
         self.std_lib_src = ""
+        self.concat_cmd = False
         
     def build(self):
         build_tools = build.join(self.sdk,"build-tools",self.build_tools_version)
