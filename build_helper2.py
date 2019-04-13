@@ -78,7 +78,7 @@ while True:
         if platform == "android":
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
             compile_cmd = ["g++", "-idirafter", "~/ndk/include/sysroot", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]
-            link_cmd = ["g++", "-L", "~/ndk/lib"]
+            link_cmd = ["g++", "-L", "~/ndk/lib"]#, "-nostdlib", "-lc", "-ldl", "-lm", "-lz", "-lstdc++"]
             engine_output = build.join(build_dir,lib_dir_rel,"libengine.so")
             main_output = build.join(build_dir,lib_dir_rel,"libmain.so")
             compile_args += ["-DPLATFORM_ANDROID"]

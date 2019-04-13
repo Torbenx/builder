@@ -260,10 +260,11 @@ class Android(object):
         adb_state = subprocess.check_output([adb_bin, "get-state"])
         assert adb_state.startswith("device"), "Wrong adb state: "+adb_state
         
+        install_ret = 0
         if not use_pm:
             install_ret = build.exec_cmd([adb_bin, "install", "-r", apk_path], False, False)
         else:
-            install_ret = build.exec_cmd([adb_bin], "shell", "pm"
+            install_ret = build.exec_cmd([adb_bin], "shell", "pm", "install", apk_path, False, False)
         assert install_ret==0, "install failed with %d" % install_ret
         
         build.exec_cmd([adb_bin, "shell", "am", "start", self.package+"/"+activity], False, False)
