@@ -77,8 +77,8 @@ while True:
             compile_args += ["-DPLATFORM_WINDOWS"]
         if platform == "android":
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
-            compile_cmd = ["g++", "-idirafter", "~/ndk/include/sysroot", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]
-            link_cmd = ["g++", "-L", "~/ndk/lib"]#, "-nostdlib", "-lc", "-ldl", "-lm", "-lz", "-lstdc++"]
+            compile_cmd = ["clang++", "-std=c++11", "-nostdinc", "-nostdinc++", "-isystem", "~/ndk/include/c++", "-isystem", "~/ndk/include/sysroot", "-isystem", "~/ndk/include/clang", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]
+            link_cmd = ["clang++", "-L", "~/ndk/lib/lib", "-nostdlib", "-lc", "-ldl", "-lm", "-lgcc", "-lc++_shared", "~/ndk/lib/lib/crtbegin_so.o"]
             engine_output = build.join(build_dir,lib_dir_rel,"libengine.so")
             main_output = build.join(build_dir,lib_dir_rel,"libmain.so")
             compile_args += ["-DPLATFORM_ANDROID"]
@@ -141,7 +141,8 @@ while True:
             an.version_name = "1.0"
             an.aapt_bin = "aapt"
             an.zip_align_bin = "zipalign"
-            an.std_lib_src = "/usr/lib/gcc/aarch64-linux-gnu/6/libstdc++.so"
+            an.adb_bin = "adb"
+            an.std_lib_src = "/home/asdf12/ndk/lib/lib/libc++_shared.so"
             an.rebuild = rebuild
             an.concat_cmd = True
             an.build()

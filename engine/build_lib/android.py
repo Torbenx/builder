@@ -130,6 +130,7 @@ class Android(object):
         self.apk_sign_bin = ""
         self.std_lib_src = ""
         self.concat_cmd = False
+        self.adb_bin = ""
         
     def build(self):
         build_tools = build.join(self.sdk,"build-tools",self.build_tools_version)
@@ -256,6 +257,8 @@ class Android(object):
         if(not apk_path):
             apk_path = self.apk_output
         adb_bin = build.join(self.sdk,"platform-tools","adb.exe")
+        if self.adb_bin:
+            adb_bin = self.adb_bin
         
         adb_state = subprocess.check_output([adb_bin, "get-state"])
         assert adb_state.startswith("device"), "Wrong adb state: "+adb_state
