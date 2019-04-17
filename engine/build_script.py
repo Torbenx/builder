@@ -42,6 +42,7 @@ class Builder(build.Builder):
             "ui/RectBuilder.cpp",
             "ui/TypedSize.cpp",
             "ui/UiComponent.cpp",
+            "ui/UiScene.cpp",
             "3d/Scene.cpp"
         ]
 

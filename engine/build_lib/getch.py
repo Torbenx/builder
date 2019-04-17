@@ -15,8 +15,7 @@ try:
 except ImportError:
     
     def getch():
-        s = raw_input()
-        return s[0]
+        return raw_input()
         
     def kbhit():
         return False
