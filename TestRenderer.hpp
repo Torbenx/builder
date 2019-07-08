@@ -15,6 +15,7 @@
 #include "ui/TestComponent.hpp"
 #include "ui/DepthCubeMapComponent.hpp"
 #include "3d/Scene.hpp"
+#include "ui/UiScene.hpp"
 #include <cmath>
 
 class DebugRenderable : public SceneObject{
@@ -109,9 +110,9 @@ class TestRenderer : public Renderer{
         int navBaseX, navBaseY;
         int navDeltaX = 0, navDeltaY = 0;
         DepthCubeMapComponent cubeComp;
-        TestComponent rComp, gComp, bComp;
         TextureComponent refComp;
         Scene scene;
+        UiScene uiScene;
         
         TestRenderer();
         void create();

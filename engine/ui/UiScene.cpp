@@ -1,11 +1,24 @@
 #include "UiScene.hpp"
+#include "../util/log.hpp"
 
 #define GET_UI_BUILDER(comp) ((UiScene*)scene)->layout(comp)
 #define GET_BUILDER(comp) &(GET_UI_BUILDER(comp).builder)
 
 UiSceneBuilder& UiScene::layout(UiComponent& comp){
-    return builders[&comp];
+    UiSceneBuilder& builder = builders[&comp];
+    builder.scene = this;
+    builder.comp = &comp;
+    return builder;
 }
+
+void UiScene::build(){
+    for(auto it=builders.begin();it!=builders.end();it++){
+        it->first->metrics = metrics;
+        it->first->rect = it->second.builder.build(metrics);
+        it->first->updateRect();
+    }
+}
+
 
 UiSceneBuilder& UiSceneBuilder::above(UiComponent& other, TypedSize padding){
    builder.above(GET_BUILDER(other), padding);
@@ -91,6 +104,48 @@ UiSceneBuilder& UiSceneBuilder::align(UiComponent& other, TypedSize paddingTop, 
     builder.alignRight(ob, paddingRight);
     builder.alignTop(ob, paddingTop);
     builder.alignBottom(ob, paddingBottom);
+    return *this;
+}
+
+
+UiSceneBuilder& UiSceneBuilder::alignParentTop(TypedSize padding){
+    builder.alignTop(nullptr, padding);
+    return *this;
+}
+
+UiSceneBuilder& UiSceneBuilder::alignParentBottom(TypedSize padding){
+    builder.alignBottom(nullptr, padding);
+    return *this;
+}
+
+UiSceneBuilder& UiSceneBuilder::alignParentLeft(TypedSize padding){
+    builder.alignLeft(nullptr, padding);
+    return *this;
+}
+
+UiSceneBuilder& UiSceneBuilder::alignParentRight(TypedSize padding){
+    builder.alignRight(nullptr, padding);
+    return *this;
+}
+
+
+UiSceneBuilder& UiSceneBuilder::centerHorizontal(float fraction){
+    builder.centerHorizontalInside(nullptr, fraction);
+    return *this;
+}
+
+UiSceneBuilder& UiSceneBuilder::centerVertical(float fraction){
+    builder.centerVerticalInside(nullptr, fraction);
+    return *this;
+}
+
+UiSceneBuilder& UiSceneBuilder::centerHorizontalInside(UiComponent& other, float fraction){
+    builder.centerHorizontalInside(GET_BUILDER(other), fraction);
+    return *this;
+}
+
+UiSceneBuilder& UiSceneBuilder::centerVerticalInside(UiComponent& other, float fraction){
+    builder.centerVerticalInside(GET_BUILDER(other), fraction);
     return *this;
 }
 
