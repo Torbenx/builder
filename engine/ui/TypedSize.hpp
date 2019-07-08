@@ -6,7 +6,7 @@ struct SizeMetrics{
     int dpi;
 };
 
-struct ScreenMatrics{
+struct ScreenMetrics{
     SizeMetrics x;
     SizeMetrics y;
 };
@@ -41,13 +41,9 @@ struct TypedSize{
 };
 
 struct TypedSizeGetter{
-    union{
-        void *data;
-        TypedSize size;
-    } data;
+    void *data;
     TypedSize(*getSize)(TypedSizeGetter *thiz);
     TypedSize get();
-    static TypedSizeGetter from(TypedSize size);
 };
 
 TypedSize operator-(TypedSize size);

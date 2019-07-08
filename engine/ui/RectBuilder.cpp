@@ -12,7 +12,7 @@
 
 #define RECT_BUILDER_DEBUG 0
 
-RectY recty_deref(RectY r, ScreenMatrics m, bool forHeight=false){
+RectY recty_deref(RectY r, ScreenMetrics m, bool forHeight=false){
     RectBuilder *b = (RectBuilder*)r.rect;
     if(b == nullptr)return r;
     if(RECT_BUILDER_DEBUG)LOGD("deref %s.%s",b->name.c_str(),r.baseBottom?"b":"t");
@@ -35,7 +35,7 @@ RectY recty_deref(RectY r, ScreenMatrics m, bool forHeight=false){
     }
 }
 
-RectX rectx_deref(RectX r, ScreenMatrics m, bool forWidth=false){
+RectX rectx_deref(RectX r, ScreenMetrics m, bool forWidth=false){
     RectBuilder *b = (RectBuilder*)r.rect;
     if(b == nullptr)return r;
     if(RECT_BUILDER_DEBUG)LOGD("deref %s.%s",b->name.c_str(),r.baseLeft?"l":"r");
@@ -58,7 +58,7 @@ RectX rectx_deref(RectX r, ScreenMatrics m, bool forWidth=false){
     }
 }
 
-float RectBuilder::getWidth(ScreenMatrics m){
+float RectBuilder::getWidth(ScreenMetrics m){
     if(RECT_BUILDER_DEBUG)LOGD("%s.getWidth",name.c_str());
     RectX left,right;
     left.rect = this;
@@ -76,7 +76,7 @@ float RectBuilder::getWidth(ScreenMatrics m){
     return NAN;
 }
 
-float RectBuilder::getHeight(ScreenMatrics m){
+float RectBuilder::getHeight(ScreenMetrics m){
     if(RECT_BUILDER_DEBUG)LOGD("%s.getHeight",name.c_str());
     RectY top,bottom;
     top.rect = this;
@@ -94,7 +94,7 @@ float RectBuilder::getHeight(ScreenMatrics m){
     return NAN;
 }
 
-float RectBuilder::getTop(ScreenMatrics m){
+float RectBuilder::getTop(ScreenMetrics m){
     if(RECT_BUILDER_DEBUG)LOGD("%s.getTop",name.c_str());
     RectY top;
     top.rect = this;
@@ -112,7 +112,7 @@ float RectBuilder::getTop(ScreenMatrics m){
     return NAN;
 }
 
-float RectBuilder::getBottom(ScreenMatrics m){
+float RectBuilder::getBottom(ScreenMetrics m){
     if(RECT_BUILDER_DEBUG)LOGD("%s.getBottom",name.c_str());
     RectY bottom;
     bottom.rect = this;
@@ -130,7 +130,7 @@ float RectBuilder::getBottom(ScreenMatrics m){
     return NAN;
 }
 
-float RectBuilder::getLeft(ScreenMatrics m){
+float RectBuilder::getLeft(ScreenMetrics m){
     if(RECT_BUILDER_DEBUG)LOGD("%s.getLeft",name.c_str());
     RectX left;
     left.rect = this;
@@ -148,7 +148,7 @@ float RectBuilder::getLeft(ScreenMatrics m){
     return NAN;
 }
 
-float RectBuilder::getRight(ScreenMatrics m){
+float RectBuilder::getRight(ScreenMetrics m){
     if(RECT_BUILDER_DEBUG)LOGD("%s.getRight",name.c_str());
     RectX right;
     right.rect = this;
@@ -166,15 +166,15 @@ float RectBuilder::getRight(ScreenMatrics m){
     return NAN;
 }
 
-Rect RectBuilder::build(ScreenMatrics m){
+Rect RectBuilder::build(ScreenMetrics m){
     return Rect::bltr(getBottom(m), getLeft(m), getTop(m), getRight(m));
 }
 
 
-RectY rb_rely(RectBuilderData data, ScreenMatrics m){
+RectY rb_rely(RectBuilderData data, ScreenMetrics m){
     return data.rely;
 }
-RectX rb_relx(RectBuilderData data, ScreenMatrics m){
+RectX rb_relx(RectBuilderData data, ScreenMetrics m){
     return data.relx;
 }
 
@@ -212,30 +212,31 @@ void RectBuilder::height(TypedSize height){
     }
 }
 
-RectX rb_lazyx(RectBuilderData data, ScreenMatrics m){
+RectX rb_lazyx(RectBuilderData data, ScreenMetrics m){
     RectX r;
     r.rect = data.lazyx.rect;
     r.baseLeft = data.lazyx.baseLeft;
-    r.dx = data.lazyx.dx.get();
+    r.dx = TypedSize::add(data.lazyx.dx.get(), data.lazyx.padding, TYPED_SIZE_GL, m.x);
     if(!r.baseLeft)r.dx = -r.dx;
     return r;
 }
 
-RectY rb_lazyy(RectBuilderData data, ScreenMatrics m){
+RectY rb_lazyy(RectBuilderData data, ScreenMetrics m){
     RectY r;
     r.rect = data.lazyy.rect;
     r.baseBottom = data.lazyy.baseBottom;
-    r.dy = data.lazyy.dy.get();
+    r.dy = TypedSize::add(data.lazyy.dy.get(), data.lazyy.padding, TYPED_SIZE_GL, m.y);
     if(!r.baseBottom)r.dy = -r.dy;
     return r;
 }
 
-void RectBuilder::width(TypedSizeGetter width){
+void RectBuilder::width(TypedSizeGetter width, TypedSize padding){
     if(rightF == 0 || leftF != 0){
         rightF = rb_lazyx;
         rightD.lazyx.rect = this;
         rightD.lazyx.baseLeft = true;
         rightD.lazyx.dx = width;
+        rightD.lazyx.padding = padding;
         useRightForWidth = true;
     }
     if(leftF == 0){
@@ -243,16 +244,18 @@ void RectBuilder::width(TypedSizeGetter width){
         leftD.lazyx.rect = this;
         leftD.lazyx.baseLeft = false;
         leftD.lazyx.dx = width;
+        leftD.lazyx.padding = padding;
         useLeftForWidth = true;
     }
 }
 
-void RectBuilder::height(TypedSizeGetter height){
+void RectBuilder::height(TypedSizeGetter height, TypedSize padding){
     if(bottomF == 0 || topF != 0){
         bottomF = rb_lazyy;
         bottomD.lazyy.rect = this;
         bottomD.lazyy.baseBottom = false;
         bottomD.lazyy.dy = height;
+        bottomD.lazyy.padding = padding;
         useBottomForHeight = true;
     }
     if(topF == 0){
@@ -260,6 +263,7 @@ void RectBuilder::height(TypedSizeGetter height){
         topD.lazyy.rect = this;
         topD.lazyy.baseBottom = true;
         topD.lazyy.dy = height;
+        topD.lazyy.padding = padding;
         useTopForHeight = true;
     }
 }
@@ -331,7 +335,7 @@ void RectBuilder::alignRight(RectBuilder *b, TypedSize padding){
 }
 
 
-RectY rb_cenTop(RectBuilderData data, ScreenMatrics m){
+RectY rb_cenTop(RectBuilderData data, ScreenMetrics m){
     RectY r;
     RectBuilder *b = (RectBuilder*)data.cen.rect;
     RectBuilder *thiz = (RectBuilder*)data.cen.thiz;
@@ -341,7 +345,7 @@ RectY rb_cenTop(RectBuilderData data, ScreenMatrics m){
     return r;
 }
 
-RectY rb_cenBottom(RectBuilderData data, ScreenMatrics m){
+RectY rb_cenBottom(RectBuilderData data, ScreenMetrics m){
     RectY r;
     RectBuilder *b = (RectBuilder*)data.cen.rect;
     RectBuilder *thiz = (RectBuilder*)data.cen.thiz;
@@ -368,7 +372,7 @@ void RectBuilder::centerVerticalInside(RectBuilder *b, float fraction){
     }
 }
 
-RectX rb_cenLeft(RectBuilderData data, ScreenMatrics m){
+RectX rb_cenLeft(RectBuilderData data, ScreenMetrics m){
     RectX r;
     RectBuilder *b = (RectBuilder*)data.cen.rect;
     RectBuilder *thiz = (RectBuilder*)data.cen.thiz;
@@ -378,7 +382,7 @@ RectX rb_cenLeft(RectBuilderData data, ScreenMatrics m){
     return r;
 }
 
-RectX rb_cenRight(RectBuilderData data, ScreenMatrics m){
+RectX rb_cenRight(RectBuilderData data, ScreenMetrics m){
     RectX r;
     RectBuilder *b = (RectBuilder*)data.cen.rect;
     RectBuilder *thiz = (RectBuilder*)data.cen.thiz;

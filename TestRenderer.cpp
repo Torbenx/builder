@@ -124,7 +124,7 @@ void TestRenderer::change(int newWidth,int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth,newHeight);
     float as = (float)newWidth/(float)newHeight;
     mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0, as, 1, 100);
-    ScreenMatrics metrics;
+    ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
     textComp.metrics = metrics;
@@ -251,7 +251,13 @@ void TestRenderer::key(uint32_t keycode, bool down){
 void TestRenderer::drawFrame(){
     uint64_t now = getNanos();
     if(now - lsecond >= NANOS_PER_SECOND){
-        LOGD("FPS: %d",frameCounter);
+        //LOGD("FPS: %d",frameCounter);
+        
+        std::stringstream ss;
+        ss << "FPS: " << frameCounter;
+        textComp.text = ss.str();
+        textComp.updateContent();
+        
         lsecond = now;
         frameCounter = 0;
     }

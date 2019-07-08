@@ -31,11 +31,13 @@ union RectBuilderData{
         void *rect;
         bool baseLeft;
         TypedSizeGetter dx;
+        TypedSize padding;
     } lazyx;
     struct{
         void *rect;
         bool baseBottom;
         TypedSizeGetter dy;
+        TypedSize padding;
     } lazyy;
 };
 
@@ -44,10 +46,10 @@ class RectBuilder{
         std::string name = "";
         Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
         
-        RectY(*topF)(RectBuilderData data, ScreenMatrics m) = 0;
-        RectY(*bottomF)(RectBuilderData data, ScreenMatrics m) = 0;
-        RectX(*leftF)(RectBuilderData data, ScreenMatrics m) = 0;
-        RectX(*rightF)(RectBuilderData data, ScreenMatrics m) = 0;
+        RectY(*topF)(RectBuilderData data, ScreenMetrics m) = 0;
+        RectY(*bottomF)(RectBuilderData data, ScreenMetrics m) = 0;
+        RectX(*leftF)(RectBuilderData data, ScreenMetrics m) = 0;
+        RectX(*rightF)(RectBuilderData data, ScreenMetrics m) = 0;
         RectBuilderData topD,bottomD,leftD,rightD;
         bool useTopForHeight = false;
         bool useBottomForHeight = false;
@@ -62,8 +64,8 @@ class RectBuilder{
         void height(TypedSize height);
         void width(TypedSize width);
         
-        void width(TypedSizeGetter width);
-        void height(TypedSizeGetter height);
+        void width(TypedSizeGetter width, TypedSize padding=TypedSize::zero);
+        void height(TypedSizeGetter height, TypedSize padding=TypedSize::zero);
         
         void alignTop(RectBuilder *b, TypedSize padding=TypedSize::zero);
         void alignBottom(RectBuilder *b, TypedSize padding=TypedSize::zero);
@@ -73,13 +75,13 @@ class RectBuilder{
         void centerVerticalInside(RectBuilder *b, float fraction=0.5f);
         void centerHorizontalInside(RectBuilder *b, float fraction=0.5f);
         
-        float getWidth(ScreenMatrics m);
-        float getHeight(ScreenMatrics m);
-        float getTop(ScreenMatrics m);
-        float getBottom(ScreenMatrics m);
-        float getLeft(ScreenMatrics m);
-        float getRight(ScreenMatrics m);
-        Rect build(ScreenMatrics m);
+        float getWidth(ScreenMetrics m);
+        float getHeight(ScreenMetrics m);
+        float getTop(ScreenMetrics m);
+        float getBottom(ScreenMetrics m);
+        float getLeft(ScreenMetrics m);
+        float getRight(ScreenMetrics m);
+        Rect build(ScreenMetrics m);
 };
 
 #endif

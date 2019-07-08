@@ -1,10 +1,15 @@
 #ifndef HEADER_UI_UISCENE_H
 #define HEADER_UI_UISCENE_H
 
+#include "UiComponent.hpp"
+#include "RectBuilder.hpp"
+#include <map>
+
 class UiSceneBuilder{
     public:
         void *scene;
         RectBuilder builder;
+        UiComponent* comp;
         
         UiSceneBuilder& above(UiComponent& other, TypedSize padding=TypedSize::zero);
         UiSceneBuilder& below(UiComponent& other, TypedSize padding=TypedSize::zero);
@@ -37,7 +42,7 @@ class UiSceneBuilder{
 class UiScene{
     public:
         ScreenMetrics metrics;
-        std::map<UiComponent*, UiSceneBuilder>
+        std::map<UiComponent*, UiSceneBuilder> builders;
         UiSceneBuilder& add(UiComponent& comp);
         UiSceneBuilder& layout(UiComponent& comp);
 };

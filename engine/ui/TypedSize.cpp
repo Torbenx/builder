@@ -106,17 +106,6 @@ TypedSize TypedSize::add(TypedSize left, TypedSize right, TYPED_SIZE_TYPE outTyp
     return {outType, left.to(outType, m) + right.to(outType, m)};
 }
 
-TypedSize TypedSizeGetter_getSize(TypedSizeGetter *thiz){
-    return thiz->data.size;
-}
-
-TypedSizeGetter TypedSizeGetter::from(TypedSize size){
-    TypedSizeGetter getter;
-    getter.data.size = size;
-    getter.getSize = TypedSizeGetter_getSize;
-    return getter;
-}
-
 TypedSize TypedSizeGetter::get(){
     return getSize(this);
 }

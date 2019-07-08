@@ -11,7 +11,7 @@ class UiComponent{
         TypedSizeGetter contentWidthGetter;
         TypedSizeGetter contentHeightGetter;
         Rect rect;
-        ScreenMatrics metrics;
+        ScreenMetrics metrics;
         UiComponent();
         virtual void updateContent(){}
         virtual TypedSize getContentWidth(){return TypedSize::nan;}
