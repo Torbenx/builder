@@ -15,18 +15,7 @@ def choose_target():
     global platform
     global arch
     platform = "android"
-    print "1 for armv7a, 2 for arm64v8a, 3 for x86_32, 4 for x86_64"
-    key = getch.getch()
-    if key == "1":
-        arch = build.arch_armv7a
-    elif key == "2":
-        arch = build.arch_arm64v8a
-    elif key == "3":
-        arch = build.arch_x86_32
-    elif key == "4":
-        arch = build.arch_x86_64
-    else:
-        print "invalid arch"
+    arch = build.arch_arm64v8a
 
 while (not "platform" in globals()) or not "arch" in globals():
     choose_target()
