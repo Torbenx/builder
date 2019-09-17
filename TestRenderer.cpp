@@ -224,6 +224,7 @@ void TestRenderer::drawFrame(){
     
     float maxSpeed = 2.0f;
     float dt = (now - lframe)/(float)NANOS_PER_SECOND;
+    lframe = now;
     Vec3 dirX = (look.dir - Vec3::dot(look.dir, up) * up).normalize();
     if(wd){
         pos += maxSpeed * dt * dirX;
@@ -246,7 +247,6 @@ void TestRenderer::drawFrame(){
     pos += navD.x * dt * Vec3::cross(dirX, up);
     pos -= navD.y * dt * dirX;
     mvpMatrix.view = Mat4x4::look(pos, look.dir, up);
-    lframe = now;
     Vec3 plp = pointLight.position;
     plp += Vec3(plp.z*dt, plp.z*dt/2.0, -plp.x*dt);
     pointLight.position = plp;

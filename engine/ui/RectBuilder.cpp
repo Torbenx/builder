@@ -170,6 +170,13 @@ Rect RectBuilder::build(ScreenMetrics m){
     return Rect::bltr(getBottom(m), getLeft(m), getTop(m), getRight(m));
 }
 
+void RectBuilder::clear(){
+    topF = 0;
+    bottomF = 0;
+    leftF = 0;
+    rightF = 0;
+}
+
 
 RectY rb_rely(RectBuilderData data, ScreenMetrics m){
     return data.rely;

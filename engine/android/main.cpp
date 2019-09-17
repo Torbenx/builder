@@ -2,12 +2,12 @@
 #include "main.hpp"
 #include "android/engine.hpp"
 
-void init(){
-    setRenderer(createRenderer());
+void engine_getRenderer(){
+    engine_setRenderer(createRenderer());
 }
 
 extern "C" {
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeInit(JNIEnv *env, jobject thiz){
-        init();
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeGetRenderer(JNIEnv *env, jobject thiz){
+        engine_getRenderer();
     }
 }

@@ -54,7 +54,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     
     @Override
     public void run(){
-        nativeInit();
+        nativeGetRenderer();
         ParcelFileDescriptor[] fds;
         try{
             fds = ParcelFileDescriptor.createPipe();
@@ -176,7 +176,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
         });
     }
     
-    native void nativeInit();
+    native void nativeGetRenderer();
     
     native void nativeThreadInit(AssetManager assetManager, int cmdFd);
     native void nativeThreadLoop();

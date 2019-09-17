@@ -21,7 +21,7 @@ Renderer *renderer;
 int rendererState = RENDERER_STATE_INVISIBLE;
 AChoreographer *choreographer;
 
-void setRenderer(Renderer *r){
+void engine_setRenderer(Renderer *r){
     renderer = r;
 }
 

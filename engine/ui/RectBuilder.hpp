@@ -82,6 +82,7 @@ class RectBuilder{
         float getLeft(ScreenMetrics m);
         float getRight(ScreenMetrics m);
         Rect build(ScreenMetrics m);
+        void clear();
 };
 
 #endif
