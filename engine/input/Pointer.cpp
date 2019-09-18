@@ -1,6 +1,9 @@
 #include "Pointer.hpp"
 #include "../util/log.hpp"
 #include <vector>
+#ifdef PLATFORM_WINDOWS
+#include <Windows.h>
+#endif
 
 Pointer Pointer::operator=(Pointer pointer){
     this->pointerId = pointer.pointerId;
@@ -78,12 +81,7 @@ int getPointerCount(){
     return pointers.size();
 }
 
-#ifndef PLATFORM_WINDOWS
 void setCursorVisible(bool visible){
-    
-}
-
-PointerEvent teleportCursor(int x, int y){
     
 }
 
@@ -92,13 +90,10 @@ PointerEvent teleportCursor(float x, float y){
     event.event = POINTER_EVENT_MOVE;
     event.pointerId = POINTER_ID_INVALID;
     #ifdef PLATFORM_WINDOWS
-    RECT rect;
-    GetWindowRect(engine_hwnd, &rect);
     event.pointerId = POINTER_ID_CURSOR;
-    event.x = rect.left + Framebuffer::DEFAULT.offsetX + (x + 1.0f) * 0.5f * Framebuffer::DEFAULT.width;
-    event.y = rect.top  + Framebuffer::DEFAULT.offsetY + (y + 1.0f) * 0.5f * Framebuffer::DEFAULT.height;
-    SetCursorPos(event.x, event.y);
+    event.x = x;
+    event.y = y;
+    SetCursorPos(x, y);
     #endif
     return event;
 }
-#endif

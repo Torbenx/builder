@@ -6,7 +6,7 @@ TypedSize TypedSize::zero = {TYPED_SIZE_GL, 0.0f};
 
 TypedSize TypedSize::nan = {TYPED_SIZE_GL, NAN};
 
-float TypedSize::toPixelsF(SizeMetrics m){
+float TypedSize::toPixels(SizeMetrics m){
     switch(type){
         case TYPED_SIZE_PIXELS:
             return value;
@@ -19,11 +19,6 @@ float TypedSize::toPixelsF(SizeMetrics m){
         default:
             return NAN;
     }
-}
-
-int TypedSize::toPixels(SizeMetrics m){
-    float f = toPixelsF(m);
-    return isnan(f) ? -1 : ceil(f);
 }
 
 float TypedSize::toGL(SizeMetrics m){
@@ -74,7 +69,7 @@ float TypedSize::toWindowsDIP(SizeMetrics m){
 float TypedSize::to(TYPED_SIZE_TYPE type, SizeMetrics m){
     switch(type){
         case TYPED_SIZE_PIXELS:
-            return toPixelsF(m);
+            return toPixels(m);
         case TYPED_SIZE_GL:
             return toGL(m);
         case TYPED_SIZE_ANDROID_DIP:

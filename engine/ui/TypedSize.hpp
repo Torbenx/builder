@@ -25,8 +25,7 @@ struct TypedSize{
     TYPED_SIZE_TYPE type;
     float value;
     
-    float toPixelsF(SizeMetrics metrics);
-    int toPixels(SizeMetrics metrics);
+    float toPixels(SizeMetrics metrics);
     float toGL(SizeMetrics metrics);
     float toAndroidDIP(SizeMetrics metrics);
     float toWindowsDIP(SizeMetrics metrics);

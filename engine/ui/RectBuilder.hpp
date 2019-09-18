@@ -45,6 +45,7 @@ class RectBuilder{
     public:
         std::string name = "";
         Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
+        TYPED_SIZE_TYPE sizeType = TYPED_SIZE_GL;
         
         RectY(*topF)(RectBuilderData data, ScreenMetrics m) = 0;
         RectY(*bottomF)(RectBuilderData data, ScreenMetrics m) = 0;

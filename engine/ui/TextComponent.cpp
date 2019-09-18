@@ -8,7 +8,7 @@ void TextComponent::updateContent(){
     if(textFormat){
         delete textFormat;
     }
-    textFormat = new TextFormat(text, noBreaks ? -1 : TypedSize::gl(rect.getWidth()).toPixels(metrics.x), textSize.toPixelsF(metrics.y));
+    textFormat = new TextFormat(text, noBreaks ? -1 : (int)TypedSize::gl(rect.getWidth()).toPixels(metrics.x), textSize.toPixels(metrics.y));
     if(textTexture){
         textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
     }
@@ -22,7 +22,7 @@ void TextComponent::updateRect(){
     }
     updateContent();
     textTexture = new TextTexture();
-    textTexture->init(TypedSize::gl(rect.getWidth()).toPixels(metrics.x), TypedSize::gl(rect.getHeight()).toPixels(metrics.y));
+    textTexture->init(ceil(TypedSize::gl(rect.getWidth()).toPixels(metrics.x)), ceil(TypedSize::gl(rect.getHeight()).toPixels(metrics.y)));
     textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
     texture = &textTexture->texture;
 }

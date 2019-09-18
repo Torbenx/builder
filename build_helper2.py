@@ -59,11 +59,7 @@ while True:
         link_cmd = []
         compile_args = []
         if platform == "windows":
-            engine_output = build.join(output_dir,"engine.dll")
-            main_output = build.join(output_dir,"main.exe")
-            compile_cmd = ["g++"]
-            link_cmd = ["g++"]
-            compile_args += ["-DPLATFORM_WINDOWS"]
+            raise Exception()
         if platform == "android":
             lib_dir_rel = build.join("lib", android.get_lib_dir_name(arch))
             compile_cmd = ["clang++", "-std=c++11", "-nostdinc", "-nostdinc++", "-isystem", "~/ndk/include/c++", "-isystem", "~/ndk/include/sysroot", "-isystem", "~/ndk/include/clang", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]

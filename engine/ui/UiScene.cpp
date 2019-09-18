@@ -162,12 +162,12 @@ UiSceneBuilder& UiSceneBuilder::height(TypedSize height){
 
 
 UiSceneBuilder& UiSceneBuilder::wrapContentWidth(TypedSize padding){
-    builder.width(comp->contentWidthGetter, padding);
+    builder.width(comp->getContentWidthGetter(), padding);
     return *this;
 }
 
 UiSceneBuilder& UiSceneBuilder::wrapContentHeight(TypedSize padding){
-    builder.height(comp->contentHeightGetter, padding);
+    builder.height(comp->getContentHeightGetter(), padding);
     return *this;
 }
 
@@ -179,12 +179,12 @@ UiSceneBuilder& UiSceneBuilder::wrapContent(TypedSize padding){
 
 
 UiSceneBuilder& UiSceneBuilder::wrapContentWidthOf(UiComponent& other, TypedSize padding){
-    builder.width(other.contentWidthGetter, padding);
+    builder.width(other.getContentWidthGetter(), padding);
     return *this;
 }
 
 UiSceneBuilder& UiSceneBuilder::wrapContentHeightOf(UiComponent& other, TypedSize padding){
-    builder.height(other.contentHeightGetter, padding);
+    builder.height(other.getContentHeightGetter(), padding);
     return *this;
 }
 

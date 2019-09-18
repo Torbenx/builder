@@ -3,11 +3,18 @@
 TypedSize UiComponent_getContentWidth(TypedSizeGetter *thiz);
 TypedSize UiComponent_getContentHeight(TypedSizeGetter *thiz);
 
-UiComponent::UiComponent(){
-    contentWidthGetter.data = this;
-    contentWidthGetter.getSize = UiComponent_getContentWidth;
-    contentHeightGetter.data = this;
-    contentHeightGetter.getSize = UiComponent_getContentHeight;
+TypedSizeGetter UiComponent::getContentWidthGetter(){
+    TypedSizeGetter getter;
+    getter.data = this;
+    getter.getSize = UiComponent_getContentWidth;
+    return getter;
+}
+
+TypedSizeGetter UiComponent::getContentHeightGetter(){
+    TypedSizeGetter getter;
+    getter.data = this;
+    getter.getSize = UiComponent_getContentHeight;
+    return getter;
 }
 
 TypedSize UiComponent_getContentWidth(TypedSizeGetter *thiz){

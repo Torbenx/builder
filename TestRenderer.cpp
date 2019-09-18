@@ -133,8 +133,8 @@ void TestRenderer::create(){
         .alignParentRight();
 }
 
-void TestRenderer::change(int newWidth,int newHeight){
-    Framebuffer::DEFAULT.viewport(newWidth,newHeight);
+void TestRenderer::change(int newWidth, int newHeight){
+    Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth/(float)newHeight;
     mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0, as, 1, 100);
     ScreenMetrics metrics;
@@ -148,6 +148,12 @@ void TestRenderer::change(int newWidth,int newHeight){
 }
 
 void TestRenderer::pointer(PointerEvent event){
+    /*std::stringstream ss;
+    ss << event.x << " / " << event.y;
+    textComp.text = ss.str();
+    textComp.updateContent();
+    uiScene.build();*/
+    
     if(!rawInput()){
         if(event.event == POINTER_EVENT_DOWN && navPointerId == POINTER_ID_INVALID){
             navPointerId = event.pointerId;

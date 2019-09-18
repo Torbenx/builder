@@ -11,7 +11,7 @@ class Look3d{
         Vec3 dir,up;
         bool invert;
         Look3d(Vec3 up,bool invert);
-        void move(int dx, int dy);
+        void move(float dx, float dy);
 };
 
 #endif

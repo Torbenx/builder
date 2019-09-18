@@ -2,56 +2,48 @@
 #include <math.h>
 #include "../util/log.hpp"
 
-#define PROP(s,b) (s##F == 0 ? NAN : s##F(b, s##D))
-#define WIDTH(b) PROP(width,b)
-#define HEIGHT(b) PROP(height,b)
-#define TOP(b) PROP(top,b)
-#define BOTTOM(b) PROP(bottom,b)
-#define LEFT(b) PROP(left,b)
-#define RIGHT(b) PROP(right,b)
-
 #define RECT_BUILDER_DEBUG 0
 
-RectY recty_deref(RectY r, ScreenMetrics m, bool forHeight=false){
+RectY recty_deref(RectY r, ScreenMetrics m, TYPED_SIZE_TYPE sizeType, bool forHeight=false){
     RectBuilder *b = (RectBuilder*)r.rect;
     if(b == nullptr)return r;
     if(RECT_BUILDER_DEBUG)LOGD("deref %s.%s",b->name.c_str(),r.baseBottom?"b":"t");
     if(r.baseBottom){
         if(b->bottomF != 0){
             if(forHeight && !b->useBottomForHeight)return r;
-            RectY r2 = recty_deref(b->bottomF(b->bottomD, m), m, forHeight);
-            r2.dy = TypedSize::add(r.dy, r2.dy, TYPED_SIZE_GL, m.y);
+            RectY r2 = recty_deref(b->bottomF(b->bottomD, m), m, sizeType, forHeight);
+            r2.dy = TypedSize::add(r.dy, r2.dy, sizeType, m.y);
             return r2;
         }
         return r;
     }else{
         if(b->topF != 0){
             if(forHeight && !b->useTopForHeight)return r;
-            RectY r2 = recty_deref(b->topF(b->topD, m), m, forHeight);
-            r2.dy = TypedSize::add(r.dy, r2.dy, TYPED_SIZE_GL, m.y);
+            RectY r2 = recty_deref(b->topF(b->topD, m), m, sizeType, forHeight);
+            r2.dy = TypedSize::add(r.dy, r2.dy, sizeType, m.y);
             return r2;
         }
         return r;
     }
 }
 
-RectX rectx_deref(RectX r, ScreenMetrics m, bool forWidth=false){
+RectX rectx_deref(RectX r, ScreenMetrics m, TYPED_SIZE_TYPE sizeType, bool forWidth=false){
     RectBuilder *b = (RectBuilder*)r.rect;
     if(b == nullptr)return r;
     if(RECT_BUILDER_DEBUG)LOGD("deref %s.%s",b->name.c_str(),r.baseLeft?"l":"r");
     if(r.baseLeft){
         if(b->leftF != 0){
             if(forWidth && !b->useLeftForWidth)return r;
-            RectX r2 = rectx_deref(b->leftF(b->leftD, m), m, forWidth);
-            r2.dx = TypedSize::add(r.dx, r2.dx, TYPED_SIZE_GL, m.x);
+            RectX r2 = rectx_deref(b->leftF(b->leftD, m), m, sizeType, forWidth);
+            r2.dx = TypedSize::add(r.dx, r2.dx, sizeType, m.x);
             return r2;
         }
         return r;
     }else{
         if(b->rightF != 0){
             if(forWidth && !b->useRightForWidth)return r;
-            RectX r2 = rectx_deref(b->rightF(b->rightD, m), m, forWidth);
-            r2.dx = TypedSize::add(r.dx, r2.dx, TYPED_SIZE_GL, m.x);
+            RectX r2 = rectx_deref(b->rightF(b->rightD, m), m, sizeType, forWidth);
+            r2.dx = TypedSize::add(r.dx, r2.dx, sizeType, m.x);
             return r2;
         }
         return r;
@@ -64,13 +56,13 @@ float RectBuilder::getWidth(ScreenMetrics m){
     left.rect = this;
     left.baseLeft = true;
     left.dx = TypedSize::zero;
-    left = rectx_deref(left, m, true);
+    left = rectx_deref(left, m, sizeType, true);
     right.rect = this;
     right.baseLeft = false;
     right.dx = TypedSize::zero;
-    right = rectx_deref(right, m, true);
+    right = rectx_deref(right, m, sizeType, true);
     if(left.rect == right.rect && left.baseLeft == right.baseLeft){
-        return right.dx.toGL(m.x) - left.dx.toGL(m.x);
+        return right.dx.to(sizeType, m.x) - left.dx.to(sizeType, m.x);
     }
     LOGW("%s.getWidth failed",name.c_str());
     return NAN;
@@ -82,13 +74,13 @@ float RectBuilder::getHeight(ScreenMetrics m){
     top.rect = this;
     top.baseBottom = false;
     top.dy = TypedSize::zero;
-    top = recty_deref(top, m, true);
+    top = recty_deref(top, m, sizeType, true);
     bottom.rect = this;
     bottom.baseBottom = true;
     bottom.dy = TypedSize::zero;
-    bottom = recty_deref(bottom, m, true);
+    bottom = recty_deref(bottom, m, sizeType, true);
     if(top.rect == bottom.rect && top.baseBottom == bottom.baseBottom){
-        return top.dy.toGL(m.y) - bottom.dy.toGL(m.y);
+        return top.dy.to(sizeType, m.y) - bottom.dy.to(sizeType, m.y);
     }
     LOGW("%s.getHeight failed",name.c_str());
     return NAN;
@@ -100,12 +92,12 @@ float RectBuilder::getTop(ScreenMetrics m){
     top.rect = this;
     top.baseBottom = false;
     top.dy = TypedSize::zero;
-    top = recty_deref(top, m);
+    top = recty_deref(top, m, sizeType);
     if(top.rect == nullptr){
         if(top.baseBottom){
-            return top.dy.toGL(m.y) + parent.getBottom();
+            return top.dy.to(sizeType, m.y) + parent.getBottom();
         }else{
-            return top.dy.toGL(m.y) + parent.getTop();
+            return top.dy.to(sizeType, m.y) + parent.getTop();
         }
     }
     LOGW("%s.getTop failed",name.c_str());
@@ -118,12 +110,12 @@ float RectBuilder::getBottom(ScreenMetrics m){
     bottom.rect = this;
     bottom.baseBottom = true;
     bottom.dy = TypedSize::zero;
-    bottom = recty_deref(bottom, m);
+    bottom = recty_deref(bottom, m, sizeType);
     if(bottom.rect == nullptr){
         if(bottom.baseBottom){
-            return bottom.dy.toGL(m.y) + parent.getBottom();
+            return bottom.dy.to(sizeType, m.y) + parent.getBottom();
         }else{
-            return bottom.dy.toGL(m.y) + parent.getTop();
+            return bottom.dy.to(sizeType, m.y) + parent.getTop();
         }
     }
     LOGW("%s.getBottom failed",name.c_str());
@@ -136,12 +128,12 @@ float RectBuilder::getLeft(ScreenMetrics m){
     left.rect = this;
     left.baseLeft = true;
     left.dx = TypedSize::zero;
-    left = rectx_deref(left, m);
+    left = rectx_deref(left, m, sizeType);
     if(left.rect == nullptr){
         if(left.baseLeft){
-            return left.dx.toGL(m.x) + parent.getLeft();
+            return left.dx.to(sizeType, m.x) + parent.getLeft();
         }else{
-            return left.dx.toGL(m.x) + parent.getRight();
+            return left.dx.to(sizeType, m.x) + parent.getRight();
         }
     }
     LOGW("%s.getLeft failed",name.c_str());
@@ -154,12 +146,12 @@ float RectBuilder::getRight(ScreenMetrics m){
     right.rect = this;
     right.baseLeft = false;
     right.dx = TypedSize::zero;
-    right = rectx_deref(right, m);
+    right = rectx_deref(right, m, sizeType);
     if(right.rect == nullptr){
         if(right.baseLeft){
-            return right.dx.toGL(m.x) + parent.getLeft();
+            return right.dx.to(sizeType, m.x) + parent.getLeft();
         }else{
-            return right.dx.toGL(m.x) + parent.getRight();
+            return right.dx.to(sizeType, m.x) + parent.getRight();
         }
     }
     LOGW("%s.getRight failed", name.c_str());
