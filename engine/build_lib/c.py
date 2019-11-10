@@ -1,44 +1,15 @@
 import os
-import subprocess
 import time
 import threading
 import sys
 import string
 import traceback
-
-def exec_cmd(cmd, shell, concat, cwd=None):
-    if shell and concat:
-        cmd = [" ".join(cmd)]
-    return subprocess.call(cmd, shell=shell, cwd=cwd)
-
-arch_x86_32 = 1
-arch_x86_64 = 2
-arch_armv7a = 3
-arch_arm64v8a = 4
-
-def arch_string(arch):
-    if arch==arch_x86_32:
-        return "x86_32"
-    if arch==arch_x86_64:
-        return "x86_64"
-    if arch==arch_armv7a:
-        return "armv7a"
-    if arch==arch_arm64v8a:
-        return "arm64v8a"
-    raise ValueError("invalid arch")
-
-def join(*paths):
-    ret = ""
-    for path in paths:
-        if path == "": continue
-        if ret != "": ret += "/"
-        ret += path
-    return ret
+import utils
 
 def compile(self, source):
     try:
-        output = join(self.ibuild_dir, source+".o")
-        dep = join(self.ibuild_dir, source+".d")
+        output = utils.join(self.ibuild_dir, source+".o")
+        dep = utils.join(self.ibuild_dir, source+".d")
         rebuild = self.rebuild or (not os.path.exists(output)) or (not os.path.exists(dep))
         if not rebuild:
             lastBuildTime = os.path.getmtime(output);
@@ -56,11 +27,11 @@ def compile(self, source):
             return
         print "Building "+source
         sourceDir = os.path.dirname(source);
-        cmd = self.compile_cmd + [source] + ["-o"+output] + ["-iquote"+join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",'""'] + self.compile_args
+        cmd = self.compile_cmd + [source] + ["-o"+output] + ["-iquote"+utils.join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",'""'] + self.compile_args
         if source in self.file_compile_args:
             cmd += self.file_compile_args[source]
                 
-        ret = exec_cmd(cmd, True, self.concat_cmd)
+        ret = utils.exec_cmd(cmd, True, self.concat_cmd)
         self.changed = True
         if ret != 0:
             print str(cmd)
@@ -95,7 +66,7 @@ class Builder(object):
         threads = []
         for source in self.input_files:
             sourceDir = os.path.dirname(source)
-            outputDir = join(self.ibuild_dir, sourceDir)
+            outputDir = utils.join(self.ibuild_dir, sourceDir)
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
             compile(self, source)
@@ -117,8 +88,8 @@ class Builder(object):
         output_dir = os.path.dirname(self.output_file)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        cmd = self.link_cmd + [join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
-        buildRet = exec_cmd(cmd, True, self.concat_cmd)
+        cmd = self.link_cmd + [utils.join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
+        buildRet = utils.exec_cmd(cmd, True, self.concat_cmd)
 
         if buildRet==0:
             elapsed = time.time() - self.buildTime

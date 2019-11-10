@@ -1,9 +1,9 @@
 import os
 import subprocess
 import sys
-from engine.build_lib import build
+from engine.build_lib import c
 
-class Builder(build.Builder):
+class Builder(c.Builder):
 
     def __init__(self, target):
         super(Builder, self).__init__(target)
