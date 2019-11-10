@@ -111,7 +111,6 @@ class Builder(object):
         self.apk_sign_bin = ""
         self.std_lib_src = ""
         self.concat_cmd = False
-        self.adb_bin = ""
         
     def build(self):
         build_tools = utils.join(self.sdk,"build-tools",self.build_tools_version)

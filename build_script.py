@@ -1,32 +1,81 @@
-import os
-import subprocess
-import sys
-from engine.build_lib import c
+import build_file
+import engine.build_file
 
-class Builder(c.Builder):
+api = 27
+jdk = "C:/Program Files/Java/jdk1.8.0_131"
+sdk = "C:/Users/Torben/AppData/Local/Android/sdk"
+keystore_dir = "C:/Users/Torben/Documents/dev/c++"
 
-    def __init__(self, target):
-        super(Builder, self).__init__(target)
-        
-        self.input_files += [
-            "main.cpp",
-            "TestRenderer.cpp",
-        ]
+base_build_dir = "build"
+build_dir = base_build_dir+"/"+platform+"/"+utils.arch_string(arch)
+output_dir = base_build_dir+"/output/"+platform+"/"+utils.arch_string(arch)
 
-        self.compile_args += ["-Wno-attributes", "-Wall"]
+engine_output = ""
+main_output = ""
+compile_cmd = []
+link_cmd = []
+compile_args = []
+if platform == "windows":
+    engine_output = utils.join(output_dir,"engine.dll")
+    main_output = utils.join(output_dir,"main.exe")
+    compile_cmd = ["g++"]
+    link_cmd = ["g++"]
+    compile_args += ["-DPLATFORM_WINDOWS"]
+if platform == "android":
+    lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
+    compile_cmd,link_cmd = android.setup(api, arch, sdk)
+    engine_output = utils.join("engine",build_dir,lib_dir_rel,"libengine.so")
+    main_output = utils.join("engine",build_dir,lib_dir_rel,"libmain.so")
+    compile_args += ["-DPLATFORM_ANDROID"]
 
-        self.include_dirs += ["engine"]
-        if target == "windows":
-            self.libs += ["engine","Opengl32"]
-            self.input_files += ["engine/windows/main.cpp"]
-            self.file_compile_args["engine/windows/main.cpp"] = ["-iquoteengine"]
-        if target == "android":
-            self.libs += ["engine", "log", "GLESv2"]
-            self.input_files += ["engine/android/main.cpp"]
-            self.file_compile_args["engine/android/main.cpp"] = ["-iquoteengine"]
-        
-    def build(self):
-        oldDir = os.getcwd()
-        os.chdir(os.path.relpath(os.path.dirname(__file__)))
-        super(Builder, self).build()
-        os.chdir(oldDir)
+eb = engine.build_file.Builder(platform)
+eb.compile_cmd = compile_cmd
+eb.link_cmd = link_cmd
+eb.rebuild = rebuild
+eb.output_file = utils.join("..",engine_output)
+eb.compile_args += compile_args
+eb.build_dir = build_dir
+eb.build()
+print "\n----------------\n"
+mb = build_file.Builder(platform)
+mb.compile_cmd = compile_cmd
+mb.link_cmd = link_cmd
+mb.rebuild = rebuild
+mb.output_file = main_output
+mb.link_args += ["-L"+os.path.dirname(engine_output)]
+mb.compile_args += compile_args
+mb.build_dir = build_dir
+if platform == "android":
+    mb.compile_args += ["-fPIC"]
+    mb.link_args += ["-shared"]
+mb.build()
+print "\n----------------\n"
+
+if(eb.failed or mb.failed):
+    raise Error()
+
+if platform == "windows":
+    assets.copy_assets("assets", output_dir)
+    runRet = subprocess.call(utils.join(output_dir,"main.exe"), cwd=output_dir)
+    print "Exit with "+str(runRet)
+if platform == "android":
+    an = engine.build_file.App()
+    an.package = "com.tt.testgame"
+    an.build_tools_version = "28.0.3"
+    
+    an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk)
+    apk_output = utils.join(output_dir,"main.apk")
+    an.apk_output = utils.join("..",apk_output)
+    
+    an.build_dir = build_dir
+    an.arch = arch
+    an.api = api
+    an.sdk = sdk
+    an.jdk = jdk
+    lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
+    an.native_libs = [utils.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]]
+    an.native_libs_changed = [eb.changed, mb.changed]
+    an.assets_dir = utils.join("..","assets")
+    an.rebuild = rebuild
+    an.build()
+    android.run(an.package, "com.tt.engine.MainActivity", sdk=sdk, apk_path=apk_output)
