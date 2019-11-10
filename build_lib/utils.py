@@ -1,5 +1,7 @@
 import os
 import subprocess
+import threading
+import sys
 
 
 arch_x86_32 = 1
@@ -20,10 +22,12 @@ def arch_string(arch):
     
     
 
-def exec_cmd(cmd, shell, concat, cwd=None):
+def exec_cmd(cmd, shell, concat, cwd=None, stdout=None, stderr=None):
+    if stdout and not stderr:
+        stderr = subprocess.STDOUT
     if shell and concat:
         cmd = [" ".join(cmd)]
-    return subprocess.call(cmd, shell=shell, cwd=cwd)
+    return subprocess.call(cmd, shell=shell, cwd=cwd, stdout=stdout, stderr=stderr)
 
 
 
@@ -35,6 +39,76 @@ def join(*paths):
         ret += path
     return ret
 
+
+class Handle(object):
+    
+    def __init__(self, logger, name):
+        self.logger = logger
+        self.name = name
+        self.read = None
+        self.write = None
+        self.cmd = None
+        self.ex = None
+        self.trace = None
+        self.result = 0
+        
+    def stdout(self):
+        self.read, self.write = os.pipe()
+        return self.write
+        
+    def command(self, cmd):
+        self.cmd = cmd
+        
+    def failed(self, ex=None, trace=None):
+        self.ex = ex
+        self.trace = trace
+        self.result = 1
+        if self.write: os.close(self.write)
+        self.logger.done(self)
+        
+    def success(self):
+        self.result = 2
+        if self.write: os.close(self.write)
+        self.logger.done(self)
+        
+        
+class Logger(object):
+    
+    def __init__(self):
+        self.handles = []
+        self.waiting = []
+        self.lock = threading.Lock()
+    
+    def log(self, name):
+        h = Handle(self, name)
+        with self.lock:
+            self.handles.append(h)
+        return h
+        
+    def done(self, handle):
+        with self.lock:
+            self.waiting.append(handle)
+            
+    def print_waiting(self):
+        with self.lock:
+            for h in self.waiting:
+                if h.result==1:
+                    print "Failed: "+h.name
+                    if h.cmd: print "Cmd="+h.cmd
+                    if h.ex: print h.ex
+                    if h.trace:
+                        for line in traceback.format_tb(h.trace):
+                            sys.stdout.write(line)
+                else:
+                    print "Successfull: "+h.name
+                if h.read:
+                    while True:
+                        buf = os.read(h.read, 1024)
+                        if not buf:
+                            break
+                        sys.stdout.write(buf)
+                    os.close(h.read)
+            self.waiting = []
 
 
 try:

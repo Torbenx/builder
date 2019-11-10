@@ -6,7 +6,8 @@ import string
 import traceback
 import utils
 
-def compile(self, source):
+def compile(self, source, logger):
+    handle = logger.log(source)
     try:
         output = utils.join(self.ibuild_dir, source+".o")
         dep = utils.join(self.ibuild_dir, source+".d")
@@ -25,20 +26,22 @@ def compile(self, source):
                     if rebuild: break
         if not rebuild:
             return
-        print "Building "+source
         sourceDir = os.path.dirname(source);
         cmd = self.compile_cmd + [source] + ["-o"+output] + ["-iquote"+utils.join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",'""'] + self.compile_args
         if source in self.file_compile_args:
             cmd += self.file_compile_args[source]
-                
-        ret = utils.exec_cmd(cmd, True, self.concat_cmd)
+        
+        handle.command(cmd)
+        ret = utils.exec_cmd(cmd, True, self.concat_cmd, stdout=handle.stdout())
         self.changed = True
         if ret != 0:
-            print str(cmd)
             self.failed = True
+            handle.failed()
+        else:
+            handle.success()
     except Exception as ex:
-        traceback.print_exc()
-        print ex
+        type, value, trace = sys.exc_info()
+        handle.failed(ex, trace)
         self.failed = True
 
 class Builder(object):
@@ -64,18 +67,26 @@ class Builder(object):
         self.ibuild_dir = self.build_dir
         
         threads = []
+        logger = utils.Logger()
         for source in self.input_files:
             sourceDir = os.path.dirname(source)
             outputDir = utils.join(self.ibuild_dir, sourceDir)
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
-            compile(self, source)
-            thread = threading.Thread(target=compile, args=[self, source])
-            #thread.start()
+            #compile(self, source)
+            thread = threading.Thread(target=compile, args=[self, source, logger])
+            thread.start()
             threads.append(thread)
             
-        #for thread in threads:
-        #    thread.join()
+        while True:
+            logger.print_waiting()
+            running = False
+            for thread in threads:
+                if thread.is_alive():
+                    running = True
+                    break
+            if not running: break
+                
             
         if (not self.changed) and os.path.exists(self.output_file) and not self.rebuild:
             print "NOTHING TO DO"
