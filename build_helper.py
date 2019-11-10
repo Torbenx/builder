@@ -2,10 +2,8 @@ import sys
 sys.dont_write_bytecode = True
 
 import os
-import subprocess
 import traceback
-import shutil
-from engine.build_lib import utils, android, assets
+from build_lib import utils
 
 cwd = os.getcwd()
 

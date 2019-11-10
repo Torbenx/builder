@@ -1,7 +1,5 @@
 import os
-import subprocess
-import sys
-from engine.build_lib import c
+from build_lib import c
 
 class Builder(c.Builder):
 
@@ -29,6 +27,6 @@ class Builder(c.Builder):
         
     def build(self):
         oldDir = os.getcwd()
-        os.chdir(os.path.relpath(os.path.dirname(__file__)))
+        if os.path.dirname(__file__): os.chdir(os.path.dirname(__file__))
         super(Builder, self).build()
         os.chdir(oldDir)

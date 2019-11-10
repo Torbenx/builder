@@ -76,7 +76,7 @@ class Builder(c.Builder):
     
     def build(self):
         oldDir = os.getcwd()
-        os.chdir(os.path.dirname(__file__))
+        if os.path.dirname(__file__): os.chdir(os.path.dirname(__file__))
         super(Builder, self).build()
         os.chdir(oldDir)
 
@@ -95,7 +95,7 @@ class App(android.Builder):
         
     def build(self):
         oldDir = os.getcwd()
-        os.chdir(os.path.dirname(__file__))
+        if os.path.dirname(__file__): os.chdir(os.path.dirname(__file__))
         super(App, self).build()
         os.chdir(oldDir)
         
