@@ -145,8 +145,9 @@ class Builder(object):
         lib_dir_rel = utils.join("lib", get_lib_dir_name(self.arch))
         lib_dir = utils.join(self.build_dir, lib_dir_rel)
         std_lib_dest = utils.join(lib_dir, "libc++_shared.so")
-        std_lib_src = utils.join(get_llvm_prebuild_dir(self.sdk), "sysroot", "usr", "lib", get_triple2(self.arch), "libc++_shared.so");
-        if self.std_lib_src: std_lib_src = self.std_lib_src
+        std_lib_src = self.std_lib_src
+        if not std_lib_src:
+            std_lib_src = utils.join(get_llvm_prebuild_dir(self.sdk), "sysroot", "usr", "lib", get_triple2(self.arch), "libc++_shared.so")
         if self.rebuild or not os.path.exists(std_lib_dest):
             std_lib_changed = True
             if not os.path.exists(lib_dir):

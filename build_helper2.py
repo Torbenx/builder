@@ -62,7 +62,7 @@ while True:
         if platform == "android":
             lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
             compile_cmd = ["clang++", "-std=c++11", "-nostdinc", "-nostdinc++", "-isystem", "~/ndk/include/c++", "-isystem", "~/ndk/include/sysroot", "-isystem", "~/ndk/include/clang", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]
-            link_cmd = ["clang++", "-L", "~/ndk/lib/lib", "-nostdlib", "-lc", "-ldl", "-lm", "-lgcc", "-lc++_shared", "~/ndk/lib/lib/crtbegin_so.o"]
+            link_cmd = ["clang++", "-L", "~/ndk/lib/lib", "-nostdlib", "-lc", "-ldl", "-lm", "-lgcc", "-lc++_shared", "-fexceptions", "~/ndk/lib/lib/crtbegin_so.o"]
             engine_output = utils.join("engine",build_dir,lib_dir_rel,"libengine.so")
             main_output = utils.join("engine",build_dir,lib_dir_rel,"libmain.so")
             compile_args += ["-DPLATFORM_ANDROID"]
@@ -120,11 +120,11 @@ while True:
             an.aapt_bin = "aapt"
             an.zip_align_bin = "zipalign"
             an.adb_bin = "adb"
-            an.std_lib_src = "~/ndk/lib/lib/libc++_shared.so"
+            an.std_lib_src = "/home/asdf12/ndk/lib/lib/libc++_shared.so"
             an.rebuild = rebuild
             an.concat_cmd = True
             an.build()
-            android.run("com.tt.engine.MainActivity")
+            android.run(an.package,"com.tt.engine.MainActivity",adb_bin="adb",apk_path=apk_output)
             
             
     except Exception as ex:
