@@ -8,6 +8,7 @@ api = 27
 jdk = "C:/Program Files/Java/jdk1.8.0_131"
 sdk = "C:/Users/Torben/AppData/Local/Android/sdk"
 keystore_dir = "C:/Users/Torben/Documents/dev/c++"
+python_dir = "C:/Python27"
 
 base_build_dir = "build"
 build_dir = base_build_dir+"/"+platform+"/"+utils.arch_string(arch)
@@ -45,7 +46,8 @@ mb.compile_cmd = compile_cmd
 mb.link_cmd = link_cmd
 mb.rebuild = rebuild
 mb.output_file = main_output
-mb.link_args += ["-L"+os.path.dirname(engine_output)]
+mb.include_dirs += [utils.join(python_dir, "include")]
+mb.link_args += ["-L"+os.path.dirname(engine_output), "-L"+utils.join(python_dir, "libs")]
 mb.compile_args += compile_args
 mb.build_dir = build_dir
 if platform == "android":
@@ -63,7 +65,7 @@ if platform == "windows":
     print "Exit with "+str(runRet)
 if platform == "android":
     an = engine.build_file.App()
-    an.package = "com.tt.testgame"
+    an.package = "com.tt.builder"
     an.build_tools_version = "28.0.3"
     
     an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk)

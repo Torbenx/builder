@@ -85,6 +85,7 @@ void TextTexture::init(int width, int height){
     if(hr != S_OK)LOGW("failed to create direct3d texture: 0x%lx", hr);
     
     impl->sharedTexture = wglDXRegisterObjectNV(hDxDevice, impl->dxTexture, texture.glId, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
+    if(!impl->sharedTexture)LOGW("failed to register shared object: %lx",GetLastError());
     
     IDXGISurface *dxSurface;
     hr = impl->dxTexture->QueryInterface(__uuidof(IDXGISurface), (void**)&dxSurface);
@@ -127,6 +128,7 @@ void TextTexture::drawText(const TextFormat& text, Vec2 position, Vec4 color, bo
 
 TextTexture::~TextTexture(){
     DxTextTextureImpl *impl = (DxTextTextureImpl*)internal;
+    wglDXUnlockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
     wglDXUnregisterObjectNV(hDxDevice, impl->sharedTexture);
     impl->dxBitmap->Release();
     impl->dxTexture->Release();

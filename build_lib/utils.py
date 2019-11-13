@@ -94,7 +94,7 @@ class Logger(object):
             for h in self.waiting:
                 if h.result==1:
                     print "Failed: "+h.name
-                    if h.cmd: print "Cmd="+h.cmd
+                    if h.cmd: print "Cmd="+str(h.cmd)
                     if h.ex: print h.ex
                     if h.trace:
                         for line in traceback.format_tb(h.trace):

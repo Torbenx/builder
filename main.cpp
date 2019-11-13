@@ -1,6 +1,6 @@
-#include "TestRenderer.hpp"
+#include "BuildRenderer.hpp"
 #include "main.hpp"
 
-Renderer *createRenderer(){
-    return new TestRenderer();
+Renderer* createRenderer(){
+    return new BuildRenderer();
 }

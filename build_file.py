@@ -8,10 +8,10 @@ class Builder(c.Builder):
         
         self.input_files += [
             "main.cpp",
-            "TestRenderer.cpp",
+            "BuildRenderer.cpp",
         ]
 
-        self.compile_args += ["-Wno-attributes", "-Wall"]
+        self.compile_args += ["-Wno-attributes", "-Wall", "-D_hypot=hypot"]
 
         self.include_dirs += ["engine"]
         self.libs += ["engine"]
