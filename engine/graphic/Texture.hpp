@@ -5,7 +5,7 @@
 
 class Texture{
     public:
-        GLuint glId;
+        GLuint glId = -1;
         GLenum target = GL_TEXTURE_2D;
         GLfloat minFilter = GL_LINEAR;
         GLfloat magFilter = GL_LINEAR;

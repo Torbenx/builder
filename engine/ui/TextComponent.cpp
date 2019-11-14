@@ -1,4 +1,5 @@
 #include "TextComponent.hpp"
+#include "../util/log.hpp"
 
 TextComponent::TextComponent() : TextureComponent(TEXT_TEXTURE_GLSL_HEADER, TEXT_TEXTURE_GLSL_SAMPLER, "texture2D", ""){
     setTexRect(Rect::bltr(1.0f, 0.0f, 0.0f, 1.0f)); //invert y-direction

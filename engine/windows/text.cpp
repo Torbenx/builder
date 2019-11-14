@@ -96,7 +96,7 @@ void TextTexture::init(int width, int height){
     if(hr != S_OK)LOGW("failed to create direct2d bitmap: 0x%lx", hr);
     dxSurface->Release();
     
-    wglDXLockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
+    if(impl->sharedTexture)wglDXLockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
     texture.applyTexParameter();
     texture.width = width;
     texture.height = height;
@@ -106,30 +106,31 @@ void TextTexture::init(int width, int height){
 
 void TextTexture::drawText(const TextFormat& text, Vec2 position, Vec4 color, bool clear){
     DxTextTextureImpl *impl = (DxTextTextureImpl*)internal;
-    wglDXUnlockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
-    d2Context->SetTarget(impl->dxBitmap);
-    
-    ID2D1SolidColorBrush *brush;
-    d2Context->CreateSolidColorBrush(D2D1::ColorF(color.x, color.y, color.z, color.w), &brush);
-    
-    d2Context->BeginDraw();
-    
-    if(clear){
-        d2Context->Clear();
+    if(impl->sharedTexture){
+        wglDXUnlockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
+        d2Context->SetTarget(impl->dxBitmap);
+        
+        ID2D1SolidColorBrush *brush;
+        d2Context->CreateSolidColorBrush(D2D1::ColorF(color.x, color.y, color.z, color.w), &brush);
+        
+        d2Context->BeginDraw();
+        
+        if(clear){
+            d2Context->Clear();
+        }
+        d2Context->DrawTextLayout({position.x, position.y}, (IDWriteTextLayout*)text.internal, brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+        
+        d2Context->EndDraw();
+        
+        brush->Release();
+        
+        wglDXLockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
     }
-    d2Context->DrawTextLayout({position.x, position.y}, (IDWriteTextLayout*)text.internal, brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
-    
-    d2Context->EndDraw();
-    
-    brush->Release();
-    
-    wglDXLockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
 }
 
 TextTexture::~TextTexture(){
     DxTextTextureImpl *impl = (DxTextTextureImpl*)internal;
-    wglDXUnlockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
-    wglDXUnregisterObjectNV(hDxDevice, impl->sharedTexture);
+    if(impl->sharedTexture)wglDXUnregisterObjectNV(hDxDevice, impl->sharedTexture);
     impl->dxBitmap->Release();
     impl->dxTexture->Release();
     delete impl;

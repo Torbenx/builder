@@ -7,7 +7,7 @@ class Renderbuffer{
     public:
         GLsizei width,height;
         GLenum format;
-        GLuint glId;
+        GLuint glId = -1;
         Renderbuffer();
         ~Renderbuffer();
         bool init();

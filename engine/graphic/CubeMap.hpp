@@ -6,7 +6,7 @@
 class CubeMap{
     public:
         void *posX,*negX,*posY,*negY,*posZ,*negZ;
-        GLuint glId;
+        GLuint glId = -1;
         GLfloat minFilter = GL_LINEAR;
         GLfloat magFilter = GL_LINEAR;
         GLfloat wrapS = GL_CLAMP_TO_EDGE;

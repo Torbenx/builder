@@ -203,3 +203,7 @@ bool engine_goBackground(){
     }
     return true;
 }
+
+int getDPI(){
+    return 96;
+}

@@ -11,7 +11,7 @@ class Buffer{
     public:
         GLint target;
         GLint usage;
-        GLuint glId;
+        GLuint glId = -1;
         GLsizeiptr size;
         T *source;
         

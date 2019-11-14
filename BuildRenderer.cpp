@@ -3,6 +3,7 @@
 #include "util/log.hpp"
 #include <dirent.h>
 #include "graphic/Framebuffer.hpp"
+#include "fullscreen.hpp"
 
 BuildRenderer::BuildRenderer(){}
 
@@ -13,7 +14,7 @@ void BuildRenderer::create(){
         while((ent = readdir(dir)) != nullptr){
             TextComponent *text = new TextComponent();
             text->text = std::string(ent->d_name);
-            text->textSize = TypedSize::gl(0.1f);
+            text->textSize = TypedSize::windowsDIP(20);
             text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
             text->noBreaks = true;
             projectChooser.layout(*text)
@@ -46,17 +47,17 @@ void BuildRenderer::create(){
 void BuildRenderer::change(int newWidth, int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     ScreenMetrics metrics;
+    int dpi = getDPI();
     metrics.x.size = newWidth;
+    metrics.x.dpi = dpi;
     metrics.y.size = newHeight;
+    metrics.y.dpi = dpi;
     for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
         (*it)->metrics = metrics;
         (*it)->updateContent();
     }
     projectChooser.metrics = metrics;
     projectChooser.build();
-    for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
-        (*it)->rect.debug();
-    }
 }
 
 void BuildRenderer::drawFrame(){

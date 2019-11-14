@@ -14,4 +14,6 @@ bool isFullscreen();
 void goFullscreen(FullscreenConfig config);
 void exitFullscreen();
 
+int getDPI();
+
 #endif
