@@ -4,6 +4,9 @@ import shutil
 
 def copy_assets(source_dir, target_dir, rebuild=False):
     any_copy = False
+    if not os.path.exists(source_dir):
+    	print "No assets"
+    	return False
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
     for item in os.listdir(source_dir):
