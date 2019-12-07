@@ -7,6 +7,7 @@
 
 Pointer Pointer::operator=(Pointer pointer){
     this->pointerId = pointer.pointerId;
+    this->isDown = pointer.isDown;
     this->x = pointer.x;
     this->y = pointer.y;
     return *this;
@@ -20,7 +21,11 @@ void trackPointerEvent(PointerEvent& event){
             bool found = false;
             for(std::vector<Pointer>::iterator it=pointers.begin();it!=pointers.end();it++){
                 if(it->pointerId == event.pointerId){
-                    pointers.erase(it);
+                    if(it->isDown){
+                        it->isDown = false;
+                    }else{
+                        LOGW("up of pointer that was already up");
+                    }
                     found = true;
                     break;
                 }
@@ -39,7 +44,11 @@ void trackPointerEvent(PointerEvent& event){
                     it->x = event.x;
                     it->y = event.y;
                     if(event.event == POINTER_EVENT_DOWN){
-                        LOGW("down of pointer that was already down");
+                        if(it->isDown){
+                            LOGW("down of pointer that was already down");
+                        }else{
+                            it->isDown = true;
+                        }
                     }
                     found = true;
                     break;
@@ -48,12 +57,13 @@ void trackPointerEvent(PointerEvent& event){
             if(!found){
                 Pointer pointer;
                 pointer.pointerId = event.pointerId;
+                pointer.isDown = event.event == POINTER_EVENT_DOWN;
                 pointer.x = event.x;
                 pointer.y = event.y;
                 pointers.push_back(pointer);
                 #ifdef PLATFORM_ANDROID
                 if(event.event != POINTER_EVENT_DOWN){
-                    LOGW("pointer moving that wasn't down");
+                    LOGW("pointer moving that isn't down");
                 }
                 #endif
             }
@@ -62,9 +72,12 @@ void trackPointerEvent(PointerEvent& event){
     }
 }
 
-Pointer getPointerById(int pointerId){
+Pointer getPointerById(int pointerId, bool mustBeDown){
     for(Pointer pointer : pointers){
         if(pointer.pointerId == pointerId){
+            if(mustBeDown && !pointer.isDown){
+                break;
+            }
             return pointer;
         }
     }
@@ -73,12 +86,26 @@ Pointer getPointerById(int pointerId){
     return pointer;
 }
 
-Pointer getPointerByIndex(int index){
-    return pointers[index];
+Pointer getPointerByIndex(int index, bool mustBeDown){
+    Pointer pointer = pointers[index];
+    if(mustBeDown && !pointer.isDown){
+        Pointer pointer;
+        pointer.pointerId = POINTER_ID_INVALID;
+        return pointer;
+    }
+    return pointer;
 }
 
-int getPointerCount(){
-    return pointers.size();
+int getPointerCount(bool mustBeDown){
+    if(!mustBeDown){
+        return pointers.size();
+    }else{
+        int count = 0;
+        for(std::vector<Pointer>::iterator it=pointers.begin();it!=pointers.end();it++){
+            if(it->isDown)count++;
+        }
+        return count;
+    }
 }
 
 void setCursorVisible(bool visible){

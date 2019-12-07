@@ -7,7 +7,6 @@ import traceback
 import utils
 
 def compile(self, source, logger):
-    handle = logger.log(source)
     try:
         output = utils.join(self.ibuild_dir, source+".o")
         dep = utils.join(self.ibuild_dir, source+".d")
@@ -25,23 +24,24 @@ def compile(self, source, logger):
                             break
                     if rebuild: break
         if not rebuild:
+            logger.nothing_to_do()
             return
         sourceDir = os.path.dirname(source);
         cmd = self.compile_cmd + [source] + ["-o"+output] + ["-iquote"+utils.join(s, sourceDir) for s in self.include_dirs] + ["-c","-MMD","-MF",dep,"-MT",'""'] + self.compile_args
         if source in self.file_compile_args:
             cmd += self.file_compile_args[source]
         
-        handle.command(cmd)
-        ret = utils.exec_cmd(cmd, True, self.concat_cmd, stdout=handle.stdout())
+        logger.command(cmd)
+        ret = utils.exec_cmd(cmd, True, self.concat_cmd, stdout=logger.stdout())
         self.changed = True
         if ret != 0:
             self.failed = True
-            handle.failed()
+            logger.failed()
         else:
-            handle.success()
+            logger.success()
     except Exception as ex:
         type, value, trace = sys.exc_info()
-        handle.failed(ex, trace)
+        logger.failed(ex, trace)
         self.failed = True
 
 class Builder(object):
@@ -73,27 +73,24 @@ class Builder(object):
             outputDir = utils.join(self.ibuild_dir, sourceDir)
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
-            #compile(self, source)
-            thread = threading.Thread(target=compile, args=[self, source, logger])
+            h = logger.child(source)
+            thread = threading.Thread(target=compile, args=[self, source, h])
             thread.start()
             threads.append(thread)
             
         while True:
-            logger.print_waiting()
-            running = False
-            for thread in threads:
-                if thread.is_alive():
-                    running = True
-                    break
-            if not running: break
+            if(logger.print_waiting() == 0):
+                break
                 
             
         if (not self.changed) and os.path.exists(self.output_file) and not self.rebuild:
             print "NOTHING TO DO"
+            logger.nothing_to_do()
             return
 
         if self.failed:
             print "BUILD FAILED"
+            logger.failed()
             return
             
         output_dir = os.path.dirname(self.output_file)
@@ -105,7 +102,9 @@ class Builder(object):
         if buildRet==0:
             elapsed = time.time() - self.buildTime
             print "Build finished in "+str(elapsed)+"s"
+            logger.failed()
         else:
             print str(cmd)
             print "Build failed with "+str(buildRet)
+            logger.success()
             self.failed = True

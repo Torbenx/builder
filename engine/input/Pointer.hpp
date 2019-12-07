@@ -21,13 +21,14 @@ struct PointerEvent{
 struct Pointer{
     int pointerId;
     int x,y;
+    bool isDown;
     Pointer operator=(Pointer pointer);
 };
 
 void trackPointerEvent(PointerEvent& event);
-Pointer getPointerById(int pointerId);
-Pointer getPointerByIndex(int index);
-int getPointerCount();
+Pointer getPointerById(int pointerId, bool mustBeDown=false);
+Pointer getPointerByIndex(int index, bool mustBeDown=false);
+int getPointerCount(bool mustBeDown=false);
 void setCursorVisible(bool visible);
 PointerEvent teleportCursor(float x, float y);
 

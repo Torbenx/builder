@@ -53,6 +53,8 @@ class UiScene{
     public:
         ScreenMetrics metrics;
         std::map<UiComponent*, UiSceneBuilder> builders;
+        Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
+        void setParent(Rect rect);
         UiSceneBuilder& layout(UiComponent& comp);
         void build();
 };

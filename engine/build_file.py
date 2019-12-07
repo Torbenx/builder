@@ -45,6 +45,7 @@ class Builder(c.Builder):
             "ui/UiScene.cpp",
             "ui/TypedPoint.cpp",
             "ui/UiInput.cpp",
+            "ui/UiRenderer.cpp",
             "3d/Scene.cpp"
         ]
 

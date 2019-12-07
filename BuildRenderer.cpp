@@ -1,68 +1,25 @@
 //#include "Python.h"
 #include "BuildRenderer.hpp"
 #include "util/log.hpp"
-#include <dirent.h>
 #include "graphic/Framebuffer.hpp"
 #include "fullscreen.hpp"
 
 BuildRenderer::BuildRenderer(){}
 
 void BuildRenderer::create(){
-    DIR *dir =  opendir("/");
-    if(dir){
-        struct dirent *ent;
-        while((ent = readdir(dir)) != nullptr){
-            TextComponent *text = new TextComponent();
-            text->text = std::string(ent->d_name);
-            text->textSize = TypedSize::windowsDIP(20);
-            text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            text->noBreaks = true;
-            projectChooser.layout(*text)
-                .wrapContentHeight()
-                .alignParentLeft()
-                .alignParentRight();
-            if(fileNameComps.empty()){
-                projectChooser.layout(*text).alignParentTop();
-            }else{
-                projectChooser.layout(*text).below(*fileNameComps.back());
-            }
-            fileNameComps.push_back(text);
-        }
-        closedir(dir);
-    }else{
-        TextComponent *text = new TextComponent();
-            text->text = "failed to open directory";
-            text->textSize = TypedSize::gl(0.1f);
-            text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            text->noBreaks = true;
-            projectChooser.layout(*text)
-                .wrapContentHeight()
-                .alignParentLeft()
-                .alignParentRight()
-                .alignParentTop();
-            fileNameComps.push_back(text);
-    }
+    explorer.setPath("C:/");
 }
 
 void BuildRenderer::change(int newWidth, int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
-    ScreenMetrics metrics;
-    int dpi = getDPI();
-    metrics.x.size = newWidth;
-    metrics.x.dpi = dpi;
-    metrics.y.size = newHeight;
-    metrics.y.dpi = dpi;
-    for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
-        (*it)->metrics = metrics;
-        (*it)->updateContent();
-    }
-    projectChooser.metrics = metrics;
-    projectChooser.build();
+    explorer.change(newWidth, newHeight);
 }
 
 void BuildRenderer::drawFrame(){
     Framebuffer::DEFAULT.bind();
-    for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
-        (*it)->draw();
-    }
+    explorer.drawFrame();
+}
+
+void BuildRenderer::pointer(PointerEvent event){
+    explorer.pointer(event);
 }

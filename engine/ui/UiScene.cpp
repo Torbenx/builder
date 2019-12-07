@@ -8,7 +8,15 @@ UiSceneBuilder& UiScene::layout(UiComponent& comp){
     UiSceneBuilder& builder = builders[&comp];
     builder.scene = this;
     builder.comp = &comp;
+    builder.builder.parent = parent;
     return builder;
+}
+
+void UiScene::setParent(Rect rect){
+    this->parent = rect;
+    for(auto it=builders.begin();it!=builders.end();it++){
+        it->second.builder.parent = rect;
+    }
 }
 
 void UiScene::build(){

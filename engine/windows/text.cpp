@@ -32,13 +32,18 @@ void text_init(){
 
 TextFormat::TextFormat(std::string text, int maxWidth, float textSize){
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    std::wstring wText = converter.from_bytes(text.data());
+    std::wstring wText;
+    try{
+        wText = converter.from_bytes(text.c_str());
+    }catch(const std::range_error&){
+        wText = L"*** ERROR ***";
+    }
     
     IDWriteTextFormat *format;
     writeFactory->CreateTextFormat(L"Verdana", NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, textSize, L"", &format);
     
     IDWriteTextLayout *layout;
-    writeFactory->CreateTextLayout(wText.data(), text.length(), format, maxWidth < 0 ? INFINITY : maxWidth, INFINITY, &layout);
+    writeFactory->CreateTextLayout(wText.data(), wText.length(), format, maxWidth < 0 ? INFINITY : maxWidth, INFINITY, &layout);
     
     format->Release();
 

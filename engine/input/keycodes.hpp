@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define SPECIAL_KEY_BASE (char)0x80
-#define SPECIAL_KEY_SHIFT (char)(SPECIAL_KEY_BASE+0)
+#define SPECIAL_KEY_SHIFT (SPECIAL_KEY_BASE+0)
 #define SPECIAL_KEY_CTRL (SPECIAL_KEY_BASE+1)
 #define SPECIAL_KEY_ALT (SPECIAL_KEY_BASE+2)
 #define SPECIAL_KEY_ESC (SPECIAL_KEY_BASE+3)
@@ -19,5 +19,10 @@
 char keycodeToChar(uint32_t keycode);
 
 uint32_t charToKeycode(char c);
+
+#define LEFT_MOUSE_BUTTON 1
+#define RIGHT_MOUSE_BUTTON 2
+#define MIDDLE_MOUSE_BUTTON 3
+#define EXTRA_MOUSE_BUTTON(x) (3+x)
 
 #endif

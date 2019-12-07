@@ -38,12 +38,12 @@ def join(*paths):
         if ret != "": ret += "/"
         ret += path
     return ret
-
-
-class Handle(object):
+       
+        
+class Logger(object):
     
-    def __init__(self, logger, name):
-        self.logger = logger
+    def __init__(self, parent = None, name = None):
+        self.parent = parent
         self.name = name
         self.read = None
         self.write = None
@@ -51,6 +51,10 @@ class Handle(object):
         self.ex = None
         self.trace = None
         self.result = 0
+        self.children = []
+        self.waiting = []
+        self.lock = threading.Lock()
+        self.active_children_count = 0
         
     def stdout(self):
         self.read, self.write = os.pipe()
@@ -64,30 +68,33 @@ class Handle(object):
         self.trace = trace
         self.result = 1
         if self.write: os.close(self.write)
-        self.logger.done(self)
+        if self.parent: self.parent.done(self)
         
     def success(self):
         self.result = 2
         if self.write: os.close(self.write)
-        self.logger.done(self)
+        if self.parent: self.parent.done(self)
         
-        
-class Logger(object):
+    def nothing_to_do(self):
+        self.result = 3
+        if self.write: os.close(self.write)
+        if self.parent: self.parent.done(self)
     
-    def __init__(self):
-        self.handles = []
-        self.waiting = []
-        self.lock = threading.Lock()
-    
-    def log(self, name):
-        h = Handle(self, name)
+    def child(self, name):
+        h = Logger(self, name)
         with self.lock:
-            self.handles.append(h)
+            self.active_children_count += 1
+            self.children.append(h)
         return h
         
-    def done(self, handle):
+    def done(self, child):
         with self.lock:
-            self.waiting.append(handle)
+            self.active_children_count -= 1
+            self.waiting.append(child)
+            
+    def get_active_child_count(self):
+        with self.lock:
+            return self.active_children_count
             
     def print_waiting(self):
         with self.lock:
@@ -99,7 +106,7 @@ class Logger(object):
                     if h.trace:
                         for line in traceback.format_tb(h.trace):
                             sys.stdout.write(line)
-                else:
+                elif h.result==2:
                     print "Successfull: "+h.name
                 if h.read:
                     while True:
@@ -109,6 +116,9 @@ class Logger(object):
                         sys.stdout.write(buf)
                     os.close(h.read)
             self.waiting = []
+            #for h in self.children:
+            #    if h.result == 0: print(h.name)
+            return self.active_children_count
 
 
 try:

@@ -10,6 +10,7 @@
 #include <map>
 #include "fullscreen.hpp"
 #include <Windowsx.h>
+#include "../input/keycodes.hpp"
 
 const char g_szClassName[] = "myWindowClass";
 
@@ -151,6 +152,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                         }
                         //LOGD("%d, %d -> %d, %d", raw->data.mouse.lLastX, raw->data.mouse.lLastY, dx, dy);
                         renderer->rawPointer(dx, dy);
+                        unsigned short buttons = raw->data.mouse.usButtonFlags;
+                        if(buttons & RI_MOUSE_RIGHT_BUTTON_DOWN) renderer->mouseKey(RIGHT_MOUSE_BUTTON, true);
+                        if(buttons & RI_MOUSE_RIGHT_BUTTON_UP) renderer->mouseKey(RIGHT_MOUSE_BUTTON, false);
+                        if(buttons & RI_MOUSE_LEFT_BUTTON_DOWN) renderer->mouseKey(LEFT_MOUSE_BUTTON, true);
+                        if(buttons & RI_MOUSE_LEFT_BUTTON_UP) renderer->mouseKey(LEFT_MOUSE_BUTTON, false);
+                        if(buttons & RI_MOUSE_MIDDLE_BUTTON_DOWN) renderer->mouseKey(MIDDLE_MOUSE_BUTTON, true);
+                        if(buttons & RI_MOUSE_MIDDLE_BUTTON_UP) renderer->mouseKey(MIDDLE_MOUSE_BUTTON, false);
+                        if(buttons & RI_MOUSE_BUTTON_4_DOWN) renderer->mouseKey(EXTRA_MOUSE_BUTTON(1), true);
+                        if(buttons & RI_MOUSE_BUTTON_4_UP) renderer->mouseKey(EXTRA_MOUSE_BUTTON(1), false);
+                        if(buttons & RI_MOUSE_BUTTON_5_DOWN) renderer->mouseKey(EXTRA_MOUSE_BUTTON(2), true);
+                        if(buttons & RI_MOUSE_BUTTON_5_UP) renderer->mouseKey(EXTRA_MOUSE_BUTTON(2), false);
                         break;
                     }
                     case RIM_TYPEKEYBOARD:{
@@ -161,7 +173,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 }
             }
             return DefWindowProc(hwnd, msg, wParam, lParam);;
-        case WM_MOUSEMOVE:
+        case WM_MOUSEMOVE:{
             PointerEvent event;
             event.pointerId = POINTER_ID_CURSOR;
             event.event = POINTER_EVENT_MOVE;
@@ -169,6 +181,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             event.y = GET_Y_LPARAM(lParam);
             renderer->pointer(event);
             return 0;
+        }
+        case WM_LBUTTONDOWN:{
+            PointerEvent event;
+            event.pointerId = POINTER_ID_CURSOR;
+            event.event = POINTER_EVENT_DOWN;
+            event.x = GET_X_LPARAM(lParam);
+            event.y = GET_Y_LPARAM(lParam);
+            renderer->pointer(event);
+            return 0;
+        }
+        case WM_LBUTTONUP:{
+            PointerEvent event;
+            event.pointerId = POINTER_ID_CURSOR;
+            event.event = POINTER_EVENT_UP;
+            event.x = GET_X_LPARAM(lParam);
+            event.y = GET_Y_LPARAM(lParam);
+            renderer->pointer(event);
+            return 0;
+        }
         case WM_CLOSE:
             LOGD("WM_CLOSE");
             DestroyWindow(hwnd);

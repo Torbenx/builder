@@ -2,19 +2,16 @@
 #define HEADER_BUILD_RENDERER_H
 
 #include "Renderer.hpp"
+#include "FileExplorer.hpp"
 #include <string>
-#include "ui/TextComponent.hpp"
-#include "ui/UiScene.hpp"
-#include <list>
 
 class BuildRenderer : public Renderer{
     public:
-        UiScene projectChooser;
-        std::list<TextComponent*> fileNameComps;
-        std::string directory = "C:\\";
+        FileExplorer explorer;
         
         BuildRenderer();
         void create();
+        void pointer(PointerEvent pointer);
         void change(int newWidth, int newHeight);
         void drawFrame();
 };

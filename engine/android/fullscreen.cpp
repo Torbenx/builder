@@ -27,3 +27,7 @@ void exitFullscreen(){
 bool isFullscreen(){
     return engine_fullscreen;
 }
+
+int getDPI(){
+    return 160;
+}

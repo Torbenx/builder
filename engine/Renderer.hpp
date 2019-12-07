@@ -44,6 +44,7 @@ class Renderer{
         virtual void pointer(PointerEvent event){}
         virtual void rawPointer(int dx, int dy){}
         virtual void key(uint32_t keycode, bool down){}
+        virtual void mouseKey(uint32_t key, bool down){}
         virtual ~Renderer(){}
 };
 

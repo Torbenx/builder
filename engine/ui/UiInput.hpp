@@ -17,9 +17,4 @@ struct UiPointerEvent{
     TypedPoint p;
 };
 
-class UiInputProcessor{
-    public:
-        void event(UiPointerEvent ev);
-};
-
 #endif

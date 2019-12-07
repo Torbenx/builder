@@ -9,6 +9,7 @@ class Builder(c.Builder):
         self.input_files += [
             "main.cpp",
             "BuildRenderer.cpp",
+            "FileExplorer.cpp",
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-D_hypot=hypot"]
