@@ -4,7 +4,7 @@ from build_lib import c, android
 class Builder(c.Builder):
 
     def __init__(self, target):
-        super(Builder, self).__init__(target)
+        super(Builder, self).__init__()
         
         self.input_files += [
             "graphic/CubeMap.cpp",

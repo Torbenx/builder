@@ -33,6 +33,7 @@ if platform == "android":
     compile_args += ["-DPLATFORM_ANDROID"]
 
 eb = engine.build_file.Builder(platform)
+eb.logger = logger.child("engine")
 eb.compile_cmd = compile_cmd
 eb.link_cmd = link_cmd
 eb.rebuild = rebuild
@@ -40,8 +41,9 @@ eb.output_file = utils.join("..",engine_output)
 eb.compile_args += compile_args
 eb.build_dir = build_dir
 eb.build()
-print "\n----------------\n"
+
 mb = build_file.Builder(platform)
+mb.logger = logger.child("main")
 mb.compile_cmd = compile_cmd
 mb.link_cmd = link_cmd
 mb.rebuild = rebuild
@@ -54,21 +56,23 @@ if platform == "android":
     mb.compile_args += ["-fPIC"]
     mb.link_args += ["-shared"]
 mb.build()
-print "\n----------------\n"
+
 
 if(eb.failed or mb.failed):
-    raise Error()
+    raise Exception()
 
 if platform == "windows":
-    assets.copy_assets("assets", output_dir)
-    runRet = subprocess.call(utils.join(output_dir,"main.exe"), cwd=output_dir)
-    print "Exit with "+str(runRet)
+    assets.copy_assets("assets", output_dir, logger.child("assets"))
+    runLogger = logger.child("run")
+    proc = utils.exec_pipe(utils.join(output_dir,"main.exe"), False, False, cwd=output_dir)
+    runLogger.capture_output(proc)
 if platform == "android":
     an = engine.build_file.App()
+    an.logger = logger.child("android")
     an.package = "com.tt.builder"
     an.build_tools_version = "28.0.3"
     
-    an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk)
+    an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk, logger.child("keystore"))
     apk_output = utils.join(output_dir,"main.apk")
     an.apk_output = utils.join("..",apk_output)
     
@@ -83,4 +87,4 @@ if platform == "android":
     an.assets_dir = utils.join("..","assets")
     an.rebuild = rebuild
     an.build()
-    android.run(an.package, "com.tt.engine.MainActivity", sdk=sdk, apk_path=apk_output)
+    android.run(an.package, "com.tt.engine.MainActivity", logger.child("run"), sdk=sdk, apk_path=apk_output)

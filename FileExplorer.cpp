@@ -1,9 +1,9 @@
 #include "FileExplorer.hpp"
-#include <dirent.h>
 #include "util/log.hpp"
+#include "BuildRenderer.hpp"
 
-FileExplorer::FileExplorer(){
-    
+FileExplorer::FileExplorer(void *renderer){
+    this->renderer = renderer;
 }
 
 void FileExplorer::onChange(ScreenMetrics metrics){
@@ -22,42 +22,46 @@ void FileExplorer::setPath(std::string path){
     }
     fileNameComps.clear();
     clickables.clear();
-    const char *s = path.c_str();
-    LOGD("path: %s",s);
-    DIR *dir =  opendir(s);
-    if(dir){
-        struct dirent *ent;
-        int id = 0;
-        while((ent = readdir(dir)) != nullptr){
+    TextComponent *back = new TextComponent();
+    back->text = "..";
+    back->textSize = TypedSize::windowsDIP(20);
+    back->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    back->noBreaks = true;
+    scene.layout(*back)
+        .wrapContentHeight()
+        .alignParentLeft()
+        .alignParentRight()
+        .alignParentTop(TypedSize::windowsDIP(5));
+    fileNameComps.push_back(back);
+    makeClickable(*back, 0);
+    
+    if(!((BuildRenderer*)renderer)->files.empty()){
+        int id = 1;
+        for(auto it=((BuildRenderer*)renderer)->files.begin();it!=((BuildRenderer*)renderer)->files.end();it++){
             TextComponent *text = new TextComponent();
-            text->text = std::string(ent->d_name);
+            text->text = *it;
             text->textSize = TypedSize::windowsDIP(20);
             text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
             text->noBreaks = true;
             scene.layout(*text)
                 .wrapContentHeight()
                 .alignParentLeft()
-                .alignParentRight();
-            if(fileNameComps.empty()){
-                scene.layout(*text).alignParentTop();
-            }else{
-                scene.layout(*text).below(*fileNameComps.back());
-            }
+                .alignParentRight()
+                .below(*fileNameComps.back(), TypedSize::windowsDIP(5));
             fileNameComps.push_back(text);
             makeClickable(*text, id++);
         }
-        closedir(dir);
     }else{
         TextComponent *text = new TextComponent();
             text->text = "failed to open directory";
-            text->textSize = TypedSize::gl(0.1f);
+            text->textSize = TypedSize::windowsDIP(30);
             text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
             text->noBreaks = true;
             scene.layout(*text)
                 .wrapContentHeight()
                 .alignParentLeft()
                 .alignParentRight()
-                .alignParentTop();
+                .below(*back);
             fileNameComps.push_back(text);
     }
     if(hasMetrics){
@@ -67,7 +71,11 @@ void FileExplorer::setPath(std::string path){
 }
 
 void FileExplorer::onClick(int id){
-    setPath(path+"/"+fileNameComps[id]->text);
+    if(id == 0){
+        ((BuildRenderer*)renderer)->setPath(path.substr(0, path.rfind('/')));
+    }else{
+        ((BuildRenderer*)renderer)->setPath(path+"/"+fileNameComps[id]->text);
+    }
 }
 
 void FileExplorer::drawFrame(){

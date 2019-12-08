@@ -2,17 +2,17 @@
 // Created by Torben Thaysen on 03.02.2016.
 //
 
-#ifndef UNTITLED1_LOG_HPP
-#define UNTITLED1_LOG_HPP
+#ifndef HEADER_UTIL_LOG_H
+#define HEADER_UTIL_LOG_H
 
 #ifdef PLATFORM_WINDOWS
 
 #include<stdio.h>
 
-#define LOGE(msg, ...) printf(msg"\n", ##__VA_ARGS__)
-#define LOGW(msg, ...) printf(msg"\n", ##__VA_ARGS__)
-#define LOGI(msg, ...) printf(msg"\n", ##__VA_ARGS__)
-#define LOGD(msg, ...) printf(msg"\n", ##__VA_ARGS__)
+#define LOGE(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGW(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGI(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGD(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
 
 #endif
 
@@ -29,4 +29,4 @@
 
 #endif
 
-#endif //UNTITLED1_LOG_HPP
+#endif

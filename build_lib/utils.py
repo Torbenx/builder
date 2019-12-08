@@ -1,6 +1,7 @@
 import os
 import subprocess
 import threading
+import traceback
 import sys
 
 
@@ -29,6 +30,11 @@ def exec_cmd(cmd, shell, concat, cwd=None, stdout=None, stderr=None):
         cmd = [" ".join(cmd)]
     return subprocess.call(cmd, shell=shell, cwd=cwd, stdout=stdout, stderr=stderr)
 
+def exec_pipe(cmd, shell, concat, cwd=None):
+    if shell and concat:
+        cmd = [" ".join(cmd)]
+    return subprocess.Popen(cmd, shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
 
 
 def join(*paths):
@@ -45,8 +51,6 @@ class Logger(object):
     def __init__(self, parent = None, name = None):
         self.parent = parent
         self.name = name
-        self.read = None
-        self.write = None
         self.cmd = None
         self.ex = None
         self.trace = None
@@ -55,10 +59,32 @@ class Logger(object):
         self.waiting = []
         self.lock = threading.Lock()
         self.active_children_count = 0
+        self.buffer = ""
         
-    def stdout(self):
-        self.read, self.write = os.pipe()
-        return self.write
+    def log(self, msg):
+        self.buffer += msg+"\n"
+        
+    def exec_cmd(self, cmd, shell, concat, cwd=None):
+        self.command(cmd)
+        proc = exec_pipe(cmd, shell, concat, cwd=cwd)
+        self.capture_output(proc)
+        return proc.returncode
+        
+    def exec_cmd_final(self, cmd, shell, concat, cwd=None):
+        ret = self.exec_cmd(cmd, shell, concat, cwd=cwd)
+        if ret==0:
+            self.success()
+        else:
+            self.failed()
+        return ret
+        
+    def capture_output(self, proc):
+        while True:
+            chunk = proc.stdout.read(1)
+            if not chunk:
+                break
+            self.buffer += chunk
+        proc.wait()
         
     def command(self, cmd):
         self.cmd = cmd
@@ -67,17 +93,14 @@ class Logger(object):
         self.ex = ex
         self.trace = trace
         self.result = 1
-        if self.write: os.close(self.write)
         if self.parent: self.parent.done(self)
         
     def success(self):
         self.result = 2
-        if self.write: os.close(self.write)
         if self.parent: self.parent.done(self)
         
     def nothing_to_do(self):
         self.result = 3
-        if self.write: os.close(self.write)
         if self.parent: self.parent.done(self)
     
     def child(self, name):
@@ -92,32 +115,8 @@ class Logger(object):
             self.active_children_count -= 1
             self.waiting.append(child)
             
-    def get_active_child_count(self):
+    def get_active_children_count(self):
         with self.lock:
-            return self.active_children_count
-            
-    def print_waiting(self):
-        with self.lock:
-            for h in self.waiting:
-                if h.result==1:
-                    print "Failed: "+h.name
-                    if h.cmd: print "Cmd="+str(h.cmd)
-                    if h.ex: print h.ex
-                    if h.trace:
-                        for line in traceback.format_tb(h.trace):
-                            sys.stdout.write(line)
-                elif h.result==2:
-                    print "Successfull: "+h.name
-                if h.read:
-                    while True:
-                        buf = os.read(h.read, 1024)
-                        if not buf:
-                            break
-                        sys.stdout.write(buf)
-                    os.close(h.read)
-            self.waiting = []
-            #for h in self.children:
-            #    if h.result == 0: print(h.name)
             return self.active_children_count
 
 

@@ -4,12 +4,13 @@ from build_lib import c
 class Builder(c.Builder):
 
     def __init__(self, target):
-        super(Builder, self).__init__(target)
+        super(Builder, self).__init__()
         
         self.input_files += [
             "main.cpp",
             "BuildRenderer.cpp",
             "FileExplorer.cpp",
+            "HeadBar.cpp",
         ]
 
         self.compile_args += ["-Wno-attributes", "-Wall", "-D_hypot=hypot"]

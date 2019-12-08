@@ -61,13 +61,8 @@ def setup(api, arch, sdk):
     if arch == utils.arch_x86_64:
         return [bin], [bin]
         
-def gen_key(keystore, keystore_password, key_alias, key_password, dname, validity, jdk):
-    keytool_bin = utils.join(jdk,"bin","keytool")
-    #validity in days
-    gen_ret = utils.exec_cmd([keytool_bin, "-genkey", "-keystore", keystore, "-keyalg", "RSA", "-keysize", "2048", "-validity", str(validity), "-storepass", keystore_password, "-alias", key_alias, "-keypass", key_password, "-dname", dname], False, False)
-    assert gen_ret==0, "Key generation failed with %d" % gen_ret
         
-def debug_keystore(dir, jdk):
+def debug_keystore(dir, jdk, logger):
     file = utils.join(dir,"debug.keystore")
     keystore_password = "android"
     key_alias = "androiddebugkey"
@@ -75,8 +70,19 @@ def debug_keystore(dir, jdk):
     if not os.path.exists(dir):
         os.makedirs(dir)
     if not os.path.exists(file):
-        print "Generating debug keystore"
-        gen_key(file, key_password, key_alias, key_password, "cn=debug", 100*360, jdk)
+        keytool_bin = utils.join(jdk,"bin","keytool")
+        #validity in days
+        cmd = [keytool_bin, "-genkey", "-keystore", keystore, "-keyalg", "RSA", "-keysize", "2048", "-validity", str(validity), "-storepass", keystore_password, "-alias", key_alias, "-keypass", key_password, "-dname", dname]
+        logger.command(cmd)
+        proc = utils.exec_pipe(cmd, False, False)
+        logger.capture_output(proc)
+        if proc.returncode == 0:
+            logger.succesfull()
+        else:
+            logger.failed()
+            raise Exception("failed to create keystore")
+    else:
+        logger.nothing_to_do()
     return file, key_password, key_alias, key_password
 
 class Builder(object):
@@ -113,6 +119,7 @@ class Builder(object):
         self.concat_cmd = False
         
     def build(self):
+        logger = self.logger
         build_tools = utils.join(self.sdk,"build-tools",self.build_tools_version)
         android_jar = utils.join(self.sdk,"platforms","android-"+str(self.api),"android.jar")
         dx_bin = utils.join(build_tools,"dx")
@@ -138,7 +145,7 @@ class Builder(object):
         if not os.path.exists(os.path.dirname(self.apk_output)):
             os.makedirs(os.path.dirname(self.apk_output))
             
-        assets_changed = assets.copy_assets(self.assets_dir, assets_copy_dir, rebuild=self.rebuild)
+        assets_changed = assets.copy_assets(self.assets_dir, assets_copy_dir, logger.child("assets"), rebuild=self.rebuild)
         
         std_lib_changed = False
         lib_dir_rel = utils.join("lib", get_lib_dir_name(self.arch))
@@ -153,32 +160,44 @@ class Builder(object):
                 os.makedirs(lib_dir)
             shutil.copyfile(std_lib_src, std_lib_dest)
             
+        java_logger = logger.child("java")
         javac_start = time.time()
         java_changed = False
         for file in self.java_source:
+            h = java_logger.child(file)
             java_file = utils.join(self.java_dir, file)
             class_file = utils.join(class_output, file.replace(".java",".class"))
             if os.path.exists(class_file) and os.path.getmtime(class_file) > os.path.getmtime(java_file) and not self.rebuild:
+                h.nothing_to_do()
                 continue
-            print "Building "+file
             java_changed = True
-            javac_ret = utils.exec_cmd([javac_bin, "-d", class_output, "-classpath", self.java_dir, "-bootclasspath", android_jar, java_file], True, self.concat_cmd)
+            javac_ret = h.exec_cmd_final([javac_bin, "-d", class_output, "-classpath", self.java_dir, "-bootclasspath", android_jar, java_file], True, self.concat_cmd)
             assert javac_ret==0, "javac for %s failed with %d" % {file, javac_ret}
+        java_logger.success()
         
+        
+        dex_logger = logger.child("dex")
         dx_start = time.time()
         dx_changed = False
         if java_changed or self.rebuild or not os.path.exists(utils.join(self.build_dir,"classes.dex")):
             dx_changed = True
-            dx_ret = utils.exec_cmd([dx_bin, "--dex", "--output", utils.join(self.build_dir,"classes.dex"), class_output], True, self.concat_cmd)
+            dx_ret = dex_logger.exec_cmd_final([dx_bin, "--dex", "--output", utils.join(self.build_dir,"classes.dex"), class_output], True, self.concat_cmd)
             assert dx_ret==0, "dx failed with %d" % dx_ret
+        else:
+            dex_logger.nothing_to_do()
         
+        aapt_p_logger = logger.child("aapt_package")
         aapt_p_start = time.time()
         apk_empty = False
         if self.rebuild or assets_changed or (not os.path.exists(apk_unaligned)) or os.path.getmtime(self.android_manifest) > os.path.getmtime(apk_unaligned):
             apk_empty = True
-            aapt_p_ret = utils.exec_cmd([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package] + (["--debug-mode"] if self.debug else []), True, self.concat_cmd)
+            aapt_p_ret = aapt_p_logger.exec_cmd_final([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package] + (["--debug-mode"] if self.debug else []), True, self.concat_cmd)
             assert aapt_p_ret==0, "aapt package failed with %d" % aapt_p_ret
+        else:
+            aapt_p_logger.nothing_to_do()
             
+        aapt_r_logger = logger.child("aapt_remove")
+        aapt_a_logger = logger.child("aapt_add")
         aapt_ar_start = time.time()
         add_files = []
         if dx_changed or apk_empty:
@@ -190,51 +209,41 @@ class Builder(object):
                 add_files += [lib]
         if add_files:
             if not apk_empty:
-                aapt_r_ret = utils.exec_cmd([aapt_bin, "remove", apk_unaligned] + add_files, True, self.concat_cmd)
+                aapt_r_ret = aapt_r_logger.exec_cmd_final([aapt_bin, "remove", apk_unaligned] + add_files, True, self.concat_cmd)
                 assert aapt_r_ret==0, "aapt remove failed with %d" % aapt_r_ret
+            else:
+                aapt_r_logger.nothing_to_do()
             
-            aapt_a_ret = utils.exec_cmd([aapt_bin, "add", apk_unaligned_name] + add_files, True, self.concat_cmd, cwd=self.build_dir)
+            aapt_a_ret = aapt_a_logger.exec_cmd_final([aapt_bin, "add", apk_unaligned_name] + add_files, True, self.concat_cmd, cwd=self.build_dir)
             assert aapt_a_ret==0, "aapt add failed with %d" % aapt_a_ret
+        else:
+            aapt_a_logger.nothing_to_do()
+            aapt_r_logger.nothing_to_do()
         
+        align_logger = logger.child("zipalign")
         align_start = time.time()
         if add_files or apk_empty:
-            align_ret = utils.exec_cmd([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], True, self.concat_cmd)
+            align_ret = align_logger.exec_cmd_final([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], True, self.concat_cmd)
             assert align_ret==0, "zipalign failed with %d" % align_ret
+        else:
+            align_logger.nothing_to_do()
         
+        sign_logger = logger.child("sign")
         sign_start = time.time()
         if add_files or apk_empty:
-            sign_ret = utils.exec_cmd([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], True, self.concat_cmd)
+            sign_ret = sign_logger.exec_cmd_final([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], True, self.concat_cmd)
             assert sign_ret==0, "sign failed with %d" % sign_ret
+        else:
+            sign_logger.nothing_to_do()
         
+        logger.success()
         end = time.time()
-        print ("Android build finished in {total}s"+("\njavac: {javac}s\ndx: {dx}s\naapt package: {aapt_p}s\naapt add/remove: {aapt_ar}\nalign: {align}s\nsign: {sign}s" if False else "")).format(total=end-start_time, javac=dx_start-javac_start, dx=aapt_p_start-dx_start, aapt_p=aapt_ar_start-aapt_p_start, aapt_ar=align_start-aapt_ar_start, align=sign_start-align_start, sign=end-sign_start)
+        #print ("Android build finished in {total}s"+("\njavac: {javac}s\ndx: {dx}s\naapt package: {aapt_p}s\naapt add/remove: {aapt_ar}\nalign: {align}s\nsign: {sign}s" if False else "")).format(total=end-start_time, javac=dx_start-javac_start, dx=aapt_p_start-dx_start, aapt_p=aapt_ar_start-aapt_p_start, aapt_ar=align_start-aapt_r_start, align=sign_start-align_start, sign=end-sign_start)
         
     
-LOG_USAGE = "r to refresh pid, p to log package, c to clear, s to start, k to kill, e to exit logger"
 
-def log_package(package, adb_bin):
-    print "Logging "+package+", "+LOG_USAGE
-    p = subprocess.Popen([adb_bin, "logcat", "-e", package])
-    key = utils.getch()
-    p.kill()
-    return key
     
-def log_pid(pid, adb_bin):
-    print "Logging "+str(pid)+", "+LOG_USAGE
-    p = subprocess.Popen([adb_bin, "logcat", "--pid="+str(pid)])
-    key = utils.getch()
-    p.kill()
-    return key
-    
-def find_pid(package, adb_bin):
-    p = subprocess.Popen([adb_bin, "shell", "for p in /proc/[0-9]*; do [[ $(<$p/cmdline) = %s ]] && echo ${p##*/}; done" % package], stdout = subprocess.PIPE)
-    out,err = p.communicate()
-    if out=="":
-        return -1
-    else:
-        return int(out)
-    
-def run(package, activity, apk_path="", use_pm=False, sdk="", adb_bin=""):
+def run(package, activity, logger, apk_path="", use_pm=False, sdk="", adb_bin=""):
     if not adb_bin:
         adb_bin = utils.join(sdk,"platform-tools","adb.exe")
     
@@ -242,39 +251,13 @@ def run(package, activity, apk_path="", use_pm=False, sdk="", adb_bin=""):
     assert adb_state.startswith("device"), "Wrong adb state: "+adb_state
     
     install_ret = 0
+    install_logger = logger.child("install")
     if not use_pm:
-        install_ret = utils.exec_cmd([adb_bin, "install", "-r", apk_path], False, False)
+        install_ret = install_logger.exec_cmd_final([adb_bin, "install", "-r", apk_path], False, False)
     else:
-        install_ret = utils.exec_cmd([adb_bin], "shell", "pm", "install", apk_path, False, False)
+        install_ret = install_logger.exec_cmd_final([adb_bin, "shell", "pm", "install", apk_path], False, False)
     assert install_ret==0, "install failed with %d" % install_ret
     
-    utils.exec_cmd([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
+    logger.child("start").exec_cmd_final([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
     
-    key = "r"
-    while True:
-        if key == "r":
-            pid = find_pid(package, adb_bin)
-            if pid == -1:
-                print "process not running, "+LOG_USAGE
-                key = utils.getch()
-            else:
-                key = log_pid(pid, adb_bin)
-        elif key == "p":
-            key = log_package(package, adb_bin)
-        elif key == "c":
-            os.system("cls")
-            print LOG_USAGE
-            key = utils.getch()
-        elif key == "k":
-            utils.exec_cmd([adb_bin, "shell", "am force-stop "+package], False, False)
-            print LOG_USAGE
-            key = utils.getch()
-        elif key == "s":
-            utils.exec_cmd([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
-            print LOG_USAGE
-            key = utils.getch()
-        elif key == "e":
-            break
-        else:
-            print LOG_USAGE
-            key = utils.getch()
+    logger.success()

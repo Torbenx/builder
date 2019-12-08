@@ -32,9 +32,10 @@ def compile(self, source, logger):
             cmd += self.file_compile_args[source]
         
         logger.command(cmd)
-        ret = utils.exec_cmd(cmd, True, self.concat_cmd, stdout=logger.stdout())
+        proc = utils.exec_pipe(cmd, True, self.concat_cmd)
+        logger.capture_output(proc)
         self.changed = True
-        if ret != 0:
+        if proc.returncode != 0:
             self.failed = True
             logger.failed()
         else:
@@ -45,7 +46,7 @@ def compile(self, source, logger):
         self.failed = True
 
 class Builder(object):
-    def __init__(self, target):
+    def __init__(self):
         self.input_files = []
         self.output_file = ""
         self.include_dirs = []
@@ -53,7 +54,6 @@ class Builder(object):
         self.compile_args = []
         self.link_args = []
         self.build_dir = "build"
-        self.target = target
         self.rebuild = False
         self.compile_cmd = []
         self.link_cmd = []
@@ -67,29 +67,28 @@ class Builder(object):
         self.ibuild_dir = self.build_dir
         
         threads = []
-        logger = utils.Logger()
+        logger = self.logger
         for source in self.input_files:
             sourceDir = os.path.dirname(source)
             outputDir = utils.join(self.ibuild_dir, sourceDir)
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
             h = logger.child(source)
+            while(logger.get_active_children_count() > 8):
+                pass
             thread = threading.Thread(target=compile, args=[self, source, h])
             thread.start()
             threads.append(thread)
             
-        while True:
-            if(logger.print_waiting() == 0):
-                break
+        while logger.get_active_children_count() != 0:
+            pass
                 
             
         if (not self.changed) and os.path.exists(self.output_file) and not self.rebuild:
-            print "NOTHING TO DO"
             logger.nothing_to_do()
             return
 
         if self.failed:
-            print "BUILD FAILED"
             logger.failed()
             return
             
@@ -97,14 +96,13 @@ class Builder(object):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         cmd = self.link_cmd + [utils.join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
-        buildRet = utils.exec_cmd(cmd, True, self.concat_cmd)
+        proc = utils.exec_pipe(cmd, True, self.concat_cmd)
+        logger.capture_output(proc)
 
-        if buildRet==0:
+        if proc.returncode==0:
             elapsed = time.time() - self.buildTime
-            print "Build finished in "+str(elapsed)+"s"
-            logger.failed()
+            logger.success()
         else:
             print str(cmd)
-            print "Build failed with "+str(buildRet)
-            logger.success()
+            logger.failed()
             self.failed = True

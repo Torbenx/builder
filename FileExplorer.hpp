@@ -11,8 +11,9 @@ class FileExplorer : public UiRenderer{
         std::vector<TextComponent*> fileNameComps;
         bool hasMetrics = false;
         std::string path;
+        void *renderer;
     
-        FileExplorer();
+        FileExplorer(void *renderer);
         void setPath(std::string path);
         void onChange(ScreenMetrics metrics);
         void onClick(int id);

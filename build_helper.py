@@ -1,4 +1,6 @@
 import sys
+import threading
+import time
 sys.dont_write_bytecode = True
 
 import os
@@ -32,6 +34,33 @@ def choose_target():
     else:
         print "Invalid target: "+key
 
+def print_rec(logger, prefix):
+    s = ""
+    if logger.result == 0:
+        s += "Running    : "+prefix+str(logger.name)+"\n"
+    elif logger.result == 1:
+        s += "Failed     : "+prefix+str(logger.name)+"\n"
+        if logger.cmd: s += "Cmd="+str(logger.cmd)+"\n"
+        if logger.ex: s += str(logger.ex)+"\n"
+        if logger.trace:
+            for line in traceback.format_tb(logger.trace):
+                s += line
+    elif logger.result == 2:
+        s += "Successfull: "+prefix+str(logger.name)+"\n"
+    s += logger.buffer
+        
+    for child in logger.children:
+        s += print_rec(child, prefix+str(logger.name)+".")
+    return s
+        
+def do_print(logger):
+    while logger.result == 0:
+        time.sleep(0.5)
+        s = print_rec(logger, "")
+        utils.clear()
+        sys.stdout.write(s)
+        sys.stdout.flush()
+
 while (not "platform" in globals()) or not "arch" in globals():
     choose_target()
 
@@ -60,13 +89,21 @@ while True:
         except:
             pass
         
+    logger = utils.Logger(name="root")
+    thread = threading.Thread(target=do_print, args=[logger])
+    thread.start()
     try:
         
         f = open("script.conf")
         execfile(f.read())
         f.close()
+        logger.success()
             
     except Exception as ex:
+        logger.failed()
+        thread.join()
         os.chdir(cwd)
         traceback.print_exc()
         print ex
+    
+    thread.join()
