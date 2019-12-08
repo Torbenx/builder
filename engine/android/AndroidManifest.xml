@@ -2,7 +2,7 @@
 <manifest
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	package="no.package">
-    <application android:label="TestGame">
+    <application android:label="Builder">
         <activity android:name="com.tt.engine.MainActivity"
 			android:configChanges="orientation|screenSize|smallestScreenSize|density|screenLayout"
 			android:resizeableActivity="true">
