@@ -18,9 +18,9 @@ def copy_assets(source_dir, target_dir, logger, rebuild=False):
                 any_copy = True
                 shutil.copyfile(source_file, target_file)
         else:
-            if copy_assets(utils.join(source_dir, item), utils.join(target_dir, item), rebuild=rebuild):
+            if copy_assets(utils.join(source_dir, item), utils.join(target_dir, item), logger, rebuild=rebuild):
                 any_copy = True
-        if any_cody:
+        if any_copy:
             logger.success()
         else:
             logger.nothing_to_do()
