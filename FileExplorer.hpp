@@ -1,12 +1,12 @@
 #ifndef HEADER_FILE_EXPLORER_H
 #define HEADER_FILE_EXPLORER_H
 
-#include "ui/UiRenderer.hpp"
+#include "ui/UiSceneComponent.hpp"
 #include <string>
 #include "ui/TextComponent.hpp"
 #include <vector>
 
-class FileExplorer : public UiRenderer{
+class FileExplorer : public UiSceneComponent{
     public:
         std::vector<TextComponent*> fileNameComps;
         bool hasMetrics = false;
@@ -15,9 +15,9 @@ class FileExplorer : public UiRenderer{
     
         FileExplorer(void *renderer);
         void setPath(std::string path);
-        void onChange(ScreenMetrics metrics);
+        void updateRect();
         void onClick(int id);
-        void drawFrame();
+        void draw();
         ~FileExplorer();
 };
 

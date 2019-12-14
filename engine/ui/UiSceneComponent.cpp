@@ -1,30 +1,24 @@
-#include "UiRenderer.hpp"
+#include "UiSceneComponent.hpp"
 #include "../fullscreen.hpp"
 
-UiRenderer::UiRenderer(){
+UiSceneComponent::UiSceneComponent(){
     
 }
 
-void UiRenderer::makeClickable(UiComponent& comp, int id){
+void UiSceneComponent::makeClickable(UiComponent& comp, int id){
     UiRendererClickable clickable;
     clickable.comp = &comp;
     clickable.id = id;
     clickables.push_back(clickable);
 }
 
-void UiRenderer::change(int newWidth, int newHeight){
-    ScreenMetrics metrics;
-    int dpi = getDPI();
-    metrics.x.size = newWidth;
-    metrics.x.dpi = dpi;
-    metrics.y.size = newHeight;
-    metrics.y.dpi = dpi;
+void UiSceneComponent::updateRect(){
     scene.metrics = metrics;
-    onChange(metrics);
+    scene.setParent(rect);
     scene.build();
 }
 
-void UiRenderer::pointer(PointerEvent event){
+void UiSceneComponent::pointer(PointerEvent event){
     UiPointerEvent ev(event);
     std::list<int> clicks;
     if(ev.event == POINTER_EVENT_UP){

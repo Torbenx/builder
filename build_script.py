@@ -87,4 +87,4 @@ if platform == "android":
     an.assets_dir = utils.join("..","assets")
     an.rebuild = rebuild
     an.build()
-    android.run(an.package, "com.tt.engine.MainActivity", logger.child("run"), apk_path=apk_output)
+    android.run(an.package, "com.tt.engine.MainActivity", logger.child("run"), apk_path=apk_output, sdk=sdk)

@@ -47,6 +47,8 @@ class UiSceneBuilder{
         UiSceneBuilder& wrapContentWidthOf(UiComponent& other, TypedSize padding=TypedSize::zero);
         UiSceneBuilder& wrapContentHeightOf(UiComponent& other, TypedSize padding=TypedSize::zero);
         UiSceneBuilder& wrapContentOf(UiComponent& other, TypedSize padding=TypedSize::zero);
+        
+        UiSceneBuilder& clear();
 };
 
 class UiScene{

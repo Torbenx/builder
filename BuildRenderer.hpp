@@ -13,6 +13,7 @@ class BuildRenderer : public Renderer{
         HeadBar head;
         std::vector<std::string> files;
         bool isProject = false;
+        UiScene scene;
         
         BuildRenderer();
         void create();

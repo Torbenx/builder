@@ -6,12 +6,13 @@ FileExplorer::FileExplorer(void *renderer){
     this->renderer = renderer;
 }
 
-void FileExplorer::onChange(ScreenMetrics metrics){
+void FileExplorer::updateRect(){
     for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
         (*it)->metrics = metrics;
         (*it)->updateContent();
     }
     hasMetrics = true;
+    UiSceneComponent::updateRect();
 }
 
 void FileExplorer::setPath(std::string path){
@@ -56,7 +57,7 @@ void FileExplorer::setPath(std::string path){
             text->text = "failed to open directory";
             text->textSize = TypedSize::windowsDIP(30);
             text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            text->noBreaks = true;
+            text->noBreaks = false;
             scene.layout(*text)
                 .wrapContentHeight()
                 .alignParentLeft()
@@ -65,8 +66,7 @@ void FileExplorer::setPath(std::string path){
             fileNameComps.push_back(text);
     }
     if(hasMetrics){
-        onChange(scene.metrics);
-        scene.build();
+        updateRect();
     }
 }
 
@@ -78,7 +78,7 @@ void FileExplorer::onClick(int id){
     }
 }
 
-void FileExplorer::drawFrame(){
+void FileExplorer::draw(){
     for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
         (*it)->draw();
     }

@@ -201,3 +201,8 @@ UiSceneBuilder& UiSceneBuilder::wrapContentOf(UiComponent& other, TypedSize padd
     wrapContentHeightOf(other, padding);
     return *this;
 }
+
+UiSceneBuilder& UiSceneBuilder::clear(){
+    builder.clear();
+    return *this;
+}

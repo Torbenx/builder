@@ -1,10 +1,10 @@
 #ifndef HEADER_HEAD_BAR_H
 #define HEADER_HEAD_BAR_H
 
-#include "ui/UiRenderer.hpp"
+#include "ui/UiSceneComponent.hpp"
 #include "ui/TextComponent.hpp"
 
-class HeadBar : public UiRenderer{
+class HeadBar : public UiSceneComponent{
     public:
         void *renderer;
         TextComponent title;
@@ -12,8 +12,8 @@ class HeadBar : public UiRenderer{
         
         HeadBar(void *renderer);
         void setPath(std::string path);
-        void onChange(ScreenMetrics metrics);
-        void drawFrame();
+        void updateRect();
+        void draw();
         ~HeadBar();
 };
 

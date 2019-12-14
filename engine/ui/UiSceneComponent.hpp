@@ -1,5 +1,5 @@
-#ifndef HEADER_UI_RENDERER_H
-#define HEADER_UI_RENDERER_H
+#ifndef HEADER_UI_SCENE_COMPONENT_H
+#define HEADER_UI_SCENE_COMPONENT_H
 
 #include "UiScene.hpp"
 #include <list>
@@ -10,18 +10,16 @@ struct UiRendererClickable{
     int id;
 };
 
-class UiRenderer{
+class UiSceneComponent : public UiComponent{
     public:
         UiScene scene;
         std::list<UiRendererClickable> clickables;
-        UiRenderer();
+        UiSceneComponent();
         void makeClickable(UiComponent& comp, int id);
-        virtual void change(int w,int h);
-        virtual void onChange(ScreenMetrics metrics){}
-        virtual void drawFrame(){}
+        void updateRect();
+        void draw(){}
         virtual void pointer(PointerEvent event);
         virtual void onClick(int id){}
-        virtual ~UiRenderer(){}
 };
 
 #endif

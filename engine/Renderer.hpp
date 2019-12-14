@@ -41,10 +41,15 @@ class Renderer{
         
         virtual void change(int w,int h){}
         virtual void drawFrame(){}
+        
         virtual void pointer(PointerEvent event){}
+        
         virtual void rawPointer(int dx, int dy){}
-        virtual void key(uint32_t keycode, bool down){}
-        virtual void mouseKey(uint32_t key, bool down){}
+        virtual void rawKey(uint32_t keycode, bool down){}
+        virtual void rawMouseKey(uint32_t key, bool down){}
+        //ticks > 0 => up
+        virtual void rawMouseWheel(int ticks){}
+        
         virtual ~Renderer(){}
 };
 

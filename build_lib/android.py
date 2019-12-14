@@ -243,7 +243,7 @@ class Builder(object):
     
 
     
-def run(package, activity, logger, apk_path="", use_pm=False, adb_bin=""):
+def run(package, activity, logger, apk_path, use_pm=False, adb_bin="", sdk=""):
     if not adb_bin:
         adb_bin = utils.join(sdk,"platform-tools","adb.exe")
     

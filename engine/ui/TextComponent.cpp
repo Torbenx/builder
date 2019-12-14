@@ -9,7 +9,7 @@ void TextComponent::updateContent(){
     if(textFormat){
         delete textFormat;
     }
-    textFormat = new TextFormat(text, noBreaks ? -1 : (int)TypedSize::gl(rect.getWidth()).toPixels(metrics.x), textSize.toPixels(metrics.y));
+    textFormat = new TextFormat(text, noBreaks ? -1 : ceil(TypedSize::gl(rect.getWidth()).toPixels(metrics.x)), textSize.toPixels(metrics.y));
     if(textTexture){
         textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
     }
@@ -33,6 +33,9 @@ TypedSize TextComponent::getContentWidth(){
 }
 
 TypedSize TextComponent::getContentHeight(){
+    if(noBreaks){
+        return textSize;
+    }
     return TypedSize::pixels(textFormat->getHeight());
 }
 
