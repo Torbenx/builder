@@ -72,12 +72,12 @@ def debug_keystore(dir, jdk, logger):
     if not os.path.exists(file):
         keytool_bin = utils.join(jdk,"bin","keytool")
         #validity in days
-        cmd = [keytool_bin, "-genkey", "-keystore", keystore, "-keyalg", "RSA", "-keysize", "2048", "-validity", str(validity), "-storepass", keystore_password, "-alias", key_alias, "-keypass", key_password, "-dname", dname]
+        cmd = [keytool_bin, "-genkey", "-keystore", file, "-keyalg", "RSA", "-keysize", "2048", "-validity", str(100*360), "-storepass", keystore_password, "-alias", key_alias, "-keypass", key_password, "-dname", "cn=debug"]
         logger.command(cmd)
         proc = utils.exec_pipe(cmd, False, False)
         logger.capture_output(proc)
         if proc.returncode == 0:
-            logger.succesfull()
+            logger.success()
         else:
             logger.failed()
             raise Exception("failed to create keystore")

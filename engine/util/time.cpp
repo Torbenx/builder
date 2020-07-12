@@ -41,7 +41,7 @@ uint64_t getNanos(){
 uint64_t getEpochSeconds(){
     FILETIME t;
     GetSystemTimeAsFileTime(&t);
-    return (((uint64_t)t.dwHighDateTime << 32) + (uint64_t)t.dwLowDateTime - 0x019DB1DED53E8000) * 100 / NANOS_PER_SECOND;
+    return (((uint64_t)t.dwHighDateTime << 32) + (uint64_t)t.dwLowDateTime - EPOCH_TICKS) * 100 / NANOS_PER_SECOND;
 }
 
 #endif //PLATFORM_WINDOWS
