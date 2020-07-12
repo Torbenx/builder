@@ -21,7 +21,7 @@ if platform == "windows":
     raise Error()
 if platform == "android":
     lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
-    compile_cmd = ["clang++", "-std=c++11", "-nostdinc", "-nostdinc++", "-isystem", "~/ndk/include/c++", "-isystem", "~/ndk/include/sysroot", "-isystem", "~/ndk/include/clang", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]
+    compile_cmd = ["clang++", "-std=c++11", "-nostdinc", "-nostdinc++", "-isystem", "~/ndk/include/sysroot/c++/v1", "-isystem", "~/ndk/include/sysroot", "-isystem", "~/ndk/include/clang", "-isystem", "~/ndk/include/sysroot/aarch64-linux-android", "-D__ANDROID__", "-D__ANDROID_API__="+str(api)]
     link_cmd = ["clang++", "-L", "~/ndk/lib/lib", "-nostdlib", "-lc", "-ldl", "-lm", "-lgcc", "-lc++_shared", "-fexceptions", "~/ndk/lib/lib/crtbegin_so.o"]
     engine_output = utils.join("engine",build_dir,lib_dir_rel,"libengine.so")
     main_output = utils.join("engine",build_dir,lib_dir_rel,"libmain.so")
