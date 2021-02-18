@@ -50,7 +50,7 @@ def print_rec(logger, prefix):
     s += logger.buffer
         
     for child in logger.children:
-        s += print_rec(child, prefix+str(logger.name)+".")
+        s += print_rec(child, prefix+str(logger.name)+"$")
     return s
         
 def do_print(logger):

@@ -23,7 +23,7 @@ if platform == "windows":
     engine_output = utils.join(output_dir,"engine.dll")
     main_output = utils.join(output_dir,"main.exe")
     compile_cmd = ["g++"]
-    link_cmd = ["g++"]
+    link_cmd = ["g++", "-static-libstdc++"]
     compile_args += ["-DPLATFORM_WINDOWS"]
 if platform == "android":
     lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
