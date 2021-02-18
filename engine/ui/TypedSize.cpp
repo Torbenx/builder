@@ -81,6 +81,51 @@ float TypedSize::to(TYPED_SIZE_TYPE type, SizeMetrics m){
     }
 }
 
+TypedSizeXY TypedSize::asXSize(){
+    TypedSizeXY r;
+    r.isX = true;
+    r.size = *this;
+    return r;
+}
+
+TypedSizeXY TypedSize::asYSize(){
+    TypedSizeXY r;
+    r.isX = false;
+    r.size = *this;
+    return r;
+}
+
+float TypedSizeXY::toPixels(ScreenMetrics metrics){
+    return size.toPixels(isX ? metrics.x : metrics.y);
+}
+
+float TypedSizeXY::toGL(ScreenMetrics metrics){
+    return size.toGL(isX ? metrics.x : metrics.y);
+}
+
+float TypedSizeXY::toAndroidDIP(ScreenMetrics metrics){
+    return size.toAndroidDIP(isX ? metrics.x : metrics.y);
+}
+
+float TypedSizeXY::toWindowsDIP(ScreenMetrics metrics){
+    return size.toWindowsDIP(isX ? metrics.x : metrics.y);
+}
+
+float TypedSizeXY::to(TYPED_SIZE_TYPE type, ScreenMetrics metrics){
+    return size.to(type, isX ? metrics.x : metrics.y);
+}
+
+TypedSizeXY TypedSizeXY_getSizeLazy(LazyTypedSizeXY *thiz){
+    return thiz->data.size;
+}
+
+LazyTypedSizeXY TypedSizeXY::lazy(){
+    LazyTypedSizeXY r;
+    r.data.size = *this;
+    r.getSize = TypedSizeXY_getSizeLazy;
+    return r;
+}
+
 TypedSize TypedSize::pixels(float f){
     return {TYPED_SIZE_PIXELS, f};
 }
@@ -101,7 +146,7 @@ TypedSize TypedSize::add(TypedSize left, TypedSize right, TYPED_SIZE_TYPE outTyp
     return {outType, left.to(outType, m) + right.to(outType, m)};
 }
 
-TypedSize TypedSizeGetter::get(){
+TypedSizeXY LazyTypedSizeXY::get(){
     return getSize(this);
 }
 

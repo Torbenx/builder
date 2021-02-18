@@ -16,8 +16,8 @@ class TextComponent : public TextureComponent{
         void draw();
         void updateRect();
         void updateContent();
-        TypedSize getContentWidth();
-        TypedSize getContentHeight();
+        TypedSizeXY getContentWidth();
+        TypedSizeXY getContentHeight();
         ~TextComponent();
 };
 

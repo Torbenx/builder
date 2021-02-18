@@ -39,7 +39,6 @@ class Builder(c.Builder):
             "ui/DepthMapComponent.cpp",
             "ui/CubeMapComponent.cpp",
             "ui/DepthCubeMapComponent.cpp",
-            "ui/RectBuilder.cpp",
             "ui/TypedSize.cpp",
             "ui/UiComponent.cpp",
             "ui/UiScene.cpp",

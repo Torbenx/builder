@@ -18,6 +18,9 @@ enum TYPED_SIZE_TYPE{
     TYPED_SIZE_WINDOWS_DIP
 };
 
+struct TypedSizeXY;
+struct LazyTypedSizeXY;
+
 struct TypedSize{
     static TypedSize zero;
     static TypedSize nan;
@@ -31,6 +34,9 @@ struct TypedSize{
     float toWindowsDIP(SizeMetrics metrics);
     float to(TYPED_SIZE_TYPE type, SizeMetrics m);
     
+    TypedSizeXY asXSize();
+    TypedSizeXY asYSize();
+    
     static TypedSize pixels(float f);
     static TypedSize gl(float f);
     static TypedSize androidDIP(float f);
@@ -39,10 +45,26 @@ struct TypedSize{
     static TypedSize add(TypedSize left, TypedSize right, TYPED_SIZE_TYPE outType, SizeMetrics m);
 };
 
-struct TypedSizeGetter{
-    void *data;
-    TypedSize(*getSize)(TypedSizeGetter *thiz);
-    TypedSize get();
+struct TypedSizeXY{
+    bool isX;
+    TypedSize size;
+    
+    float toPixels(ScreenMetrics metrics);
+    float toGL(ScreenMetrics metrics);
+    float toAndroidDIP(ScreenMetrics metrics);
+    float toWindowsDIP(ScreenMetrics metrics);
+    float to(TYPED_SIZE_TYPE type, ScreenMetrics m);
+    
+    LazyTypedSizeXY lazy();
+};
+
+struct LazyTypedSizeXY{
+    union{
+        void *ptr;
+        TypedSizeXY size;
+    } data;
+    TypedSizeXY(*getSize)(LazyTypedSizeXY *thiz);
+    TypedSizeXY get();
 };
 
 TypedSize operator-(TypedSize size);

@@ -33,33 +33,35 @@ def choose_target():
         arch = utils.arch_x86_64
     else:
         print "Invalid target: "+key
+        
+already_logged = []
 
 def print_rec(logger, prefix):
+    global already_logged
     s = ""
-    if logger.result == 0:
-        s += "Running    : "+prefix+str(logger.name)+"\n"
-    elif logger.result == 1:
-        s += "Failed     : "+prefix+str(logger.name)+"\n"
-        if logger.cmd: s += "Cmd="+str(logger.cmd)+"\n"
-        if logger.ex: s += str(logger.ex)+"\n"
-        if logger.trace:
-            for line in traceback.format_tb(logger.trace):
-                s += line
-    elif logger.result == 2:
-        s += "Successfull: "+prefix+str(logger.name)+"\n"
-    s += logger.buffer
+    if logger.result != 0 and prefix+str(logger.name) not in already_logged:
+        if logger.result == 1:
+            print "Failed     : "+prefix+str(logger.name)
+            if logger.cmd: print "Cmd="+str(logger.cmd)
+            if logger.ex: print str(logger.ex)
+            if logger.trace:
+                for line in traceback.format_tb(logger.trace):
+                    print line
+        elif logger.result == 2:
+            print "Successfull: "+prefix+str(logger.name)
+        sys.stdout.write(logger.buffer)
+        sys.stdout.flush()
+        already_logged.append(prefix+str(logger.name))
         
     for child in logger.children:
-        s += print_rec(child, prefix+str(logger.name)+"$")
-    return s
+        print_rec(child, prefix+str(logger.name)+"$")
         
 def do_print(logger):
+    global already_logged
+    already_logged = []
     while logger.result == 0:
-        time.sleep(0.5)
-        s = print_rec(logger, "")
-        utils.clear()
-        sys.stdout.write(s)
-        sys.stdout.flush()
+        print_rec(logger, "")
+        time.sleep(0.1)
 
 while (not "platform" in globals()) or not "arch" in globals():
     choose_target()

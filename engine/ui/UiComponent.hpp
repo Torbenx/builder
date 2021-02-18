@@ -8,13 +8,13 @@
 
 class UiComponent{
     public:
-        TypedSizeGetter getContentWidthGetter();
-        TypedSizeGetter getContentHeightGetter();
+        LazyTypedSizeXY getContentWidthLazy();
+        LazyTypedSizeXY getContentHeightLazy();
         Rect rect;
         ScreenMetrics metrics;
         virtual void updateContent(){}
-        virtual TypedSize getContentWidth(){return TypedSize::nan;}
-        virtual TypedSize getContentHeight(){return TypedSize::nan;}
+        virtual TypedSizeXY getContentWidth(){return TypedSize::nan.asXSize();}
+        virtual TypedSizeXY getContentHeight(){return TypedSize::nan.asYSize();}
         virtual void updateRect() = 0;
         virtual void draw() = 0;
         virtual ~UiComponent(){}

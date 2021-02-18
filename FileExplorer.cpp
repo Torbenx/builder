@@ -17,7 +17,7 @@ void FileExplorer::updateRect(){
 
 void FileExplorer::setPath(std::string path){
     this->path = path;
-    scene.builders.clear();
+    scene.clear();
     for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
         delete *it;
     }

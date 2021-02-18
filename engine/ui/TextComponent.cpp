@@ -28,15 +28,12 @@ void TextComponent::updateRect(){
     texture = &textTexture->texture;
 }
 
-TypedSize TextComponent::getContentWidth(){
-    return TypedSize::pixels(textFormat->getWidth());
+TypedSizeXY TextComponent::getContentWidth(){
+    return TypedSize::pixels(textFormat->getWidth()).asXSize();
 }
 
-TypedSize TextComponent::getContentHeight(){
-    if(noBreaks){
-        return textSize;
-    }
-    return TypedSize::pixels(textFormat->getHeight());
+TypedSizeXY TextComponent::getContentHeight(){
+    return TypedSize::pixels(textFormat->getHeight()).asYSize();
 }
 
 void TextComponent::draw(){
