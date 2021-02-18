@@ -1,7 +1,7 @@
 #include "UiScene.hpp"
 #include "../util/log.hpp"
 
-#define GET_UI_BUILDER(comp) ((UiScene*)scene)->layout(comp)
+#define GET_UI_BUILDER(comp) scene->layout(comp)
 
 UiSceneBuilder& UiScene::layout(UiComponent& comp){
     auto builderIt = builders.find(&comp);
@@ -13,6 +13,9 @@ UiSceneBuilder& UiScene::layout(UiComponent& comp){
         builder.bottomV = maxVarId++;
         builder.leftV = maxVarId++;
         builder.rightV = maxVarId++;
+        
+        vars_to_eqns.resize(maxVarId);
+        
         return builder;
     }
     return builderIt->second;
@@ -31,38 +34,53 @@ void UiScene::build(){
     solved[PARENT_BOTTOM_VAR_ID] = parent.bottom;
     solved[PARENT_LEFT_VAR_ID] = parent.left;
     solved[PARENT_RIGHT_VAR_ID] = parent.right;
-    bool run = true;
-    while(run){
-        run = false;
-        for(UiEquation eq : equations){
-            float rhs = eq.rhs.get().toGL(metrics);
-            ui_var_t solveFor = INVALID_UI_VAR_ID;
-            float solveFor_factor;
-            for(size_t i=0; i<eq.termCount; i++){
-                UiEquationTerm term = eq.terms[i];
-                float s = solved[term.var];
-                if(std::isnan(s)){
-                    if(solveFor == INVALID_UI_VAR_ID){
-                        solveFor = term.var;
-                        solveFor_factor = term.factor;
-                    }else{
-                        solveFor = INVALID_UI_VAR_ID;
-                        break;
-                    }
-                }else{
-                    rhs -= term.factor * s;
-                }
-            }
-            if(solveFor == INVALID_UI_VAR_ID){
-                continue;
-            }
-            /*if(eq.termCount == 2){
-                LOGD("(%f)*[%d] + (%f)*[%d] = %f", eq.terms[0].factor, eq.terms[0].var, eq.terms[1].factor, eq.terms[1].var, eq.rhs.get().toGL(metrics));
-            }
-            LOGD("  ==> [%d] = %f / %f\n", solveFor, rhs, solveFor_factor);*/
-            solved[solveFor] = rhs / solveFor_factor;
-            run = true;
+    
+    std::list<ui_eqn_t> canBeSolved;
+    auto markEquations = [&](ui_var_t var, ui_eqn_t ignore){
+        std::vector<ui_eqn_t> eqns = vars_to_eqns[var];
+        for(ui_eqn_t eq : eqns){
+            if(eq != ignore) canBeSolved.push_back(eq);
         }
+    };
+    
+    //ignore nothing
+    markEquations(PARENT_TOP_VAR_ID, equations.size());
+    markEquations(PARENT_BOTTOM_VAR_ID, equations.size());
+    markEquations(PARENT_LEFT_VAR_ID, equations.size());
+    markEquations(PARENT_RIGHT_VAR_ID, equations.size());
+    
+    while(!canBeSolved.empty()){
+        ui_eqn_t eqId = canBeSolved.front();
+        UiEquation& eq = equations[eqId];
+        canBeSolved.pop_front();
+        float rhs = eq.rhs.get().toGL(metrics);
+        ui_var_t solveFor = INVALID_UI_VAR_ID;
+        float solveFor_factor;
+        for(size_t i=0; i<eq.termCount; i++){
+            UiEquationTerm term = eq.terms[i];
+            float s = solved[term.var];
+            if(std::isnan(s)){
+                if(solveFor == INVALID_UI_VAR_ID){
+                    solveFor = term.var;
+                    solveFor_factor = term.factor;
+                }else{
+                    LOGD("both variables undetermined (%u, %u)", eq.terms[0].var, eq.terms[1].var);
+                    return;
+                }
+            }else{
+                rhs -= term.factor * s;
+            }
+        }
+        if(solveFor == INVALID_UI_VAR_ID){
+            LOGD("both variables determined (%u, %u)", eq.terms[0].var, eq.terms[1].var);
+            continue;
+        }
+        /*if(eq.termCount == 2){
+            LOGD("(%f)*[%d] + (%f)*[%d] = %f", eq.terms[0].factor, eq.terms[0].var, eq.terms[1].factor, eq.terms[1].var, eq.rhs.get().toGL(metrics));
+        }
+        LOGD("  ==> [%d] = %f / %f\n", solveFor, rhs, solveFor_factor);*/
+        solved[solveFor] = rhs / solveFor_factor;
+        markEquations(solveFor, eqId);
     }
     /*for(size_t i=0;i<maxVarId;i++){
         LOGD("%lld = %f", i, solved[i]);
@@ -85,6 +103,7 @@ void UiScene::clear(){
     }
     equations.clear();
     builders.clear();
+    vars_to_eqns.clear();
     maxVarId = VAR_ID_START;
 }
 
@@ -98,7 +117,10 @@ void UiSceneBuilder::addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, L
     eq.terms[1].factor = f2;
     eq.terms[1].var = v2;
     eq.rhs = rhs;
-    ((UiScene*)scene)->equations.push_back(eq);
+    ui_eqn_t eqnId = scene->equations.size();
+    scene->equations.push_back(eq);
+    scene->vars_to_eqns[v1].push_back(eqnId);
+    scene->vars_to_eqns[v2].push_back(eqnId);
 }
 
 UiSceneBuilder& UiSceneBuilder::above(UiComponent& other, TypedSize padding){
@@ -255,10 +277,5 @@ UiSceneBuilder& UiSceneBuilder::wrapContentHeight(){
 UiSceneBuilder& UiSceneBuilder::wrapContent(){
     wrapContentWidth();
     wrapContentHeight();
-    return *this;
-}
-
-UiSceneBuilder& UiSceneBuilder::clear(){
-    
     return *this;
 }

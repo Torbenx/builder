@@ -17,16 +17,15 @@ void HeadBar::setPath(std::string path){
 void HeadBar::updateRect(){
     title.metrics = metrics;
     title.updateContent();
+    scene.clear();
     if(title.textFormat->getWidth() > metrics.x.size){
         scene.layout(title)
-            .clear()
             .alignParentTop()
             .alignParentRight()
             .wrapContentWidth()
             .alignParentBottom();
     }else{
         scene.layout(title)
-            .clear()
             .alignParentTop()
             .alignParentLeft()
             .wrapContentWidth()

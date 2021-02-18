@@ -36,11 +36,13 @@ def choose_target():
         
 already_logged = []
 
-def print_rec(logger, prefix):
+def print_rec(logger, prefix, dumpAll):
     global already_logged
     s = ""
-    if logger.result != 0 and prefix+str(logger.name) not in already_logged:
-        if logger.result == 1:
+    if (dumpAll or logger.result != 0) and prefix+str(logger.name) not in already_logged:
+        if logger.result == 0:
+            print "Running    : "+prefix+str(logger.name)
+        elif logger.result == 1:
             print "Failed     : "+prefix+str(logger.name)
             if logger.cmd: print "Cmd="+str(logger.cmd)
             if logger.ex: print str(logger.ex)
@@ -54,14 +56,15 @@ def print_rec(logger, prefix):
         already_logged.append(prefix+str(logger.name))
         
     for child in logger.children:
-        print_rec(child, prefix+str(logger.name)+"$")
+        print_rec(child, prefix+str(logger.name)+"$", dumpAll)
         
 def do_print(logger):
     global already_logged
     already_logged = []
     while logger.result == 0:
-        print_rec(logger, "")
+        print_rec(logger, "", False)
         time.sleep(0.1)
+    print_rec(logger, "", True)
 
 while (not "platform" in globals()) or not "arch" in globals():
     choose_target()

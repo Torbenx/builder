@@ -14,6 +14,7 @@
 #define PARENT_RIGHT_VAR_ID 3
 #define VAR_ID_START 4
 
+typedef unsigned int ui_eqn_t;
 typedef unsigned int ui_var_t;
 
 struct UiEquationTerm{
@@ -37,9 +38,11 @@ struct UiVariable{
     std::vector<UiEquation*> appearsIn;
 };
 
+class UiScene; 
+
 class UiSceneBuilder{
     public:
-        void *scene;
+        UiScene* scene;
         UiComponent* comp;
         ui_var_t topV, bottomV, leftV, rightV;
         
@@ -76,7 +79,6 @@ class UiSceneBuilder{
         UiSceneBuilder& wrapContentHeight();
         UiSceneBuilder& wrapContent();
         
-        UiSceneBuilder& clear();
     private:
         void addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, LazyTypedSizeXY rhs);
 };
@@ -85,7 +87,8 @@ class UiScene{
     public:
         ScreenMetrics metrics;
         std::map<UiComponent*, UiSceneBuilder> builders;
-        std::list<UiEquation> equations;
+        std::vector<UiEquation> equations;
+        std::vector<std::vector<ui_eqn_t>> vars_to_eqns;
         ui_var_t maxVarId = VAR_ID_START;
         
         Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
