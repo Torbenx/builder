@@ -8,8 +8,8 @@ import utils
 
 def compile(self, source, logger):
     try:
-        output = utils.join(self.ibuild_dir, source+".o")
-        dep = utils.join(self.ibuild_dir, source+".d")
+        output = utils.join(self.build_dir, source+".o")
+        dep = utils.join(self.build_dir, source+".d")
         rebuild = self.rebuild or (not os.path.exists(output)) or (not os.path.exists(dep))
         if not rebuild:
             lastBuildTime = os.path.getmtime(output);
@@ -31,15 +31,10 @@ def compile(self, source, logger):
         if source in self.file_compile_args:
             cmd += self.file_compile_args[source]
         
-        logger.command(cmd)
-        proc = utils.exec_pipe(cmd, True, self.concat_cmd)
-        logger.capture_output(proc)
         self.changed = True
-        if proc.returncode != 0:
+        ret = logger.exec_cmd_final(cmd, True, self.concat_cmd)
+        if ret != 0:
             self.failed = True
-            logger.failed()
-        else:
-            logger.success()
     except Exception as ex:
         type, value, trace = sys.exc_info()
         logger.failed(ex, trace)
@@ -63,14 +58,12 @@ class Builder(object):
     def build(self):
         self.failed = False
         self.changed = False
-        self.buildTime = time.time()
-        self.ibuild_dir = self.build_dir
         
         threads = []
         logger = self.logger
         for source in self.input_files:
             sourceDir = os.path.dirname(source)
-            outputDir = utils.join(self.ibuild_dir, sourceDir)
+            outputDir = utils.join(self.build_dir, sourceDir)
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
             h = logger.child(source)
@@ -95,14 +88,11 @@ class Builder(object):
         output_dir = os.path.dirname(self.output_file)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        cmd = self.link_cmd + [utils.join(self.ibuild_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
-        proc = utils.exec_pipe(cmd, True, self.concat_cmd)
-        logger.capture_output(proc)
+        cmd = self.link_cmd + [utils.join(self.build_dir, s+".o") for s in self.input_files] + ["-l" + s for s in self.libs] + ["-o"+self.output_file] + self.link_args
+        ret = logger.child("link").exec_cmd_final(cmd, True, self.concat_cmd)
 
-        if proc.returncode==0:
-            elapsed = time.time() - self.buildTime
+        if ret==0:
             logger.success()
         else:
-            print str(cmd)
             logger.failed()
             self.failed = True

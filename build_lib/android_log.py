@@ -3,20 +3,21 @@ sys.dont_write_bytecode = True
 import subprocess
 import utils
 
-LOG_USAGE = "r to refresh pid, p to log package, c to clear, s to start, k to kill, e to exit logger"
+LOG_USAGE = "Usage: r to refresh pid, p to log package, c to clear, s to start, k to kill, e to exit logger"
 
 package = "com.tt.builder"
+activity = "com.tt.engine.MainActivity"
 adb_bin = "C:/Users/Torben/AppData/Local/Android/sdk/platform-tools/adb.exe"
 
 def log_package(package):
-    print "Logging "+package+", "+LOG_USAGE
+    print "Logging "+package
     p = subprocess.Popen([adb_bin, "logcat", "-e", package])
     key = utils.getch()
     p.kill()
     return key
     
 def log_pid(pid):
-    print "Logging "+str(pid)+", "+LOG_USAGE
+    print "Logging "+str(pid)
     p = subprocess.Popen([adb_bin, "logcat", "--pid="+str(pid)])
     key = utils.getch()
     p.kill()
@@ -29,8 +30,8 @@ def find_pid(package):
         return -1
     else:
         return int(out)
-        
-key = "r"
+
+key = "i"
 while True:
     if key == "r":
         pid = find_pid(package)
@@ -50,7 +51,14 @@ while True:
     elif key == "s":
         utils.exec_cmd([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
         key = utils.getch()
+    elif key == "i":
+        print "package: "+package
+        print "activity: "+activity
+        print "adb location: "+adb_bin
+        print LOG_USAGE
+        key = utils.getch()
     elif key == "e":
         break
     else:
+        print LOG_USAGE
         key = utils.getch()

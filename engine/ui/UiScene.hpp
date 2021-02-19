@@ -14,8 +14,12 @@
 #define PARENT_RIGHT_VAR_ID 3
 #define VAR_ID_START 4
 
-typedef unsigned int ui_eqn_t;
 typedef unsigned int ui_var_t;
+
+#define EQN_ID_NOT_SIMPLE_BIT 0x80000000
+#define INVALID_UI_EQN_ID 0xffffffff
+
+typedef unsigned int ui_eqn_t;
 
 struct UiEquationTerm{
     float factor;
@@ -28,7 +32,7 @@ struct UiEquation{
     LazyTypedSizeXY rhs;
 };
 
-struct SimpleUiEquation{
+struct UiSimpleEquation{
     UiEquationTerm term1;
     UiEquationTerm term2;
     LazyTypedSizeXY rhs;
@@ -88,6 +92,7 @@ class UiScene{
         ScreenMetrics metrics;
         std::map<UiComponent*, UiSceneBuilder> builders;
         std::vector<UiEquation> equations;
+        std::vector<UiSimpleEquation> simpleEquations;
         std::vector<std::vector<ui_eqn_t>> vars_to_eqns;
         ui_var_t maxVarId = VAR_ID_START;
         

@@ -85,7 +85,7 @@ TextTexture::TextTexture(){
 void TextTexture::init(int width, int height){
     DxTextTextureImpl *impl = (DxTextTextureImpl*)internal;
     texture.init();
-    D3D11_TEXTURE2D_DESC desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE);
+    D3D11_TEXTURE2D_DESC desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, D3D11_BIND_RENDER_TARGET);
     HRESULT hr = dxDevice->CreateTexture2D(&desc, NULL, &impl->dxTexture);
     if(hr != S_OK)LOGW("failed to create direct3d texture: 0x%lx", hr);
     

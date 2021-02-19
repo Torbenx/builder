@@ -80,7 +80,7 @@ class Logger(object):
         
     def capture_output(self, proc):
         while True:
-            chunk = proc.stdout.read(1)
+            chunk = proc.stdout.read(1024)
             if not chunk:
                 break
             self.buffer += chunk
@@ -95,6 +95,10 @@ class Logger(object):
         self.result = 1
         if self.parent: self.parent.done(self)
         
+    def fail_if_still_running(self):
+        if self.result == 0:
+            self.failed()
+        
     def success(self):
         self.result = 2
         if self.parent: self.parent.done(self)
@@ -102,6 +106,10 @@ class Logger(object):
     def nothing_to_do(self):
         self.result = 3
         if self.parent: self.parent.done(self)
+        
+    def has_failed(self):
+        assert self.result != 0, "called Logger.has_failed() while still running"
+        return self.result == 1
     
     def child(self, name):
         h = Logger(self, name)

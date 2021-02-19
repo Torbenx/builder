@@ -7,9 +7,11 @@ FileExplorer::FileExplorer(void *renderer){
 }
 
 void FileExplorer::updateRect(){
-    for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
-        (*it)->metrics = metrics;
-        (*it)->updateContent();
+    if(!hasMetrics){
+        for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
+            (*it)->metrics = metrics;
+            (*it)->updateContent();
+        }
     }
     hasMetrics = true;
     UiSceneComponent::updateRect();
@@ -66,6 +68,10 @@ void FileExplorer::setPath(std::string path){
             fileNameComps.push_back(text);
     }
     if(hasMetrics){
+        for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
+            (*it)->metrics = metrics;
+            (*it)->updateContent();
+        }
         updateRect();
     }
 }

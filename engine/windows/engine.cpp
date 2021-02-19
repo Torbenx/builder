@@ -65,7 +65,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             
             ID3D11DeviceContext *dxContext;
             D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
-            HANDLE (*wglDXOpenDeviceNV)(void* dev) = (HANDLE (*)(void *dev))wglGetProcAddress("wglDXOpenDeviceNV");
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             text_init();
             

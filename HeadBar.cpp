@@ -18,7 +18,7 @@ void HeadBar::updateRect(){
     title.metrics = metrics;
     title.updateContent();
     scene.clear();
-    if(title.textFormat->getWidth() > metrics.x.size){
+    /*if(title.textFormat->getWidth() > metrics.x.size){
         scene.layout(title)
             .alignParentTop()
             .alignParentRight()
@@ -30,7 +30,12 @@ void HeadBar::updateRect(){
             .alignParentLeft()
             .wrapContentWidth()
             .alignParentBottom();
-    }
+    }*/
+    scene.layout(title)
+        .alignParentTop()
+        .alignParentBottom()
+        .wrapContentWidth()
+        .centerHorizontal();
     hasMetrics = true;
     UiSceneComponent::updateRect();
 }

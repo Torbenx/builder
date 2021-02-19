@@ -58,33 +58,33 @@ if platform == "android":
 mb.build()
 
 
-if(eb.failed or mb.failed):
-    raise Exception()
-
-if platform == "windows":
-    assets.copy_assets("assets", output_dir, logger.child("assets"))
-    runLogger = logger.child("run")
-    proc = utils.exec_pipe(utils.join(output_dir,"main.exe"), False, False, cwd=output_dir)
-    runLogger.capture_output(proc)
-if platform == "android":
-    an = engine.build_file.App()
-    an.logger = logger.child("android")
-    an.package = "com.tt.builder"
-    an.build_tools_version = "28.0.3"
-    
-    an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk, logger.child("keystore"))
-    apk_output = utils.join(output_dir,"main.apk")
-    an.apk_output = utils.join("..",apk_output)
-    
-    an.build_dir = build_dir
-    an.arch = arch
-    an.api = api
-    an.sdk = sdk
-    an.jdk = jdk
-    lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
-    an.native_libs = [utils.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]]
-    an.native_libs_changed = [eb.changed, mb.changed]
-    an.assets_dir = utils.join("..","assets")
-    an.rebuild = rebuild
-    an.build()
-    android.run(an.package, "com.tt.engine.MainActivity", logger.child("run"), apk_path=apk_output, sdk=sdk)
+if(eb.logger.has_failed() or mb.logger.has_failed()):
+    logger.failed()
+else:
+    if platform == "windows":
+        assets.copy_assets("assets", output_dir, logger.child("assets"))
+        time.sleep(0.1) #wait for logger to print
+        proc = utils.exec_cmd(utils.join(output_dir,"main.exe"), False, False, cwd=output_dir)
+    if platform == "android":
+        an = engine.build_file.App()
+        an.logger = logger.child("android")
+        an.package = "com.tt.builder"
+        an.build_tools_version = "28.0.3"
+        
+        an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk, logger.child("keystore"))
+        apk_output = utils.join(output_dir,"main.apk")
+        an.apk_output = utils.join("..",apk_output)
+        
+        an.build_dir = build_dir
+        an.arch = arch
+        an.api = api
+        an.sdk = sdk
+        an.jdk = jdk
+        lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
+        an.native_libs = [utils.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]]
+        an.native_libs_changed = [eb.changed, mb.changed]
+        an.assets_dir = utils.join("..","assets")
+        an.rebuild = rebuild
+        an.build()
+        if not an.logger.has_failed():
+            android.launch(an.package, "com.tt.engine.MainActivity", logger.child("launch"), apk_path=apk_output, sdk=sdk)
