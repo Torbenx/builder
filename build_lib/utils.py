@@ -9,19 +9,25 @@ arch_x86_32 = 1
 arch_x86_64 = 2
 arch_armv7a = 3
 arch_arm64v8a = 4
-
-def arch_string(arch):
-    if arch==arch_x86_32:
-        return "x86_32"
-    if arch==arch_x86_64:
-        return "x86_64"
-    if arch==arch_armv7a:
-        return "armv7a"
-    if arch==arch_arm64v8a:
-        return "arm64v8a"
-    raise ValueError("invalid arch")
     
-    
+def copy_assets(source_dir, target_dir, rebuild=False):
+    any_copy = False
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+    if not os.path.exists(source_dir):
+    	return False
+    for item in os.listdir(source_dir):
+        source_file = utils.join(source_dir, item)
+        target_file = utils.join(target_dir, item)
+        if os.path.isfile(source_file):
+            if (not os.path.exists(target_file)) or os.path.getmtime(target_file) < os.path.getmtime(source_file):
+                print "Copying "+source_file
+                any_copy = True
+                shutil.copyfile(source_file, target_file)
+        else:
+            if copy_assets(utils.join(source_dir, item), utils.join(target_dir, item), rebuild=rebuild):
+                any_copy = True
+    return any_copy
 
 def exec_cmd(cmd, shell, concat, cwd=None, stdout=None, stderr=None):
     if stdout and not stderr:
@@ -35,8 +41,6 @@ def exec_pipe(cmd, shell, concat, cwd=None):
         cmd = [" ".join(cmd)]
     return subprocess.Popen(cmd, shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-
-
 def join(*paths):
     ret = ""
     for path in paths:
@@ -44,88 +48,6 @@ def join(*paths):
         if ret != "": ret += "/"
         ret += path
     return ret
-       
-        
-class Logger(object):
-    
-    def __init__(self, parent = None, name = None):
-        self.parent = parent
-        self.name = name
-        self.cmd = None
-        self.ex = None
-        self.trace = None
-        self.result = 0
-        self.children = []
-        self.waiting = []
-        self.lock = threading.Lock()
-        self.active_children_count = 0
-        self.buffer = ""
-        
-    def log(self, msg):
-        self.buffer += msg+"\n"
-        
-    def exec_cmd(self, cmd, shell, concat, cwd=None):
-        self.command(cmd)
-        proc = exec_pipe(cmd, shell, concat, cwd=cwd)
-        self.capture_output(proc)
-        return proc.returncode
-        
-    def exec_cmd_final(self, cmd, shell, concat, cwd=None):
-        ret = self.exec_cmd(cmd, shell, concat, cwd=cwd)
-        if ret==0:
-            self.success()
-        else:
-            self.failed()
-        return ret
-        
-    def capture_output(self, proc):
-        while True:
-            chunk = proc.stdout.read(1024)
-            if not chunk:
-                break
-            self.buffer += chunk
-        proc.wait()
-        
-    def command(self, cmd):
-        self.cmd = cmd
-        
-    def failed(self, ex=None, trace=None):
-        self.ex = ex
-        self.trace = trace
-        self.result = 1
-        if self.parent: self.parent.done(self)
-        
-    def fail_if_still_running(self):
-        if self.result == 0:
-            self.failed()
-        
-    def success(self):
-        self.result = 2
-        if self.parent: self.parent.done(self)
-        
-    def nothing_to_do(self):
-        self.result = 3
-        if self.parent: self.parent.done(self)
-        
-    def has_failed(self):
-        assert self.result != 0, "called Logger.has_failed() while still running"
-        return self.result == 1
-    
-    def child(self, name):
-        h = Logger(self, name)
-        with self.lock:
-            self.active_children_count += 1
-            self.children.append(h)
-        return h
-        
-    def done(self, child):
-        with self.lock:
-            self.active_children_count -= 1
-            self.waiting.append(child)
-            
-    def get_active_children_count(self):
-        with self.lock:
-            return self.active_children_count
 
 
 try:

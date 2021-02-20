@@ -1,90 +1,55 @@
-import build_file
-import engine.build_file
-from build_lib import utils, android, assets
+import sys
 import os
 import subprocess
+sys.dont_write_bytecode = True
 
-api = 27
+from build_lib import utils, android
+
+keystore_dir = "C:/Users/Torben/Documents/dev/c++"
 jdk = "C:/Program Files/Java/jdk1.8.0_131"
 sdk = "C:/Users/Torben/AppData/Local/Android/sdk"
-keystore_dir = "C:/Users/Torben/Documents/dev/c++"
-python_dir = "C:/Python27"
+build_tools_version = "28.0.3"
 
-base_build_dir = "build"
-build_dir = base_build_dir+"/"+platform+"/"+utils.arch_string(arch)
-output_dir = base_build_dir+"/output/"+platform+"/"+utils.arch_string(arch)
+arch = utils.arch_armv7a
 
-engine_output = ""
-main_output = ""
-compile_cmd = []
-link_cmd = []
-compile_args = []
-if platform == "windows":
-    engine_output = utils.join(output_dir,"engine.dll")
-    main_output = utils.join(output_dir,"main.exe")
-    compile_cmd = ["g++"]
-    link_cmd = ["g++", "-static-libstdc++"]
-    compile_args += ["-DPLATFORM_WINDOWS"]
-if platform == "android":
-    lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
-    compile_cmd,link_cmd = android.setup(api, arch, sdk)
-    engine_output = utils.join("engine",build_dir,lib_dir_rel,"libengine.so")
-    main_output = utils.join("engine",build_dir,lib_dir_rel,"libmain.so")
-    compile_args += ["-DPLATFORM_ANDROID"]
+project_name = "builder"
+project_dir = project_name
+package = "com.tt."+project_name
+apk_name = project_name+".apk"
+assets_dir = utils.join(project_dir, "assets")
+libs = ["libengine.so", "lib"+project_name+".so"]
 
-eb = engine.build_file.Builder(platform)
-eb.logger = logger.child("engine")
-eb.compile_cmd = compile_cmd
-eb.link_cmd = link_cmd
-eb.rebuild = rebuild
-eb.output_file = utils.join("..",engine_output)
-eb.compile_args += compile_args
-eb.build_dir = build_dir
-eb.build()
+build_dir = "android_build"
+output_dir = build_dir
 
-mb = build_file.Builder(platform)
-mb.logger = logger.child("main")
-mb.compile_cmd = compile_cmd
-mb.link_cmd = link_cmd
-mb.rebuild = rebuild
-mb.output_file = main_output
-mb.include_dirs += [utils.join(python_dir, "include")]
-mb.link_args += ["-L"+os.path.dirname(engine_output), "-L"+utils.join(python_dir, "libs")]
-mb.compile_args += compile_args
-mb.build_dir = build_dir
-if platform == "android":
-    mb.compile_args += ["-fPIC"]
-    mb.link_args += ["-shared"]
-mb.build()
+an = android.Builder()
 
+an.version_code = 1
+an.version_name = "1.0"
+an.package = package
+an.apk_output = utils.join(output_dir,apk_name)
+an.assets_dir = assets_dir
 
-if(eb.logger.has_failed() or mb.logger.has_failed()):
-    logger.failed()
-else:
-    if platform == "windows":
-        assets.copy_assets("assets", output_dir, logger.child("assets"))
-        time.sleep(0.1) #wait for logger to print
-        proc = utils.exec_cmd(utils.join(output_dir,"main.exe"), False, False, cwd=output_dir)
-    if platform == "android":
-        an = engine.build_file.App()
-        an.logger = logger.child("android")
-        an.package = "com.tt.builder"
-        an.build_tools_version = "28.0.3"
-        
-        an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk, logger.child("keystore"))
-        apk_output = utils.join(output_dir,"main.apk")
-        an.apk_output = utils.join("..",apk_output)
-        
-        an.build_dir = build_dir
-        an.arch = arch
-        an.api = api
-        an.sdk = sdk
-        an.jdk = jdk
-        lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
-        an.native_libs = [utils.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]]
-        an.native_libs_changed = [eb.changed, mb.changed]
-        an.assets_dir = utils.join("..","assets")
-        an.rebuild = rebuild
-        an.build()
-        if not an.logger.has_failed():
-            android.launch(an.package, "com.tt.engine.MainActivity", logger.child("launch"), apk_path=apk_output, sdk=sdk)
+an.api = 27
+an.min_api = 24
+
+an.rebuild = False
+an.arch = arch
+
+an.build_dir = build_dir
+an.sdk = sdk
+an.jdk = jdk
+an.build_tools_version = build_tools_version
+
+an.java_dir = "engine/android/java"
+an.java_source = ["com/tt/engine/MainActivity.java", "com/tt/engine/Text.java"]
+an.android_manifest = "engine/android/AndroidManifest.xml"
+
+an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk)
+
+lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
+an.native_libs = [utils.join(lib_dir_rel,s) for s in libs]
+an.native_libs_changed = [True, True]
+
+if an.build():
+    an.launch("com.tt.engine.MainActivity")

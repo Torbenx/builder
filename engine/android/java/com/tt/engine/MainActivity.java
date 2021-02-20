@@ -20,7 +20,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2,In
     static{
         System.loadLibrary("c++_shared");
         System.loadLibrary("engine");
-        System.loadLibrary("main");
+        System.loadLibrary("builder");
     }
     
     View view;
