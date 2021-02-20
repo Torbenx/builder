@@ -1,0 +1,1 @@
+cmake -G Ninja "-DCMAKE_TOOLCHAIN_FILE=C:/Users/Torben/AppData/Local/Android/sdk/ndk-bundle/build/cmake/android.toolchain.cmake" -DANDROID_ABI=armeabi-v7a -DANDROID_PLATFORM=24 ..

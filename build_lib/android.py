@@ -2,7 +2,6 @@ import utils
 import subprocess
 import os
 import shutil
-import utils
 import time
 import assets
 
@@ -62,7 +61,7 @@ def setup(api, arch, sdk):
         return [bin], [bin]
         
         
-def debug_keystore(dir, jdk, logger):
+def debug_keystore(dir, jdk):
     file = utils.join(dir,"debug.keystore")
     keystore_password = "android"
     key_alias = "androiddebugkey"
@@ -73,16 +72,9 @@ def debug_keystore(dir, jdk, logger):
         keytool_bin = utils.join(jdk,"bin","keytool")
         #validity in days
         cmd = [keytool_bin, "-genkey", "-keystore", file, "-keyalg", "RSA", "-keysize", "2048", "-validity", str(100*360), "-storepass", keystore_password, "-alias", key_alias, "-keypass", key_password, "-dname", "cn=debug"]
-        logger.command(cmd)
-        proc = utils.exec_pipe(cmd, False, False)
-        logger.capture_output(proc)
-        if proc.returncode == 0:
-            logger.success()
-        else:
-            logger.failed()
+        ret = utils.exec_cmd(cmd, False, False)
+        if ret != 0:
             raise Exception("failed to create keystore")
-    else:
-        logger.nothing_to_do()
     return file, key_password, key_alias, key_password
 
 class Builder(object):
@@ -115,15 +107,11 @@ class Builder(object):
         self.aapt_bin = ""
         self.zip_align_bin = ""
         self.apk_sign_bin = ""
+        self.adb_bin = ""
         self.std_lib_src = ""
         self.concat_cmd = False
         
     def build(self):
-        self.build_guarded()
-        self.logger.fail_if_still_running()
-        
-    def build_guarded(self):
-        logger = self.logger
         build_tools = utils.join(self.sdk,"build-tools",self.build_tools_version)
         android_jar = utils.join(self.sdk,"platforms","android-"+str(self.api),"android.jar")
         dx_bin = utils.join(build_tools,"dx")
@@ -147,7 +135,7 @@ class Builder(object):
         if not os.path.exists(os.path.dirname(self.apk_output)):
             os.makedirs(os.path.dirname(self.apk_output))
             
-        assets_changed = assets.copy_assets(self.assets_dir, assets_copy_dir, logger.child("assets"), rebuild=self.rebuild)
+        assets_changed = utils.copy_assets(self.assets_dir, assets_copy_dir, rebuild=self.rebuild)
         
         std_lib_changed = False
         lib_dir_rel = utils.join("lib", get_lib_dir_name(self.arch))
@@ -162,43 +150,33 @@ class Builder(object):
                 os.makedirs(lib_dir)
             shutil.copyfile(std_lib_src, std_lib_dest)
             
-        java_logger = logger.child("java")
         java_changed = False
         for file in self.java_source:
-            h = java_logger.child(file)
             java_file = utils.join(self.java_dir, file)
             class_file = utils.join(class_output, file.replace(".java",".class"))
             if os.path.exists(class_file) and os.path.getmtime(class_file) > os.path.getmtime(java_file) and not self.rebuild:
-                h.nothing_to_do()
                 continue
             java_changed = True
-            javac_ret = h.exec_cmd_final([javac_bin, "-d", class_output, "-classpath", self.java_dir, "-bootclasspath", android_jar, java_file], True, self.concat_cmd)
+            javac_ret = utils.exec_cmd([javac_bin, "-d", class_output, "-classpath", self.java_dir, "-bootclasspath", android_jar, java_file], True, self.concat_cmd)
             if javac_ret != 0:
-                java_logger.failed()
-                return
-        java_logger.success()
+                return False
         
-        
-        dex_logger = logger.child("dex")
         dx_changed = False
         if java_changed or self.rebuild or not os.path.exists(utils.join(self.build_dir,"classes.dex")):
             dx_changed = True
-            dx_ret = dex_logger.exec_cmd_final([dx_bin, "--dex", "--output", utils.join(self.build_dir,"classes.dex"), class_output], True, self.concat_cmd)
-            if dx_ret != 0: return
-        else:
-            dex_logger.nothing_to_do()
+            dx_ret = utils.exec_cmd([dx_bin, "--dex", "--output", utils.join(self.build_dir,"classes.dex"), class_output], True, self.concat_cmd)
+            if dx_ret != 0:
+                print "dx returned with "+str(dx_ret)
+                return False
         
-        aapt_p_logger = logger.child("aapt_package")
         apk_empty = False
         if self.rebuild or assets_changed or (not os.path.exists(apk_unaligned)) or os.path.getmtime(self.android_manifest) > os.path.getmtime(apk_unaligned):
             apk_empty = True
-            aapt_p_ret = aapt_p_logger.exec_cmd_final([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package] + (["--debug-mode"] if self.debug else []), True, self.concat_cmd)
-            if aapt_p_ret != 0: return
-        else:
-            aapt_p_logger.nothing_to_do()
+            aapt_p_ret = utils.exec_cmd([aapt_bin, "package", "-f", "-M", self.android_manifest, "-A", assets_copy_dir, "-I", android_jar, "-F", apk_unaligned, "--min-sdk-version", str(self.min_api), "--target-sdk-version", str(self.api), "--version-code", str(self.version_code), "--version-name", self.version_name, "--rename-manifest-package", self.package] + (["--debug-mode"] if self.debug else []), True, self.concat_cmd)
+            if aapt_p_ret != 0:
+                print "aapt package returned with "+str(aapt_p_ret)
+                return False
             
-        aapt_r_logger = logger.child("aapt_remove")
-        aapt_a_logger = logger.child("aapt_add")
         add_files = []
         if dx_changed or apk_empty:
             add_files += ["classes.dex"]
@@ -209,49 +187,49 @@ class Builder(object):
                 add_files += [lib]
         if add_files:
             if not apk_empty:
-                aapt_r_ret = aapt_r_logger.exec_cmd_final([aapt_bin, "remove", apk_unaligned] + add_files, True, self.concat_cmd)
-                if aapt_r_ret != 0: return
-            else:
-                aapt_r_logger.nothing_to_do()
+                aapt_r_ret = utils.exec_cmd([aapt_bin, "remove", apk_unaligned] + add_files, True, self.concat_cmd)
+                if aapt_r_ret != 0:
+                    print "aapt remove returned with "+str(aapt_r_ret)
+                    return False
             
-            aapt_a_ret = aapt_a_logger.exec_cmd_final([aapt_bin, "add", apk_unaligned_name] + add_files, True, self.concat_cmd, cwd=self.build_dir)
-            if aapt_a_ret != 0: return
-        else:
-            aapt_a_logger.nothing_to_do()
-            aapt_r_logger.nothing_to_do()
+            aapt_a_ret = utils.exec_cmd([aapt_bin, "add", apk_unaligned_name] + add_files, True, self.concat_cmd, cwd=self.build_dir)
+            if aapt_a_ret != 0:
+                print "aapt add returned with "+str(aapt_a_ret)
+                return False
         
-        align_logger = logger.child("zipalign")
         if add_files or apk_empty:
-            align_ret = align_logger.exec_cmd_final([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], True, self.concat_cmd)
-            if align_ret != 0: return
-        else:
-            align_logger.nothing_to_do()
+            align_ret = utils.exec_cmd([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], True, self.concat_cmd)
+            if align_ret != 0:
+                print "zipalign returned with "+str(align_ret)
+                return False
         
-        sign_logger = logger.child("sign")
         if add_files or apk_empty:
-            sign_ret = sign_logger.exec_cmd_final([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], True, self.concat_cmd)
-            if sign_ret != 0: return
+            sign_ret = utils.exec_cmd([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], True, self.concat_cmd)
+            if sign_ret != 0:
+                print "apksign returned with "+str(sign_ret)
+                return False
+                
+        return True
+        
+    
+    def launch(self, activity, use_pm=False):
+        adb_bin = utils.join(self.sdk,"platform-tools","adb.exe")
+        if self.adb_bin:
+            adb_bin = self.adb_bin
+        
+        adb_state = subprocess.check_output([adb_bin, "get-state"])
+        if not adb_state.startswith("device"):
+            print "Wrong adb state: {"+adb_state+"}"
+            return False
+        
+        install_ret = 0
+        if not use_pm:
+            install_ret = utils.exec_cmd([adb_bin, "install", "-r", self.apk_output], False, self.concat_cmd)
         else:
-            sign_logger.nothing_to_do()
+            install_ret = utils.exec_cmd([adb_bin, "shell", "pm", "install", self.apk_output], False, self.concat_cmd)
+        if install_ret != 0:
+            print "install returned with "+str(install_ret)
+            return False
         
-        logger.success()
-        
-    
-def launch(package, activity, logger, apk_path, use_pm=False, adb_bin="", sdk=""):
-    if not adb_bin:
-        adb_bin = utils.join(sdk,"platform-tools","adb.exe")
-    
-    adb_state = subprocess.check_output([adb_bin, "get-state"])
-    assert adb_state.startswith("device"), "Wrong adb state: "+adb_state
-    
-    install_ret = 0
-    install_logger = logger.child("install")
-    if not use_pm:
-        install_ret = install_logger.exec_cmd_final([adb_bin, "install", "-r", apk_path], False, False)
-    else:
-        install_ret = install_logger.exec_cmd_final([adb_bin, "shell", "pm", "install", apk_path], False, False)
-    if install_ret != 0: return
-    
-    logger.child("start").exec_cmd_final([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
-    
-    logger.success()
+        utils.exec_cmd([adb_bin, "shell", "am", "start", self.package+"/"+activity], False, self.concat_cmd)
+        return True

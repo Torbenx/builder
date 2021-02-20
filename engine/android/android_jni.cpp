@@ -7,8 +7,6 @@
 #include <string.h>
 #include <errno.h>
 
-void * _Unwind_Resume = 0;
-
 JavaVM *jvm;
 jobject activity;
 AAssetManager *assetManager;

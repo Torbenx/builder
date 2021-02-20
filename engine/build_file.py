@@ -79,23 +79,4 @@ class Builder(c.Builder):
         if os.path.dirname(__file__): os.chdir(os.path.dirname(__file__))
         super(Builder, self).build()
         os.chdir(oldDir)
-
-class App(android.Builder):
-
-    def __init__(self):
-        super(App, self).__init__()
-        
-        self.min_api = 21
-        self.api = 27
-        self.java_dir = "android/java"
-        self.java_source = ["com/tt/engine/MainActivity.java", "com/tt/engine/Text.java"]
-        self.android_manifest = "android/AndroidManifest.xml"
-        self.version_code = 1
-        self.version_name = "1.0"
-        
-    def build(self):
-        oldDir = os.getcwd()
-        if os.path.dirname(__file__): os.chdir(os.path.dirname(__file__))
-        super(App, self).build()
-        os.chdir(oldDir)
         
