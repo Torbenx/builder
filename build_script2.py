@@ -54,34 +54,34 @@ mb.concat_cmd = True
 mb.build()
 
 
-if(eb.failed or mb.failed):
-    raise Error()
-
-if platform == "windows":
-	pass
-if platform == "android":
-    an = engine.build_file.App()
-    an.logger = logger.child("android")
-    an.package = "com.tt.builder"
-    an.build_tools_version = "28.0.3"
-    
-    an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk, logger.child("keystore"))
-    apk_output = utils.join(output_dir,"main.apk")
-    an.apk_output = utils.join("..",apk_output)
-    
-    an.build_dir = build_dir
-    an.arch = arch
-    an.api = api
-    an.sdk = sdk
-    an.jdk = jdk
-    lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
-    an.native_libs = [utils.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]]
-    an.native_libs_changed = [eb.changed, mb.changed]
-    an.assets_dir = utils.join("..","assets")
-    an.aapt_bin = "aapt"
-    an.zip_align_bin = "zipalign"
-    an.std_lib_src = "/home/asdf12/ndk/lib/lib/libc++_shared.so"
-    an.rebuild = rebuild
-    an.concat_cmd = True
-    an.build()
-    android.run(an.package, "com.tt.engine.MainActivity", logger.child("run"), adb_bin="adb", apk_path=apk_output)
+if(eb.logger.has_failed() or mb.logger.has_failed()):
+    logger.failed()
+else:
+    if platform == "windows":
+        pass
+    if platform == "android":
+        an = engine.build_file.App()
+        an.logger = logger.child("android")
+        an.package = "com.tt.builder"
+        an.build_tools_version = "28.0.3"
+        
+        an.keystore, an.keystore_password, an.key_alias, an.key_password = android.debug_keystore(keystore_dir, jdk, logger.child("keystore"))
+        apk_output = utils.join(output_dir,"main.apk")
+        an.apk_output = utils.join("..",apk_output)
+        
+        an.build_dir = build_dir
+        an.arch = arch
+        an.api = api
+        an.sdk = sdk
+        an.jdk = jdk
+        lib_dir_rel = utils.join("lib", android.get_lib_dir_name(arch))
+        an.native_libs = [utils.join(lib_dir_rel,s) for s in ["libengine.so", "libmain.so"]]
+        an.native_libs_changed = [eb.changed, mb.changed]
+        an.assets_dir = utils.join("..","assets")
+        an.aapt_bin = "aapt"
+        an.zip_align_bin = "zipalign"
+        an.std_lib_src = "/home/asdf12/ndk/lib/lib/libc++_shared.so"
+        an.rebuild = rebuild
+        an.concat_cmd = True
+        an.build()
+        android.launch(an.package, "com.tt.engine.MainActivity", logger.child("launch"), adb_bin="adb", apk_path=apk_output)
