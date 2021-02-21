@@ -15,10 +15,10 @@ import android.content.res.AssetManager;
 import android.util.Log;
 import java.io.IOException;
 
-public class MainActivity extends Activity implements SurfaceHolder.Callback2,InputQueue.Callback,Runnable{
+public class MainActivity extends Activity implements SurfaceHolder.Callback2, InputQueue.Callback, Runnable{
     
     static{
-        System.loadLibrary("c++_shared");
+        //System.loadLibrary("c++_shared");
         System.loadLibrary("engine");
         System.loadLibrary("builder");
     }

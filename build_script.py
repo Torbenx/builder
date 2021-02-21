@@ -33,7 +33,7 @@ an.assets_dir = assets_dir
 an.api = 27
 an.min_api = 24
 
-an.rebuild = False
+an.rebuild = True
 an.arch = arch
 
 an.build_dir = build_dir
