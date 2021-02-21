@@ -27,5 +27,4 @@ for arch in arch_list:
         "-DCMAKE_TOOLCHAIN_FILE="+android_sdk+"/ndk-bundle/build/cmake/android.toolchain.cmake",
         "-DANDROID_ABI="+name, "-DANDROID_PLATFORM="+str(min_sdk_version),
         "-DANDROID_SDK="+android_sdk, "-DANDROID_MIN_SDK_VERSION="+str(min_sdk_version), "-DANDROID_TARGET_SDK_VERSION="+str(target_sdk_version), #custom defines
-        "-DKEYSTORE_FILE="
     ], shell, concat_cmd)
