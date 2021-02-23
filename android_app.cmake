@@ -1,9 +1,25 @@
 
+if(NOT DEFINED Android_BUILD_TOOLS_DIR)
+    file(GLOB build_tools_versions RELATIVE ${ANDROID_SDK}/build-tools/ ${ANDROID_SDK}/build-tools/*)
+    list(FILTER build_tools_versions INCLUDE REGEX "^[0-9]+\\.[0-9]\\.[0-9]$")
+    list(SORT build_tools_versions COMPARE NATURAL ORDER DESCENDING)
+    list(GET build_tools_versions 0 build_tools_version)
+    set(Android_BUILD_TOOLS_DIR ${ANDROID_SDK}/build-tools/${build_tools_version} CACHE PATH "Android Build Tools Directory")
+    message(STATUS "Using Android Build Tools Version ${build_tools_version}")
+endif()
+
+message("Android_BUILD_TOOLS_DIR: ${Android_BUILD_TOOLS_DIR}")
+find_file(Android_ANDROID_JAR android.jar PATHS ${ANDROID_SDK}/platforms/android-${ANDROID_TARGET_SDK_VERSION} REQUIRED)
+find_program(Android_DX_EXECUTABLE NAMES dx dx.bat dx.sh PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
+find_program(Android_AAPT_EXECUTABLE aapt PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
+find_program(Android_ZIPALIGN_EXECUTABLE zipalign PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
+find_program(Android_APKSIGNER_EXECUTABLE apksigner apksigner.bat apksigner.sh PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
+
 function(add_apk _TARGET_NAME)
 
     cmake_parse_arguments(
         _add_apk
-        ""
+        "DEBUG"
         "MANIFEST;MIN_SDK_VERSION;TARGET_SDK_VERSION;VERSION_CODE;VERSION_NAME;PACKAGE"
         "SOURCES"
         ${ARGN}
@@ -16,9 +32,6 @@ function(add_apk _TARGET_NAME)
     endif()
     if(NOT DEFINED _add_apk_TARGET_SDK_VERSION)
         message(FATAL_ERROR "must pass a target sdk version")
-    endif()
-    if(NOT DEFINED _add_apk_PACKAGE)
-        message(FATAL_ERROR "must pass a package name")
     endif()
     if(NOT DEFINED _add_apk_VERSION_CODE)
         set(_add_apk_VERSION_CODE 1)
@@ -37,13 +50,21 @@ function(add_apk _TARGET_NAME)
     set_property(GLOBAL PROPERTY JOB_POOLS ${guard_job_pool}=1)
     
     set(package_depfile dep/${_TARGET_NAME}/package.dep)
+    set(package_cmd ${Android_AAPT_EXECUTABLE} package -f -M ${CMAKE_CURRENT_SOURCE_DIR}/${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file}
+            --min-sdk-version ${_add_apk_MIN_SDK_VERSION} --target-sdk-version ${_add_apk_TARGET_SDK_VERSION}
+            --version-code ${_add_apk_VERSION_CODE} --version-name ${_add_apk_VERSION_NAME})
+    if(DEFINED _add_apk_PACKAGE)
+        set(package_cmd ${package_cmd} --rename-manifest-package ${_add_apk_PACKAGE})
+    endif()
+    if(${_add_apk_DEBUG})
+        set(package_cmd ${package_cmd} --debug-mode)
+    endif()
     add_custom_command(
         OUTPUT ${package_depfile}
-        COMMAND ${Android_AAPT_EXECUTABLE} package -f -M ${CMAKE_CURRENT_SOURCE_DIR}/${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file}
-            --min-sdk-version ${_add_apk_MIN_SDK_VERSION} --target-sdk-version ${_add_apk_TARGET_SDK_VERSION}
-            --version-code ${_add_apk_VERSION_CODE} --version-name ${_add_apk_VERSION_NAME} --rename-manifest-package ${_add_apk_PACKAGE} --debug-mode
+        COMMAND ${package_cmd} 
         COMMAND ${CMAKE_COMMAND} -E touch ${package_depfile}
         BYPRODUCTS ${apk_file}
+        COMMENT "Packaging ${_TARGET_NAME}"
     )
     
     set(add_depfiles)
@@ -55,6 +76,7 @@ function(add_apk _TARGET_NAME)
             COMMAND ${CMAKE_COMMAND} -E touch ${_depfile}
             DEPENDS ${_source} ${package_depfile}
             JOB_POOL ${guard_job_pool}
+            COMMENT "Updating ${_source} in ${_TARGET_NAME}"
         )
         list(APPEND add_depfiles ${_depfile})
     endforeach()
@@ -63,14 +85,40 @@ function(add_apk _TARGET_NAME)
         OUTPUT ${apk_file_aligned}
         COMMAND ${Android_ZIPALIGN_EXECUTABLE} -f -p 4 ${apk_file} ${apk_file_aligned}
         DEPENDS ${package_depfile} ${add_depfiles} ${apk_file}
+        COMMENT "Aligning ${_TARGET_NAME}"
     )
+    
+    if(NOT DEFINED Java_KEYTOOL_EXECUTABLE)
+        find_program(Java_KEYTOOL_EXECUTABLE
+          NAMES keytool
+          HINTS ${_JAVA_HINTS}
+          PATHS ${_JAVA_PATHS}
+          REQUIRED
+        )
+    endif()
+    
+    set(keystore_file ${CMAKE_CURRENT_SOURCE_DIR}/debug.keystore)
+    set(keystore_pass android)
+    set(keystore_key_alias androiddebugkey)
+    set(keystore_key_pass android)
+    math(EXPR keystore_validity "100 * 360") #validity in days
+
+    if(NOT EXISTS ${keystore_file})
+        message(CHECK_START "Generating debug.keystore")
+        execute_process(
+            COMMAND ${Java_KEYTOOL_EXECUTABLE} -genkey -keystore ${keystore_file} -keyalg RSA -keysize 2048 -validity ${keystore_validity}
+            -storepass ${keystore_pass} -alias ${keystore_key_alias} -keypass ${keystore_key_pass} -dname "cn=debug"
+        )
+        message(CHECK_PASS "done")
+    endif()
     
     add_custom_command(
         OUTPUT ${apk_file_output}
         COMMAND ${Android_APKSIGNER_EXECUTABLE} sign --out ${apk_file_output}
-            --ks ${KEYSTORE_FILE} --ks-pass pass:${KEYSTORE_PASS} --ks-key-alias ${KEYSTORE_KEY_ALIAS} --key-pass pass:${KEYSTORE_KEY_PASS}
+            --ks ${keystore_file} --ks-pass pass:${keystore_pass} --ks-key-alias ${keystore_key_alias} --key-pass pass:${keystore_key_pass}
             ${apk_file_aligned}
-        DEPENDS ${apk_file_aligned}
+        DEPENDS ${apk_file_aligned} ${keystore_file}
+        COMMENT "Signing ${_TARGET_NAME}"
     )
     
     add_custom_target(${_TARGET_NAME} ALL SOURCES ${apk_file_output})

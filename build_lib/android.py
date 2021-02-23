@@ -3,7 +3,6 @@ import subprocess
 import os
 import shutil
 import time
-import assets
 
 def get_lib_dir_name(arch):
     if arch == utils.arch_x86_32:

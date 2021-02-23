@@ -8,6 +8,7 @@ class HeadBar : public UiSceneComponent{
     public:
         void *renderer;
         TextComponent title;
+        TextComponent subTitle;
         bool hasMetrics = false;
         
         HeadBar(void *renderer);

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.18)
 project(engine)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
@@ -15,19 +15,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     include(UseJava)
     include(android_app.cmake)
     
-    set(Android_ANDROID_JAR ${ANDROID_SDK}/platforms/android-${ANDROID_TARGET_SDK_VERSION}/android.jar)
-    set(Android_BUILD_TOOLS_VERSION 27.0.1)
-    set(Android_BUILD_TOOLS_DIR ${ANDROID_SDK}/build-tools/${Android_BUILD_TOOLS_VERSION})
-    set(Android_DX_EXECUTABLE ${Android_BUILD_TOOLS_DIR}/dx)
-    set(Android_AAPT_EXECUTABLE ${Android_BUILD_TOOLS_DIR}/aapt)
-    set(Android_ZIPALIGN_EXECUTABLE ${Android_BUILD_TOOLS_DIR}/zipalign)
-    set(Android_APKSIGNER_EXECUTABLE ${Android_BUILD_TOOLS_DIR}/apksigner)
-    
-    set(KEYSTORE_FILE /storage/internal/dev/debug.keystore)
-    set(KEYSTORE_PASS android)
-    set(KEYSTORE_KEY_ALIAS androiddebugkey)
-    set(KEYSTORE_KEY_PASS android)
-
     add_definitions(-DPLATFORM_ANDROID)
     set(PLATFORM_MAIN_SOURCE ../engine/android/main.cpp)
     set(output_dir lib/${ANDROID_ABI})
@@ -46,7 +33,7 @@ add_subdirectory(builder)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     set(JAVA_SOURCE_DIR engine/android/java)
-    set(CMAKE_JAVA_COMPILE_FLAGS -bootclasspath ${Android_ANDROID_JAR} -target 1.6 -source 1.6)
+    set(CMAKE_JAVA_COMPILE_FLAGS -bootclasspath ${Android_ANDROID_JAR} -target 1.7 -source 1.7)
     set(CMAKE_JAVA_INCLUDE_PATH ${JAVA_SOURCE_DIR})
     add_jar(
         classes
@@ -79,6 +66,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         PACKAGE com.tt.builder
         MIN_SDK_VERSION ${ANDROID_MIN_SDK_VERSION} TARGET_SDK_VERSION ${ANDROID_TARGET_SDK_VERSION}
         MANIFEST engine/android/AndroidManifest.xml
+        DEBUG
     )
     
 endif()

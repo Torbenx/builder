@@ -5,6 +5,10 @@ HeadBar::HeadBar(void *renderer){
     title.textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     title.textSize = TypedSize::windowsDIP(40);
     title.noBreaks = true;
+    subTitle.textColor = Vec4(0.8f, 0.8f, 0.8f, 1.0f);
+    subTitle.textSize = TypedSize::windowsDIP(30);
+    subTitle.noBreaks = true;
+    subTitle.text = "Some Text";
 }
 
 void HeadBar::setPath(std::string path){
@@ -17,6 +21,8 @@ void HeadBar::setPath(std::string path){
 void HeadBar::updateRect(){
     title.metrics = metrics;
     title.updateContent();
+    subTitle.metrics = metrics;
+    subTitle.updateContent();
     scene.clear();
     /*if(title.textFormat->getWidth() > metrics.x.size){
         scene.layout(title)
@@ -33,14 +39,20 @@ void HeadBar::updateRect(){
     }*/
     scene.layout(title)
         .alignParentTop()
-        .alignParentBottom()
-        .wrapContentWidth()
+        .wrapContentHeight()
+        .alignParentLeft(TypedSize::gl(0.5f))
         .centerHorizontal();
+    scene.layout(subTitle)
+        .below(title)
+        .wrapContentHeight()
+        .wrapContentWidth()
+        .centerHorizontalInside(title);
     hasMetrics = true;
     UiSceneComponent::updateRect();
 }
 
 void HeadBar::draw(){
+    subTitle.draw();
     title.draw();
 }
 

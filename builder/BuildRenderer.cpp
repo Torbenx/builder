@@ -20,7 +20,7 @@ void BuildRenderer::create(){
         .alignParentTop()
         .alignParentLeft()
         .alignParentRight()
-        .height(TypedSize::windowsDIP(50));
+        .height(TypedSize::windowsDIP(200));
     scene.layout(explorer)
         .below(head)
         .alignParentLeft()

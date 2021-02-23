@@ -6,27 +6,33 @@
 #include <vector>
 #include <list>
 
-#define INVALID_UI_VAR_ID 0xffffff
-
-#define PARENT_TOP_VAR_ID 0
-#define PARENT_BOTTOM_VAR_ID 1
-#define PARENT_LEFT_VAR_ID 2
-#define PARENT_RIGHT_VAR_ID 3
-#define VAR_ID_START 4
+#define UI_VAR_PARENT_TOP 0
+#define UI_VAR_PARENT_BOTTOM 1
+#define UI_VAR_PARENT_LEFT 2
+#define UI_VAR_PARENT_RIGHT 3
+#define UI_VAR_START 4
+#define UI_VAR_INVALID 0xffffffff
 
 typedef unsigned int ui_var_t;
 
-#define EQN_ID_NOT_SIMPLE_BIT 0x80000000
-#define INVALID_UI_EQN_ID 0xffffffff
+#define UI_EQN_NOT_SIMPLE_BIT 0x80000000
+#define UI_EQN_INVALID 0xffffffff
 
 typedef unsigned int ui_eqn_t;
+
+struct UiSolution{
+    // = var * factor + offset
+    ui_var_t var;
+    float factor;
+    float offset;
+};
 
 struct UiEquationTerm{
     float factor;
     ui_var_t var;
 };
 
-struct UiEquation{
+struct UiGeneralEquation{
     UiEquationTerm *terms;
     size_t termCount;
     LazyTypedSizeXY rhs;
@@ -38,11 +44,23 @@ struct UiSimpleEquation{
     LazyTypedSizeXY rhs;
 };
 
-struct UiVariable{
-    std::vector<UiEquation*> appearsIn;
-};
+class UiSceneBuilder; 
 
-class UiScene; 
+class UiScene{
+    public:
+        ScreenMetrics metrics;
+        std::map<UiComponent*, UiSceneBuilder> builders;
+        std::vector<UiGeneralEquation> generalEquations;
+        std::vector<UiSimpleEquation> simpleEquations;
+        std::vector<std::vector<ui_eqn_t>> vars_to_eqns;
+        ui_var_t varCount = UI_VAR_START;
+        
+        Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
+        void setParent(Rect rect);
+        UiSceneBuilder& layout(UiComponent& comp);
+        void build();
+        void clear();
+};
 
 class UiSceneBuilder{
     public:
@@ -85,22 +103,6 @@ class UiSceneBuilder{
         
     private:
         void addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, LazyTypedSizeXY rhs);
-};
-
-class UiScene{
-    public:
-        ScreenMetrics metrics;
-        std::map<UiComponent*, UiSceneBuilder> builders;
-        std::vector<UiEquation> equations;
-        std::vector<UiSimpleEquation> simpleEquations;
-        std::vector<std::vector<ui_eqn_t>> vars_to_eqns;
-        ui_var_t maxVarId = VAR_ID_START;
-        
-        Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
-        void setParent(Rect rect);
-        UiSceneBuilder& layout(UiComponent& comp);
-        void build();
-        void clear();
 };
 
 #endif

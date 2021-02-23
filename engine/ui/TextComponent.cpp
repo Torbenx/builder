@@ -28,7 +28,7 @@ void TextComponent::updateContent(){
 void TextComponent::updateRect(){
     TextureComponent::updateRect();
     if(!noBreaks)updateContent();
-    Rect texRect = Rect::bltr(1.0f, 0.0f, 0.0f, rect.getWidth() / getContentWidth().toGL(metrics));
+    Rect texRect = Rect::bltr(rect.getHeight() / getContentHeight().toGL(metrics), 0.0f, 0.0f, rect.getWidth() / getContentWidth().toGL(metrics));
     setTexRect(texRect);
 }
 
