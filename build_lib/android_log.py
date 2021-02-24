@@ -5,7 +5,7 @@ import utils
 
 LOG_USAGE = "Usage: r to refresh pid, p to log package, c to clear, s to start, k to kill, e to exit logger"
 
-package = "com.tt.builder"
+package = "com.tt.testgame"
 activity = "com.tt.engine.MainActivity"
 adb_bin = "C:/Users/Torben/AppData/Local/Android/sdk/platform-tools/adb.exe"
 

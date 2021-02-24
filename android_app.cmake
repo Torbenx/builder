@@ -1,4 +1,13 @@
 
+if(NOT DEFINED Java_KEYTOOL_EXECUTABLE)
+    find_program(Java_KEYTOOL_EXECUTABLE
+      NAMES keytool
+      HINTS ${_JAVA_HINTS}
+      PATHS ${_JAVA_PATHS}
+      REQUIRED
+    )
+endif()
+
 if(NOT DEFINED Android_BUILD_TOOLS_DIR)
     file(GLOB build_tools_versions RELATIVE ${ANDROID_SDK}/build-tools/ ${ANDROID_SDK}/build-tools/*)
     list(FILTER build_tools_versions INCLUDE REGEX "^[0-9]+\\.[0-9]\\.[0-9]$")
@@ -8,19 +17,23 @@ if(NOT DEFINED Android_BUILD_TOOLS_DIR)
     message(STATUS "Using Android Build Tools Version ${build_tools_version}")
 endif()
 
-message("Android_BUILD_TOOLS_DIR: ${Android_BUILD_TOOLS_DIR}")
-find_file(Android_ANDROID_JAR android.jar PATHS ${ANDROID_SDK}/platforms/android-${ANDROID_TARGET_SDK_VERSION} REQUIRED)
-find_program(Android_DX_EXECUTABLE NAMES dx dx.bat dx.sh PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
+set(Android_ANDROID_JAR ${ANDROID_SDK}/platforms/android-${ANDROID_TARGET_SDK_VERSION}/android.jar)
+
+find_file(Android_DX_JAVA_EXECUTABLE NAMES dx.jar PATHS ${Android_BUILD_TOOLS_DIR} ${Android_BUILD_TOOLS_DIR}/lib REQUIRED)
+find_file(Android_APKSIGNER_JAVA_EXECUTABLE apksigner.jar PATHS ${Android_BUILD_TOOLS_DIR} ${Android_BUILD_TOOLS_DIR}/lib REQUIRED)
+set(Android_DX_EXECUTABLE ${Java_JAVA_EXECUTABLE} -jar ${Android_DX_JAVA_EXECUTABLE})
+set(Android_APKSIGNER_EXECUTABLE ${Java_JAVA_EXECUTABLE} -jar ${Android_APKSIGNER_JAVA_EXECUTABLE})
+
 find_program(Android_AAPT_EXECUTABLE aapt PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
 find_program(Android_ZIPALIGN_EXECUTABLE zipalign PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
-find_program(Android_APKSIGNER_EXECUTABLE apksigner apksigner.bat apksigner.sh PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
+find_program(Android_ADB_EXECUTABLE adb PATHS ${ANDROID_SDK}/platform-tools REQUIRED)
 
 function(add_apk _TARGET_NAME)
 
     cmake_parse_arguments(
         _add_apk
         "DEBUG"
-        "MANIFEST;MIN_SDK_VERSION;TARGET_SDK_VERSION;VERSION_CODE;VERSION_NAME;PACKAGE"
+        "MANIFEST;MIN_SDK_VERSION;TARGET_SDK_VERSION;VERSION_CODE;VERSION_NAME;PACKAGE;ACTIVITY"
         "SOURCES"
         ${ARGN}
     )
@@ -41,15 +54,22 @@ function(add_apk _TARGET_NAME)
         set(_add_apk_VERSION_NAME "1.0")
         message(DEBUG "version name not passed, defaulting to 1.0")
     endif()
+    
+    #relative to ANDROID_APK_WORKING_DIR
+    set(apk_file_name ${_TARGET_NAME}_wip.apk)
 
-    set(apk_file ${_TARGET_NAME}_wip.apk)
-    set(apk_file_aligned ${_TARGET_NAME}_aligned.apk)
-    set(apk_file_output ${_TARGET_NAME}.apk)
+    #relative to build dir
+    set(apk_file ${ANDROID_APK_WORKING_DIR}/${apk_file_name})
+    set(apk_file_aligned ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}_aligned.apk)
+    set(apk_file_output ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}.apk)
     
-    set(guard_job_pool ${_TARGET_NAME}_mod_apk)
-    set_property(GLOBAL PROPERTY JOB_POOLS ${guard_job_pool}=1)
+    set(apk_modification_pol ${_TARGET_NAME}_mod_apk)
+    set_property(GLOBAL APPEND PROPERTY JOB_POOLS ${apk_modification_pol}=1)
     
-    set(package_depfile dep/${_TARGET_NAME}/package.dep)
+    set(depfile_dir dep)
+    #relative to build directory
+    set(package_depfile ${depfile_dir}/package.dep)
+    
     set(package_cmd ${Android_AAPT_EXECUTABLE} package -f -M ${CMAKE_CURRENT_SOURCE_DIR}/${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file}
             --min-sdk-version ${_add_apk_MIN_SDK_VERSION} --target-sdk-version ${_add_apk_TARGET_SDK_VERSION}
             --version-code ${_add_apk_VERSION_CODE} --version-name ${_add_apk_VERSION_NAME})
@@ -69,13 +89,16 @@ function(add_apk _TARGET_NAME)
     
     set(add_depfiles)
     foreach(_source IN LISTS _add_apk_SOURCES)
-        set(_depfile dep/${_TARGET_NAME}/${_source}.dep)
+        #relative to build directory
+        set(_depfile ${depfile_dir}/${_source}.dep)
+        
         add_custom_command(
             OUTPUT ${_depfile}
-            COMMAND ${Java_JAR_EXECUTABLE} -uf ${apk_file} ${_source}
-            COMMAND ${CMAKE_COMMAND} -E touch ${_depfile}
-            DEPENDS ${_source} ${package_depfile}
-            JOB_POOL ${guard_job_pool}
+            COMMAND ${Java_JAR_EXECUTABLE} -uf ${apk_file_name} ${_source}
+            COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/${_depfile}
+            WORKING_DIRECTORY ${ANDROID_APK_WORKING_DIR}
+            DEPENDS ${ANDROID_APK_WORKING_DIR}/${_source} ${package_depfile}
+            JOB_POOL ${apk_modification_pol}
             COMMENT "Updating ${_source} in ${_TARGET_NAME}"
         )
         list(APPEND add_depfiles ${_depfile})
@@ -88,16 +111,7 @@ function(add_apk _TARGET_NAME)
         COMMENT "Aligning ${_TARGET_NAME}"
     )
     
-    if(NOT DEFINED Java_KEYTOOL_EXECUTABLE)
-        find_program(Java_KEYTOOL_EXECUTABLE
-          NAMES keytool
-          HINTS ${_JAVA_HINTS}
-          PATHS ${_JAVA_PATHS}
-          REQUIRED
-        )
-    endif()
-    
-    set(keystore_file ${CMAKE_CURRENT_SOURCE_DIR}/debug.keystore)
+    set(keystore_file ${ANDROID_KEYSTORE_DIR}/debug.keystore)
     set(keystore_pass android)
     set(keystore_key_alias androiddebugkey)
     set(keystore_key_pass android)
@@ -116,11 +130,18 @@ function(add_apk _TARGET_NAME)
         OUTPUT ${apk_file_output}
         COMMAND ${Android_APKSIGNER_EXECUTABLE} sign --out ${apk_file_output}
             --ks ${keystore_file} --ks-pass pass:${keystore_pass} --ks-key-alias ${keystore_key_alias} --key-pass pass:${keystore_key_pass}
+            --v4-signing-enabled false
             ${apk_file_aligned}
         DEPENDS ${apk_file_aligned} ${keystore_file}
         COMMENT "Signing ${_TARGET_NAME}"
     )
     
     add_custom_target(${_TARGET_NAME} ALL SOURCES ${apk_file_output})
+    
+    add_custom_target(install_${_TARGET_NAME} COMMAND ${Android_ADB_EXECUTABLE} install ${apk_file_output} DEPENDS ${_TARGET_NAME})
+    
+    if(DEFINED _add_apk_ACTIVITY AND DEFINED _add_apk_PACKAGE)
+        add_custom_target(run_${_TARGET_NAME} COMMAND ${Android_ADB_EXECUTABLE} shell am start ${_add_apk_PACKAGE}/${_add_apk_ACTIVITY} DEPENDS install_${_TARGET_NAME})
+    endif()
     
 endfunction()

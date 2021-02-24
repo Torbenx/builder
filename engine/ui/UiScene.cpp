@@ -28,6 +28,19 @@ void UiScene::setParent(Rect rect){
 }
 
 void UiScene::build(){
+    /*for(size_t i=0;i<varCount;i++){
+        printf("%u: ", i);
+        for(size_t j=0;j<vars_to_eqns[i].size();j++){
+            ui_eqn_t eq = vars_to_eqns[i][j];
+            if(eq & UI_EQN_NOT_SIMPLE_BIT){
+                printf("%u; ", eq & ~UI_EQN_NOT_SIMPLE_BIT);
+            }else{
+                printf("%u, ", eq);
+            }
+        }
+        printf("\n");
+    }*/
+    
     UiSolution solutions[varCount];
     auto setIdentitySolution = [&](ui_var_t var){
         UiSolution& sol = solutions[var];
@@ -52,13 +65,16 @@ void UiScene::build(){
     std::list<ui_eqn_t> simpleQueue;
     std::list<ui_eqn_t> generalQueue;
     auto queueEquations = [&](ui_var_t var, ui_eqn_t ignore=UI_EQN_INVALID){
+        //LOGD("queueing for %u",var);
         std::vector<ui_eqn_t>& eqns = vars_to_eqns[var];
         for(ui_eqn_t eq : eqns){
             if(eq != ignore){
                 if(eq & UI_EQN_NOT_SIMPLE_BIT){
                     generalQueue.push_back(eq);
+                    //LOGD("queueing general %u",eq & ~UI_EQN_NOT_SIMPLE_BIT);
                 }else{
                     simpleQueue.push_back(eq);
+                    //LOGD("queueing simple %u",eq);
                 }
             }
         }
@@ -73,6 +89,7 @@ void UiScene::build(){
             ui_eqn_t eqI = simpleQueue.front();
             simpleQueue.pop_front();
             UiSimpleEquation& eq = simpleEquations[eqI];
+            //LOGD("%u: [%u]*(%f) + [%u]*(%f) = %f", eqI, eq.term1.var, eq.term1.factor, eq.term2.var, eq.term2.factor, eq.rhs.get().toGL(metrics));
             UiSolution& sol1 = solutions[eq.term1.var];
             UiSolution& sol2 = solutions[eq.term2.var];
             if(sol1.var == UI_VAR_INVALID && sol2.var == UI_VAR_INVALID){
@@ -81,6 +98,7 @@ void UiScene::build(){
             }
             if(sol1.var != UI_VAR_INVALID && sol2.var != UI_VAR_INVALID){
                 //found loop
+                //LOGD("found loop %u, %u", sol1.var, sol2.var);
                 auto where = std::lower_bound(extraEquations.begin(), extraEquations.end(), eqI); //binary search
                 if(where == extraEquations.end() || *where != eqI){
                     extraEquations.insert(where, eqI);
@@ -123,7 +141,7 @@ void UiScene::build(){
                     sol.var = term.var;
                     sol.factor = 1.0f;
                     sol.offset = 0.0f;
-                    queueEquations(term.var, eqIndex & UI_EQN_NOT_SIMPLE_BIT);
+                    queueEquations(term.var, eqIndex | UI_EQN_NOT_SIMPLE_BIT);
                     linearSolveVarCount++;
                     linearSolveVars.push_back(term.var);
                 }
@@ -172,16 +190,23 @@ void UiScene::build(){
         for(size_t j=0;j<size;j++){
             matrix[i*(size+1)+j] = 0.0f;
         }
+        float rhs = eq.rhs.get().toGL(metrics);
         //always hits
-        auto where = std::lower_bound(linearSolveVars.begin(), linearSolveVars.end(), eq.term1.var);
-        matrix[i*(size+1)+(where-linearSolveVars.begin())] = eq.term1.factor;
-        where = std::lower_bound(linearSolveVars.begin(), linearSolveVars.end(), eq.term2.var);
-        matrix[i*(size+1)+(where-linearSolveVars.begin())] = eq.term2.factor;
-        matrix[i*(size+1)+size] = eq.rhs.get().toGL(metrics);
+        UiSolution& sol1 = solutions[eq.term1.var];
+        auto where = std::lower_bound(linearSolveVars.begin(), linearSolveVars.end(), sol1.var);
+        matrix[i*(size+1)+(where-linearSolveVars.begin())] = eq.term1.factor * sol1.factor;
+        rhs -= eq.term1.factor * sol1.offset;
+        
+        UiSolution& sol2 = solutions[eq.term2.var];
+        where = std::lower_bound(linearSolveVars.begin(), linearSolveVars.end(), sol2.var);
+        matrix[i*(size+1)+(where-linearSolveVars.begin())] = eq.term2.factor * sol2.factor;
+        rhs -= eq.term2.factor * sol2.offset;
+        
+        matrix[i*(size+1)+size] = rhs;
     }
     
-    /*for(int j=0;j<size;i++){
-        for(int k=0;k<size+1;k++){
+    /*for(size_t j=0;j<size;j++){
+        for(size_t k=0;k<size+1;k++){
             printf("%+f ", matrix[j*(size+1)+k]);
         }
         printf("\n");
@@ -193,7 +218,7 @@ void UiScene::build(){
         for(size_t i=0;i<size-1;i++){
             float max = 0.0f;
             size_t r = 0;
-            for(size_t j=0;j<size;j++){
+            for(size_t j=i;j<size;j++){
                 if(abs(matrix[j*(size+1)+i]) > abs(max)){
                     max = matrix[j*(size+1)+i];
                     r = j;
@@ -229,7 +254,7 @@ void UiScene::build(){
                 }
             }
         }
-        for(int i=0;i<size;i++){
+        for(size_t i=0;i<size;i++){
             solutions[linearSolveVars[i]].factor = matrix[i*(size+1)+size];
         }
     }
@@ -275,6 +300,7 @@ void UiSceneBuilder::addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, L
     scene->simpleEquations.push_back(eq);
     scene->vars_to_eqns[v1].push_back(eqnId);
     scene->vars_to_eqns[v2].push_back(eqnId);
+    //LOGD("adding equation %u", eqnId);
 }
 
 UiSceneBuilder& UiSceneBuilder::above(UiComponent& other, TypedSize padding){
@@ -386,14 +412,14 @@ UiSceneBuilder& UiSceneBuilder::alignParentRight(TypedSize padding){
 }
 
 
-UiSceneBuilder& UiSceneBuilder::centerHorizontal(float fraction){
+void UiSceneBuilder::centerHorizontalInternal(ui_var_t otherLeft, ui_var_t otherRight, float fraction){
     UiGeneralEquation eq;
     eq.termCount = 4;
     eq.terms = (UiEquationTerm*) malloc(eq.termCount * sizeof(UiEquationTerm));
     eq.terms[0].factor = -1.0f;
-    eq.terms[0].var = UI_VAR_PARENT_LEFT;
+    eq.terms[0].var = otherLeft;
     eq.terms[1].factor = -1.0f;
-    eq.terms[1].var = UI_VAR_PARENT_RIGHT;
+    eq.terms[1].var = otherRight;
     eq.terms[2].factor = fraction;
     eq.terms[2].var = leftV;
     eq.terms[3].factor = fraction;
@@ -401,44 +427,52 @@ UiSceneBuilder& UiSceneBuilder::centerHorizontal(float fraction){
     eq.rhs = TypedSize::zero.asXSize().lazy();
     ui_eqn_t eqId = scene->generalEquations.size() | UI_EQN_NOT_SIMPLE_BIT;
     scene->generalEquations.push_back(eq);
-    scene->vars_to_eqns[UI_VAR_PARENT_LEFT].push_back(eqId);
-    scene->vars_to_eqns[UI_VAR_PARENT_RIGHT].push_back(eqId);
+    scene->vars_to_eqns[otherLeft].push_back(eqId);
+    scene->vars_to_eqns[otherRight].push_back(eqId);
     scene->vars_to_eqns[leftV].push_back(eqId);
     scene->vars_to_eqns[rightV].push_back(eqId);
+}
+
+void UiSceneBuilder::centerVerticalInternal(ui_var_t otherTop, ui_var_t otherBottom, float fraction){
+    UiGeneralEquation eq;
+    eq.termCount = 4;
+    eq.terms = (UiEquationTerm*) malloc(eq.termCount * sizeof(UiEquationTerm));
+    eq.terms[0].factor = -1.0f;
+    eq.terms[0].var = otherTop;
+    eq.terms[1].factor = -1.0f;
+    eq.terms[1].var = otherBottom;
+    eq.terms[2].factor = fraction;
+    eq.terms[2].var = topV;
+    eq.terms[3].factor = fraction;
+    eq.terms[3].var = bottomV;
+    eq.rhs = TypedSize::zero.asYSize().lazy();
+    ui_eqn_t eqId = scene->generalEquations.size() | UI_EQN_NOT_SIMPLE_BIT;
+    scene->generalEquations.push_back(eq);
+    scene->vars_to_eqns[otherTop].push_back(eqId);
+    scene->vars_to_eqns[otherBottom].push_back(eqId);
+    scene->vars_to_eqns[topV].push_back(eqId);
+    scene->vars_to_eqns[bottomV].push_back(eqId);
+}
+
+UiSceneBuilder& UiSceneBuilder::centerHorizontal(float fraction){
+    centerHorizontalInternal(UI_VAR_PARENT_LEFT, UI_VAR_PARENT_RIGHT, fraction);
     return *this;
 }
 
 UiSceneBuilder& UiSceneBuilder::centerVertical(float fraction){
-    
+    centerVerticalInternal(UI_VAR_PARENT_TOP, UI_VAR_PARENT_BOTTOM, fraction);
     return *this;
 }
 
 UiSceneBuilder& UiSceneBuilder::centerHorizontalInside(UiComponent& other, float fraction){
     UiSceneBuilder& ob = GET_UI_BUILDER(other);
-    UiGeneralEquation eq;
-    eq.termCount = 4;
-    eq.terms = (UiEquationTerm*) malloc(eq.termCount * sizeof(UiEquationTerm));
-    eq.terms[0].factor = -1.0f;
-    eq.terms[0].var = ob.leftV;
-    eq.terms[1].factor = -1.0f;
-    eq.terms[1].var = ob.rightV;
-    eq.terms[2].factor = fraction;
-    eq.terms[2].var = leftV;
-    eq.terms[3].factor = fraction;
-    eq.terms[3].var = rightV;
-    eq.rhs = TypedSize::zero.asXSize().lazy();
-    ui_eqn_t eqId = scene->generalEquations.size() | UI_EQN_NOT_SIMPLE_BIT;
-    scene->generalEquations.push_back(eq);
-    scene->vars_to_eqns[UI_VAR_PARENT_LEFT].push_back(eqId);
-    scene->vars_to_eqns[UI_VAR_PARENT_RIGHT].push_back(eqId);
-    scene->vars_to_eqns[leftV].push_back(eqId);
-    scene->vars_to_eqns[rightV].push_back(eqId);
-    return *this;
+    centerHorizontalInternal(ob.leftV, ob.rightV, fraction);
     return *this;
 }
 
 UiSceneBuilder& UiSceneBuilder::centerVerticalInside(UiComponent& other, float fraction){
-    
+    UiSceneBuilder& ob = GET_UI_BUILDER(other);
+    centerHorizontalInternal(ob.topV, ob.bottomV, fraction);
     return *this;
 }
 

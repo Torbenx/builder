@@ -103,6 +103,8 @@ class UiSceneBuilder{
         
     private:
         void addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, LazyTypedSizeXY rhs);
+        void centerHorizontalInternal(ui_var_t otherLeft, ui_var_t otherRight, float fraction);
+        void centerVerticalInternal(ui_var_t otherTop, ui_var_t otherBottom, float fraction);
 };
 
 #endif

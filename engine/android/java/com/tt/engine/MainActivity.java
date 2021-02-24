@@ -14,14 +14,9 @@ import android.content.res.Configuration;
 import android.content.res.AssetManager;
 import android.util.Log;
 import java.io.IOException;
+import java.io.File;
 
 public class MainActivity extends Activity implements SurfaceHolder.Callback2, InputQueue.Callback, Runnable{
-    
-    static{
-        //System.loadLibrary("c++_shared");
-        System.loadLibrary("engine");
-        System.loadLibrary("builder");
-    }
     
     View view;
     AssetManager assetManager;
@@ -34,6 +29,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2, I
     public void onCreate(Bundle saveInstaceState){
         super.onCreate(saveInstaceState);
         Log.d("MainActivity", "onCreate");
+        
+        String dir = getApplicationInfo().nativeLibraryDir;
+        File dirFile = new File(dir);
+        for(File libFile : dirFile.listFiles()){
+            Log.d("MainActivity", "loading "+libFile.getName());
+            System.load(libFile.getPath());
+        }
+        
         assetManager = getResources().getAssets();
         getWindow().takeSurface(this);
         getWindow().takeInputQueue(this);
