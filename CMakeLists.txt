@@ -20,7 +20,9 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     
     set(lib_dir lib/${ANDROID_ABI}) #library output directory relative from ANDROID_APK_WORKING_DIR
     set(ANDROID_APK_WORKING_DIR .) #apk root directory relative to build directory
-    set(ANDROID_KEYSTORE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    if(NOT DEFINED ANDROID_KEYSTORE_DIR)
+        set(ANDROID_KEYSTORE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    endif()
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ../${ANDROID_APK_WORKING_DIR}/${lib_dir})
     
 else()

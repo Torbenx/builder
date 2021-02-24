@@ -18,7 +18,6 @@ required packages:
 
 steps:
     set ANDROID_HOME=sdk location (/usr/lib/android-sdk)
-    add apksigner wrapper script that calls apksigner.jar
     copy ndk_bundle from an x86 maschine
     insert ndk_bundle in correct location (symlink)
     in ndk_bundle/toolchains/llvm/prebuilt/ rename:
@@ -45,4 +44,5 @@ utils.exec_cmd([
     "-DCMAKE_TOOLCHAIN_FILE="+android_sdk+"/ndk_bundle/build/cmake/android.toolchain.cmake",
     "-DANDROID_ABI="+name, "-DANDROID_PLATFORM="+str(min_sdk_version),
     "-DANDROID_SDK="+android_sdk, "-DANDROID_MIN_SDK_VERSION="+str(min_sdk_version), "-DANDROID_TARGET_SDK_VERSION="+str(target_sdk_version), #custom defines
+    "-DANDROID_KEYSTORE_DIR=/storage/internal/dev"
 ], shell, concat_cmd)

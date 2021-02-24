@@ -130,7 +130,6 @@ function(add_apk _TARGET_NAME)
         OUTPUT ${apk_file_output}
         COMMAND ${Android_APKSIGNER_EXECUTABLE} sign --out ${apk_file_output}
             --ks ${keystore_file} --ks-pass pass:${keystore_pass} --ks-key-alias ${keystore_key_alias} --key-pass pass:${keystore_key_pass}
-            --v4-signing-enabled false
             ${apk_file_aligned}
         DEPENDS ${apk_file_aligned} ${keystore_file}
         COMMENT "Signing ${_TARGET_NAME}"
