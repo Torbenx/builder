@@ -137,10 +137,26 @@ function(add_apk _TARGET_NAME)
     
     add_custom_target(${_TARGET_NAME} ALL SOURCES ${apk_file_output})
     
-    add_custom_target(install_${_TARGET_NAME} COMMAND ${Android_ADB_EXECUTABLE} install ${apk_file_output} DEPENDS ${_TARGET_NAME})
+    add_custom_target(install_${_TARGET_NAME}
+        COMMAND ${Android_ADB_EXECUTABLE} install ${apk_file_output}
+        DEPENDS ${_TARGET_NAME}
+        COMMENT "Installing ${_TARGET_NAME}"
+    )
     
     if(DEFINED _add_apk_ACTIVITY AND DEFINED _add_apk_PACKAGE)
-        add_custom_target(run_${_TARGET_NAME} COMMAND ${Android_ADB_EXECUTABLE} shell am start ${_add_apk_PACKAGE}/${_add_apk_ACTIVITY} DEPENDS install_${_TARGET_NAME})
+        add_custom_target(run_${_TARGET_NAME}
+            COMMAND ${Android_ADB_EXECUTABLE} shell am start ${_add_apk_PACKAGE}/${_add_apk_ACTIVITY}
+            DEPENDS install_${_TARGET_NAME}
+            COMMENT "Launching ${_TARGET_NAME}"
+        )
+        if(DEFINED ANDROID_LOGGER)
+            message("ANDROID_LOGGER: ${ANDROID_LOGGER}")
+            add_custom_command(
+                TARGET run_${_TARGET_NAME} POST_BUILD
+                COMMAND ${ANDROID_LOGGER} ${Android_ADB_EXECUTABLE} ${_add_apk_PACKAGE}
+                COMMENT "Logging..."
+            )
+        endif()
     endif()
     
 endfunction()

@@ -5,9 +5,9 @@ import utils
 
 LOG_USAGE = "Usage: r to refresh pid, p to log package, c to clear, s to start, k to kill, e to exit logger"
 
-package = "com.tt.testgame"
+package = sys.argv[2]
 activity = "com.tt.engine.MainActivity"
-adb_bin = "C:/Users/Torben/AppData/Local/Android/sdk/platform-tools/adb.exe"
+adb_bin = sys.argv[1]
 
 def log_package(package):
     print "Logging "+package
