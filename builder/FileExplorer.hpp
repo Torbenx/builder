@@ -5,6 +5,7 @@
 #include <string>
 #include "ui/TextComponent.hpp"
 #include <vector>
+#include "ui/TestComponent.hpp"
 
 class FileExplorer : public UiSceneComponent{
     public:
@@ -12,6 +13,7 @@ class FileExplorer : public UiSceneComponent{
         bool hasMetrics = false;
         std::string path;
         void *renderer;
+        TestComponent background;
     
         FileExplorer(void *renderer);
         void setPath(std::string path);

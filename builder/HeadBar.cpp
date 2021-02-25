@@ -25,33 +25,38 @@ void HeadBar::updateRect(){
     subTitle.updateContent();
     scene.clear();
     /*if(title.textFormat->getWidth() > metrics.x.size){
-        scene.layout(title)
+        scene.layout(&title)
             .alignParentTop()
             .alignParentRight()
             .wrapContentWidth()
             .alignParentBottom();
     }else{
-        scene.layout(title)
+        scene.layout(&title)
             .alignParentTop()
             .alignParentLeft()
             .wrapContentWidth()
             .alignParentBottom();
     }*/
-    scene.layout(title)
-        .alignParentTop()
+    scene.layout(&title)
+        .alignTop()
         .wrapContentHeight()
-        .alignParentLeft(TypedSize::gl(0.5f))
-        .centerHorizontal();
-    scene.layout(subTitle)
-        .below(title)
+        .wrapContentWidth();
+    scene.layout(&subTitle)
+        .alignBottom(&title)
         .wrapContentHeight()
         .wrapContentWidth()
-        .centerHorizontalInside(title);
+        .toRightOf(&title, TypedSize::windowsDIP(40));
+    scene.layout(&box)
+        .alignLeft(&title)
+        .alignRight(&subTitle)
+        .alignVertical(&title)
+        .centerHorizontal();
     hasMetrics = true;
     UiSceneComponent::updateRect();
 }
 
 void HeadBar::draw(){
+    box.draw();
     subTitle.draw();
     title.draw();
 }

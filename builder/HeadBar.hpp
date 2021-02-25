@@ -3,12 +3,14 @@
 
 #include "ui/UiSceneComponent.hpp"
 #include "ui/TextComponent.hpp"
+#include "ui/TestComponent.hpp"
 
 class HeadBar : public UiSceneComponent{
     public:
         void *renderer;
         TextComponent title;
         TextComponent subTitle;
+        TestComponent box;
         bool hasMetrics = false;
         
         HeadBar(void *renderer);

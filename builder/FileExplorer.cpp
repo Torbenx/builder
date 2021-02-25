@@ -8,18 +8,20 @@ FileExplorer::FileExplorer(void *renderer){
 
 void FileExplorer::updateRect(){
     if(!hasMetrics){
-        for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
-            (*it)->metrics = metrics;
-            (*it)->updateContent();
-        }
+        hasMetrics = true;
+        setPath(path);
     }
-    hasMetrics = true;
     UiSceneComponent::updateRect();
 }
 
 void FileExplorer::setPath(std::string path){
     this->path = path;
     scene.clear();
+    scene.layout(&background)
+        .alignTop()
+        .alignLeft()
+        .alignRight()
+        .alignBottom();
     for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
         delete *it;
     }
@@ -30,11 +32,11 @@ void FileExplorer::setPath(std::string path){
     back->textSize = TypedSize::windowsDIP(20);
     back->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     back->noBreaks = true;
-    scene.layout(*back)
+    scene.layout(back)
         .wrapContentHeight()
-        .alignParentLeft()
-        .alignParentRight()
-        .alignParentTop(TypedSize::windowsDIP(5));
+        .alignLeft()
+        .alignRight()
+        .alignTop(nullptr, TypedSize::windowsDIP(5));
     fileNameComps.push_back(back);
     makeClickable(*back, 0);
     
@@ -46,11 +48,11 @@ void FileExplorer::setPath(std::string path){
             text->textSize = TypedSize::windowsDIP(20);
             text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
             text->noBreaks = true;
-            scene.layout(*text)
+            scene.layout(text)
+                .wrapContentWidth()
+                .centerHorizontal()
                 .wrapContentHeight()
-                .alignParentLeft()
-                .alignParentRight()
-                .below(*fileNameComps.back(), TypedSize::windowsDIP(5));
+                .below(fileNameComps.back(), TypedSize::windowsDIP(5));
             fileNameComps.push_back(text);
             makeClickable(*text, id++);
         }
@@ -60,11 +62,11 @@ void FileExplorer::setPath(std::string path){
             text->textSize = TypedSize::windowsDIP(30);
             text->textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
             text->noBreaks = false;
-            scene.layout(*text)
+            scene.layout(text)
                 .wrapContentHeight()
-                .alignParentLeft()
-                .alignParentRight()
-                .below(*back);
+                .alignLeft()
+                .alignRight()
+                .below(back);
             fileNameComps.push_back(text);
     }
     if(hasMetrics){
@@ -72,7 +74,7 @@ void FileExplorer::setPath(std::string path){
             (*it)->metrics = metrics;
             (*it)->updateContent();
         }
-        updateRect();
+        UiSceneComponent::updateRect();
     }
 }
 
@@ -85,6 +87,7 @@ void FileExplorer::onClick(int id){
 }
 
 void FileExplorer::draw(){
+    background.draw();
     for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
         (*it)->draw();
     }

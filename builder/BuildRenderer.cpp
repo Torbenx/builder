@@ -11,20 +11,20 @@ BuildRenderer::BuildRenderer() : explorer(this), head(this){
 }
 
 void BuildRenderer::create(){
-    setPath(isAndroid() ? "/data/data/com.tt.builder" : "C:/");
+    setPath(isAndroid() ? "/data/data/com.tt.builder" : "C:/Users/Torben/Documents/dev/c++");
     #ifdef PLATFORM_ANDROID
         goFullscreen(FullscreenConfig::DEFAULT);
     #endif
     Framebuffer::DEFAULT.clearColor = Vec4(0.1f, 0.1f, 0.1f, 1.0f);
-    scene.layout(head)
-        .alignParentTop()
-        .alignParentLeft()
-        .alignParentRight()
+    scene.layout(&head)
+        .alignTop()
+        .alignLeft()
+        .alignRight()
         .height(TypedSize::windowsDIP(200));
-    scene.layout(explorer)
-        .below(head)
-        .alignParentLeft()
-        .alignParentBottom()
+    scene.layout(&explorer)
+        .below(&head)
+        .alignLeft()
+        .alignBottom()
         .width(TypedSize::gl(0.5f));
 }
 

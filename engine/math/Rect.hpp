@@ -2,6 +2,7 @@
 #define HEADER_MATH_RECT_H
 
 #include "Vec2.hpp"
+#include <stddef.h>
 
 class Rect{
     public:
