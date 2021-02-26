@@ -79,14 +79,14 @@ void UiSolver::solve(){
         values[i] = NAN;
     }
     
-    for(size_t i=0;i<svarCount;i++){
+    /*for(size_t i=0;i<svarCount;i++){
         printf("%u: ", i);
         for(size_t j=0;j<svars_to_eqns[i].size();j++){
             ui_eqn_t eq = svars_to_eqns[i][j];
             printf("%u, ", eq);
         }
         printf("\n");
-    }
+    }*/
     
     for(;;){
         ui_svar_t start = UI_VAR_INVALID;
@@ -164,7 +164,7 @@ void UiSolver::exploreEq(ui_eqn_t eq, ui_var_t origin){
 }
 
 void UiSolver::exploreVar2(ui_svar_t svar, ui_eqn_t origin){
-    LOGD("%u -> %u", origin, svar);
+    //LOGD("%u -> %u", origin, svar);
     std::vector<ui_eqn_t>& eqns = svars_to_eqns[svar];
     for(ui_eqn_t eq : eqns){
         if(eq == origin)continue;
@@ -173,7 +173,7 @@ void UiSolver::exploreVar2(ui_svar_t svar, ui_eqn_t origin){
 }
 
 void UiSolver::exploreEq2(ui_eqn_t eq, ui_svar_t origin){
-    LOGD("%u => %u", origin, eq);
+    //LOGD("%u => %u", origin, eq);
     UiGeneralEquation& equation = generalEquations[eq];
     
     ui_svar_t min_svar = UI_VAR_INVALID;
@@ -233,13 +233,13 @@ void UiSolver::solveLinearSystem(){
         matrix[entry.eqn*(size+1)+entry.var] += entry.factor;
     }
     
-    for(size_t j=0;j<size;j++){
+    /*for(size_t j=0;j<size;j++){
         for(size_t k=0;k<size+1;k++){
             printf("%+f ", matrix[j*(size+1)+k]);
         }
         printf("\n");
     }
-    printf("\n");
+    printf("\n");*/
     
     for(size_t i=0;i<size-1;i++){
         float max = 0.0f;
@@ -281,13 +281,13 @@ void UiSolver::solveLinearSystem(){
         }
     }
     
-    for(size_t j=0;j<size;j++){
+    /*for(size_t j=0;j<size;j++){
         for(size_t k=0;k<size+1;k++){
             printf("%+f ", matrix[j*(size+1)+k]);
         }
         printf("\n");
     }
-    printf("\n");
+    printf("\n");*/
     
     for(size_t i=0;i<size;i++){
         values[solveVars[i] - fixedCount] = matrix[i*(size+1)+size];

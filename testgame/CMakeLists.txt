@@ -19,7 +19,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     add_apk(testgame_apk SOURCES
         ${lib_dir}/libengine.so
         ${lib_dir}/libtestgame.so
-        ${lib_dir}/${cxx_lib_file_name}
+        #${lib_dir}/${cxx_lib_file_name}
         classes.dex
         PACKAGE com.tt.testgame
         MIN_SDK_VERSION ${ANDROID_MIN_SDK_VERSION} TARGET_SDK_VERSION ${ANDROID_TARGET_SDK_VERSION}
