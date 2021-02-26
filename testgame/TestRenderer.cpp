@@ -116,18 +116,18 @@ void TestRenderer::create(){
     
     
     TypedSize pad = TypedSize::gl(-0.02f);
-    uiScene.layout(textComp)
+    uiScene.layout(&textComp)
         .centerVertical()
         .centerHorizontal()
         .wrapContentWidth()
         .wrapContentHeight();
-    uiScene.layout(cubeComp)
-        .align(textComp, pad);
-    uiScene.layout(refComp)
-        .alignParentTop()
-        .alignParentBottom()
-        .alignParentLeft()
-        .alignParentRight();
+    uiScene.layout(&cubeComp)
+        .align(&textComp, pad);
+    uiScene.layout(&refComp)
+        .alignTop()
+        .alignBottom()
+        .alignLeft()
+        .alignRight();
 }
 
 void TestRenderer::change(int newWidth, int newHeight){

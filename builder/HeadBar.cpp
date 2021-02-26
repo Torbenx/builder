@@ -40,17 +40,15 @@ void HeadBar::updateRect(){
     scene.layout(&title)
         .alignTop()
         .wrapContentHeight()
-        .wrapContentWidth();
+        .wrapContentWidth()
+        .centerHorizontal();
     scene.layout(&subTitle)
-        .alignBottom(&title)
+        .below(&title)
         .wrapContentHeight()
         .wrapContentWidth()
-        .toRightOf(&title, TypedSize::windowsDIP(40));
+        .centerHorizontal(&title, 0.75);
     scene.layout(&box)
-        .alignLeft(&title)
-        .alignRight(&subTitle)
-        .alignVertical(&title)
-        .centerHorizontal();
+        .align(&title);
     hasMetrics = true;
     UiSceneComponent::updateRect();
 }

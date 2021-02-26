@@ -115,17 +115,6 @@ float TypedSizeXY::to(TYPED_SIZE_TYPE type, ScreenMetrics metrics){
     return size.to(type, isX ? metrics.x : metrics.y);
 }
 
-TypedSizeXY TypedSizeXY_getSizeLazy(LazyTypedSizeXY *thiz){
-    return thiz->data.size;
-}
-
-LazyTypedSizeXY TypedSizeXY::lazy(){
-    LazyTypedSizeXY r;
-    r.data.size = *this;
-    r.getSize = TypedSizeXY_getSizeLazy;
-    return r;
-}
-
 TypedSize TypedSize::pixels(float f){
     return {TYPED_SIZE_PIXELS, f};
 }
@@ -142,15 +131,37 @@ TypedSize TypedSize::windowsDIP(float f){
     return {TYPED_SIZE_WINDOWS_DIP, f};
 }
 
-TypedSize TypedSize::add(TypedSize left, TypedSize right, TYPED_SIZE_TYPE outType, SizeMetrics m){
-    return {outType, left.to(outType, m) + right.to(outType, m)};
-}
-
-TypedSizeXY LazyTypedSizeXY::get(){
-    return getSize(this);
+TypedSize& TypedSize::operator*=(float f){
+    value *= f;
+    return *this;
 }
 
 TypedSize operator-(TypedSize size){
     size.value *= -1.0f;
     return size;
+}
+
+TypedSize operator*(float left, TypedSize right){
+    right.value *= left;
+    return right;
+}
+
+TypedSize operator*(TypedSize left, float right){
+    left.value *= right;
+    return left;
+}
+
+TypedSizeXY TypedSizeXY_getSizeLazy(LazyTypedSizeXY *thiz){
+    return thiz->data.size;
+}
+
+LazyTypedSizeXY TypedSizeXY::lazy(){
+    LazyTypedSizeXY r;
+    r.data.size = *this;
+    r.getSize = TypedSizeXY_getSizeLazy;
+    return r;
+}
+
+TypedSizeXY LazyTypedSizeXY::get(){
+    return getSize(this);
 }

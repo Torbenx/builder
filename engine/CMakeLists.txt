@@ -70,6 +70,7 @@ add_library(engine SHARED
     "ui/TypedPoint.cpp"
     "ui/UiInput.cpp"
     "ui/UiSceneComponent.cpp"
+    "ui/UiSolver.cpp"
     "3d/Scene.cpp"
     ${platform_source}
 )

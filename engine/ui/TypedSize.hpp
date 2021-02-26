@@ -42,7 +42,7 @@ struct TypedSize{
     static TypedSize androidDIP(float f);
     static TypedSize windowsDIP(float f);
     
-    static TypedSize add(TypedSize left, TypedSize right, TYPED_SIZE_TYPE outType, SizeMetrics m);
+    TypedSize& operator*=(float f);
 };
 
 struct TypedSizeXY{
@@ -68,5 +68,7 @@ struct LazyTypedSizeXY{
 };
 
 TypedSize operator-(TypedSize size);
+TypedSize operator*(float left, TypedSize right);
+TypedSize operator*(TypedSize left, float right);
 
 #endif
