@@ -3,6 +3,7 @@ import subprocess
 import os
 import shutil
 import time
+import re
 
 def get_lib_dir_name(arch):
     if arch == utils.arch_x86_32:
@@ -14,7 +15,7 @@ def get_lib_dir_name(arch):
     if arch == utils.arch_arm64v8a:
         return "arm64-v8a"
     raise ValueError("invalid arch")
-    
+
 def get_triple1(arch):
     if arch == utils.arch_armv7a:
         return "armv7a-linux-androideabi"
@@ -25,7 +26,7 @@ def get_triple1(arch):
     if arch == utils.arch_x86_64:
         return "x86_64-linux-android"
     raise ValueError("invalid arch")
-    
+
 def get_triple2(arch):
     if arch == utils.arch_armv7a:
         return "arm-linux-androideabi"
@@ -36,14 +37,36 @@ def get_triple2(arch):
     if arch == utils.arch_x86_64:
         return "x86_64-linux-android"
     raise ValueError("invalid arch")
-    
+
+def version_triple_key(v):
+    v = map(int, v.split("."));
+    return v[2] + (v[1] + v[0] * 1000000000) * 1000000000
+
+def find_latest(dir):
+    prog = re.compile("^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    dirs = os.listdir(dir)
+    versions = []
+    for version_string in dirs:
+        if prog.match(version_string):
+            versions += [version_string]
+    versions = sorted(versions, key=version_triple_key, reverse=True)
+    return versions[0];
+
+def find_latest_ndk(sdk):
+    if os.path.isdir(utils.join(sdk, "ndk")):
+        return utils.join(sdk, "ndk", find_latest(utils.join(sdk, "ndk")))
+    elif os.path.isdir(utils.join(sdk, "ndk-bundle")):
+        return utils.join(sdk, "ndk-bundle")
+    else:
+        raise Exception("could find ndk")
+
 def get_llvm_prebuild_dir(sdk):
-    temp = utils.join(sdk,"ndk-bundle","toolchains","llvm","prebuilt")
+    temp = utils.join(sdk, "ndk-bundle", "toolchains", "llvm", "prebuilt")
     prebuilds = os.listdir(temp)
     if len(prebuilds) != 1:
-        raise Error("more than one prebuild architekture")
-    return utils.join(temp,prebuilds[0])
-    
+        raise Exception("more than one prebuild architekture")
+    return utils.join(temp, prebuilds[0])
+
 def setup(api, arch, sdk):
     base = utils.join(get_llvm_prebuild_dir(sdk), "bin")
     appendix = ""
@@ -58,8 +81,8 @@ def setup(api, arch, sdk):
         return [bin], [bin]
     if arch == utils.arch_x86_64:
         return [bin], [bin]
-        
-        
+
+
 def debug_keystore(dir, jdk):
     file = utils.join(dir,"debug.keystore")
     keystore_password = "android"
@@ -109,7 +132,7 @@ class Builder(object):
         self.adb_bin = ""
         self.std_lib_src = ""
         self.concat_cmd = False
-        
+
     def build(self):
         build_tools = utils.join(self.sdk,"build-tools",self.build_tools_version)
         android_jar = utils.join(self.sdk,"platforms","android-"+str(self.api),"android.jar")
@@ -123,19 +146,19 @@ class Builder(object):
         apk_unsigned = utils.join(self.build_dir,"unsigned.apk")
         javac_bin = utils.join(self.jdk,"bin","javac")
         assets_copy_dir = utils.join(self.build_dir, "assets")
-        
+
         if self.dx_bin: dx_bin = self.dx_bin
         if self.aapt_bin: aapt_bin = self.aapt_bin
         if self.zip_align_bin: zip_align_bin = self.zip_align_bin
         if self.apk_sign_bin: apk_sign_bin = self.apk_sign_bin
-        
+
         if not os.path.exists(class_output):
             os.makedirs(class_output)
         if not os.path.exists(os.path.dirname(self.apk_output)):
             os.makedirs(os.path.dirname(self.apk_output))
-            
+
         assets_changed = utils.copy_assets(self.assets_dir, assets_copy_dir, rebuild=self.rebuild)
-        
+
         std_lib_changed = False
         lib_dir_rel = utils.join("lib", get_lib_dir_name(self.arch))
         lib_dir = utils.join(self.build_dir, lib_dir_rel)
@@ -148,7 +171,7 @@ class Builder(object):
             if not os.path.exists(lib_dir):
                 os.makedirs(lib_dir)
             shutil.copyfile(std_lib_src, std_lib_dest)
-            
+
         java_changed = False
         for file in self.java_source:
             java_file = utils.join(self.java_dir, file)
@@ -159,7 +182,7 @@ class Builder(object):
             javac_ret = utils.exec_cmd([javac_bin, "-d", class_output, "-classpath", self.java_dir, "-bootclasspath", android_jar, java_file], True, self.concat_cmd)
             if javac_ret != 0:
                 return False
-        
+
         dx_changed = False
         if java_changed or self.rebuild or not os.path.exists(utils.join(self.build_dir,"classes.dex")):
             dx_changed = True
@@ -167,7 +190,7 @@ class Builder(object):
             if dx_ret != 0:
                 print "dx returned with "+str(dx_ret)
                 return False
-        
+
         apk_empty = False
         if self.rebuild or assets_changed or (not os.path.exists(apk_unaligned)) or os.path.getmtime(self.android_manifest) > os.path.getmtime(apk_unaligned):
             apk_empty = True
@@ -175,7 +198,7 @@ class Builder(object):
             if aapt_p_ret != 0:
                 print "aapt package returned with "+str(aapt_p_ret)
                 return False
-            
+
         add_files = []
         if dx_changed or apk_empty:
             add_files += ["classes.dex"]
@@ -190,37 +213,37 @@ class Builder(object):
                 if aapt_r_ret != 0:
                     print "aapt remove returned with "+str(aapt_r_ret)
                     return False
-            
+
             aapt_a_ret = utils.exec_cmd([aapt_bin, "add", apk_unaligned_name] + add_files, True, self.concat_cmd, cwd=self.build_dir)
             if aapt_a_ret != 0:
                 print "aapt add returned with "+str(aapt_a_ret)
                 return False
-        
+
         if add_files or apk_empty:
             align_ret = utils.exec_cmd([zip_align_bin, "-f" ,"-p", "4", apk_unaligned, apk_unsigned], True, self.concat_cmd)
             if align_ret != 0:
                 print "zipalign returned with "+str(align_ret)
                 return False
-        
+
         if add_files or apk_empty:
             sign_ret = utils.exec_cmd([apk_sign_bin, "sign", "--out", self.apk_output, "--ks", self.keystore, "--ks-pass", "pass:"+self.keystore_password, "--ks-key-alias", self.key_alias, "--key-pass", "pass:"+self.key_password, apk_unsigned], True, self.concat_cmd)
             if sign_ret != 0:
                 print "apksign returned with "+str(sign_ret)
                 return False
-                
+
         return True
-        
-    
+
+
     def launch(self, activity, use_pm=False):
         adb_bin = utils.join(self.sdk,"platform-tools","adb.exe")
         if self.adb_bin:
             adb_bin = self.adb_bin
-        
+
         adb_state = subprocess.check_output([adb_bin, "get-state"])
         if not adb_state.startswith("device"):
             print "Wrong adb state: {"+adb_state+"}"
             return False
-        
+
         install_ret = 0
         if not use_pm:
             install_ret = utils.exec_cmd([adb_bin, "install", "-r", self.apk_output], False, self.concat_cmd)
@@ -229,6 +252,6 @@ class Builder(object):
         if install_ret != 0:
             print "install returned with "+str(install_ret)
             return False
-        
+
         utils.exec_cmd([adb_bin, "shell", "am", "start", self.package+"/"+activity], False, self.concat_cmd)
         return True
