@@ -9,11 +9,11 @@ class assetbuf : public std::filebuf{
 };
 
 assetbuf::assetbuf(std::string file) : std::filebuf(){
-    open(file, std::ios_base::in);
+    open("assets/"+file, std::ios_base::in);
 }
 
 asset_istream::asset_istream(std::string file) : std::istream(new assetbuf(file)){
-    
+
 }
 
 asset_istream::~asset_istream(){
@@ -21,4 +21,3 @@ asset_istream::~asset_istream(){
 }
 
 #endif
-

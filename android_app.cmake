@@ -54,7 +54,7 @@ function(add_apk _TARGET_NAME)
         set(_add_apk_VERSION_NAME "1.0")
         message(DEBUG "version name not passed, defaulting to 1.0")
     endif()
-    
+
     #relative to ANDROID_APK_WORKING_DIR
     set(apk_file_name ${_TARGET_NAME}_wip.apk)
 
@@ -62,14 +62,14 @@ function(add_apk _TARGET_NAME)
     set(apk_file ${ANDROID_APK_WORKING_DIR}/${apk_file_name})
     set(apk_file_aligned ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}_aligned.apk)
     set(apk_file_output ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}.apk)
-    
+
     set(apk_modification_pol ${_TARGET_NAME}_mod_apk)
     set_property(GLOBAL APPEND PROPERTY JOB_POOLS ${apk_modification_pol}=1)
-    
+
     set(depfile_dir dep)
     #relative to build directory
     set(package_depfile ${depfile_dir}/package.dep)
-    
+
     set(package_cmd ${Android_AAPT_EXECUTABLE} package -f -M ${CMAKE_CURRENT_SOURCE_DIR}/${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file}
             --min-sdk-version ${_add_apk_MIN_SDK_VERSION} --target-sdk-version ${_add_apk_TARGET_SDK_VERSION}
             --version-code ${_add_apk_VERSION_CODE} --version-name ${_add_apk_VERSION_NAME})
@@ -81,17 +81,17 @@ function(add_apk _TARGET_NAME)
     endif()
     add_custom_command(
         OUTPUT ${package_depfile}
-        COMMAND ${package_cmd} 
+        COMMAND ${package_cmd}
         COMMAND ${CMAKE_COMMAND} -E touch ${package_depfile}
         BYPRODUCTS ${apk_file}
         COMMENT "Packaging ${_TARGET_NAME}"
     )
-    
+
     set(add_depfiles)
     foreach(_source IN LISTS _add_apk_SOURCES)
         #relative to build directory
         set(_depfile ${depfile_dir}/${_source}.dep)
-        
+
         add_custom_command(
             OUTPUT ${_depfile}
             COMMAND ${Java_JAR_EXECUTABLE} -uf ${apk_file_name} ${_source}
@@ -103,14 +103,14 @@ function(add_apk _TARGET_NAME)
         )
         list(APPEND add_depfiles ${_depfile})
     endforeach()
-    
+
     add_custom_command(
         OUTPUT ${apk_file_aligned}
         COMMAND ${Android_ZIPALIGN_EXECUTABLE} -f -p 4 ${apk_file} ${apk_file_aligned}
         DEPENDS ${package_depfile} ${add_depfiles} ${apk_file}
         COMMENT "Aligning ${_TARGET_NAME}"
     )
-    
+
     set(keystore_file ${ANDROID_KEYSTORE_DIR}/debug.keystore)
     set(keystore_pass android)
     set(keystore_key_alias androiddebugkey)
@@ -125,7 +125,7 @@ function(add_apk _TARGET_NAME)
         )
         message(CHECK_PASS "done")
     endif()
-    
+
     add_custom_command(
         OUTPUT ${apk_file_output}
         COMMAND ${Android_APKSIGNER_EXECUTABLE} sign --out ${apk_file_output}
@@ -134,15 +134,15 @@ function(add_apk _TARGET_NAME)
         DEPENDS ${apk_file_aligned} ${keystore_file}
         COMMENT "Signing ${_TARGET_NAME}"
     )
-    
+
     add_custom_target(${_TARGET_NAME} ALL SOURCES ${apk_file_output})
-    
+
     add_custom_target(install_${_TARGET_NAME}
         COMMAND ${Android_ADB_EXECUTABLE} install ${apk_file_output}
         DEPENDS ${_TARGET_NAME}
         COMMENT "Installing ${_TARGET_NAME}"
     )
-    
+
     if(DEFINED _add_apk_ACTIVITY AND DEFINED _add_apk_PACKAGE)
         add_custom_target(run_${_TARGET_NAME}
             COMMAND ${Android_ADB_EXECUTABLE} shell am start ${_add_apk_PACKAGE}/${_add_apk_ACTIVITY}
@@ -150,7 +150,6 @@ function(add_apk _TARGET_NAME)
             COMMENT "Launching ${_TARGET_NAME}"
         )
         if(DEFINED ANDROID_LOGGER)
-            message("ANDROID_LOGGER: ${ANDROID_LOGGER}")
             add_custom_command(
                 TARGET run_${_TARGET_NAME} POST_BUILD
                 COMMAND ${ANDROID_LOGGER} ${Android_ADB_EXECUTABLE} ${_add_apk_PACKAGE}
@@ -158,5 +157,5 @@ function(add_apk _TARGET_NAME)
             )
         endif()
     endif()
-    
+
 endfunction()

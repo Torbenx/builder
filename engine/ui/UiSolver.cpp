@@ -25,7 +25,7 @@ void UiSolver::addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, LazyTyp
 
 void UiSolver::solve(){
     freeSolution();
-    
+
     /*for(size_t i=0;i<varCount;i++){
         printf("%u: ", i);
         for(size_t j=0;j<vars_to_eqns[i].size();j++){
@@ -38,7 +38,7 @@ void UiSolver::solve(){
         }
         printf("\n");
     }*/
-    
+
     solutions = (UiSolution*) malloc(varCount * sizeof(UiSolution));
     for(ui_var_t var=0;var<fixedCount;var++){
         UiSolution& sol = solutions[var];
@@ -49,7 +49,7 @@ void UiSolver::solve(){
     for(size_t i=fixedCount;i<varCount;i++){
         solutions[i].svar = UI_VAR_INVALID;
     }
-    
+
     //reduce
     std::list<ui_eqn_t> generalQueue;
     ui_svar_t svarCount = fixedCount;
@@ -73,12 +73,12 @@ void UiSolver::solve(){
             }
         }
     }
-    
+
     values = (float*)malloc((svarCount-fixedCount) * sizeof(float));
     for(size_t i=0;i<svarCount-fixedCount;i++){
         values[i] = NAN;
     }
-    
+
     /*for(size_t i=0;i<svarCount;i++){
         printf("%u: ", i);
         for(size_t j=0;j<svars_to_eqns[i].size();j++){
@@ -87,7 +87,7 @@ void UiSolver::solve(){
         }
         printf("\n");
     }*/
-    
+
     for(;;){
         ui_svar_t start = UI_VAR_INVALID;
         for(size_t i=0;i<svarCount-fixedCount;i++){
@@ -103,7 +103,7 @@ void UiSolver::solve(){
         entries.clear();
         solveVars.push_back(start); //make sure no one explore's it
         exploreVar2(start, UI_EQN_INVALID);
-        LOGD("solving %u equations for %u variables", eqnCount, solveVars.size());
+        //LOGD("solving %u equations for %u variables", eqnCount, solveVars.size());
         if(eqnCount == 1){
             float factor = 0.0f;
             for(auto it=entries.begin();it!=entries.end();it++){
@@ -175,7 +175,7 @@ void UiSolver::exploreVar2(ui_svar_t svar, ui_eqn_t origin){
 void UiSolver::exploreEq2(ui_eqn_t eq, ui_svar_t origin){
     //LOGD("%u => %u", origin, eq);
     UiGeneralEquation& equation = generalEquations[eq];
-    
+
     ui_svar_t min_svar = UI_VAR_INVALID;
     for(size_t i=0;i<equation.termCount;i++){
         UiEquationTerm& term = equation.terms[i];
@@ -185,10 +185,7 @@ void UiSolver::exploreEq2(ui_eqn_t eq, ui_svar_t origin){
     }
     bool addEntry = (origin == min_svar);
     float rhs = equation.rhs.get().toGL(metrics);
-    
-    if(addEntry)
-        LOGD("%u added!", eq);
-    
+
     for(size_t i=0;i<equation.termCount;i++){
         UiEquationTerm& term = equation.terms[i];
         UiSolution& sol = solutions[term.var];
@@ -199,7 +196,7 @@ void UiSolver::exploreEq2(ui_eqn_t eq, ui_svar_t origin){
             continue;
         }
         auto where = std::find(solveVars.begin(), solveVars.end(), sol.svar);
-        
+
         if(addEntry){
             UiMatrixEntry entry;
             entry.eqn = eqnCount;
@@ -208,7 +205,7 @@ void UiSolver::exploreEq2(ui_eqn_t eq, ui_svar_t origin){
             entries.push_back(entry);
             rhs -= sol.offset * term.factor;
         }
-        
+
         if(where == solveVars.end()){
             solveVars.push_back(sol.svar);
             exploreVar2(sol.svar, eq);
@@ -232,7 +229,7 @@ void UiSolver::solveLinearSystem(){
     for(UiMatrixEntry& entry : entries){
         matrix[entry.eqn*(size+1)+entry.var] += entry.factor;
     }
-    
+
     /*for(size_t j=0;j<size;j++){
         for(size_t k=0;k<size+1;k++){
             printf("%+f ", matrix[j*(size+1)+k]);
@@ -240,7 +237,7 @@ void UiSolver::solveLinearSystem(){
         printf("\n");
     }
     printf("\n");*/
-    
+
     for(size_t i=0;i<size-1;i++){
         float max = 0.0f;
         size_t r = 0;
@@ -280,7 +277,7 @@ void UiSolver::solveLinearSystem(){
             }
         }
     }
-    
+
     /*for(size_t j=0;j<size;j++){
         for(size_t k=0;k<size+1;k++){
             printf("%+f ", matrix[j*(size+1)+k]);
@@ -288,7 +285,7 @@ void UiSolver::solveLinearSystem(){
         printf("\n");
     }
     printf("\n");*/
-    
+
     for(size_t i=0;i<size;i++){
         values[solveVars[i] - fixedCount] = matrix[i*(size+1)+size];
     }
