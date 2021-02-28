@@ -14,6 +14,7 @@ utils.exec_cmd(["cmake", "-G", "Ninja", "-DCMAKE_MAKE_PROGRAM=ninja", "-S", ".",
 print("setting up Android...")
 android_sdk = os.environ["ANDROID_HOME"]
 print("Android SDK: "+android_sdk)
+android_ndk = android.find_latest_ndk(android_sdk)
 
 min_sdk_version = 24
 target_sdk_version = 27
@@ -26,7 +27,7 @@ for arch in arch_list:
     print("    "+name+"...")
     utils.exec_cmd([
         "cmake", "-G", "Ninja", "-DCMAKE_MAKE_PROGRAM=ninja", "-S", ".", "-B", "abuild/"+name,
-        "-DCMAKE_TOOLCHAIN_FILE="+android_sdk+"/ndk-bundle/build/cmake/android.toolchain.cmake",
+        "-DCMAKE_TOOLCHAIN_FILE="+android_ndk+"/build/cmake/android.toolchain.cmake",
         "-DANDROID_ABI="+name, "-DANDROID_PLATFORM="+str(min_sdk_version),
         "-DANDROID_SDK="+android_sdk, "-DANDROID_MIN_SDK_VERSION="+str(min_sdk_version), "-DANDROID_TARGET_SDK_VERSION="+str(target_sdk_version), #custom defines
         "-DANDROID_LOGGER="+current_dir+"/build_lib/android_log.bat"

@@ -32,6 +32,7 @@ steps:
 print("setting up Android...")
 android_sdk = os.environ["ANDROID_HOME"]
 print("Android SDK: "+android_sdk)
+android_ndk = android.find_latest_ndk(android_sdk)
 
 min_sdk_version = 24
 target_sdk_version = 27
@@ -41,7 +42,7 @@ name = android.get_lib_dir_name(arch)
 print("    "+name+"...")
 utils.exec_cmd([
     "cmake", "-G", "Ninja", "-DCMAKE_MAKE_PROGRAM=ninja", "-S", ".", "-B", "build",
-    "-DCMAKE_TOOLCHAIN_FILE="+android_sdk+"/ndk_bundle/build/cmake/android.toolchain.cmake",
+    "-DCMAKE_TOOLCHAIN_FILE="+android_ndk+"/build/cmake/android.toolchain.cmake",
     "-DANDROID_ABI="+name, "-DANDROID_PLATFORM="+str(min_sdk_version),
     "-DANDROID_SDK="+android_sdk, "-DANDROID_MIN_SDK_VERSION="+str(min_sdk_version), "-DANDROID_TARGET_SDK_VERSION="+str(target_sdk_version), #custom defines
     "-DANDROID_KEYSTORE_DIR=/storage/internal/dev"
