@@ -58,7 +58,7 @@ def find_latest_ndk(sdk):
     elif os.path.isdir(utils.join(sdk, "ndk-bundle")):
         return utils.join(sdk, "ndk-bundle")
     else:
-        raise Exception("could find ndk")
+        raise Exception("couldn't find ndk")
 
 def get_llvm_prebuild_dir(sdk):
     temp = utils.join(sdk, "ndk-bundle", "toolchains", "llvm", "prebuilt")
