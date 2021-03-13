@@ -60,5 +60,5 @@ void HeadBar::draw(){
 }
 
 HeadBar::~HeadBar(){
-    
+
 }

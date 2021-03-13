@@ -5,7 +5,15 @@
 
 #define GET_UI_BUILDER(comp) scene->layout(comp)
 
-UiScene::UiScene() : solver(4) {}
+UiScene::UiScene(){
+    solver.fixed = (float*)malloc(4 * sizeof(float));
+    solver.fixedCount = 4;
+    solver.fixed_to_eqns.resize(4);
+}
+
+UiScene::~UiScene(){
+    free(solver.fixed);
+}
 
 UiSceneBuilder UiScene::layout(UiComponent* comp){
     if(comp){
@@ -29,10 +37,10 @@ void UiScene::setParent(Rect rect){
 
 void UiScene::build(){
     
-    solver.fixed[UI_VAR_TOP] = parent.top;
-    solver.fixed[UI_VAR_BOTTOM] = parent.bottom;
-    solver.fixed[UI_VAR_LEFT] = parent.left;
-    solver.fixed[UI_VAR_RIGHT] = parent.right;
+    solver.fixed[4-UI_VAR_TOP-1] = parent.top;
+    solver.fixed[4-UI_VAR_BOTTOM-1] = parent.bottom;
+    solver.fixed[4-UI_VAR_LEFT-1] = parent.left;
+    solver.fixed[4-UI_VAR_RIGHT-1] = parent.right;
     
     solver.metrics = metrics;
     solver.solve();
@@ -165,10 +173,10 @@ UiSceneBuilder& UiSceneBuilder::centerHorizontal(UiComponent* other, float fract
     eq.rhs = TypedSize::zero.asXSize().lazy();
     ui_eqn_t eqId = scene->solver.generalEquations.size() | UI_EQN_NOT_SIMPLE_BIT;
     scene->solver.generalEquations.push_back(eq);
-    scene->solver.vars_to_eqns[ob.left()].push_back(eqId);
-    scene->solver.vars_to_eqns[ob.right()].push_back(eqId);
-    scene->solver.vars_to_eqns[left()].push_back(eqId);
-    scene->solver.vars_to_eqns[right()].push_back(eqId);
+    scene->solver.addEq(ob.left(), eqId);
+    scene->solver.addEq(ob.right(), eqId);
+    scene->solver.addEq(left(), eqId);
+    scene->solver.addEq(right(), eqId);
     return *this;
 }
 
@@ -188,10 +196,10 @@ UiSceneBuilder& UiSceneBuilder::centerVertical(UiComponent* other, float fractio
     eq.rhs = TypedSize::zero.asYSize().lazy();
     ui_eqn_t eqId = scene->solver.generalEquations.size() | UI_EQN_NOT_SIMPLE_BIT;
     scene->solver.generalEquations.push_back(eq);
-    scene->solver.vars_to_eqns[ob.top()].push_back(eqId);
-    scene->solver.vars_to_eqns[ob.bottom()].push_back(eqId);
-    scene->solver.vars_to_eqns[top()].push_back(eqId);
-    scene->solver.vars_to_eqns[bottom()].push_back(eqId);
+    scene->solver.addEq(ob.top(), eqId);
+    scene->solver.addEq(ob.bottom(), eqId);
+    scene->solver.addEq(top(), eqId);
+    scene->solver.addEq(bottom(), eqId);
     return *this;
 }
 

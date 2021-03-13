@@ -5,7 +5,6 @@
 #include "UiSolver.hpp"
 #include <vector>
 
-//match Rect
 #define UI_VAR_TOP 0
 #define UI_VAR_BOTTOM 1
 #define UI_VAR_LEFT 2
@@ -25,6 +24,7 @@ class UiScene{
         UiSceneBuilder layout(UiComponent* comp);
         void build();
         void clear();
+        ~UiScene();
 };
 
 class UiSceneBuilder{
@@ -32,10 +32,10 @@ class UiSceneBuilder{
         UiScene* scene;
         UiComponent* comp;
         
-        ui_var_t top(){return (comp ? comp->base : 0) + UI_VAR_TOP;}
-        ui_var_t bottom(){return (comp ? comp->base : 0) + UI_VAR_BOTTOM;}
-        ui_var_t left(){return (comp ? comp->base : 0) + UI_VAR_LEFT;}
-        ui_var_t right(){return (comp ? comp->base : 0) + UI_VAR_RIGHT;}
+        ui_var_t top(){return (comp ? comp->base : -4) + UI_VAR_TOP;}
+        ui_var_t bottom(){return (comp ? comp->base : -4) + UI_VAR_BOTTOM;}
+        ui_var_t left(){return (comp ? comp->base : -4) + UI_VAR_LEFT;}
+        ui_var_t right(){return (comp ? comp->base : -4) + UI_VAR_RIGHT;}
         
         UiSceneBuilder& above(UiComponent* other=nullptr, TypedSize padding=TypedSize::zero);
         UiSceneBuilder& below(UiComponent* other=nullptr, TypedSize padding=TypedSize::zero);

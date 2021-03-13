@@ -4,10 +4,8 @@
 #include <math.h>
 #include "../util/log.hpp"
 
-UiSolver::UiSolver(size_t fixedCount){
-    this->fixedCount = fixedCount;
-    fixed = (float*)malloc(fixedCount * sizeof(float));
-    varCount = fixedCount;
+UiSolver::UiSolver(){
+    varCount = 0;
 }
 
 void UiSolver::addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, LazyTypedSizeXY rhs){
@@ -19,14 +17,35 @@ void UiSolver::addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, LazyTyp
     eq.rhs = rhs;
     ui_eqn_t eqnId = simpleEquations.size();
     simpleEquations.push_back(eq);
-    vars_to_eqns[v1].push_back(eqnId);
-    vars_to_eqns[v2].push_back(eqnId);
+    addEq(v1, eqnId);
+    addEq(v2, eqnId);
+}
+
+void UiSolver::addEq(ui_var_t var, ui_eqn_t eq){
+    if(var < 0){
+        fixed_to_eqns[-var-1].push_back(eq);
+    }else{
+        vars_to_eqns[var].push_back(eq);
+    }
 }
 
 void UiSolver::solve(){
     freeSolution();
 
-    /*for(size_t i=0;i<varCount;i++){
+    /*for(ui_var_t var=-1;var>=-fixedCount;var--){
+        size_t i = -var-1;
+        printf("%u: ", i);
+        for(size_t j=0;j<fixed_to_eqns[i].size();j++){
+            ui_eqn_t eq = fixed_to_eqns[i][j];
+            if(eq & UI_EQN_NOT_SIMPLE_BIT){
+                printf("%u; ", eq & ~UI_EQN_NOT_SIMPLE_BIT);
+            }else{
+                printf("%u, ", eq);
+            }
+        }
+        printf("\n");
+    }
+    for(size_t i=0;i<varCount;i++){
         printf("%u: ", i);
         for(size_t j=0;j<vars_to_eqns[i].size();j++){
             ui_eqn_t eq = vars_to_eqns[i][j];
@@ -40,78 +59,45 @@ void UiSolver::solve(){
     }*/
 
     solutions = (UiSolution*) malloc(varCount * sizeof(UiSolution));
-    for(ui_var_t var=0;var<fixedCount;var++){
-        UiSolution& sol = solutions[var];
-        sol.svar = var;
-        sol.factor = 1.0f;
-        sol.offset = 0.0f;
-    }
-    for(size_t i=fixedCount;i<varCount;i++){
+    for(size_t i=0;i<varCount;i++){
         solutions[i].svar = UI_VAR_INVALID;
     }
 
-    //reduce
-    std::list<ui_eqn_t> generalQueue;
-    ui_svar_t svarCount = fixedCount;
-    svars_to_eqns.resize(svarCount);
-    for(ui_var_t var=0;var<fixedCount;var++){
-        exploreVar(var, UI_EQN_INVALID);
+    markedEquations.clear();
+    for(ui_var_t var=-1;var>=-fixedCount;var--){
+        std::vector<ui_eqn_t>& eqns = fixed_to_eqns[-var-1];
+        for(ui_eqn_t eq : eqns){
+            if(eq & UI_EQN_NOT_SIMPLE_BIT){
+                markedEquations.push_back(eq & ~UI_EQN_NOT_SIMPLE_BIT);
+            }else{
+                exploreSimpleEq(eq, var);
+            }
+        }
     }
+
+    svarCount = 0;
+    eqnExplored.clear();
+    eqnExplored.resize(generalEquations.size());
+
     for(size_t i=0;i<markedEquations.size();i++){
-        ui_eqn_t eq = markedEquations[i];
-        UiGeneralEquation& equation = generalEquations[eq & ~UI_EQN_NOT_SIMPLE_BIT];
-        for(size_t i=0;i<equation.termCount;i++){
-            UiEquationTerm& term = equation.terms[i];
-            UiSolution& sol = solutions[term.var];
-            if(sol.svar == UI_VAR_INVALID){
-                sol.svar = svarCount++;
-                sol.factor = 1.0f;
-                sol.offset = 0.0f;
-                svars_to_eqns.resize(svarCount);
-                svars_to_eqns[sol.svar].push_back(eq & ~UI_EQN_NOT_SIMPLE_BIT);
-                exploreVar(term.var, eq);
-            }
-        }
-    }
-
-    values = (float*)malloc((svarCount-fixedCount) * sizeof(float));
-    for(size_t i=0;i<svarCount-fixedCount;i++){
-        values[i] = NAN;
-    }
-
-    /*for(size_t i=0;i<svarCount;i++){
-        printf("%u: ", i);
-        for(size_t j=0;j<svars_to_eqns[i].size();j++){
-            ui_eqn_t eq = svars_to_eqns[i][j];
-            printf("%u, ", eq);
-        }
-        printf("\n");
-    }*/
-
-    for(;;){
-        ui_svar_t start = UI_VAR_INVALID;
-        for(size_t i=0;i<svarCount-fixedCount;i++){
-            if(std::isnan(values[i])){
-                start = i+fixedCount;
-                break;
-            }
-        }
-        if(start == UI_VAR_INVALID)break;
-        eqnCount = 0;
-        solveVars.clear();
+        svarStart = svarCount;
         m_rhs.clear();
         entries.clear();
-        solveVars.push_back(start); //make sure no one explore's it
-        exploreVar2(start, UI_EQN_INVALID);
-        //LOGD("solving %u equations for %u variables", eqnCount, solveVars.size());
-        if(eqnCount == 1){
+
+        exploreGeneralEq(markedEquations[i]);
+
+        size_t variables = svarCount - svarStart;
+        //LOGD("Solving %u equations for %u variables", m_rhs.size(), variables);
+        if(variables == 0){
+            //nothing to do
+        }else if(variables == 1){
             float factor = 0.0f;
             for(auto it=entries.begin();it!=entries.end();it++){
                 factor += it->factor;
             }
-            values[solveVars[0]-fixedCount] = m_rhs[0] / factor;
+            values.push_back(m_rhs[0] / factor);
         }else{
-            solveLinearSystem();
+            solveLinearSystem(variables);
         }
     }
 }
@@ -120,106 +106,113 @@ void UiSolver::exploreVar(ui_var_t var, ui_eqn_t origin){
     std::vector<ui_eqn_t>& eqns = vars_to_eqns[var];
     for(ui_eqn_t eq : eqns){
         if(eq == origin)continue;
-        exploreEq(eq, var);
-    }
-}
-
-void UiSolver::exploreEq(ui_eqn_t eq, ui_var_t origin){
-    if(eq & UI_EQN_NOT_SIMPLE_BIT){
-        std::vector<ui_eqn_t>& eqns = svars_to_eqns[solutions[origin].svar];
-        ui_eqn_t eqI = eq & ~UI_EQN_NOT_SIMPLE_BIT;
-        if(std::find(eqns.begin(), eqns.end(), eqI) == eqns.end()){
-            eqns.push_back(eqI);
-        }
-        auto where = std::find(markedEquations.begin(), markedEquations.end(), eq);
-        if(where == markedEquations.end()){
-            markedEquations.push_back(eq);
-        }
-    }else{
-        UiSimpleEquation& equation = simpleEquations[eq];
-        UiSolution& sol1 = solutions[equation.term1.var];
-        UiSolution& sol2 = solutions[equation.term2.var];
-        if(sol1.svar == UI_VAR_INVALID && sol2.svar == UI_VAR_INVALID){
-            LOGD("this shoundn't happen");
-            return;
-        }
-        if(sol1.svar != UI_VAR_INVALID && sol2.svar != UI_VAR_INVALID){
-            LOGD("system overdetermined!");
-        }else{
-            if(sol1.svar == UI_VAR_INVALID){
-                sol1 = sol2;
-                sol1.factor *= -equation.term2.factor; sol1.offset *= -equation.term2.factor;
-                sol1.offset += equation.rhs.get().toGL(metrics);
-                sol1.factor /= equation.term1.factor; sol1.offset /= equation.term1.factor;
-                exploreVar(equation.term1.var, eq);
+        if(eq & UI_EQN_NOT_SIMPLE_BIT){
+            if(solutions[var].svar < 0){
+                markedEquations.push_back(eq & ~UI_EQN_NOT_SIMPLE_BIT);
             }else{
-                sol2 = sol1;
-                sol2.factor *= -equation.term1.factor; sol2.offset *= -equation.term1.factor;
-                sol2.offset += equation.rhs.get().toGL(metrics);
-                sol2.factor /= equation.term2.factor; sol2.offset /= equation.term2.factor;
-                exploreVar(equation.term2.var, eq);
+                exploreGeneralEq(eq & ~UI_EQN_NOT_SIMPLE_BIT);
             }
+        }else{
+            exploreSimpleEq(eq, var);
         }
     }
 }
 
-void UiSolver::exploreVar2(ui_svar_t svar, ui_eqn_t origin){
-    //LOGD("%u -> %u", origin, svar);
-    std::vector<ui_eqn_t>& eqns = svars_to_eqns[svar];
-    for(ui_eqn_t eq : eqns){
-        if(eq == origin)continue;
-        exploreEq2(eq, svar);
+void UiSolver::exploreSimpleEq(ui_eqn_t eq, ui_var_t sourceVar){
+    UiSimpleEquation& equation = simpleEquations[eq];
+    ui_var_t targetVar;
+    float sourceFactor, targetFactor;
+    if(equation.term1.var == sourceVar){
+        sourceFactor = equation.term1.factor;
+        targetVar = equation.term2.var;
+        targetFactor = equation.term2.factor;
+    }else{
+        //equation.term2.var == sourceVar
+        sourceFactor = equation.term2.factor;
+        targetVar = equation.term1.var;
+        targetFactor = equation.term1.factor;
     }
+    if(targetVar < 0){
+        LOGW("system overdetermined, target %d is fixed! (ignoring eq %u)", targetVar, eq);
+        return;
+    }
+    UiSolution& target = solutions[targetVar];
+    if(target.svar != UI_VAR_INVALID){
+        LOGW("system overdetermined, target %d already solved! (ignoring eq %u)", targetVar, eq);
+        return;
+    }
+    UiSolution source;
+    if(sourceVar < 0){
+        source.svar = sourceVar;
+        source.factor = 1.0f;
+        source.offset = 0.0f;
+    }else{
+        source = solutions[sourceVar];
+    }
+    target = source;
+    
+    target.factor *= -sourceFactor;
+    target.offset *= -sourceFactor;
+    
+    target.offset += equation.rhs.get().toGL(metrics);
+    
+    target.factor /= targetFactor;
+    target.offset /= targetFactor;
+    
+    exploreVar(targetVar, eq);
 }
 
-void UiSolver::exploreEq2(ui_eqn_t eq, ui_svar_t origin){
-    //LOGD("%u => %u", origin, eq);
-    UiGeneralEquation& equation = generalEquations[eq];
-
-    ui_svar_t min_svar = UI_VAR_INVALID;
-    for(size_t i=0;i<equation.termCount;i++){
-        UiEquationTerm& term = equation.terms[i];
-        UiSolution& sol = solutions[term.var];
-        if(sol.svar < fixedCount)continue;
-        if(sol.svar < min_svar)min_svar = sol.svar;
+void UiSolver::exploreGeneralEq(ui_eqn_t eq){
+    if(eqnExplored[eq]){
+        return;
     }
-    bool addEntry = (origin == min_svar);
-    float rhs = equation.rhs.get().toGL(metrics);
+    eqnExplored[eq] = true;
 
+    UiGeneralEquation& equation = generalEquations[eq];
+    size_t eqnIndex = m_rhs.size();
+    m_rhs.push_back(0.0f);
+
+    float rhs = equation.rhs.get().toGL(metrics);
     for(size_t i=0;i<equation.termCount;i++){
         UiEquationTerm& term = equation.terms[i];
-        UiSolution& sol = solutions[term.var];
-        if(sol.svar < fixedCount){
-            if(addEntry){
-                rhs -= (fixed[sol.svar] * sol.factor + sol.offset) * term.factor;
-            }
+        if(term.var < 0){
+            rhs -= fixed[-term.var-1] * term.factor;
             continue;
         }
-        auto where = std::find(solveVars.begin(), solveVars.end(), sol.svar);
-
-        if(addEntry){
-            UiMatrixEntry entry;
-            entry.eqn = eqnCount;
-            entry.var = where - solveVars.begin();
-            entry.factor = sol.factor * term.factor;
-            entries.push_back(entry);
-            rhs -= sol.offset * term.factor;
+        UiSolution& sol = solutions[term.var];
+        if(sol.svar < 0){
+            rhs -= (fixed[-sol.svar-1] * sol.factor + sol.offset) * term.factor;
+            continue;
         }
-
-        if(where == solveVars.end()){
-            solveVars.push_back(sol.svar);
-            exploreVar2(sol.svar, eq);
+        if(sol.svar == UI_VAR_INVALID){
+            sol.svar = svarCount++;
+            sol.factor = 1.0f;
+            sol.offset = 0.0f;
+            exploreVar(term.var, eq | UI_EQN_NOT_SIMPLE_BIT);
         }
+        UiMatrixEntry entry;
+        entry.eqn = eqnIndex;
+        entry.var = sol.svar - svarStart;
+        entry.factor = sol.factor * term.factor;
+        entries.push_back(entry);
+        rhs -= sol.offset * term.factor;
     }
-    if(addEntry){
-        eqnCount++;
-        m_rhs.push_back(rhs);
-    }
+    m_rhs[eqnIndex] = rhs;
 }
 
-void UiSolver::solveLinearSystem(){
-    size_t size = solveVars.size();
+void UiSolver::solveLinearSystem(size_t size){
     float matrix[size*(size+1)];
+
+    auto print_matrix = [&](){
+        for(size_t j=0;j<size;j++){
+            for(size_t k=0;k<size+1;k++){
+                printf("%+f ", matrix[j*(size+1)+k]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+    };
+
     for(size_t j=0;j<size;j++){
         for(size_t k=0;k<size;k++){
             matrix[j*(size+1)+k] = 0.0f;
@@ -229,14 +222,7 @@ void UiSolver::solveLinearSystem(){
     for(UiMatrixEntry& entry : entries){
         matrix[entry.eqn*(size+1)+entry.var] += entry.factor;
     }
-
-    /*for(size_t j=0;j<size;j++){
-        for(size_t k=0;k<size+1;k++){
-            printf("%+f ", matrix[j*(size+1)+k]);
-        }
-        printf("\n");
-    }
-    printf("\n");*/
+    //print_matrix();
 
     for(size_t i=0;i<size-1;i++){
         float max = 0.0f;
@@ -277,27 +263,25 @@ void UiSolver::solveLinearSystem(){
             }
         }
     }
-
-    /*for(size_t j=0;j<size;j++){
-        for(size_t k=0;k<size+1;k++){
-            printf("%+f ", matrix[j*(size+1)+k]);
-        }
-        printf("\n");
-    }
-    printf("\n");*/
+    //print_matrix();
 
     for(size_t i=0;i<size;i++){
-        values[solveVars[i] - fixedCount] = matrix[i*(size+1)+size];
+        values.push_back(matrix[i*(size+1)+size]);
     }
 }
 
 float UiSolver::getSolution(ui_var_t var){
+    if(var < 0){
+        return fixed[-var-1];
+    }
     UiSolution& sol = solutions[var];
     float value;
-    if(sol.svar >= fixedCount){
-        value = values[sol.svar - fixedCount];
+    if(sol.svar < 0){
+        value = fixed[-sol.svar-1];
+    }else if(sol.svar < svarCount){
+        value = values[sol.svar];
     }else{
-        value = fixed[sol.svar];
+        return NAN;
     }
     return sol.factor * value + sol.offset;
 }
@@ -309,7 +293,9 @@ void UiSolver::clear(){
     generalEquations.clear();
     simpleEquations.clear();
     vars_to_eqns.clear();
-    varCount = fixedCount;
+    fixed_to_eqns.clear();
+    fixed_to_eqns.resize(fixedCount);
+    varCount = 0;
 }
 
 void UiSolver::freeSolution(){
@@ -317,13 +303,9 @@ void UiSolver::freeSolution(){
         free(solutions);
         solutions = nullptr;
     }
-    if(values){
-        free(values);
-        values = nullptr;
-    }
+    values.clear();
 }
 
 UiSolver::~UiSolver(){
     freeSolution();
-    free(fixed);
 }
