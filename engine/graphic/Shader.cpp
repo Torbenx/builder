@@ -1,7 +1,7 @@
 #include "Shader.hpp"
 #include "../util/log.hpp"
 #include "../gl/glLog.hpp"
-        
+
 Shader::Shader(std::string vertex,std::string fragment){
     vertexSource = vertex;
     fragmentSource = fragment;
@@ -10,9 +10,9 @@ Shader::Shader(std::string vertex,std::string fragment){
 Shader::~Shader(){
     glDeleteProgram(glId);
 }
-        
+
 bool Shader::init(){
-    if(!glIsProgram(glId)){
+    if(glId == -1){
         const char *vSource = vertexSource.c_str();
         const char *fSource = fragmentSource.c_str();
         //LOGD("%s", vSource);
@@ -48,13 +48,13 @@ GLuint Shader::getAttrib(std::string attrib){
         return it->second;
     }
 }
-        
+
 GLuint Shader::getAndEnableAttrib(std::string attrib){
     GLuint a = getAttrib(attrib);
     glEnableVertexAttribArray(a);
     return a;
 }
-        
+
 GLint Shader::getUniform(std::string uniform){
     std::map<std::string,GLint>::iterator it = locations.find(uniform);
     if(it==locations.end()){
@@ -65,87 +65,87 @@ GLint Shader::getUniform(std::string uniform){
         return it->second;
     }
 }
-        
+
 void Shader::uniform1f(std::string uniform,float u){
     glUniform1f(getUniform(uniform),u);
 }
-        
+
 void Shader::uniform1i(std::string uniform,int u){
     glUniform1i(getUniform(uniform),u);
 }
-        
+
 void Shader::uniform2f(std::string uniform,float u1,float u2){
     glUniform2f(getUniform(uniform),u1,u2);
 }
-        
+
 void Shader::uniform2f(std::string uniform,float *u){
     glUniform2fv(getUniform(uniform),1,u);
 }
-        
+
 void Shader::uniform2i(std::string uniform,int u1,int u2){
     glUniform2i(getUniform(uniform),u1,u2);
 }
-        
+
 void Shader::uniform2i(std::string uniform,int *u){
     glUniform2iv(getUniform(uniform),1,u);
 }
-        
+
 void Shader::uniform3f(std::string uniform,float u1,float u2,float u3){
     glUniform3f(getUniform(uniform),u1,u2,u3);
 }
-        
+
 void Shader::uniform3f(std::string uniform,float *u){
     glUniform3fv(getUniform(uniform),1,u);
 }
-        
+
 void Shader::uniform3i(std::string uniform,int u1,int u2,int u3){
     glUniform3i(getUniform(uniform),u1,u2,u3);
 }
-        
+
 void Shader::uniform3i(std::string uniform,int *u){
     glUniform3iv(getUniform(uniform),1,u);
 }
-        
+
 void Shader::uniform4f(std::string uniform,float u1,float u2,float u3,float u4){
     glUniform4f(getUniform(uniform),u1,u2,u3,u4);
 }
-        
+
 void Shader::uniform4f(std::string uniform,float *u){
     glUniform4fv(getUniform(uniform),1,u);
 }
-        
+
 void Shader::uniform4i(std::string uniform,int u1,int u2,int u3,int u4){
     glUniform4i(getUniform(uniform),u1,u2,u3,u4);
 }
-        
+
 void Shader::uniform4i(std::string uniform,int *u){
     glUniform4iv(getUniform(uniform),1,u);
 }
-        
+
 void Shader::uniformMatrix2f(std::string uniform,float *u){
     glUniformMatrix2fv(getUniform(uniform),1,GL_FALSE,u);
 }
-        
+
 void Shader::uniformMatrix3f(std::string uniform,float *u){
     glUniformMatrix3fv(getUniform(uniform),1,GL_FALSE,u);
 }
-        
+
 void Shader::uniformMatrix4f(std::string uniform,float *u){
     glUniformMatrix4fv(getUniform(uniform),1,GL_FALSE,u);
 }
-        
+
 void Shader::uniformVec2(std::string uniform,Vec2 u){
     uniform2f(uniform,u.x,u.y);
 }
-        
+
 void Shader::uniformVec3(std::string uniform,Vec3 u){
     uniform3f(uniform,u.x,u.y,u.z);
 }
-        
+
 void Shader::uniformVec4(std::string uniform,Vec4 u){
     uniform4f(uniform,u.x,u.y,u.z,u.w);
 }
-        
+
 void Shader::uniformMat4x4(std::string uniform,Mat4x4 u){
     uniformMatrix4f(uniform,u.matrix);
 }
@@ -161,7 +161,7 @@ void Shader::attribPointer(std::string attrib,int size,int stride,float *a){
 void Shader::attribPointer(std::string attrib,int size,Bufferf& a){
     attribPointer(attrib,0,size,0,a);
 }
-        
+
 void Shader::attribPointer(std::string attrib,int offset,int size,int stride,Bufferf& a){
     if(a.target==TE_BUFFER){
         glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a.source+offset);

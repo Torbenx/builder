@@ -26,6 +26,10 @@ std::map<unsigned int,unsigned int> counter;
 void text_init();
 void time_init();
 
+void gl_debug_callback(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam){
+    LOGD("glDebug: %s", message);
+}
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
     /*counter[msg]++;
     if(counter[msg] - counter[msg] / 100 * 100 == 0){
@@ -60,24 +64,28 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
 
             SetPixelFormat(hdc,ChoosePixelFormat(hdc,&pfd),&pfd);
 
+            HGLRC hglrc_initial = wglCreateContext(hdc);
+            wglMakeCurrent(hdc, hglrc_initial);
+            glwrapper_init();
+            wglDeleteContext(hglrc_initial);
             int context_attribs[] = {
                 WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
                 0
             };
             HGLRC hglrc = wglCreateContextAttribsARB(hdc, NULL, context_attribs);
 
-            wglMakeCurrent(hdc,hglrc);
-
-            glwrapper_init();
+            wglMakeCurrent(hdc, hglrc);
+            glDebugMessageCallbackARB(gl_debug_callback, nullptr);
+            glEnable(GL_DEBUG_OUTPUT);
 
             ID3D11DeviceContext *dxContext;
             D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             text_init();
 
-            /*if(wglSwapIntervalEXT(0)){
+            if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
-            }*/
+            }
 
             renderer->create();
             return 0;

@@ -44,11 +44,10 @@ void Framebuffer::bind(){
     }else if(stencilCube){
         cubeMap(GL_STENCIL_ATTACHMENT,stencilCubeTarget,stencilCube);
     }
-    int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    /*int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if(status!=GL_FRAMEBUFFER_COMPLETE){
         LOGE("framebuffer not ready: 0x%x",status);
-    }
-    glLogError("glCheckFramebufferStatus");
+    }*/
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
     glViewport(offsetX,offsetY,width,height);
     glDepthMask(dMask);
@@ -58,8 +57,8 @@ void Framebuffer::bind(){
 }
 
 bool Framebuffer::init(){
-    if((!isDefault)&&!glIsFramebuffer(glId)){
-        glGenFramebuffers(1,&glId);
+    if((!isDefault) && glId == -1){
+        glGenFramebuffers(1, &glId);
         return true;
     }
     return false;

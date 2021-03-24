@@ -1,6 +1,6 @@
 #include "TestComponent.hpp"
 
-TestComponent::TestComponent() : 
+TestComponent::TestComponent() :
 shader(
 "attribute vec4 a_position;\n"
 "void main(){\n"
@@ -10,7 +10,7 @@ shader(
 "void main(){\n"
 "   gl_FragColor = u_color;\n"
 "}"){
-    
+
 }
 
 void TestComponent::draw(){
@@ -24,13 +24,13 @@ void TestComponent::draw(){
 void TestComponent::updateRect(){
     coords[0] = rect.getLeft();
     coords[1] = rect.getBottom();
-    
+
     coords[2] = rect.getRight();
     coords[3] = rect.getBottom();
-    
+
     coords[4] = rect.getLeft();
     coords[5] = rect.getTop();
-    
+
     coords[6] = rect.getRight();
     coords[7] = rect.getTop();
 }

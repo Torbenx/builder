@@ -1,29 +1,29 @@
 #include "Texture.hpp"
 
 Texture::Texture(){
-    
+
 }
 
 Texture::Texture(GLenum target){
     this->target = target;
 }
-    
+
 Texture::~Texture(){
     glDeleteTextures(1,&glId);
 }
-    
+
 bool Texture::init(){
-    if(!glIsTexture(glId)){
+    if(glId == -1){
         glGenTextures(1,&glId);
         return true;
     }
     return false;
 }
-    
+
 void Texture::bind(){
     glBindTexture(target,glId);
 }
-    
+
 void Texture::texture(void* data,GLsizei width,GLsizei height,GLenum format,GLenum type){
     source = data;
     this->width = width;
@@ -34,11 +34,11 @@ void Texture::texture(void* data,GLsizei width,GLsizei height,GLenum format,GLen
     glTexImage2D(target,0,format,width,height,0,format,type,source);
     applyTexParameter();
 }
-    
+
 void Texture::subTexture(GLvoid *data,GLint xoffset,GLint yoffset,GLsizei width,GLsizei height,GLenum type){
     glTexSubImage2D(target,0,xoffset,yoffset,width,height,format,type,data);
 }
-    
+
 void Texture::setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,GLfloat wrapt){
     minFilter = minfilter;
     magFilter = magfilter;
@@ -46,7 +46,7 @@ void Texture::setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,
     wrapT = wrapt;
     applyTexParameter();
 }
-    
+
 void Texture::applyTexParameter(){
     bind();
     glTexParameterf(target,GL_TEXTURE_MIN_FILTER,minFilter);
