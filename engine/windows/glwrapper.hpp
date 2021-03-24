@@ -6,12 +6,9 @@
 #define HEADER_GL_GLWRAPPER_H
 
 #include <GL/gl.h>
+#include <GL/wglext.h>
 
 void glwrapper_init();
-
-#define WGL_ACCESS_READ_ONLY_NV 0x0000
-#define WGL_ACCESS_READ_WRITE_NV 0x0001
-#define WGL_ACCESS_WRITE_DISCARD_NV 0x0002
 
 #define GL_ZERO 0
 #define GL_FALSE 0
@@ -929,14 +926,6 @@ void glwrapper_init();
 #define GL_DYNAMIC_COPY 0x88EA
 #define GL_SAMPLES_PASSED 0x8914
 
-#define WGL_CONTEXT_DEBUG_BIT_ARB         0x00000001
-#define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB 0x00000002
-#define WGL_CONTEXT_MAJOR_VERSION_ARB     0x2091
-#define WGL_CONTEXT_MINOR_VERSION_ARB     0x2092
-#define WGL_CONTEXT_LAYER_PLANE_ARB       0x2093
-#define WGL_CONTEXT_FLAGS_ARB             0x2094
-#define ERROR_INVALID_VERSION_ARB         0x2095
-
 typedef unsigned int GLenum;
 typedef unsigned int GLbitfield;
 typedef unsigned int GLuint;
@@ -1294,16 +1283,6 @@ void glVertex4s (GLshort x, GLshort y, GLshort z, GLshort w);
 void glVertex4sv (const GLshort *v);
 void glVertexPointer (GLint size, GLenum type, GLsizei stride, const void *pointer);
 void glViewport (GLint x, GLint y, GLsizei width, GLsizei height);
-
-typedef BOOL ( * f_wglSWAPINTERVALEXT) (int interval);
-typedef HANDLE ( * f_wglDXOPENDEVICENV) (void *dxDevice);
-typedef BOOL ( * f_wglDXCLOSEDEVICENV) (HANDLE hDevice);
-typedef HANDLE ( * f_wglDXREGISTEROBJECTNV) (HANDLE hDevice, void* dxResource, GLuint name, GLenum type, GLenum access);
-typedef BOOL ( * f_wglDXUNREGISTEROBJECTNV) (HANDLE hDevice, HANDLE hObject);
-typedef BOOL ( * f_wglDXLOCKOBJECTSNV) (HANDLE hDevice, GLint count, HANDLE *hObjects);
-typedef BOOL ( * f_wglDXUNLOCKOBJECTSNV) (HANDLE hDevice, GLint count, HANDLE *hObjects);
-typedef HGLRC (WINAPI * f_wglCREATECONTEXTATTRIBSARB) (HDC hDC, HGLRC hShareContext, const int *attribList);
-
 
 typedef void ( * f_glCOPYTEXSUBIMAGE3D) (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
 typedef void ( * f_glDRAWRANGEELEMENTS) (GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices);
@@ -1723,14 +1702,12 @@ typedef void ( * f_glVERTEXATTRIBPOINTER) (GLuint index, GLint size, GLenum type
 typedef void ( * f_glGENVERTEXARRAYS) (GLsizei n, GLuint* arrays);
 typedef void ( * f_glBINDVERTEXARRAY) (GLuint array);
 
-extern f_wglSWAPINTERVALEXT wglSwapIntervalEXT;
-extern f_wglDXOPENDEVICENV wglDXOpenDeviceNV;
-extern f_wglDXCLOSEDEVICENV wglDXCloseDeviceNV;
-extern f_wglDXREGISTEROBJECTNV wglDXRegisterObjectNV;
-extern f_wglDXUNREGISTEROBJECTNV wglDXUnregisterObjectNV;
-extern f_wglDXLOCKOBJECTSNV wglDXLockObjectsNV;
-extern f_wglDXUNLOCKOBJECTSNV wglDXUnlockObjectsNV;
-extern f_wglCREATECONTEXTATTRIBSARB wglCreateContextAttribsARB;
+extern PFNWGLDXOPENDEVICENVPROC wglDXOpenDeviceNV;
+extern PFNWGLDXCLOSEDEVICENVPROC wglDXCloseDeviceNV;
+extern PFNWGLDXREGISTEROBJECTNVPROC wglDXRegisterObjectNV;
+extern PFNWGLDXUNREGISTEROBJECTNVPROC wglDXUnregisterObjectNV;
+extern PFNWGLDXLOCKOBJECTSNVPROC wglDXLockObjectsNV;
+extern PFNWGLDXUNLOCKOBJECTSNVPROC wglDXUnlockObjectsNV;
 
 extern f_glACTIVETEXTURE glActiveTexture;
 extern f_glATTACHSHADER glAttachShader;

@@ -64,8 +64,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
                 0
             };
-            HGLRC hglrc = wglCreateContext(hdc);
-            
+            HGLRC hglrc = wglCreateContextAttribsARB(hdc, NULL, context_attribs);
+
             wglMakeCurrent(hdc,hglrc);
 
             glwrapper_init();
