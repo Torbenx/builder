@@ -150,10 +150,11 @@ function(add_apk _TARGET_NAME)
             COMMENT "Launching ${_TARGET_NAME}"
         )
         if(DEFINED ANDROID_LOGGER)
-            add_custom_command(
-                TARGET run_${_TARGET_NAME} POST_BUILD
-                COMMAND ${ANDROID_LOGGER} ${Android_ADB_EXECUTABLE} ${_add_apk_PACKAGE}
-                COMMENT "Logging..."
+            add_custom_target(log_${_TARGET_NAME}
+                COMMAND ${ANDROID_LOGGER} ${Android_ADB_EXECUTABLE} ${_add_apk_PACKAGE} ${_add_apk_ACTIVITY}
+                COMMENT "Logging ${_TARGET_NAME}"
+                DEPENDS run_${_TARGET_NAME}
+                USES_TERMINAL
             )
         endif()
     endif()

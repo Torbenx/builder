@@ -1,21 +1,22 @@
 #include "Framebuffer.hpp"
 #include "../util/log.hpp"
+#include "../gl/glLog.hpp"
 
 Framebuffer Framebuffer::DEFAULT(true);
 
 Framebuffer::Framebuffer(){
-    
+
 }
 
 Framebuffer::Framebuffer(bool isDefault){
     this->isDefault = isDefault;
     glId = 0;
 }
-    
+
 Framebuffer::~Framebuffer(){
     glDeleteFramebuffers(1,&glId);
 }
-    
+
 void Framebuffer::bind(){
     GLint fbo = 0;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING,&fbo);
@@ -47,6 +48,7 @@ void Framebuffer::bind(){
     if(status!=GL_FRAMEBUFFER_COMPLETE){
         LOGE("framebuffer not ready: 0x%x",status);
     }
+    glLogError("glCheckFramebufferStatus");
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
     glViewport(offsetX,offsetY,width,height);
     glDepthMask(dMask);
@@ -54,7 +56,7 @@ void Framebuffer::bind(){
     glStencilMask(sMask);
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 }
-    
+
 bool Framebuffer::init(){
     if((!isDefault)&&!glIsFramebuffer(glId)){
         glGenFramebuffers(1,&glId);
@@ -62,11 +64,11 @@ bool Framebuffer::init(){
     }
     return false;
 }
-    
+
 void Framebuffer::texture(GLenum attachment,Texture *a){
     glFramebufferTexture2D(GL_FRAMEBUFFER,attachment,GL_TEXTURE_2D,a->glId,0);
 }
-    
+
 void Framebuffer::renderbuffer(GLenum attachment,Renderbuffer *a){
     glFramebufferRenderbuffer(GL_FRAMEBUFFER,attachment,GL_RENDERBUFFER,a->glId);
 }
@@ -74,13 +76,13 @@ void Framebuffer::renderbuffer(GLenum attachment,Renderbuffer *a){
 void Framebuffer::cubeMap(GLenum attachment,GLenum target,CubeMap *a){
     glFramebufferTexture2D(GL_FRAMEBUFFER,attachment,target,a->glId,0);
 }
-    
+
 void Framebuffer::colorAttachment(Texture& a){
     colorTex = &a;
     colorBuffer = 0;
     colorCube = 0;
 }
-    
+
 void Framebuffer::colorAttachment(Renderbuffer& a){
     colorTex = 0;
     colorBuffer = &a;
@@ -93,13 +95,13 @@ void Framebuffer::colorAttachment(GLenum target,CubeMap& a){
     colorCube = &a;
     colorCubeTarget = target;
 }
-    
+
 void Framebuffer::depthAttachment(Texture& a){
     depthTex = &a;
     depthBuffer = 0;
     depthCube = 0;
 }
-    
+
 void Framebuffer::depthAttachment(Renderbuffer& a){
     depthTex = 0;
     depthBuffer = &a;
@@ -112,13 +114,13 @@ void Framebuffer::depthAttachment(GLenum target,CubeMap& a){
     depthCube = &a;
     depthCubeTarget = target;
 }
-    
+
 void Framebuffer::stencilAttachment(Texture& a){
     stencilTex = &a;
     stencilBuffer = 0;
     stencilCube = 0;
 }
-    
+
 void Framebuffer::stencilAttachment(Renderbuffer& a){
     stencilTex = 0;
     stencilBuffer = &a;
@@ -135,7 +137,7 @@ void Framebuffer::stencilAttachment(GLenum target,CubeMap& a){
 void Framebuffer::setClearColor(float r,float g,float b,float a){
     clearColor.set(r,g,b,a);
 }
-        
+
 void Framebuffer::setClearColor(Vec4 color){
     clearColor = color;
 }
@@ -157,11 +159,11 @@ void Framebuffer::colorMask(bool r,bool g,bool b,bool a){
     bMask = b;
     aMask = a;
 }
-        
+
 void Framebuffer::depthMask(bool d){
     dMask = d;
 }
-        
+
 void Framebuffer::stencilMask(unsigned int s){
     sMask = s;
 }

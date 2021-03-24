@@ -175,6 +175,7 @@ f_glVERTEXATTRIB4UIV glVertexAttrib4uiv;
 f_glVERTEXATTRIB4USV glVertexAttrib4usv;
 f_glGENVERTEXARRAYS glGenVertexArrays;
 f_glBINDVERTEXARRAY glBindVertexArray;
+f_wglCREATECONTEXTATTRIBSARB wglCreateContextAttribsARB;
 
 void glwrapper_init(){
 wglSwapIntervalEXT = (f_wglSWAPINTERVALEXT) glwrapper_load("wglSwapIntervalEXT");
@@ -184,6 +185,7 @@ wglDXRegisterObjectNV = (f_wglDXREGISTEROBJECTNV) glwrapper_load("wglDXRegisterO
 wglDXUnregisterObjectNV = (f_wglDXUNREGISTEROBJECTNV) glwrapper_load("wglDXUnregisterObjectNV");
 wglDXLockObjectsNV = (f_wglDXLOCKOBJECTSNV) glwrapper_load("wglDXLockObjectsNV");
 wglDXUnlockObjectsNV = (f_wglDXUNLOCKOBJECTSNV) glwrapper_load("wglDXUnlockObjectsNV");
+wglCreateContextAttribsARB = (f_wglCREATECONTEXTATTRIBSARB) glwrapper_load("wglCreateContextAttribsARB");
 
 glActiveTexture = (f_glACTIVETEXTURE) glwrapper_load("glActiveTexture");
 glAttachShader = (f_glATTACHSHADER) glwrapper_load("glAttachShader");

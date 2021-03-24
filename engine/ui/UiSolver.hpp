@@ -6,9 +6,10 @@
 #include <list>
 #include "TypedSize.hpp"
 
+#define UI_VAR_CONST_BIT 0x80000000
 #define UI_VAR_INVALID 0x7fffffff
 
-typedef signed int ui_var_t;
+typedef unsigned int ui_var_t;
 
 typedef ui_var_t ui_svar_t;
 
@@ -51,7 +52,7 @@ class UiSolver{
     public:
         float *fixed;
         float fixedCount;
-        
+
         std::vector<UiGeneralEquation> generalEquations;
         std::vector<UiSimpleEquation> simpleEquations;
         ui_var_t varCount;
@@ -82,9 +83,9 @@ class UiSolver{
         void exploreSimpleEq(ui_eqn_t eq, ui_var_t origin);
         void exploreGeneralEq(ui_eqn_t eq);
         void solveLinearSystem(size_t size);
-        
+
     public:
-    
+
         std::vector<std::vector<ui_eqn_t>> vars_to_eqns;
         std::vector<std::vector<ui_eqn_t>> fixed_to_eqns;
 };

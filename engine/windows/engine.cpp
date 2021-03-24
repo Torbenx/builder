@@ -34,9 +34,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
     switch(msg) {
         case WM_CREATE:{
             LOGD("WM_CREATE");
-            
+
             HDC hdc = GetDC(hwnd);
-    
+
             PIXELFORMATDESCRIPTOR pfd = {
                 sizeof(PIXELFORMATDESCRIPTOR),
                 1,
@@ -56,22 +56,29 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 0, 0, 0
             };
 
+
+
             SetPixelFormat(hdc,ChoosePixelFormat(hdc,&pfd),&pfd);
-            
+
+            int context_attribs[] = {
+                WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+                0
+            };
             HGLRC hglrc = wglCreateContext(hdc);
+            
             wglMakeCurrent(hdc,hglrc);
-            
+
             glwrapper_init();
-            
+
             ID3D11DeviceContext *dxContext;
             D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             text_init();
-            
+
             /*if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
             }*/
-            
+
             renderer->create();
             return 0;
         }
@@ -236,21 +243,21 @@ void Renderer::exit(){
 int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
     renderer = r;
     time_init();
-    
+
     int rawInputDeviceCount = 2;
     RAWINPUTDEVICE rid[rawInputDeviceCount];
-    
+
     rid[0].usUsagePage = 0x01;
     rid[0].usUsage = 0x02;
     rid[0].dwFlags = 0;
     rid[0].hwndTarget = 0;
-    
+
     rid[1].usUsagePage = 0x01;
     rid[1].usUsage = 0x06;
     rid[1].dwFlags = 0;
     rid[1].hwndTarget = 0;
     RegisterRawInputDevices(rid, rawInputDeviceCount, sizeof(RAWINPUTDEVICE));
-    
+
     WNDCLASSEX wc;
     wc.cbSize        = sizeof(WNDCLASSEX);
     wc.style         = CS_OWNDC;
@@ -288,7 +295,7 @@ int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
 
     ShowWindow(engine_hwnd, nCmdShow);
     UpdateWindow(engine_hwnd);
-    
+
     MSG msg;
     while(GetMessage(&msg, NULL, 0, 0) > 0){
         DispatchMessage(&msg);

@@ -36,15 +36,15 @@ void UiScene::setParent(Rect rect){
 }
 
 void UiScene::build(){
-    
-    solver.fixed[4-UI_VAR_TOP-1] = parent.top;
-    solver.fixed[4-UI_VAR_BOTTOM-1] = parent.bottom;
-    solver.fixed[4-UI_VAR_LEFT-1] = parent.left;
-    solver.fixed[4-UI_VAR_RIGHT-1] = parent.right;
-    
+
+    solver.fixed[UI_VAR_TOP] = parent.top;
+    solver.fixed[UI_VAR_BOTTOM] = parent.bottom;
+    solver.fixed[UI_VAR_LEFT] = parent.left;
+    solver.fixed[UI_VAR_RIGHT] = parent.right;
+
     solver.metrics = metrics;
     solver.solve();
-    
+
     for(auto it=components.begin();it!=components.end();it++){
         (*it)->metrics = metrics;
         Rect rect = Rect::bltr(
@@ -60,7 +60,7 @@ void UiScene::build(){
         (*it)->rect = rect;
         (*it)->updateRect();
     }
-    
+
     solver.freeSolution();
 }
 

@@ -5,9 +5,9 @@ import utils
 
 LOG_USAGE = "Usage: r to refresh pid, p to log package, c to clear, s to start, k to kill, e to exit logger"
 
-package = sys.argv[2]
-activity = "com.tt.engine.MainActivity"
 adb_bin = sys.argv[1]
+package = sys.argv[2]
+activity = sys.argv[3]
 
 def log_package(package):
     print "Logging "+package
@@ -15,14 +15,14 @@ def log_package(package):
     key = utils.getch()
     p.kill()
     return key
-    
+
 def log_pid(pid):
     print "Logging "+str(pid)
     p = subprocess.Popen([adb_bin, "logcat", "--pid="+str(pid)])
     key = utils.getch()
     p.kill()
     return key
-    
+
 def find_pid(package):
     p = subprocess.Popen([adb_bin, "shell", "for p in /proc/[0-9]*; do [[ $(<$p/cmdline) = %s ]] && echo ${p##*/}; done" % package], stdout = subprocess.PIPE)
     out,err = p.communicate()
@@ -31,7 +31,9 @@ def find_pid(package):
     else:
         return int(out)
 
-key = "i"
+
+
+key = "R"
 while True:
     if key == "r":
         pid = find_pid(package)
@@ -40,6 +42,17 @@ while True:
             key = utils.getch()
         else:
             key = log_pid(pid)
+    elif key == "R":
+        pid = -1
+        tries = 10
+        while pid == -1 and tries > 0:
+            pid = find_pid(package)
+            tries -= 1
+        if pid != -1:
+            print "process not running"
+            key = log_pid(pid)
+        else:
+            key = utils.getch()
     elif key == "p":
         key = log_package(package)
     elif key == "c":
@@ -51,6 +64,9 @@ while True:
     elif key == "s":
         utils.exec_cmd([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
         key = utils.getch()
+    elif key == "S":
+        utils.exec_cmd([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
+        key = "R"
     elif key == "i":
         print "package: "+package
         print "activity: "+activity

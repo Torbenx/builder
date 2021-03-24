@@ -22,8 +22,8 @@ void UiSolver::addEquation(float f1, ui_var_t v1, float f2, ui_var_t v2, LazyTyp
 }
 
 void UiSolver::addEq(ui_var_t var, ui_eqn_t eq){
-    if(var < 0){
-        fixed_to_eqns[-var-1].push_back(eq);
+    if(var & UI_VAR_CONST_BIT){
+        fixed_to_eqns[var & ~UI_VAR_CONST_BIT].push_back(eq);
     }else{
         vars_to_eqns[var].push_back(eq);
     }
@@ -32,8 +32,7 @@ void UiSolver::addEq(ui_var_t var, ui_eqn_t eq){
 void UiSolver::solve(){
     freeSolution();
 
-    /*for(ui_var_t var=-1;var>=-fixedCount;var--){
-        size_t i = -var-1;
+    /*for(ui_var_t i=0;var<fixedCount;var++){
         printf("%u: ", i);
         for(size_t j=0;j<fixed_to_eqns[i].size();j++){
             ui_eqn_t eq = fixed_to_eqns[i][j];
@@ -45,7 +44,7 @@ void UiSolver::solve(){
         }
         printf("\n");
     }
-    for(size_t i=0;i<varCount;i++){
+    for(ui_var_t i=0;i<varCount;i++){
         printf("%u: ", i);
         for(size_t j=0;j<vars_to_eqns[i].size();j++){
             ui_eqn_t eq = vars_to_eqns[i][j];
@@ -64,13 +63,13 @@ void UiSolver::solve(){
     }
 
     markedEquations.clear();
-    for(ui_var_t var=-1;var>=-fixedCount;var--){
-        std::vector<ui_eqn_t>& eqns = fixed_to_eqns[-var-1];
+    for(ui_var_t var=0;var<fixedCount;var++){
+        std::vector<ui_eqn_t>& eqns = fixed_to_eqns[var];
         for(ui_eqn_t eq : eqns){
             if(eq & UI_EQN_NOT_SIMPLE_BIT){
                 markedEquations.push_back(eq & ~UI_EQN_NOT_SIMPLE_BIT);
             }else{
-                exploreSimpleEq(eq, var);
+                exploreSimpleEq(eq, var | UI_VAR_CONST_BIT);
             }
         }
     }
@@ -107,7 +106,7 @@ void UiSolver::exploreVar(ui_var_t var, ui_eqn_t origin){
     for(ui_eqn_t eq : eqns){
         if(eq == origin)continue;
         if(eq & UI_EQN_NOT_SIMPLE_BIT){
-            if(solutions[var].svar < 0){
+            if(solutions[var].svar & UI_VAR_CONST_BIT){
                 markedEquations.push_back(eq & ~UI_EQN_NOT_SIMPLE_BIT);
             }else{
                 exploreGeneralEq(eq & ~UI_EQN_NOT_SIMPLE_BIT);
@@ -132,17 +131,17 @@ void UiSolver::exploreSimpleEq(ui_eqn_t eq, ui_var_t sourceVar){
         targetVar = equation.term1.var;
         targetFactor = equation.term1.factor;
     }
-    if(targetVar < 0){
-        LOGW("system overdetermined, target %d is fixed! (ignoring eq %u)", targetVar, eq);
+    if(targetVar & UI_VAR_CONST_BIT){
+        LOGW("system overdetermined, target %x is fixed! (ignoring eq %x)", targetVar, eq);
         return;
     }
     UiSolution& target = solutions[targetVar];
     if(target.svar != UI_VAR_INVALID){
-        LOGW("system overdetermined, target %d already solved! (ignoring eq %u)", targetVar, eq);
+        LOGW("system overdetermined, target %x already solved! (ignoring eq %x)", targetVar, eq);
         return;
     }
     UiSolution source;
-    if(sourceVar < 0){
+    if(sourceVar & UI_VAR_CONST_BIT){
         source.svar = sourceVar;
         source.factor = 1.0f;
         source.offset = 0.0f;
@@ -150,15 +149,15 @@ void UiSolver::exploreSimpleEq(ui_eqn_t eq, ui_var_t sourceVar){
         source = solutions[sourceVar];
     }
     target = source;
-    
+
     target.factor *= -sourceFactor;
     target.offset *= -sourceFactor;
-    
+
     target.offset += equation.rhs.get().toGL(metrics);
-    
+
     target.factor /= targetFactor;
     target.offset /= targetFactor;
-    
+
     exploreVar(targetVar, eq);
 }
 
@@ -175,13 +174,13 @@ void UiSolver::exploreGeneralEq(ui_eqn_t eq){
     float rhs = equation.rhs.get().toGL(metrics);
     for(size_t i=0;i<equation.termCount;i++){
         UiEquationTerm& term = equation.terms[i];
-        if(term.var < 0){
-            rhs -= fixed[-term.var-1] * term.factor;
+        if(term.var & UI_VAR_CONST_BIT){
+            rhs -= fixed[term.var & ~UI_VAR_CONST_BIT] * term.factor;
             continue;
         }
         UiSolution& sol = solutions[term.var];
-        if(sol.svar < 0){
-            rhs -= (fixed[-sol.svar-1] * sol.factor + sol.offset) * term.factor;
+        if(sol.svar & UI_VAR_CONST_BIT){
+            rhs -= (fixed[sol.svar & ~UI_VAR_CONST_BIT] * sol.factor + sol.offset) * term.factor;
             continue;
         }
         if(sol.svar == UI_VAR_INVALID){
@@ -271,13 +270,13 @@ void UiSolver::solveLinearSystem(size_t size){
 }
 
 float UiSolver::getSolution(ui_var_t var){
-    if(var < 0){
-        return fixed[-var-1];
+    if(var & UI_VAR_CONST_BIT){
+        return fixed[var & ~UI_VAR_CONST_BIT];
     }
     UiSolution& sol = solutions[var];
     float value;
-    if(sol.svar < 0){
-        value = fixed[-sol.svar-1];
+    if(sol.svar & UI_VAR_CONST_BIT){
+        value = fixed[sol.svar & ~UI_VAR_CONST_BIT];
     }else if(sol.svar < svarCount){
         value = values[sol.svar];
     }else{

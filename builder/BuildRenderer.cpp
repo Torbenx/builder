@@ -7,7 +7,7 @@
 #include <dirent.h>
 
 BuildRenderer::BuildRenderer() : explorer(this), head(this){
-    
+
 }
 
 void BuildRenderer::create(){
@@ -44,8 +44,8 @@ void BuildRenderer::change(int newWidth, int newHeight){
 
 void BuildRenderer::drawFrame(){
     Framebuffer::DEFAULT.bind();
-    explorer.draw();
-    head.draw();
+    //explorer.draw();
+    //head.draw();
 }
 
 void BuildRenderer::pointer(PointerEvent event){

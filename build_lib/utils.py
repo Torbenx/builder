@@ -57,7 +57,8 @@ try:
         return True
     
     def getch():
-        return msvcrt.getch()
+        key = msvcrt.getch()
+        return key
         
     def kbhit():
         return msvcrt.kbhit()
