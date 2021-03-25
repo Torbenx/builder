@@ -25,6 +25,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     add_apk(builder_apk SOURCES
         ${lib_dir}/libengine.so
         ${lib_dir}/libbuilder.so
+        ${lib_dir}/libturbojpeg.so
         #${lib_dir}/${cxx_lib_file_name}
         classes.dex
         PACKAGE com.tt.builder
