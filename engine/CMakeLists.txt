@@ -12,7 +12,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         "windows/keycodes.cpp"
     )
     set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite)
-    
+
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     set(platform_source
@@ -25,7 +25,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         "android/keycodes.cpp"
     )
     set(platform_libs android log EGL GLESv2)
-    
+
 else()
     message(FATAL_ERROR "Unsupported system: " ${CMAKE_SYSTEM_NAME})
 endif()
@@ -79,4 +79,4 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     target_link_options(engine PUBLIC "-static-libstdc++")
 endif()
 
-target_link_libraries(engine ${platform_libs})
+target_link_libraries(engine ${platform_libs} turbojpeg)

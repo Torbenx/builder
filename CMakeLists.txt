@@ -53,6 +53,8 @@ else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
 endif()
 
+add_subdirectory(libs)
+
 add_subdirectory(engine)
 
 include_directories(engine)
