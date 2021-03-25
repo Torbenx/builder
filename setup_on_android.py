@@ -29,8 +29,6 @@ steps:
         set(ANDROID_AR "llvm-ar-7") (not tested)
 """
 
-current_dir = os.path.dirname(os.path.realpath(__file__))
-
 print("setting up Android...")
 android_sdk = os.environ["ANDROID_HOME"]
 print("Android SDK: "+android_sdk)
@@ -38,6 +36,8 @@ android_ndk = android.find_latest_ndk(android_sdk)
 
 min_sdk_version = 24
 target_sdk_version = 27
+
+current_dir = os.path.dirname(os.path.realpath(__file__))
 
 arch = utils.arch_arm64v8a
 name = android.get_lib_dir_name(arch)
