@@ -33,26 +33,12 @@ function(add_apk _TARGET_NAME)
     cmake_parse_arguments(
         _add_apk
         "DEBUG"
-        "MANIFEST;MIN_SDK_VERSION;TARGET_SDK_VERSION;VERSION_CODE;VERSION_NAME;PACKAGE;ACTIVITY"
+        "MANIFEST;PACKAGE;ACTIVITY"
         "SOURCES"
         ${ARGN}
     )
     if(NOT DEFINED _add_apk_MANIFEST)
         message(FATAL_ERROR "must pass a AndroidManifest")
-    endif()
-    if(NOT DEFINED _add_apk_MIN_SDK_VERSION)
-        message(FATAL_ERROR "must pass a minmum sdk version")
-    endif()
-    if(NOT DEFINED _add_apk_TARGET_SDK_VERSION)
-        message(FATAL_ERROR "must pass a target sdk version")
-    endif()
-    if(NOT DEFINED _add_apk_VERSION_CODE)
-        set(_add_apk_VERSION_CODE 1)
-        message(DEBUG "version code not passed, defaulting to 1")
-    endif()
-    if(NOT DEFINED _add_apk_VERSION_NAME)
-        set(_add_apk_VERSION_NAME "1.0")
-        message(DEBUG "version name not passed, defaulting to 1.0")
     endif()
 
     #relative to ANDROID_APK_WORKING_DIR
@@ -70,15 +56,7 @@ function(add_apk _TARGET_NAME)
     #relative to build directory
     set(package_depfile ${depfile_dir}/package.dep)
 
-    set(package_cmd ${Android_AAPT_EXECUTABLE} package -f -M ${CMAKE_CURRENT_SOURCE_DIR}/${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file}
-            --min-sdk-version ${_add_apk_MIN_SDK_VERSION} --target-sdk-version ${_add_apk_TARGET_SDK_VERSION}
-            --version-code ${_add_apk_VERSION_CODE} --version-name ${_add_apk_VERSION_NAME})
-    if(DEFINED _add_apk_PACKAGE)
-        set(package_cmd ${package_cmd} --rename-manifest-package ${_add_apk_PACKAGE})
-    endif()
-    if(${_add_apk_DEBUG})
-        set(package_cmd ${package_cmd} --debug-mode)
-    endif()
+    set(package_cmd ${Android_AAPT_EXECUTABLE} package -f -M ${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file})
     add_custom_command(
         OUTPUT ${package_depfile}
         COMMAND ${package_cmd}

@@ -18,9 +18,13 @@ add_assets(testgame SOURCES
     Pawn/Pawn.mtl
 )
 
+set(ANDROID_APP_PACKAGE com.tt.testgame)
+set(ANDROID_APP_NAME "TestGame")
+set(android_manifest ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
+configure_file(${CMAKE_SOURCE_DIR}/engine/android/AndroidManifest.xml ${android_manifest})
+
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-    set(ANDROID_APK_WORKING_DIR ../${ANDROID_APK_WORKING_DIR})
-    #file paths relative to ANDROID_APK_WORKING_DIR except manifest
+    #file paths relative to ANDROID_APK_WORKING_DIR
     add_apk(testgame_apk SOURCES
         ${lib_dir}/libengine.so
         ${lib_dir}/libtestgame.so
@@ -28,9 +32,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         classes.dex
         assets/Pawn/Pawn.obj
         PACKAGE com.tt.testgame
-        MIN_SDK_VERSION ${ANDROID_MIN_SDK_VERSION} TARGET_SDK_VERSION ${ANDROID_TARGET_SDK_VERSION}
-        MANIFEST ../engine/android/AndroidManifest.xml
         ACTIVITY com.tt.engine.MainActivity
-        DEBUG
+        MANIFEST ${android_manifest}
     )
 endif()

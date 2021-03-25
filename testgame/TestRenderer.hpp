@@ -25,26 +25,26 @@ class DebugRenderable : public SceneObject{
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
-        
+
         DebugRenderable(Bufferf *s, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             color = c;
             num = n;
             model = m;
         }
-        
+
         ColorSources getColorSources(){
             ColorSources colors;
             colors.nUniforms = 1;
             return colors;
-        }        
-        
+        }
+
         void draw(Shader *shader, std::string positionAttrib, std::string modelUniform){
             shader->uniformMat4x4(modelUniform, model);
             shader->attribPointer(positionAttrib, 3, *source);
             glDrawArrays(mode, 0, num);
         }
-        
+
         void draw2(LShader *shader, SceneDrawData& data){
             shader->uniformMat4x4(data.modelUniform.name, model);
             shader->uniformVec3(data.uniforms[0].name, color);
@@ -53,24 +53,63 @@ class DebugRenderable : public SceneObject{
         }
 };
 
+class ObjectRenderable : public SceneObject{
+    public:
+        Bufferf *source;
+        Bufferi *indices;
+        Vec3 color;
+        Mat4x4 model;
+        int num;
+        GLenum mode = GL_TRIANGLES;
+
+        ObjectRenderable(Bufferf *s, Bufferi *i, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
+            source = s;
+            indices = i;
+            color = c;
+            num = n;
+            model = m;
+        }
+
+        ColorSources getColorSources(){
+            ColorSources colors;
+            colors.nUniforms = 1;
+            return colors;
+        }
+
+        void draw(Shader *shader, std::string positionAttrib, std::string modelUniform){
+            shader->uniformMat4x4(modelUniform, model);
+            shader->attribPointer(positionAttrib, 3, *source);
+            indices->bind();
+            glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
+        }
+
+        void draw2(LShader *shader, SceneDrawData& data){
+            shader->uniformMat4x4(data.modelUniform.name, model);
+            shader->uniformVec3(data.uniforms[0].name, color);
+            shader->attribPointer(data.positionAttrib.name, 3, *source);
+            indices->bind();
+            glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
+        }
+};
+
 class ReflectionDebugRenderable : public DebugRenderable{
     public:
         Reflection *reflection;
-        
+
         ReflectionDebugRenderable(Bufferf *s, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, c, n, m){
             reflection = r;
         }
-        
+
         ColorSources getColorSources(){
             ColorSources colors = DebugRenderable::getColorSources();
             colors.nReflections = 1;
             return colors;
         }
-        
+
         Reflection** getReflections(){
             return &reflection;
         }
-        
+
         void draw2(LShader *shader, SceneDrawData& data){
             shader->reflection(*reflection);
             DebugRenderable::draw2(shader, data);
@@ -84,7 +123,7 @@ class TestRenderer : public Renderer{
         ReflectionDebugRenderable* obj3;
         DebugRenderable* obj4;
         DebugRenderable* obj5;
-        DebugRenderable* pawn;
+        ObjectRenderable* pawn;
         uint64_t lframe;
         uint64_t lsecond;
         int frameCounter;
@@ -99,6 +138,7 @@ class TestRenderer : public Renderer{
         Bufferf f4;
         Bufferf f5;
         Bufferf pawnVertex;
+        Bufferi pawnIndices;
         MvpMatrix mvpMatrix;
         Reflection reflection;
         Look3d look;
@@ -113,7 +153,7 @@ class TestRenderer : public Renderer{
         TextureComponent refComp;
         Scene scene;
         UiScene uiScene;
-        
+
         TestRenderer();
         void create();
         void change(int width, int height);

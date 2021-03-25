@@ -42,6 +42,7 @@ TestRenderer::TestRenderer() :
         f4(GL_ARRAY_BUFFER),
         f5(TE_BUFFER),
         pawnVertex(GL_ARRAY_BUFFER),
+        pawnIndices(GL_ELEMENT_ARRAY_BUFFER),
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.5f),
         look(up, isAndroid()),
         pos(7,1,0)
@@ -87,34 +88,36 @@ void TestRenderer::create(){
     parser.parse(file, 20000, 20000);
     pawnVertex.init();
     pawnVertex.bufferData(parser.vertex,parser.vertexSize*4,GL_STATIC_DRAW);
-    pawn = new DebugRenderable(&pawnVertex, Vec3(0,1,1), parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
+    pawnIndices.init();
+    pawnIndices.bufferData(parser.indices,parser.n*4,GL_STATIC_DRAW);
+    pawn = new ObjectRenderable(&pawnVertex, &pawnIndices, Vec3(0,1,1), parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
     scene.addObject(pawn);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
     lframe = getNanos();
-    
+
     #ifdef PLATFORM_ANDROID
     goFullscreen(FullscreenConfig::DEFAULT);
     #endif
-    
+
     w = charToKeycode('w');
     a = charToKeycode('a');
     s = charToKeycode('s');
     d = charToKeycode('d');
     fullscreen = charToKeycode(SPECIAL_KEY_F(11));
     exitKey = charToKeycode(SPECIAL_KEY_ESC);
-    
+
     textComp.text = "Hello World";
     textComp.textSize = TypedSize::gl(0.1f);
     textComp.textColor = Vec4(1, 0, 0, 1);
     textComp.noBreaks = true;
-    
+
     cubeComp.farDepth = 10.0f;
     cubeComp.cubeMap = &pointLight.depthMap.texture;
     cubeComp.positiveZ(Rect::bltr(-1, -1, 1, 1));
-    
+
     refComp.texture = &reflection.texture;
-    
-    
+
+
     TypedSize pad = TypedSize::gl(-0.02f);
     uiScene.layout(&textComp)
         .centerVertical()
@@ -137,7 +140,7 @@ void TestRenderer::change(int newWidth, int newHeight){
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
-    
+
     textComp.metrics = metrics;
     textComp.updateContent();
     uiScene.metrics = metrics;
@@ -150,7 +153,7 @@ void TestRenderer::pointer(PointerEvent event){
     textComp.text = ss.str();
     textComp.updateContent();
     uiScene.build();*/
-    
+
     if(!rawInput()){
         if(event.event == POINTER_EVENT_DOWN && navPointerId == POINTER_ID_INVALID){
             navPointerId = event.pointerId;
@@ -212,19 +215,19 @@ void TestRenderer::drawFrame(){
     uint64_t now = getNanos();
     if(now - lsecond >= NANOS_PER_SECOND){
         //LOGD("FPS: %d",frameCounter);
-        
+
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
         textComp.text = ss.str();
         textComp.updateContent();
         uiScene.build();
-        
+
         lsecond = now;
         frameCounter = 0;
     }
     frameCounter++;
-    
-    
+
+
     float maxSpeed = 2.0f;
     float dt = (now - lframe)/(float)NANOS_PER_SECOND;
     lframe = now;
@@ -256,15 +259,15 @@ void TestRenderer::drawFrame(){
     obj5_coords[0]  = plp.x - 0.3f;
     obj5_coords[1]  = plp.y;
     obj5_coords[2]  = plp.z - 0.3f;
-    
+
     obj5_coords[3]  = plp.x + 0.3f;
     obj5_coords[4]  = plp.y;
     obj5_coords[5]  = plp.z - 0.3f;
-    
+
     obj5_coords[6]  = plp.x - 0.3f;
     obj5_coords[7]  = plp.y;
     obj5_coords[8]  = plp.z + 0.3f;
-    
+
     obj5_coords[9]  = plp.x + 0.3f;
     obj5_coords[10] = plp.y;
     obj5_coords[11] = plp.z + 0.3f;
@@ -273,17 +276,17 @@ void TestRenderer::drawFrame(){
     Framebuffer::DEFAULT.bind();
     scene.draw(mvpMatrix);
     glDisable(GL_DEPTH_TEST);
-    
+
     if(navPointerId != POINTER_ID_INVALID){
         Vec2 center(navBaseX * 2.0f / Framebuffer::DEFAULT.width - 1.0f, navBaseY * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
         Vec2 radius(maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.width, maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.height);
         util_drawCircle(center, radius, Vec4(0.7f, 0.7f, 0.7f, 1.0f));
-        
+
         center.set((navBaseX + navD.x / navMult) * 2.0f / Framebuffer::DEFAULT.width - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
         radius *= 0.25f;
         util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
-    
+
     cubeComp.draw();
     textComp.draw();
     //refComp.draw();

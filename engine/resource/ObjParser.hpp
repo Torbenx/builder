@@ -6,6 +6,7 @@
 class ObjParser{
     public:
         float *vertex = nullptr;
+        uint32_t *indices = nullptr;
         int n, vertexSize /*in floats*/, polyType, dim;
         ObjParser();
         ~ObjParser();

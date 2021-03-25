@@ -91,24 +91,41 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
     ni = ipos / polyType;
     int tri = polyType - 2;
     n = ni * tri * 3;
-    this->vertexSize = n * dim;
-    this->vertex = new float[this->vertexSize];
-    for(int i=0;i<ni;i++){
-        for(int j=0;j<tri;j++){
-            for(int k=0;k<dim;k++){
-                this->vertex[((i*tri+j)*3  )*dim+k] = vertex[index[i*polyType    ]*dim+k];
-                this->vertex[((i*tri+j)*3+1)*dim+k] = vertex[index[i*polyType+j+1]*dim+k];
-                this->vertex[((i*tri+j)*3+2)*dim+k] = vertex[index[i*polyType+j+2]*dim+k];
+    if(false){
+        this->vertexSize = n * dim;
+        this->vertex = new float[this->vertexSize];
+        for(int i=0;i<ni;i++){
+            for(int j=0;j<tri;j++){
+                for(int k=0;k<dim;k++){
+                    this->vertex[((i*tri+j)*3  )*dim+k] = vertex[index[i*polyType    ]*dim+k];
+                    this->vertex[((i*tri+j)*3+1)*dim+k] = vertex[index[i*polyType+j+1]*dim+k];
+                    this->vertex[((i*tri+j)*3+2)*dim+k] = vertex[index[i*polyType+j+2]*dim+k];
+                }
             }
         }
+        delete[] vertex;
+        delete[] index;
+    }else{
+        this->vertexSize = vpos;
+        this->indices = new uint32_t[n];
+        for(int i=0;i<ni;i++){
+            for(int j=0;j<tri;j++){
+                this->indices[(i*tri+j)*3  ] = index[i*polyType    ];
+                this->indices[(i*tri+j)*3+1] = index[i*polyType+j+1];
+                this->indices[(i*tri+j)*3+2] = index[i*polyType+j+2];
+            }
+        }
+        this->vertex = vertex;
     }
-    delete[] vertex;
-    delete[] index;
 }
 
 void ObjParser::freeCache(){
     if(vertex){
         delete[] vertex;
         vertex = nullptr;
+    }
+    if(indices){
+        delete[] indices;
+        indices = nullptr;
     }
 }

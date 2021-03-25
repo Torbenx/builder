@@ -27,10 +27,10 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     add_definitions(-DPLATFORM_WINDOWS)
     add_definitions(-Wno-attributes)
-    set(PLATFORM_MAIN_SOURCE ../engine/windows/main.cpp)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ..)
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ..)
-    set(ASSETS_OUTPUT_DIR ..)
+    set(PLATFORM_MAIN_SOURCE ${CMAKE_SOURCE_DIR}/engine/windows/main.cpp)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set(ASSETS_OUTPUT_DIR ${CMAKE_BINARY_DIR})
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
@@ -42,12 +42,13 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(PLATFORM_MAIN_SOURCE ../engine/android/main.cpp)
 
     set(lib_dir lib/${ANDROID_ABI}) #library output directory relative from ANDROID_APK_WORKING_DIR
-    set(ANDROID_APK_WORKING_DIR .) #apk root directory relative to build directory
+    set(ANDROID_APK_WORKING_DIR ${CMAKE_BINARY_DIR}) #apk root directory relative to build directory
     if(NOT DEFINED ANDROID_KEYSTORE_DIR)
         set(ANDROID_KEYSTORE_DIR ${CMAKE_SOURCE_DIR})
     endif()
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ../${ANDROID_APK_WORKING_DIR}/${lib_dir})
-    set(ASSETS_OUTPUT_DIR ..)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ANDROID_APK_WORKING_DIR}/${lib_dir})
+    message(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+    set(ASSETS_OUTPUT_DIR ${ANDROID_APK_WORKING_DIR})
 
 else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
@@ -64,7 +65,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     #classes.dex
     set(JAVA_SOURCE_DIR engine/android/java)
-    set(CMAKE_JAVA_COMPILE_FLAGS -bootclasspath ${Android_ANDROID_JAR} -target 1.7 -source 1.7)
+    set(CMAKE_JAVA_COMPILE_FLAGS -bootclasspath ${Android_ANDROID_JAR} -target 1.8 -source 1.8)
     set(CMAKE_JAVA_INCLUDE_PATH ${JAVA_SOURCE_DIR})
     add_jar(
         classes

@@ -14,15 +14,15 @@ class Buffer{
         GLuint glId = -1;
         GLsizeiptr size;
         T *source;
-        
+
         Buffer(GLint target){
             this->target = target;
         }
-        
+
         ~Buffer(){
             glDeleteBuffers(1,&glId);
         }
-        
+
         bool init(){
             if(target!=TE_BUFFER&&!glIsBuffer(glId)){
                 glGenBuffers(1,&glId);
@@ -30,11 +30,11 @@ class Buffer{
             }
             return false;
         }
-        
+
         void bind(){
             glBindBuffer(target,glId);
         }
-        
+
         void bufferData(T* data,GLsizeiptr sizeInBytes,GLint usage){
             source = data;
             size = sizeInBytes;
@@ -44,7 +44,7 @@ class Buffer{
                 glBufferData(target,sizeInBytes,data,usage);
             }
         }
-        
+
         void bufferSubData(T *data,GLintptr offset,GLsizeiptr sizeInBytes){
             bind();
             glBufferSubData(target,offset,sizeInBytes,data);
@@ -52,8 +52,8 @@ class Buffer{
     private:
         Buffer(const Buffer& other);
 };
-#define Bufferf Buffer<float>
-#define Bufferi Buffer<uint32_t>
+typedef Buffer<float> Bufferf;
+typedef Buffer<uint32_t> Bufferi;
 
 template class Buffer<float>;
 template class Buffer<uint32_t>;

@@ -83,9 +83,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             text_init();
 
-            if(wglSwapIntervalEXT(0)){
+            /*if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
-            }
+            }*/
 
             renderer->create();
             return 0;
@@ -134,8 +134,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             if(rendererState != RENDERER_STATE_INVISIBLE){
                 renderer->drawFrame();
                 SwapBuffers(GetDC(hwnd));
+                return 0;
+            }else{
+                return DefWindowProc(hwnd, msg, wParam, lParam);
             }
-            return 0;
         case WM_INPUT:
             //LOGD("WM_INPUT");
             if(rendererState == RENDERER_STATE_FOREGROUND){
