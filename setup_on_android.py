@@ -29,6 +29,8 @@ steps:
         set(ANDROID_AR "llvm-ar-7") (not tested)
 """
 
+current_dir = os.path.dirname(os.path.realpath(__file__))
+
 print("setting up Android...")
 android_sdk = os.environ["ANDROID_HOME"]
 print("Android SDK: "+android_sdk)
@@ -45,5 +47,5 @@ utils.exec_cmd([
     "-DCMAKE_TOOLCHAIN_FILE="+android_ndk+"/build/cmake/android.toolchain.cmake",
     "-DANDROID_ABI="+name, "-DANDROID_PLATFORM="+str(min_sdk_version),
     "-DANDROID_SDK="+android_sdk, "-DANDROID_MIN_SDK_VERSION="+str(min_sdk_version), "-DANDROID_TARGET_SDK_VERSION="+str(target_sdk_version), #custom defines
-    "-DANDROID_KEYSTORE_DIR=/storage/internal/dev"
+    "-DANDROID_KEYSTORE_DIR=/storage/internal/dev", "-DANDROID_LOGGER="+current_dir+"/build_lib/android_log.sh"
 ], shell, concat_cmd)
