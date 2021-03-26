@@ -57,38 +57,54 @@ class ObjectRenderable : public SceneObject{
     public:
         Bufferf *source;
         Bufferi *indices;
-        Vec3 color;
+        Bufferf *texCoords;
+        Texture *texture;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        ObjectRenderable(Bufferf *s, Bufferi *i, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
+        ObjectRenderable(Bufferf *s, Bufferi *i, Bufferf *t, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             indices = i;
-            color = c;
+            texCoords = t;
+            texture = tex;
             num = n;
             model = m;
         }
 
         ColorSources getColorSources(){
             ColorSources colors;
-            colors.nUniforms = 1;
+            colors.nTextures = 1;
             return colors;
+        }
+
+        std::string* getTextureTypes(){
+            static std::string r[] = {"2D"};
+            return r;
         }
 
         void draw(Shader *shader, std::string positionAttrib, std::string modelUniform){
             shader->uniformMat4x4(modelUniform, model);
             shader->attribPointer(positionAttrib, 3, *source);
-            indices->bind();
-            glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
+            if(indices){
+                indices->bind();
+                glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
+            }else{
+                glDrawArrays(mode, 0, num);
+            }
         }
 
         void draw2(LShader *shader, SceneDrawData& data){
             shader->uniformMat4x4(data.modelUniform.name, model);
-            shader->uniformVec3(data.uniforms[0].name, color);
             shader->attribPointer(data.positionAttrib.name, 3, *source);
-            indices->bind();
-            glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
+            shader->uniformTexture(data.textureUniforms[0].name, *texture, 10);
+            shader->attribPointer(data.texPositionAttribs[0].name, 2, *texCoords);
+            if(indices){
+                indices->bind();
+                glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
+            }else{
+                glDrawArrays(mode, 0, num);
+            }
         }
 };
 
@@ -139,6 +155,8 @@ class TestRenderer : public Renderer{
         Bufferf f5;
         Bufferf pawnVertex;
         Bufferi pawnIndices;
+        Bufferf pawnTextCoords;
+        Texture pawnTexture;
         MvpMatrix mvpMatrix;
         Reflection reflection;
         Look3d look;

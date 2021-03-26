@@ -7,7 +7,8 @@ class ObjParser{
     public:
         float *vertex = nullptr;
         uint32_t *indices = nullptr;
-        int n, vertexSize /*in floats*/, polyType, dim;
+        float *texCoords = nullptr;
+        int n, vertexCount, polyType, dim;
         ObjParser();
         ~ObjParser();
         void parse(std::istream& in, int nv, int ni);

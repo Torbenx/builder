@@ -9,7 +9,7 @@ class assetbuf : public std::filebuf{
 };
 
 assetbuf::assetbuf(std::string file) : std::filebuf(){
-    open("assets/"+file, std::ios_base::in);
+    open("assets/"+file, std::ios_base::in | std::ios_base::binary);
 }
 
 asset_istream::asset_istream(std::string file) : std::istream(new assetbuf(file)){

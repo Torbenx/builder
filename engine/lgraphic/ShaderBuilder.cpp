@@ -3,7 +3,7 @@
 #include "string.h"
 
 ShaderBuilder::ShaderBuilder(){
-    
+
 }
 
 ShaderBuilder::ShaderBuilder(const ShaderBuilder& s){
@@ -26,7 +26,7 @@ void ShaderBuilder::addLight(AmbientLight& l){
     addFragmentUniform("vec3", colorUniform);
     fMain<<colorMulti<<" += "<<colorUniform<<";\n";
 }
-        
+
 void ShaderBuilder::addLight(SpotLight& l){
     std::string mvpUniform = newUniform(&l);
     std::string textureUniform = newUniform(&l.depthMap);
@@ -47,7 +47,7 @@ void ShaderBuilder::addLight(SpotLight& l){
     fMain<<"float "<<depth<<" = dot(vec4("<<m_far<<","<<m_far<<"/255.0,"<<m_far<<"/255.0/255.0,"<<m_far<<"/255.0/255.0/255.0),texture2D("<<textureUniform<<",("<<pos<<"+1.0)/2.0));\n";
     fMain<<"if("<<positionVarying<<".z>0.0&&dot("<<pos<<","<<pos<<")<=1.0&&"<<positionVarying<<".z<="<<depth<<"*1.01){"<<colorMulti<<" += "<<colorUniform<<";}\n";
 }
-        
+
 void ShaderBuilder::addLight(PointLight& l){
     std::string textureUniform = newUniform(&l.depthMap);
     std::string colorUniform = newUniform(&l.color);
@@ -86,16 +86,16 @@ void ShaderBuilder::addReflection(Reflection& r){
     sprintf(buff,"%f",r.factor);
     fMain<<fColor<<" += "<<buff<<"*texture2D("<<textureUniform<<",("<<positionVarying<<".xy/"<<positionVarying<<".w+1.0)/2.0).rgb;\n";
 }
-        
+
 void ShaderBuilder::addToFragmentColor(std::string s){
     fMain<<fColor<<" += "<<s<<";\n";
 }
-        
+
 void ShaderBuilder::setFragmentColorUniform(std::string s){
     addFragmentUniform("vec3",s);
     addToFragmentColor(s);
 }
-        
+
 void ShaderBuilder::setFragmentColorUniformTexture(std::string texType, std::string textureUniform, std::string texCoordAttrib){
     std::string texCoordVarying = newVarying();
     std::string color = newVar();
@@ -105,10 +105,10 @@ void ShaderBuilder::setFragmentColorUniformTexture(std::string texType, std::str
     s.append(texType);
     addFragmentUniform(s,textureUniform);
     vMain<<texCoordVarying<<" = "<<texCoordAttrib<<";\n";
-    fMain<<"vec4 "<<color<<" = texture"<<texType<<"("<<textureUniform<<","<<texCoordVarying<<");\n";
+    fMain<<"vec3 "<<color<<" = texture"<<texType<<"("<<textureUniform<<","<<texCoordVarying<<").rgb;\n";
     addToFragmentColor(color);
 }
-        
+
 void ShaderBuilder::setFragmentColorAttrib(std::string s){
     std::string varying = newVarying();
     addVarying("vec4",varying);
@@ -116,7 +116,7 @@ void ShaderBuilder::setFragmentColorAttrib(std::string s){
     vMain<<varying<<" = "<<s<<";\n";
     addToFragmentColor(varying);
 }
-        
+
 void ShaderBuilder::setScreenMvpMatrixUniform(std::string s){
     addVertexUniform("mat4",s);
     worldPositionMulti = s;
@@ -126,16 +126,16 @@ void ShaderBuilder::setWorldModelMatrixUniform(std::string s){
     addVertexUniform("mat4",s);
     rawPositionMulti = s;
 }
-        
+
 void ShaderBuilder::setVertexPositionAttrib(std::string s){
     addAttrib("vec4",s);
     rawPosition = s;
 }
-        
+
 LShader* ShaderBuilder::build(){
     return new LShader(buildVStr(),buildFStr(),locations);
 }
-        
+
 std::string ShaderBuilder::buildVStr(){
     std::ostringstream v;
     v<<vInit.str()<<"void main(){\nvec4 "<<worldPosition<<" = ";
@@ -147,17 +147,19 @@ std::string ShaderBuilder::buildVStr(){
         v<<worldPositionMulti<<" * ";
     }
     v<<worldPosition<<";\n"<<vMain.str()<<"}";
+    //LOGD("\n\n Vertex: \n%s\n\n", v.str().c_str());
     return v.str();
 }
-        
+
 std::string ShaderBuilder::buildFStr(){
     std::ostringstream f;
     f<<fInit.str()<<"void main(){\nvec3 "<<colorMulti<<" = vec3(0.0);\n";
     f<<"vec3 "<<fColor<<" = vec3(0.0);\n";
     f<<fMain.str()<<"gl_FragColor = vec4("<<colorMulti<<" * "<<fColor<<", 1.0);\n}";
+    //LOGD("\n\n Fragment: \n%s\n\n", f.str().c_str());
     return f.str();
 }
-        
+
 std::string ShaderBuilder::newUniform(void *obj){
     std::string s = newUniform();
     locations[obj] = s;
@@ -169,7 +171,7 @@ std::string ShaderBuilder::newUniform(){
     s<<"u_"<<(uCount++);
     return s.str();
 }
-        
+
 std::string ShaderBuilder::newAttrib(void *obj){
     std::string s = newAttrib();
     locations[obj] = s;
@@ -181,13 +183,13 @@ std::string ShaderBuilder::newAttrib(){
     s<<"a_"<<(aCount++);
     return s.str();
 }
-        
+
 std::string ShaderBuilder::newVarying(){
     std::ostringstream s;
     s<<"v_"<<(vCount++);
     return s.str();
 }
-        
+
 std::string ShaderBuilder::newVar(){
     std::ostringstream s;
     s<<"var"<<(varCount++);
@@ -198,15 +200,15 @@ void ShaderBuilder::addVarying(std::string type,std::string name){
     vInit<<"varying "<<type<<" "<<name<<";\n";
     fInit<<"varying "<<type<<" "<<name<<";\n";
 }
-        
+
 void ShaderBuilder::addVertexUniform(std::string type,std::string name){
     vInit<<"uniform "<<type<<" "<<name<<";\n";
 }
-        
+
 void ShaderBuilder::addFragmentUniform(std::string type,std::string name){
     fInit<<"uniform "<<type<<" "<<name<<";\n";
 }
-        
+
 void ShaderBuilder::addAttrib(std::string type,std::string name){
     vInit<<"attribute "<<type<<" "<<name<<";\n";
 }

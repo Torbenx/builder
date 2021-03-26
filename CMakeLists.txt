@@ -55,6 +55,8 @@ endif()
 
 add_subdirectory(libs)
 
+include_directories(libs/libjpeg-turbo)
+
 add_subdirectory(engine)
 
 include_directories(engine)

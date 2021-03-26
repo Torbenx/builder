@@ -16,6 +16,7 @@ target_link_libraries(testgame engine)
 add_assets(testgame SOURCES
     Pawn/Pawn.obj
     Pawn/Pawn.mtl
+    Pawn/Pawn.jpg
 )
 
 set(ANDROID_APP_PACKAGE com.tt.testgame)
@@ -32,6 +33,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         #${lib_dir}/${cxx_lib_file_name}
         classes.dex
         assets/Pawn/Pawn.obj
+        assets/Pawn/Pawn.jpg
         PACKAGE com.tt.testgame
         ACTIVITY com.tt.engine.MainActivity
         MANIFEST ${android_manifest}

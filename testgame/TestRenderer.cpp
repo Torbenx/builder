@@ -11,6 +11,7 @@
 #include "fullscreen.hpp"
 #include "util/draw_util.hpp"
 #include "input/keycodes.hpp"
+#include <turbojpeg.h>
 
 #ifdef PLATFORM_WINDOWS
 #include "windows/fullscreen.hpp"
@@ -43,6 +44,8 @@ TestRenderer::TestRenderer() :
         f5(TE_BUFFER),
         pawnVertex(GL_ARRAY_BUFFER),
         pawnIndices(GL_ELEMENT_ARRAY_BUFFER),
+        pawnTextCoords(GL_ARRAY_BUFFER),
+        pawnTexture(GL_TEXTURE_2D),
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.5f),
         look(up, isAndroid()),
         pos(7,1,0)
@@ -83,15 +86,6 @@ void TestRenderer::create(){
     scene.addObject(obj4);
     scene.addObject(obj5);
     scene.addReflection(reflection);
-    ObjParser parser;
-    asset_istream file("Pawn/Pawn.obj");
-    parser.parse(file, 20000, 20000);
-    pawnVertex.init();
-    pawnVertex.bufferData(parser.vertex,parser.vertexSize*4,GL_STATIC_DRAW);
-    pawnIndices.init();
-    pawnIndices.bufferData(parser.indices,parser.n*4,GL_STATIC_DRAW);
-    pawn = new ObjectRenderable(&pawnVertex, &pawnIndices, Vec3(0,1,1), parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
-    scene.addObject(pawn);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
     lframe = getNanos();
 
@@ -131,6 +125,52 @@ void TestRenderer::create(){
         .alignBottom()
         .alignLeft()
         .alignRight();
+
+
+    ObjParser parser;
+    asset_istream file("Pawn/Pawn.obj");
+    parser.parse(file, 20000, 20000);
+    pawnVertex.init();
+    pawnVertex.bufferData(parser.vertex,parser.vertexCount*parser.dim*4,GL_STATIC_DRAW);
+    pawnTextCoords.init();
+    pawnTextCoords.bufferData(parser.texCoords,parser.vertexCount*2*4,GL_STATIC_DRAW);
+    if(parser.indices){
+        pawnIndices.init();
+        pawnIndices.bufferData(parser.indices,parser.n*4,GL_STATIC_DRAW);
+    }
+
+    asset_istream jpegFile("Pawn/Pawn.jpg");
+    jpegFile.seekg(0, jpegFile.end);
+    int jpegFileSize = jpegFile.tellg();
+    jpegFile.seekg(0, jpegFile.beg);
+    if(jpegFileSize <= 0){
+        LOGE("failed: %d", jpegFileSize);
+    }
+    unsigned char *jpegFileBuf = new unsigned char[jpegFileSize];
+    jpegFile.read((char*)jpegFileBuf, jpegFileSize);
+
+    tjhandle tjInstance = tjInitDecompress();
+
+    int width, height, subsamp, colorspace;
+    if(tjDecompressHeader3(tjInstance, jpegFileBuf, jpegFileSize, &width, &height, &subsamp, &colorspace) < 0){
+        LOGE("FAIL");
+        return;
+    }
+    LOGD("size: %d x %d", width, height);
+    int pixelFormat = TJPF_RGBX;
+    int pixelSize = tjPixelSize[pixelFormat];
+    LOGD("pixelSize: %d", pixelSize);
+    unsigned char *imgBuf = new unsigned char[width * height * pixelSize];
+
+    tjDecompress2(tjInstance, jpegFileBuf, jpegFileSize, imgBuf, width, 0, height, pixelFormat, 0);
+
+    pawnTexture.init();
+    pawnTexture.texture(imgBuf, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+
+    refComp.texture = &pawnTexture;
+
+    pawn = new ObjectRenderable(&pawnVertex, parser.indices ? &pawnIndices : nullptr, &pawnTextCoords, &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
+    scene.addObject(pawn);
 }
 
 void TestRenderer::change(int newWidth, int newHeight){

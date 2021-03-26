@@ -4,7 +4,7 @@
 #include "../util/log.hpp"
 
 asset_istream::asset_istream(std::string file) : std::istream(new assetbuf(file)){
-    
+
 }
 
 asset_istream::~asset_istream(){
@@ -36,6 +36,30 @@ std::streambuf::int_type assetbuf::underflow(){
         }
     }
     return traits_type::to_int_type(*gptr());
+}
+
+std::streampos assetbuf::seekpos(std::streampos pos, std::ios_base::openmode){
+    LOGE("SEEKPOS");
+    return std::streampos(std::streamoff(-1));
+}
+
+std::streampos assetbuf::seekoff(std::streamoff off, std::ios_base::seekdir way, std::ios_base::openmode){
+    if(!asset){
+        return std::streampos(-1);
+    }
+    int whence;
+    switch(way){
+        case std::ios_base::seekdir::beg:
+            whence = SEEK_SET;
+            break;
+        case std::ios_base::seekdir::cur:
+            whence = SEEK_CUR;
+            break;
+        case std::ios_base::seekdir::end:
+            whence = SEEK_END;
+            break;
+    }
+    return std::streampos(AAsset_seek(asset, off, whence));
 }
 
 assetbuf::~assetbuf(){

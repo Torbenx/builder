@@ -5,11 +5,14 @@
 #include "engine.hpp"
 
 class assetbuf : public std::streambuf{
-    private:
+    protected:
         AAsset *asset;
         char *buffer;
         int bufferSize;
-        int_type underflow();
+        virtual int_type underflow() override;
+        virtual std::streampos seekpos(std::streampos, std::ios_base::openmode) override;
+        virtual std::streampos seekoff(std::streamoff, std::ios_base::seekdir, std::ios_base::openmode) override;
+
     public:
         assetbuf(std::string file);
         ~assetbuf();
