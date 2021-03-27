@@ -9,7 +9,7 @@
 
 class ShaderBuilder{
     public:
-        std::string rawPosition,fColorValue,worldPosition = "worldPos",screenPosition = "gl_Position",fColor = "color",colorMulti = "colorMulti",worldPositionMulti,rawPositionMulti;
+        std::string rawPosition,rawNormal,worldPosition = "v_worldPos",worldNormal = "v_normal",screenPosition = "gl_Position",fColor = "color",lightIntensity = "lightIntensity",fColorDiffuse = "colorDiffuse",worldPositionMulti,rawPositionMulti;
         std::map<void*,std::string> locations;
         int uCount = 0,aCount = 0,vCount = 0,varCount = 0;
         std::ostringstream vMain,fMain,vInit,fInit;
@@ -26,6 +26,7 @@ class ShaderBuilder{
         void setScreenMvpMatrixUniform(std::string s);
         void setWorldModelMatrixUniform(std::string s);
         void setVertexPositionAttrib(std::string s);
+        void setVertexNormalAttrib(std::string s);
         LShader* build();
         std::string buildVStr();
         std::string buildFStr();

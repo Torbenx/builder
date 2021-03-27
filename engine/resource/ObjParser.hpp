@@ -6,8 +6,9 @@
 class ObjParser{
     public:
         float *vertex = nullptr;
-        uint32_t *indices = nullptr;
         float *texCoords = nullptr;
+        float *normals = nullptr;
+        uint32_t *indices = nullptr;
         int n, vertexCount, polyType, dim;
         ObjParser();
         ~ObjParser();

@@ -5,6 +5,10 @@
 #define MAX_POLY_TYPE 4
 #define MAX_DIM 3
 
+struct ObjParserIndex{
+    int v, t, n;
+};
+
 ObjParser::ObjParser(){}
 
 ObjParser::~ObjParser(){
@@ -14,12 +18,13 @@ ObjParser::~ObjParser(){
 void ObjParser::parse(std::istream& in, int nv, int ni){
     freeCache();
     float *vertex = new float[MAX_DIM];
-    uint32_t *index = new uint32_t[MAX_POLY_TYPE];
-    uint32_t *texIndex = new uint32_t[MAX_POLY_TYPE];
+    float *normals = new float[MAX_DIM];
+    ObjParserIndex *index = new ObjParserIndex[MAX_POLY_TYPE];
     float *texCoords = new float[2 * nv];
     int vpos = 0;
-    int ipos = 0;
     int tpos = 0;
+    int npos = 0;
+    int ipos = 0;
     int bufsize = 256;
     char buf[bufsize];
     polyType = -1;
@@ -31,7 +36,7 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
         if(buf[0] == 'v'){
             if(buf[1] == ' '){
                 int r = 0;
-                char *line = buf+1;
+                char *line = buf+2;
                 for(;;){
                     char *end;
                     float f = std::strtof(line, &end);
@@ -52,6 +57,8 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
                         vertex = new float[nv * dim];
                         std::memcpy(vertex, old, dim * sizeof(float));
                         delete[] old;
+                        delete[] normals;
+                        normals = new float[nv * dim];
                     }else{
                         LOGW("inconsistent dimension");
                     }
@@ -72,6 +79,35 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
                         texCoords[tpos++] = f;
                     }
                 }
+            }else if(buf[1] == 'n'){
+                int r = 0;
+                char *line = buf+2;
+                for(;;){
+                    char *end;
+                    float f = std::strtof(line, &end);
+                    if(line == end){
+                        break;
+                    }
+                    line = end;
+                    if(++r > MAX_DIM){
+                        LOGW("dimension to high");
+                        break;
+                    }
+                    normals[npos++] = f;
+                }
+                if(r != dim){
+                    if(dim == -1){
+                        dim = r;
+                        float *old = normals;
+                        normals = new float[nv * dim];
+                        std::memcpy(normals, old, dim * sizeof(float));
+                        delete[] old;
+                        delete[] vertex;
+                        vertex = new float[nv * dim];
+                    }else{
+                        LOGW("inconsistent dimension");
+                    }
+                }
             }
         }else if(buf[0] == 'f'){
             int r = 0;
@@ -86,34 +122,36 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
                     LOGW("poly type to high");
                     break;
                 }
-                index[ipos] = l;
+                index[ipos].v = l;
                 if(end[0] == '/'){
-                    char *line2 = end+1;
-                    char *end2;
-                    int ll = std::strtol(line2, &end2, 10)-1;
-                    if(ll != -1){
-                        l = ll;
+                    line = end+1;
+                    l = std::strtol(line, &end, 10)-1;
+                    if(l != -1){
+                        index[ipos].t = l;
                     }else{
-                        LOGD("??: %s -> %s", end, line2);
+                        LOGD("failed to parse texture index %s", line);
+                        index[ipos].t = -1;
+                    }
+                    if(end[0] == '/'){
+                        line = end+1;
+                        l = std::strtol(line, &end, 10)-1;
+                        if(l != -1){
+                            index[ipos].n = l;
+                        }else{
+                            LOGD("failed to parse normal index: %s", line);
+                            index[ipos].n = -1;
+                        }
                     }
                 }
-                texIndex[ipos] = l;
                 ipos++;
-                line = strchr(end,' ');
-                if(line == nullptr){
-                    break;
-                }
+                line = end;
             }
             if(r != polyType){
                 if(polyType == -1){
                     polyType = r;
-                    uint32_t *old = index;
-                    index = new uint32_t[ni * polyType];
+                    ObjParserIndex *old = index;
+                    index = new ObjParserIndex[ni * polyType];
                     std::memcpy(index, old, polyType * sizeof(uint32_t));
-                    delete[] old;
-                    old = texIndex;
-                    texIndex = new uint32_t[ni * polyType];
-                    std::memcpy(texIndex, old, polyType * sizeof(uint32_t));
                     delete[] old;
                 }else{
                     LOGW("inconsistent poly type");
@@ -121,55 +159,62 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
             }
         }
     }
-    LOGD("vertex: %d/%d, index: %d/%d tex: %d/%d",vpos/dim,nv,ipos/polyType,ni,tpos/2,nv);
+    LOGD("vertex: %d/%d, index: %d/%d tex: %d/%d normal: %d/%d",vpos/dim,nv,ipos/polyType,ni,tpos/2,nv,npos/dim,nv);
     ni = ipos / polyType;
     int tri = polyType - 2;
     n = ni * tri * 3;
     if(false){
         this->vertexCount = n;
         this->vertex = new float[n * dim];
+        this->normals = new float[n * dim];
         this->texCoords = new float[n * 2];
         for(int i=0;i<ni;i++){
             for(int j=0;j<tri;j++){
                 for(int k=0;k<dim;k++){
-                    this->vertex[((i*tri+j)*3  )*dim+k] = vertex[index[i*polyType    ]*dim+k];
-                    this->vertex[((i*tri+j)*3+1)*dim+k] = vertex[index[i*polyType+j+1]*dim+k];
-                    this->vertex[((i*tri+j)*3+2)*dim+k] = vertex[index[i*polyType+j+2]*dim+k];
+                    this->vertex[((i*tri+j)*3  )*dim+k] = vertex[index[i*polyType    ].v*dim+k];
+                    this->vertex[((i*tri+j)*3+1)*dim+k] = vertex[index[i*polyType+j+1].v*dim+k];
+                    this->vertex[((i*tri+j)*3+2)*dim+k] = vertex[index[i*polyType+j+2].v*dim+k];
+                    this->normals[((i*tri+j)*3  )*dim+k] = normals[index[i*polyType    ].n*dim+k];
+                    this->normals[((i*tri+j)*3+1)*dim+k] = normals[index[i*polyType+j+1].n*dim+k];
+                    this->normals[((i*tri+j)*3+2)*dim+k] = normals[index[i*polyType+j+2].n*dim+k];
                 }
-                this->texCoords[((i*tri+j)*3  )*2+0] = texCoords[texIndex[i*polyType    ]*2+0];
-                this->texCoords[((i*tri+j)*3+1)*2+0] = texCoords[texIndex[i*polyType+j+1]*2+0];
-                this->texCoords[((i*tri+j)*3+2)*2+0] = texCoords[texIndex[i*polyType+j+2]*2+0];
-                this->texCoords[((i*tri+j)*3  )*2+1] = 1.0f - texCoords[texIndex[i*polyType    ]*2+1];
-                this->texCoords[((i*tri+j)*3+1)*2+1] = 1.0f - texCoords[texIndex[i*polyType+j+1]*2+1];
-                this->texCoords[((i*tri+j)*3+2)*2+1] = 1.0f - texCoords[texIndex[i*polyType+j+2]*2+1];
+                this->texCoords[((i*tri+j)*3  )*2+0] = texCoords[index[i*polyType    ].t*2+0];
+                this->texCoords[((i*tri+j)*3+1)*2+0] = texCoords[index[i*polyType+j+1].t*2+0];
+                this->texCoords[((i*tri+j)*3+2)*2+0] = texCoords[index[i*polyType+j+2].t*2+0];
+                this->texCoords[((i*tri+j)*3  )*2+1] = 1.0f - texCoords[index[i*polyType    ].t*2+1];
+                this->texCoords[((i*tri+j)*3+1)*2+1] = 1.0f - texCoords[index[i*polyType+j+1].t*2+1];
+                this->texCoords[((i*tri+j)*3+2)*2+1] = 1.0f - texCoords[index[i*polyType+j+2].t*2+1];
             }
         }
         delete[] texCoords;
+        delete[] normals;
         delete[] vertex;
         delete[] index;
-        delete[] texIndex;
     }else{
         this->vertexCount = tpos / 2;
         this->indices = new uint32_t[n];
         this->vertex = new float[this->vertexCount*dim];
+        this->normals = new float[this->vertexCount*dim];
         this->texCoords = texCoords;
         for(int i=1;i<tpos;i+=2){
             texCoords[i] = 1.0f - texCoords[i];
         }
         for(int i=0;i<ipos;i++){
             for(int j=0;j<dim;j++){
-                this->vertex[texIndex[i]*dim+j] = vertex[index[i]*dim+j];
+                this->vertex[index[i].t*dim+j] = vertex[index[i].v*dim+j];
+                this->normals[index[i].t*dim+j] = normals[index[i].n*dim+j];
             }
         }
         for(int i=0;i<ni;i++){
             for(int j=0;j<tri;j++){
-                this->indices[(i*tri+j)*3  ] = texIndex[i*polyType    ];
-                this->indices[(i*tri+j)*3+1] = texIndex[i*polyType+j+1];
-                this->indices[(i*tri+j)*3+2] = texIndex[i*polyType+j+2];
+                this->indices[(i*tri+j)*3  ] = index[i*polyType    ].t;
+                this->indices[(i*tri+j)*3+1] = index[i*polyType+j+1].t;
+                this->indices[(i*tri+j)*3+2] = index[i*polyType+j+2].t;
             }
         }
-        delete[] texIndex;
         delete[] index;
+        delete[] vertex;
+        delete[] normals;
     }
 }
 
@@ -185,5 +230,9 @@ void ObjParser::freeCache(){
     if(texCoords){
         delete[] texCoords;
         texCoords = nullptr;
+    }
+    if(normals){
+        delete[] normals;
+        normals = nullptr;
     }
 }

@@ -27,7 +27,8 @@ void text_init();
 void time_init();
 
 void gl_debug_callback(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam){
-    LOGD("glDebug: %s", message);
+    if(severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+        LOGD("glDebug: [%d]: %s", severity, message);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
@@ -77,15 +78,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             wglMakeCurrent(hdc, hglrc);
             glDebugMessageCallbackARB(gl_debug_callback, nullptr);
             glEnable(GL_DEBUG_OUTPUT);
+            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
             ID3D11DeviceContext *dxContext;
             D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             text_init();
 
-            if(wglSwapIntervalEXT(0)){
+            /*if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
-            }
+            }*/
 
             renderer->create();
             return 0;

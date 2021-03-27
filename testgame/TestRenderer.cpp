@@ -36,17 +36,19 @@ TestRenderer::TestRenderer() :
             Vec3(1,1,1)*0.4f,
             10
         ),
-        ambientLight(Vec3(1, 1, 1)*0.2f),
+        ambientLight(Vec3(1, 1, 1)*0.4f),
         f1(GL_ARRAY_BUFFER),
         f2(GL_ARRAY_BUFFER),
         f3(GL_ARRAY_BUFFER),
         f4(GL_ARRAY_BUFFER),
         f5(TE_BUFFER),
+        fNormal(GL_ARRAY_BUFFER),
         pawnVertex(GL_ARRAY_BUFFER),
         pawnIndices(GL_ELEMENT_ARRAY_BUFFER),
-        pawnTextCoords(GL_ARRAY_BUFFER),
+        pawnTexCoords(GL_ARRAY_BUFFER),
+        pawnNormals(GL_ARRAY_BUFFER),
         pawnTexture(GL_TEXTURE_2D),
-        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.5f),
+        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.03f),
         look(up, isAndroid()),
         pos(7,1,0)
         {}
@@ -71,11 +73,14 @@ void TestRenderer::create(){
     f4.bufferData(f4Src,3*4*4,GL_STATIC_DRAW);
     f5.init();
     f5.bufferData(obj5_coords,3*4*4,GL_DYNAMIC_DRAW);
-    obj1 = new DebugRenderable(&f1,Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
-    obj2 = new DebugRenderable(&f2,Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
-    obj3 = new ReflectionDebugRenderable(&f3, Vec3(0.5,0.5,0.5), 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
-    obj4 = new DebugRenderable(&f4,Vec3(1,1,0), 4); obj4->mode = GL_TRIANGLE_STRIP;
-    obj5 = new DebugRenderable(&f5,Vec3(0,0,1), 4); obj5->mode = GL_TRIANGLE_STRIP;
+    fNormal.init();
+    float fNSrc[] = {0,1,0,0,1,0,0,1,0,0,1,0};
+    fNormal.bufferData(fNSrc,3*4*4,GL_STATIC_DRAW);
+    obj1 = new DebugRenderable(&f1,&fNormal,Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
+    obj2 = new DebugRenderable(&f2,&fNormal,Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
+    obj3 = new ReflectionDebugRenderable(&f3, &fNormal, Vec3(1,1,1)*0.5, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
+    obj4 = new DebugRenderable(&f4,&fNormal,Vec3(1,1,0), 4); obj4->mode = GL_TRIANGLE_STRIP;
+    obj5 = new DebugRenderable(&f5,&fNormal,Vec3(0,0,1), 4); obj5->mode = GL_TRIANGLE_STRIP;
     mvpMatrix.model = Mat4x4::Id;
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
@@ -114,8 +119,8 @@ void TestRenderer::create(){
 
     TypedSize pad = TypedSize::gl(-0.02f);
     uiScene.layout(&textComp)
-        .centerVertical()
-        .centerHorizontal()
+        .alignTop()
+        .alignLeft()
         .wrapContentWidth()
         .wrapContentHeight();
     uiScene.layout(&cubeComp)
@@ -132,8 +137,10 @@ void TestRenderer::create(){
     parser.parse(file, 20000, 20000);
     pawnVertex.init();
     pawnVertex.bufferData(parser.vertex,parser.vertexCount*parser.dim*4,GL_STATIC_DRAW);
-    pawnTextCoords.init();
-    pawnTextCoords.bufferData(parser.texCoords,parser.vertexCount*2*4,GL_STATIC_DRAW);
+    pawnTexCoords.init();
+    pawnTexCoords.bufferData(parser.texCoords,parser.vertexCount*2*4,GL_STATIC_DRAW);
+    pawnNormals.init();
+    pawnNormals.bufferData(parser.normals,parser.vertexCount*parser.dim*4,GL_STATIC_DRAW);
     if(parser.indices){
         pawnIndices.init();
         pawnIndices.bufferData(parser.indices,parser.n*4,GL_STATIC_DRAW);
@@ -169,7 +176,7 @@ void TestRenderer::create(){
 
     refComp.texture = &pawnTexture;
 
-    pawn = new ObjectRenderable(&pawnVertex, parser.indices ? &pawnIndices : nullptr, &pawnTextCoords, &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
+    pawn = new ObjectRenderable(&pawnVertex, parser.indices ? &pawnIndices : nullptr, &pawnTexCoords, &pawnNormals, &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
     scene.addObject(pawn);
 }
 
@@ -239,8 +246,8 @@ void TestRenderer::rawKey(uint32_t keycode, bool down){
         if(down){
             if(!isFullscreen()){
                 #ifdef PLATFORM_WINDOWS
-                //goFullscreen(FullscreenConfig::DEFAULT);
-                goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
+                goFullscreen(FullscreenConfig::DEFAULT);
+                //goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
                 #endif
             }else{
                 exitFullscreen();
@@ -327,7 +334,7 @@ void TestRenderer::drawFrame(){
         util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    cubeComp.draw();
+    //cubeComp.draw();
     textComp.draw();
     //refComp.draw();
 }

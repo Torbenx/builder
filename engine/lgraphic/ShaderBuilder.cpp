@@ -3,11 +3,13 @@
 #include "string.h"
 
 ShaderBuilder::ShaderBuilder(){
-
+    addVarying("vec3", worldPosition);
+    addVarying("vec3", worldNormal);
 }
 
 ShaderBuilder::ShaderBuilder(const ShaderBuilder& s){
     rawPosition = s.rawPosition;
+    rawNormal = s.rawNormal;
     worldPositionMulti = s.worldPositionMulti;
     rawPositionMulti = s.rawPositionMulti;
     locations = s.locations;
@@ -24,7 +26,7 @@ ShaderBuilder::ShaderBuilder(const ShaderBuilder& s){
 void ShaderBuilder::addLight(AmbientLight& l){
     std::string colorUniform = newUniform(&(l.color));
     addFragmentUniform("vec3", colorUniform);
-    fMain<<colorMulti<<" += "<<colorUniform<<";\n";
+    fMain<<lightIntensity<<" += "<<colorUniform<<";\n";
 }
 
 void ShaderBuilder::addLight(SpotLight& l){
@@ -32,47 +34,48 @@ void ShaderBuilder::addLight(SpotLight& l){
     std::string textureUniform = newUniform(&l.depthMap);
     std::string colorUniform = newUniform(&l.color);
     std::string positionVarying = newVarying();
+    std::string normalVarying = newVarying();
     addVertexUniform("mat4",mvpUniform);
     addFragmentUniform("sampler2D",textureUniform);
     addFragmentUniform("vec3",colorUniform);
     addVarying("vec4",positionVarying);
+    addVarying("float",normalVarying);
     std::string m_far = newVar();
     std::string depth = newVar();
-    vMain<<positionVarying<<" = "<<mvpUniform<<" * "<<worldPosition<<";\n";
+    vMain<<positionVarying<<" = "<<mvpUniform<<" * vec4("<<worldPosition<<",1.0);\n";
+    vMain<<normalVarying<<" = ("<<mvpUniform<<" * vec4("<<worldNormal<<",0.0)).z;\n";
     char buff[100];
     sprintf(buff,"%f",l.depthMap.m_far);
     fMain<<"const float "<<m_far<<" = "<<buff<<";\n";
     std::string pos = newVar();
     fMain<<"vec2 "<<pos<<" = "<<positionVarying<<".xy/"<<positionVarying<<".w;\n";
     fMain<<"float "<<depth<<" = dot(vec4("<<m_far<<","<<m_far<<"/255.0,"<<m_far<<"/255.0/255.0,"<<m_far<<"/255.0/255.0/255.0),texture2D("<<textureUniform<<",("<<pos<<"+1.0)/2.0));\n";
-    fMain<<"if("<<positionVarying<<".z>0.0&&dot("<<pos<<","<<pos<<")<=1.0&&"<<positionVarying<<".z<="<<depth<<"*1.01){"<<colorMulti<<" += "<<colorUniform<<";}\n";
+    fMain<<"if("<<positionVarying<<".z>0.0&&dot("<<pos<<","<<pos<<")<=1.0&&"<<positionVarying<<".z<="<<depth<<"*1.01){"<<lightIntensity<<" += max(0.0, -"<<normalVarying<<") * "<<colorUniform<<";}\n";
 }
 
 void ShaderBuilder::addLight(PointLight& l){
     std::string textureUniform = newUniform(&l.depthMap);
     std::string colorUniform = newUniform(&l.color);
     std::string lightPosUniform = newUniform(&l.position);
-    std::string positionVarying = newVarying();
     addFragmentUniform("samplerCube",textureUniform);
     addFragmentUniform("vec3",colorUniform);
     addFragmentUniform("vec3",lightPosUniform);
-    addVarying("vec4",positionVarying);
-    vMain<<positionVarying<<" = "<<worldPosition<<";\n";
     std::string _far = newVar();
     std::string depth = newVar();
-    std::string pos = newVar();
+    std::string direction = newVar();
     std::string distance = newVar();
     char buff[100];
     sprintf(buff,"%f",l.depthMap.m_far);
-    fMain<<"vec3 "<<pos<<" = "<<positionVarying<<".xyz/"<<positionVarying<<".w;\n";
     fMain<<"const float "<<_far<<" = "<<buff<<";\n";
     float invOff0 = 1.0f / l.startBrightness;
-    fMain<<"float "<<depth<<" = dot(vec4("<<_far<<","<<_far<<"/255.0,"<<_far<<"/255.0/255.0,"<<_far<<"/255.0/255.0/255.0),textureCube("<<textureUniform<<","<<pos<<"-"<<lightPosUniform<<"));\n";
+    fMain<<"float "<<depth<<" = dot(vec4("<<_far<<","<<_far<<"/255.0,"<<_far<<"/255.0/255.0,"<<_far<<"/255.0/255.0/255.0),textureCube("<<textureUniform<<","<<worldPosition<<"-"<<lightPosUniform<<"));\n";
     fMain<<"if("<<depth<<"==0.0){"<<depth<<" = "<<_far<<";}\n";
-    fMain<<"float "<<distance<<" = distance("<<pos<<","<<lightPosUniform<<");\n";
+    fMain<<"vec3 "<<direction<<" = "<<worldPosition<<" - "<<lightPosUniform<<";\n";
+    fMain<<"float "<<distance<<" = length("<<direction<<");\n";
+    fMain<<direction<<" /= "<<distance<<";\n";
     sprintf(buff,"%f",invOff0);
-    fMain<<"if("<<distance<<"<="<<depth<<"*1.01){"<<colorMulti<<" += "<<colorUniform<<"/("<<buff<<"+";
-    sprintf(buff,"%f",(1.0f/l.halfBrightness-invOff0)*4.0f/(l.depthMap.m_far*l.depthMap.m_far));
+    fMain<<"if("<<distance<<"<="<<depth<<"*1.01){"<<lightIntensity<<" += abs(dot("<<worldNormal<<", "<<direction<<")) * "<<colorUniform<<" / ("<<buff<<"+";
+    sprintf(buff,"%.20f",(1.0f/l.halfBrightness-invOff0)*4.0f/(l.depthMap.m_far*l.depthMap.m_far));
     fMain<<buff<<"*"<<distance<<"*"<<distance<<");}\n";
 }
 
@@ -88,7 +91,7 @@ void ShaderBuilder::addReflection(Reflection& r){
 }
 
 void ShaderBuilder::addToFragmentColor(std::string s){
-    fMain<<fColor<<" += "<<s<<";\n";
+    fMain<<fColorDiffuse<<" += "<<s<<";\n";
 }
 
 void ShaderBuilder::setFragmentColorUniform(std::string s){
@@ -128,8 +131,13 @@ void ShaderBuilder::setWorldModelMatrixUniform(std::string s){
 }
 
 void ShaderBuilder::setVertexPositionAttrib(std::string s){
-    addAttrib("vec4",s);
+    addAttrib("vec3",s);
     rawPosition = s;
+}
+
+void ShaderBuilder::setVertexNormalAttrib(std::string s){
+    addAttrib("vec3",s);
+    rawNormal = s;
 }
 
 LShader* ShaderBuilder::build(){
@@ -138,24 +146,39 @@ LShader* ShaderBuilder::build(){
 
 std::string ShaderBuilder::buildVStr(){
     std::ostringstream v;
-    v<<vInit.str()<<"void main(){\nvec4 "<<worldPosition<<" = ";
+    v<<vInit.str()<<"void main(){\n";
+
+    v<<worldPosition<<" = (";
     if(!rawPositionMulti.empty()){
         v<<rawPositionMulti<<" * ";
     }
-    v<<rawPosition<<";\ngl_Position = ";
+    v<<"vec4("<<rawPosition<<", 1.0) ).xyz;\n";
+
+    v<<worldNormal<<" = (";
+    if(!rawPositionMulti.empty()){
+        v<<rawPositionMulti<<" * ";
+    }
+    v<<"vec4("<<rawNormal<<", 0.0) ).xyz;\n";
+    v<<worldNormal<<" /= length("<<worldNormal<<");\n";
+
+    v<<"gl_Position = ";
     if(!worldPositionMulti.empty()){
         v<<worldPositionMulti<<" * ";
     }
-    v<<worldPosition<<";\n"<<vMain.str()<<"}";
+    v<<"vec4("<<worldPosition<<", 1.0);\n";
+
+    v<<vMain.str()<<"}";
+
     //LOGD("\n\n Vertex: \n%s\n\n", v.str().c_str());
     return v.str();
 }
 
 std::string ShaderBuilder::buildFStr(){
     std::ostringstream f;
-    f<<fInit.str()<<"void main(){\nvec3 "<<colorMulti<<" = vec3(0.0);\n";
+    f<<fInit.str()<<"void main(){\nvec3 "<<lightIntensity<<" = vec3(0.0);\n";
     f<<"vec3 "<<fColor<<" = vec3(0.0);\n";
-    f<<fMain.str()<<"gl_FragColor = vec4("<<colorMulti<<" * "<<fColor<<", 1.0);\n}";
+    f<<"vec3 "<<fColorDiffuse<<" = vec3(0.0);\n";
+    f<<fMain.str()<<"gl_FragColor = vec4("<<fColor<<" + "<<lightIntensity<<" * "<<fColorDiffuse<<", 1.0);\n}";
     //LOGD("\n\n Fragment: \n%s\n\n", f.str().c_str());
     return f.str();
 }

@@ -2,6 +2,7 @@
 
 Scene::Scene(){
     baseBuilder.setVertexPositionAttrib("a_position");
+    baseBuilder.setVertexNormalAttrib("a_normal");
     baseBuilder.setScreenMvpMatrixUniform("u_mvpMatrix");
     baseBuilder.setWorldModelMatrixUniform("u_model");
 }
@@ -104,6 +105,7 @@ void Scene::doDraw(MvpMatrix& mvp, bool drawReflections){
         if(!shader){
             ShaderBuilder builder(baseBuilder);
             it->data.positionAttrib = {"a_position"};
+            it->data.normalAttrib = {"a_normal"};
             it->data.modelUniform = {"u_model"};
             it->data.uniforms = new ShaderLocationHandle[colors.nUniforms];
             for(int i=0;i<colors.nUniforms;i++){

@@ -21,13 +21,15 @@
 class DebugRenderable : public SceneObject{
     public:
         Bufferf *source;
+        Bufferf *normals;
         Vec3 color;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        DebugRenderable(Bufferf *s, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
+        DebugRenderable(Bufferf *s, Bufferf *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
+            normals = nor;
             color = c;
             num = n;
             model = m;
@@ -49,6 +51,7 @@ class DebugRenderable : public SceneObject{
             shader->uniformMat4x4(data.modelUniform.name, model);
             shader->uniformVec3(data.uniforms[0].name, color);
             shader->attribPointer(data.positionAttrib.name, 3, *source);
+            shader->attribPointer(data.normalAttrib.name, 3, *normals);
             glDrawArrays(mode, 0, num);
         }
 };
@@ -56,17 +59,19 @@ class DebugRenderable : public SceneObject{
 class ObjectRenderable : public SceneObject{
     public:
         Bufferf *source;
-        Bufferi *indices;
         Bufferf *texCoords;
+        Bufferf *normals;
+        Bufferi *indices;
         Texture *texture;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        ObjectRenderable(Bufferf *s, Bufferi *i, Bufferf *t, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
+        ObjectRenderable(Bufferf *s, Bufferi *i, Bufferf *t, Bufferf *nor, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             indices = i;
             texCoords = t;
+            normals = nor;
             texture = tex;
             num = n;
             model = m;
@@ -97,6 +102,7 @@ class ObjectRenderable : public SceneObject{
         void draw2(LShader *shader, SceneDrawData& data){
             shader->uniformMat4x4(data.modelUniform.name, model);
             shader->attribPointer(data.positionAttrib.name, 3, *source);
+            shader->attribPointer(data.normalAttrib.name, 3, *normals);
             shader->uniformTexture(data.textureUniforms[0].name, *texture, 10);
             shader->attribPointer(data.texPositionAttribs[0].name, 2, *texCoords);
             if(indices){
@@ -112,7 +118,7 @@ class ReflectionDebugRenderable : public DebugRenderable{
     public:
         Reflection *reflection;
 
-        ReflectionDebugRenderable(Bufferf *s, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, c, n, m){
+        ReflectionDebugRenderable(Bufferf *s, Bufferf *nor, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, nor, c, n, m){
             reflection = r;
         }
 
@@ -153,9 +159,11 @@ class TestRenderer : public Renderer{
         Bufferf f3;
         Bufferf f4;
         Bufferf f5;
+        Bufferf fNormal;
         Bufferf pawnVertex;
         Bufferi pawnIndices;
-        Bufferf pawnTextCoords;
+        Bufferf pawnTexCoords;
+        Bufferf pawnNormals;
         Texture pawnTexture;
         MvpMatrix mvpMatrix;
         Reflection reflection;

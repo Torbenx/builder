@@ -17,6 +17,7 @@ struct ShaderLocationHandle{
 
 struct SceneDrawData{
     ShaderLocationHandle positionAttrib;
+    ShaderLocationHandle normalAttrib;
     ShaderLocationHandle modelUniform;
     ShaderLocationHandle *uniforms;
     std::string *textureTypes;
