@@ -11,15 +11,14 @@ class DepthMap{
         Texture texture;
         Renderbuffer renderbuffer;
         Framebuffer framebuffer;
-        bool divideByW;
         int width,height;
         float m_far;
         Shader *shader;
         std::string fSource,vSource;
-        DepthMap(bool divideByW,int width,int height,float far);
+        DepthMap(int width,int height,float far);
         ~DepthMap();
         void init();
-        void draw(MvpMatrix& mvpMatrix,Renderable **ptrArray,int count);
+        void draw(MvpMatrix& mvpMatrix,Vec3 position,Renderable **ptrArray,int count);
 };
 
 #endif

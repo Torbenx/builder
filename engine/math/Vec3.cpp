@@ -152,6 +152,14 @@ Vec3 Vec3::cross(Vec3 left,Vec3 right){
     );
 }
 
+Vec3 Vec3::findOrthogonal(Vec3 v){
+    if(fabs(v.x) < fabs(v.y) && fabs(v.x) < fabs(v.z))
+        return cross(Vec3(1.0, 0.0, 0.0), v).normalize();
+    if(fabs(v.y) < fabs(v.z))
+        return cross(Vec3(0.0, 1.0, 0.0), v).normalize();
+    return cross(Vec3(0.0, 0.0, 1.0), v).normalize();
+}
+
 Vec3 operator+(Vec3 left,Vec3 right){
     return Vec3(left.x+right.x,left.y+right.y,left.z+right.z);
 }

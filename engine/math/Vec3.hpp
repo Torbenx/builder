@@ -34,6 +34,7 @@ class Vec3{
         void debug();
         static float dot(Vec3 left,Vec3 right);
         static Vec3 cross(Vec3 left,Vec3 right);
+        static Vec3 findOrthogonal(Vec3 v);
 };
 
 Vec3 operator*(Vec3 left,Vec3 right);

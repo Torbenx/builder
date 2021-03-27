@@ -14,6 +14,7 @@
 #include "ui/TextComponent.hpp"
 #include "ui/TestComponent.hpp"
 #include "ui/DepthCubeMapComponent.hpp"
+#include "ui/DepthMapComponent.hpp"
 #include "3d/Scene.hpp"
 #include "ui/UiScene.hpp"
 #include <cmath>
@@ -169,13 +170,13 @@ class TestRenderer : public Renderer{
         Reflection reflection;
         Look3d look;
         TextComponent textComp;
-        uint32_t w = -1,a = -1,s = -1,d = -1, fullscreen = -1, exitKey = -1;
+        uint32_t w = -1,a = -1,s = -1,d = -1, fullscreen = -1, exitKey = -1, upKey = -1, downKey = -1;
         Vec3 pos;
-        bool wd = false, ad = false, sd = false, dd = false;
+        bool wd = false, ad = false, sd = false, dd = false, upKeyDown = false, downKeyDown = false;
         int lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
         int navBaseX, navBaseY;
         int navDeltaX = 0, navDeltaY = 0;
-        DepthCubeMapComponent cubeComp;
+        DepthMapComponent cubeComp;
         TextureComponent refComp;
         Scene scene;
         UiScene uiScene;

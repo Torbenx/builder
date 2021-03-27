@@ -2,7 +2,7 @@
 #include <Windows.h>
 #include "../util/log.hpp"
 
-char keycodeToChar(uint32_t keycode){
+unsigned char keycodeToChar(uint32_t keycode){
     if(keycode >= 0x30 && keycode <= 0x39)return (char)keycode;
     if(keycode >= 0x41 && keycode <= 0x5a)return (char)keycode;
     if(keycode >  0x6f && keycode <= 0x6f+24)return SPECIAL_KEY_F(keycode-0x6f);
@@ -22,10 +22,10 @@ char keycodeToChar(uint32_t keycode){
     }
 }
 
-uint32_t charToKeycode(char c){
-    if(c >= 0x30 && c <= 0x39) return c;
-    if(c >= 0x41 && c <= 0x5a) return c;
-    if(c >= 0x61 && c <= 0x7a) return c-0x20;
+uint32_t charToKeycode(unsigned char c){
+    if(c >= '0' && c <= '9') return c;
+    if(c >= 'A' && c <= 'Z') return c;
+    if(c >= 'a' && c <= 'z') return c-'a'+'A';
     if(c > SPECIAL_KEY_F_BASE){
         c -= SPECIAL_KEY_F_BASE;
         if(c <= 24)return 0x6f + c;

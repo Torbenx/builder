@@ -9,7 +9,7 @@ class PointLight{
         DepthCubeMap depthMap;
         Vec3 color;
         float halfBrightness,startBrightness;
-        PointLight(Vec3 position,int width,int height,Vec3 color,float far,float startBrightness,float halfBrightness);
+        PointLight(Vec3 position,int width,int height,Vec3 color,float near,float far);
         ~PointLight();
         void init();
         void draw(Mat4x4 model, Renderable **ptrArray, int count);

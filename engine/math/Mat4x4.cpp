@@ -5,7 +5,7 @@
 Mat4x4 Mat4x4::Id(true);
 
 Mat4x4::Mat4x4(){
-    
+
 }
 
 Mat4x4::Mat4x4(bool id){
@@ -15,17 +15,17 @@ Mat4x4::Mat4x4(bool id){
         m[ 1] = 0.0f;
         m[ 2] = 0.0f;
         m[ 3] = 0.0f;
-        
+
         m[ 4] = 0.0f;
         m[ 5] = 1.0f;
         m[ 6] = 0.0f;
         m[ 7] = 0.0f;
-        
+
         m[ 8] = 0.0f;
         m[ 9] = 0.0f;
         m[10] = 1.0f;
         m[11] = 0.0f;
-        
+
         m[12] = 0.0f;
         m[13] = 0.0f;
         m[14] = 0.0f;
@@ -49,22 +49,22 @@ Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
     Vec3 ex = Vec3::cross(dir,up);
     ex.normalize();
     Vec3 ey = Vec3::cross(ex,dir); //already unit length
-    
+
     m[ 0] = ex.x;
     m[ 1] = ey.x;
     m[ 2] = -dir.x;
     m[ 3] = 0.0f;
-    
+
     m[ 4] = ex.y;
     m[ 5] = ey.y;
     m[ 6] = -dir.y;
     m[ 7] = 0.0f;
-    
+
     m[ 8] = ex.z;
     m[ 9] = ey.z;
     m[10] = -dir.z;
     m[11] = 0.0f;
-    
+
     m[12] = -Vec3::dot(ex,eye);
     m[13] = -Vec3::dot(ey,eye);
     m[14] = Vec3::dot(dir,eye);
@@ -84,22 +84,22 @@ Mat4x4 Mat4x4::rotate(float radians, Vec3 axis){
     float nc = 1.0f-c;
     Vec3 v = axis;
     v.normalize();
-    
+
     m[ 0] = v.x * v.x * nc +       c;
     m[ 1] = v.y * v.x * nc + v.y * s;
     m[ 2] = v.z * v.x * nc - v.y * s;
     m[ 3] = 0.0f;
-    
+
     m[ 4] = v.x * v.y * nc - v.z * s;
     m[ 5] = v.y * v.y * nc +       c;
     m[ 6] = v.z * v.y * nc + v.x * s;
     m[ 7] = 0.0f;
-    
+
     m[ 8] = v.x * v.z * nc + v.y * s;
     m[ 9] = v.y * v.z * nc - v.x * s;
     m[10] = v.z * v.z * nc +       c;
     m[11] = 0.0f;
-    
+
     m[12] = 0.0f;
     m[13] = 0.0f;
     m[14] = 0.0f;
@@ -114,24 +114,24 @@ Mat4x4 Mat4x4::rotateAbout(Vec3 pos, float radians, Vec3 axis){
 Mat4x4 Mat4x4::reflection(Vec3 n, Vec3 pos){
     Mat4x4 re;
     float *m = re.matrix;
-    
+
     n.normalize();
-    
+
     m[ 0] = 1.0f-2.0f*n.x*n.x;
     m[ 1] =     -2.0f*n.x*n.y;
     m[ 2] =     -2.0f*n.x*n.z;
     m[ 3] = 0.0f;
-    
+
     m[ 4] =     -2.0f*n.y*n.x;
     m[ 5] = 1.0f-2.0f*n.y*n.y;
     m[ 6] =     -2.0f*n.y*n.z;
     m[ 7] = 0.0f;
-    
+
     m[ 8] =     -2.0f*n.z*n.x;
     m[ 9] =     -2.0f*n.z*n.y;
     m[10] = 1.0f-2.0f*n.z*n.z;
     m[11] = 0.0f;
-    
+
     float l = 2.0f*Vec3::dot(n,pos);
     m[12] = l*n.x;
     m[13] = l*n.y;
@@ -146,28 +146,28 @@ Mat4x4 Mat4x4::frustum(float left, float right, float bottom, float top, float n
     float r_width  = 1.0f / (right - left);
     float r_height = 1.0f / (top - bottom);
     float r_depth  = 1.0f / (near - far);
-    float x = 2.0f * (near * r_width);
-    float y = 2.0f * (near * r_height);
+    float x = 2.0f * r_width;
+    float y = 2.0f * r_height;
     float a = (right + left) * r_width;
     float b = (top + bottom) * r_height;
-    float c = (far + near) * r_depth;
-    float d = 2.0f * (far * near * r_depth);
-    
+    float c = far * r_depth;
+    float d = far * near * r_depth;
+
     m[ 0] = x;
     m[ 1] = 0.0f;
     m[ 2] = 0.0f;
     m[ 3] = 0.0f;
-    
+
     m[ 4] = 0.0f;
     m[ 5] = y;
     m[ 6] = 0.0f;
     m[ 7] = 0.0f;
-    
+
     m[ 8] = a;
     m[ 9] = b;
     m[10] = c;
     m[11] = -1.0f;
-    
+
     m[12] = 0.0f;
     m[13] = 0.0f;
     m[14] = d;
@@ -180,12 +180,12 @@ Mat4x4 Mat4x4::frustumVH(float vfov, float hfov, float near, float far){
     vfov = tan(vfov/2.0f);
     return frustum(-vfov,vfov,-hfov,hfov,near,far);
 }
-        
+
 Mat4x4 Mat4x4::frustumV(float vfov, float aspect, float near, float far){
     vfov = tan(vfov/2.0f);
     return frustum(-vfov,vfov,-vfov*aspect,vfov*aspect,near,far);
 }
-        
+
 Mat4x4 Mat4x4::frustumH(float hfov, float aspect, float near, float far){
     hfov = tan(hfov/2.0f);
     return frustum(-hfov*aspect,hfov*aspect,-hfov,hfov,near,far);
@@ -194,27 +194,27 @@ Mat4x4 Mat4x4::frustumH(float hfov, float aspect, float near, float far){
 Mat4x4 Mat4x4::ortho(float left, float right, float bottom, float top, float near, float far){
     Mat4x4 re;
     float *m = re.matrix;
-    
+
     m[ 0] = 2.0f/(right-left);
     m[ 1] = 0.0f;
     m[ 2] = 0.0f;
     m[ 3] = 0.0f;
-    
+
     m[ 4] = 0.0f;
     m[ 5] = 2.0f/(top-bottom);
     m[ 6] = 0.0f;
     m[ 7] = 0.0f;
-    
+
     m[ 8] = 0.0f;
     m[ 9] = 0.0f;
     m[10] = -2.0f/(far-near);
     m[11] = 0.0f;
-    
+
     m[12] = -(right+left)/(right-left);
     m[13] = -(top+bottom)/(top-bottom);
     m[14] = -(far+near)/(far-near);
     m[15] = 1.0f;
-    
+
     return re;
 }
 
@@ -270,7 +270,7 @@ Mat4x4 Mat4x4::invert(Mat4x4 matrix){
                 - (atmp2 * src0 + atmp7 * src1 + atmp10 * src3);
     float dst7  = (atmp4 * src0 + atmp9 * src1 + atmp10 * src2)
                 - (atmp5 * src0 + atmp8 * src1 + atmp11 * src2);
-                
+
     float btmp0  = src2 * src7;
     float btmp1  = src3 * src6;
     float btmp2  = src1 * src7;
@@ -300,7 +300,7 @@ Mat4x4 Mat4x4::invert(Mat4x4 matrix){
                 - (btmp10 * src11 + btmp2  * src8  + btmp7  * src9 );
     float dst15 = (btmp10 * src10 + btmp4  * src8  + btmp9  * src9 )
                 - (btmp8  * src9  + btmp11 * src10 + btmp5  * src8 );
-                
+
     float det = src0 * dst0 + src1 * dst1 + src2 * dst2 + src3 * dst3;
     float invdet = 1.0f / det;
 
@@ -325,7 +325,7 @@ Mat4x4 Mat4x4::invert(Mat4x4 matrix){
     m[13] = dst13*invdet;
     m[14] = dst14*invdet;
     m[15] = dst15*invdet;
-    
+
     return re;
 }
 
@@ -412,27 +412,27 @@ void Mat4x4::debug(){
 Mat4x4 operator*(Mat4x4 left,Mat4x4 right){
     Mat4x4 re;
     float *m0 = re.matrix,*m1 = right.matrix,*m2 = left.matrix;
-    
+
     m0[ 0] = m1[ 0] * m2[ 0] + m1[ 1] * m2[ 4] + m1[ 2] * m2[ 8] + m1[ 3] * m2[12];
     m0[ 1] = m1[ 0] * m2[ 1] + m1[ 1] * m2[ 5] + m1[ 2] * m2[ 9] + m1[ 3] * m2[13];
     m0[ 2] = m1[ 0] * m2[ 2] + m1[ 1] * m2[ 6] + m1[ 2] * m2[10] + m1[ 3] * m2[14];
     m0[ 3] = m1[ 0] * m2[ 3] + m1[ 1] * m2[ 7] + m1[ 2] * m2[11] + m1[ 3] * m2[15];
-    
+
     m0[ 4] = m1[ 4] * m2[ 0] + m1[ 5] * m2[ 4] + m1[ 6] * m2[ 8] + m1[ 7] * m2[12];
     m0[ 5] = m1[ 4] * m2[ 1] + m1[ 5] * m2[ 5] + m1[ 6] * m2[ 9] + m1[ 7] * m2[13];
     m0[ 6] = m1[ 4] * m2[ 2] + m1[ 5] * m2[ 6] + m1[ 6] * m2[10] + m1[ 7] * m2[14];
     m0[ 7] = m1[ 4] * m2[ 3] + m1[ 5] * m2[ 7] + m1[ 6] * m2[11] + m1[ 7] * m2[15];
-    
+
     m0[ 8] = m1[ 8] * m2[ 0] + m1[ 9] * m2[ 4] + m1[10] * m2[ 8] + m1[11] * m2[12];
     m0[ 9] = m1[ 8] * m2[ 1] + m1[ 9] * m2[ 5] + m1[10] * m2[ 9] + m1[11] * m2[13];
     m0[10] = m1[ 8] * m2[ 2] + m1[ 9] * m2[ 6] + m1[10] * m2[10] + m1[11] * m2[14];
     m0[11] = m1[ 8] * m2[ 3] + m1[ 9] * m2[ 7] + m1[10] * m2[11] + m1[11] * m2[15];
-    
+
     m0[12] = m1[12] * m2[ 0] + m1[13] * m2[ 4] + m1[14] * m2[ 8] + m1[15] * m2[12];
     m0[13] = m1[12] * m2[ 1] + m1[13] * m2[ 5] + m1[14] * m2[ 9] + m1[15] * m2[13];
     m0[14] = m1[12] * m2[ 2] + m1[13] * m2[ 6] + m1[14] * m2[10] + m1[15] * m2[14];
     m0[15] = m1[12] * m2[ 3] + m1[13] * m2[ 7] + m1[14] * m2[11] + m1[15] * m2[15];
-    
+
     return re;
 }
 

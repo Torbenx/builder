@@ -22,19 +22,19 @@ TestRenderer::TestRenderer() :
         pointLight(
             Vec3(0,1,-2),
             1024,1024,
-            Vec3(1,1,1),
-            1000,
-            0.3f,
-            0.2f
+            Vec3(1,1,1)*4,
+            1,
+            100
         ),
         spotLight(
-            Vec3(0,3.5,0),
-            Vec3(0.1,-3,0.1),
+            Vec3(0,3.4,0),
+            Vec3(0,-1,0),
             M_PI*0.4,
             M_PI*0.4,
             2048,2048,
-            Vec3(1,1,1)*0.4f,
-            10
+            Vec3(1,1,1)*2.0f,
+            1,
+            100
         ),
         ambientLight(Vec3(1, 1, 1)*0.4f),
         f1(GL_ARRAY_BUFFER),
@@ -88,7 +88,7 @@ void TestRenderer::create(){
     scene.addObject(obj1);
     scene.addObject(obj2);
     scene.addObject(obj3);
-    scene.addObject(obj4);
+    //scene.addObject(obj4);
     scene.addObject(obj5);
     scene.addReflection(reflection);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
@@ -102,6 +102,8 @@ void TestRenderer::create(){
     a = charToKeycode('a');
     s = charToKeycode('s');
     d = charToKeycode('d');
+    downKey = charToKeycode(SPECIAL_KEY_SHIFT);
+    upKey = charToKeycode(' ');
     fullscreen = charToKeycode(SPECIAL_KEY_F(11));
     exitKey = charToKeycode(SPECIAL_KEY_ESC);
 
@@ -110,21 +112,20 @@ void TestRenderer::create(){
     textComp.textColor = Vec4(1, 0, 0, 1);
     textComp.noBreaks = true;
 
-    cubeComp.farDepth = 10.0f;
-    cubeComp.cubeMap = &pointLight.depthMap.texture;
-    cubeComp.positiveZ(Rect::bltr(-1, -1, 1, 1));
+    cubeComp.farDepth = 100.0f;
+    cubeComp.texture = &spotLight.depthMap.texture;
 
     refComp.texture = &reflection.texture;
 
 
-    TypedSize pad = TypedSize::gl(-0.02f);
+    TypedSize pad = TypedSize::gl(0.1f);
     uiScene.layout(&textComp)
         .alignTop()
         .alignLeft()
         .wrapContentWidth()
         .wrapContentHeight();
     uiScene.layout(&cubeComp)
-        .align(&textComp, pad);
+        .align(nullptr, pad);
     uiScene.layout(&refComp)
         .alignTop()
         .alignBottom()
@@ -242,6 +243,10 @@ void TestRenderer::rawKey(uint32_t keycode, bool down){
         sd = down;
     }else if(keycode == d){
         dd = down;
+    }else if(keycode == upKey){
+        upKeyDown = down;
+    }else if(keycode == downKey){
+        downKeyDown = down;
     }else if(keycode == fullscreen){
         if(down){
             if(!isFullscreen()){
@@ -290,6 +295,12 @@ void TestRenderer::drawFrame(){
     }
     if(dd){
         pos += maxSpeed * dt * Vec3::cross(dirX, up);
+    }
+    if(downKeyDown){
+        pos -= maxSpeed * dt * up;
+    }
+    if(upKeyDown){
+        pos += maxSpeed * dt * up;
     }
     float navMult = 0.007f;
     Vec2 navD = Vec2(navDeltaX, navDeltaY) * navMult;

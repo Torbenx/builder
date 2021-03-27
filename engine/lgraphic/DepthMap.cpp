@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include "DepthMap.hpp"
 
-DepthMap::DepthMap(bool divideByW,int width,int height,float _far){
-    this->divideByW = divideByW;
+DepthMap::DepthMap(int width,int height,float _far){
     this->width = width;
     this->height = height;
     this->m_far = _far;
@@ -10,21 +9,20 @@ DepthMap::DepthMap(bool divideByW,int width,int height,float _far){
         "attribute vec4 a_position;\n"
         "uniform mat4 u_mvpMatrix;\n"
         "uniform mat4 u_modelMatrix;\n"
-        "varying vec4 v_position;\n"
+        "varying vec3 v_position;\n"
         "void main(){\n"
-        "    v_position = u_mvpMatrix * (u_modelMatrix * a_position);\n"
-        "    gl_Position = v_position;\n"
+        "    vec4 pos = u_modelMatrix * a_position;\n"
+        "    v_position = pos.xyz;\n"
+        "    gl_Position = u_mvpMatrix * pos;\n"
         "}";
-    std::string f = 
-        "varying vec4 v_position;\n"
+    std::string f =
+        "varying vec3 v_position;\n"
+        "uniform vec3 u_lightPos;\n"
         "void main(){\n"
-        "    float f0 = v_position.z*255.0/";
+        "    float f0 = distance(u_lightPos, v_position)*255.0/";
     char buff[100];
     sprintf(buff,"%f",m_far);
     f.append(buff);
-    if(divideByW){
-        f.append("/v_position.w");
-    }
     f.append(
         ";\n"
         "    float f1 = fract(f0);\n"
@@ -38,16 +36,15 @@ DepthMap::DepthMap(bool divideByW,int width,int height,float _far){
         "    f3 *= 255.0;\n"
         "    f3 = ceil(f3);\n"
         "    gl_FragColor = vec4(f0,f1,f2,f3)/255.0;\n"
-        //"    gl_FragColor = vec4(1.0,0.0,0.0,1.0);\n"
         "}");
     fSource = f;
     shader = new Shader(vSource,fSource);
 }
-        
+
 DepthMap::~DepthMap(){
     delete shader;
 }
-        
+
 void DepthMap::init(){
     texture.init();
     renderbuffer.init();
@@ -60,11 +57,12 @@ void DepthMap::init(){
     framebuffer.viewport(width,height);
     framebuffer.setClearColor(1,1,1,1);
 }
-        
-void DepthMap::draw(MvpMatrix& mvpMatrix, Renderable **ptrArray, int count){
+
+void DepthMap::draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count){
     framebuffer.bind();
     shader->use();
     shader->uniformMat4x4("u_mvpMatrix", mvpMatrix.setupMvp());
+    shader->uniformVec3("u_lightPos", position);
     GLboolean depthTest = glIsEnabled(GL_DEPTH_TEST);
     glEnable(GL_DEPTH_TEST);
     int i;
