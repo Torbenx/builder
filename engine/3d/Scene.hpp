@@ -8,6 +8,7 @@
 #include "../lgraphic/reflection/Reflection.hpp"
 #include <vector>
 #include <list>
+#include <memory>
 
 struct ColorSources{
     int nUniforms = 0;
@@ -34,11 +35,12 @@ class SceneObject : public Renderable{
         virtual ColorSources getColorSources() = 0;
         virtual std::string *getTextureTypes(){ return nullptr; }
         virtual Reflection **getReflections(){ return nullptr; }
-        virtual void draw2(SceneShader& shader, const SceneDrawData& data) = 0;
+        virtual void draw2(LShader& shader, const SceneDrawData& data) = 0;
 };
 
-class SceneShader : public LShader{
+class SceneShader{
 public:
+    std::unique_ptr<LShader> shader;
     SceneDrawData data;
     Shader::LocationHandle mvpMatrixHandle;
     std::vector<SceneObject*> objects;

@@ -17,7 +17,7 @@ class Reflection : public LShader::Effect{
         void init();
         void bind();
         void getReflectionModel(Mat4x4& model);
-        void addTo(LShader& s);
+        void addTo(LShaderBuilder& s);
         virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
 

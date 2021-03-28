@@ -5,21 +5,16 @@
 #include "../graphic/Framebuffer.hpp"
 #include "../util/Renderable.hpp"
 #include "../math/MvpMatrix.hpp"
+#include "DepthMap.hpp"
 
 class DepthCubeMap{
     public:
-        class DepthShader : public Shader{
-        public:
-            LocationHandle positionHandle, mvpMatrixHandle, modelMatrixHandle, lightPosHandle;
-            DepthShader(float _far);
-        };
-
         CubeMap texture;
         Renderbuffer renderbuffer;
         Framebuffer framebuffer;
         int width,height;
         float m_far;
-        DepthShader shader;
+        std::unique_ptr<DepthMap::DepthShader> shader;
         std::string vSource,fSource;
         DepthCubeMap(int width,int height,float far);
         ~DepthCubeMap();

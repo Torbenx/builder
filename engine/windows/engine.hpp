@@ -9,6 +9,6 @@ extern HWND engine_hwnd;
 extern ID3D11Device *dxDevice;
 extern HANDLE hDxDevice;
 
-int engine_main(Renderer *r, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow);
+int engine_main(Renderer* (r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow);
 
 #endif

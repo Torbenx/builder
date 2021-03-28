@@ -32,7 +32,7 @@ void SpotLight::draw(Renderable **ptrArray,int count){
     depthMap.draw(mvpMatrix, position, ptrArray, count);
 }
 
-void SpotLight::addTo(LShader& s){
+void SpotLight::addTo(LShaderBuilder& s){
      LShader::EffectData data;
     s.newContext();
     std::string mvpUniform = s.uniqueName("u_mvpMatrix");

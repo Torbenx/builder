@@ -10,15 +10,17 @@
 #include <vector>
 #include <sstream>
 
+class ShaderBuilder;
+
 class Shader{
 public:
     static const GLenum slots[];
 
     struct LocationHandle{
-        int handle;
+        GLuint handle;
     };
+
     struct Location{
-        GLint location = -1;
         std::string name;
         bool isUniform;
         Location(std::string name, bool isUniform){
@@ -27,21 +29,14 @@ public:
         }
     };
 
-    std::ostringstream vInit, vMain, fInit, fMain;
-    Shader();
-    virtual ~Shader();
-    bool init();
-    bool needsInit();
-    void use();
+    std::vector<GLuint> locations;
 
-    void newContext();
-    std::string uniqueName(std::string name);
-    LocationHandle addAttrib(std::string type, std::string name);
-    LocationHandle addUniform(std::string type, std::string name, bool vertex);
-    LocationHandle addVertexUniform(std::string type, std::string name){ return addUniform(type, name, true); }
-    LocationHandle addFragmentUniform(std::string type, std::string name){ return addUniform(type, name, false); }
-    void addVarying(std::string type, std::string name);
-    int nextTextureSlot();
+    Shader(ShaderBuilder& builder){ initalize(builder); }
+    Shader(){}
+    ~Shader();
+
+    void initalize(ShaderBuilder& builder);
+    void use();
 
     GLint getUniform(LocationHandle handle);
     GLuint getAttrib(LocationHandle handle);
@@ -76,16 +71,35 @@ public:
     void attribPointer(LocationHandle attrib,int size,Bufferf& a);
     void attribPointer(LocationHandle attrib,int offset,int size,int stride,Bufferf& a);
 
+private:
+    Shader(const Shader& other);
+    GLuint glId = -1;
+};
+
+class ShaderBuilder{
+public:
+    std::ostringstream vInit, vMain, fInit, fMain;
+
+    virtual ~ShaderBuilder(){}
+    void newContext();
+    std::string uniqueName(std::string name);
+    Shader::LocationHandle addAttrib(std::string type, std::string name);
+    Shader::LocationHandle addUniform(std::string type, std::string name, bool vertex);
+    Shader::LocationHandle addVertexUniform(std::string type, std::string name){ return addUniform(type, name, true); }
+    Shader::LocationHandle addFragmentUniform(std::string type, std::string name){ return addUniform(type, name, false); }
+    void addVarying(std::string type, std::string name);
+    int nextTextureSlot();
+
 protected:
     virtual std::string buildVertexSource();
     virtual std::string buildFragmentSource();
 
 private:
-    Shader(const Shader& other);
-    std::vector<Location> locations;
-    GLuint glId = -1;
+    std::vector<Shader::Location> locations;
     int contextCount = 0;
     int textureSlot = 0;
+
+    friend Shader;
 };
 
 #endif

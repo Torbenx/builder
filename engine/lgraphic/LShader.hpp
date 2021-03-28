@@ -3,39 +3,55 @@
 
 #include "../graphic/Shader.hpp"
 
+class LShaderBuilder;
+
 class LShader : public Shader{
 public:
-
     static const std::string WORLD_POSITION;
     static const std::string WORLD_NORMAL;
     static const std::string SCREEN_POSITION;
     static const std::string LIGHT_INTENSITY;
 
-    struct EffectData;
-    class Effect{
-    public:
-        virtual void apply(LShader& shader, const EffectData& data) = 0;
-        virtual ~Effect() {};
-    };
     struct EffectData{
         LocationHandle handles[5];
         int textureSlot;
     };
 
-    std::string fragmentColor, fragmentDiffuseColor, rawPosition, rawNormal;
-    std::string rawToWorldMatrix, worldToScreenMatrix;
-    LShader();
-    virtual std::string buildVertexSource() override;
-    virtual std::string buildFragmentSource() override;
-    void applyEffects();
-    void addEffect(Effect&, const EffectData& data);
+    class Effect{
+    public:
+        virtual void apply(LShader& shader, const EffectData& data) = 0;
+        virtual ~Effect() {};
+    };
 
-private:
     struct EffectAndData{
         Effect *effect;
         EffectData data;
     };
+
+    LShader(LShaderBuilder& builder);
+    void applyEffects();
+
+private:
     std::vector<EffectAndData> data;
+};
+
+class LShaderBuilder : public ShaderBuilder{
+public:
+    std::string fragmentColor, fragmentDiffuseColor;
+    std::string rawPosition, rawNormal;
+    std::string rawToWorldMatrix, worldToScreenMatrix;
+
+    LShaderBuilder();
+
+    void addEffect(LShader::Effect&, const LShader::EffectData& data);
+
+protected:
+    virtual std::string buildVertexSource() override;
+    virtual std::string buildFragmentSource() override;
+
+private:
+    std::vector<LShader::EffectAndData> data;
+    friend LShader;
 };
 
 #endif

@@ -87,59 +87,60 @@ void Scene::draw(MvpMatrix mvp){
 
 void Scene::doDraw(MvpMatrix& mvp, bool drawReflections){
     Mat4x4 matrix = mvp.setupMvp();
-    for(auto it = shaders.begin(); it != shaders.end(); it++){
-        SceneObject *obj = it->objects.front();
+    for(SceneShader& shader : shaders){
+        SceneObject *obj = shader.objects.front();
         ColorSources colors = obj->getColorSources();
         if(colors.nReflections > 0 && !drawReflections)continue;
-        if(it->needsInit()){
-            it->data.positionAttrib = it->addAttrib("vec3", "a_position");
-            it->rawPosition = "a_position";
-            it->data.normalAttrib = it->addAttrib("vec3", "a_normal");
-            it->rawNormal = "a_normal";
-            it->data.modelUniform = it->addVertexUniform("mat4", "u_model");
-            it->rawToWorldMatrix = "u_model";
-            it->mvpMatrixHandle = it->addVertexUniform("mat4", "u_mvpMatrix");
-            it->worldToScreenMatrix = "u_mvpMatrix";
-            it->data.uniforms = new Shader::LocationHandle[colors.nUniforms];
+        if(!shader.shader){
+            LShaderBuilder builder;
+            shader.data.positionAttrib = builder.addAttrib("vec3", "a_position");
+            builder.rawPosition = "a_position";
+            shader.data.normalAttrib = builder.addAttrib("vec3", "a_normal");
+            builder.rawNormal = "a_normal";
+            shader.data.modelUniform = builder.addVertexUniform("mat4", "u_model");
+            builder.rawToWorldMatrix = "u_model";
+            shader.mvpMatrixHandle = builder.addVertexUniform("mat4", "u_mvpMatrix");
+            builder.worldToScreenMatrix = "u_mvpMatrix";
+            shader.data.uniforms = new Shader::LocationHandle[colors.nUniforms];
             for(int i=0;i<colors.nUniforms;i++){
-                it->data.uniforms[i] = it->addFragmentUniform("vec3", "u_color");
-                it->fragmentDiffuseColor = "u_color";
+                shader.data.uniforms[i] = builder.addFragmentUniform("vec3", "u_color");
+                builder.fragmentDiffuseColor = "u_color";
             }
-            it->data.textureTypes = obj->getTextureTypes();
-            it->data.textureUniforms = new Shader::LocationHandle[colors.nTextures];
-            it->data.texPositionAttribs = new Shader::LocationHandle[colors.nTextures];
+            shader.data.textureTypes = obj->getTextureTypes();
+            shader.data.textureUniforms = new Shader::LocationHandle[colors.nTextures];
+            shader.data.texPositionAttribs = new Shader::LocationHandle[colors.nTextures];
             for(int i=0;i<colors.nTextures;i++){
-                it->data.textureUniforms[i] = it->addFragmentUniform("sampler2D", "u_texture");
-                it->data.texPositionAttribs[i] = it->addAttrib("vec2", "a_texCoord");
-                it->addVarying("vec2", "v_texCoord");
-                it->vMain << "v_texCoord = a_texCoord;\n";
-                it->fMain << "vec3 texColor = texture2D(u_texture, v_texCoord).rgb;\n";
-                it->fragmentDiffuseColor = "texColor";
+                shader.data.textureUniforms[i] = builder.addFragmentUniform("sampler2D", "u_texture");
+                shader.data.texPositionAttribs[i] = builder.addAttrib("vec2", "a_texCoord");
+                builder.addVarying("vec2", "v_texCoord");
+                builder.vMain << "v_texCoord = a_texCoord;\n";
+                builder.fMain << "vec3 texColor = texture2D(u_texture, v_texCoord).rgb;\n";
+                builder.fragmentDiffuseColor = "texColor";
             }
-            it->data.attribs = new Shader::LocationHandle[colors.nAttribs];
+            shader.data.attribs = new Shader::LocationHandle[colors.nAttribs];
             for(int i=0;i<colors.nAttribs;i++){
 
             }
             Reflection **refs = obj->getReflections();
             for(int i=0;i<colors.nReflections;i++){
-                refs[i]->addTo(*it);
+                refs[i]->addTo(builder);
             }
             for(AmbientLight* l : ambientLights){
-                l->addTo(*it);
+                l->addTo(builder);
             }
             for(SpotLight* l : spotLights){
-                l->addTo(*it);
+                l->addTo(builder);
             }
             for(PointLight* l : pointLights){
-                l->addTo(*it);
+                l->addTo(builder);
             }
-            it->init();
+            shader.shader.reset(new LShader(builder));
         }
-        it->use();
-        it->applyEffects();
-        it->uniformMat4x4(it->mvpMatrixHandle, matrix);
-        for(SceneObject* obj : it->objects){
-            obj->draw2(*it, it->data);
+        shader.shader->use();
+        shader.shader->applyEffects();
+        shader.shader->uniformMat4x4(shader.mvpMatrixHandle, matrix);
+        for(SceneObject* obj : shader.objects){
+            obj->draw2(*shader.shader, shader.data);
         }
     }
 }

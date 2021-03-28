@@ -1,29 +1,24 @@
 #include "LShader.hpp"
+#include "../util/log.hpp"
 
 const std::string LShader::WORLD_POSITION = "v_worldPos";
 const std::string LShader::WORLD_NORMAL = "v_normal";
 const std::string LShader::SCREEN_POSITION = "gl_Position";
 const std::string LShader::LIGHT_INTENSITY = "intensity";
 
-LShader::LShader() : Shader(){
+LShaderBuilder::LShaderBuilder() : ShaderBuilder(){
     addVarying("vec3", LShader::WORLD_POSITION);
     addVarying("vec3", LShader::WORLD_NORMAL);
 }
 
-void LShader::applyEffects(){
-    for(EffectAndData& data : this->data){
-        data.effect->apply(*this, data.data);
-    }
-}
-
-void LShader::addEffect(Effect& effect, const EffectData& data){
-    EffectAndData effectAndData;
+void LShaderBuilder::addEffect(LShader::Effect& effect, const LShader::EffectData& data){
+    LShader::EffectAndData effectAndData;
     effectAndData.effect = &effect;
     effectAndData.data = data;
     this->data.push_back(effectAndData);
 }
 
-std::string LShader::buildVertexSource(){
+std::string LShaderBuilder::buildVertexSource(){
     std::ostringstream v;
     v << vInit.str() << "void main(){\n";
 
@@ -51,7 +46,7 @@ std::string LShader::buildVertexSource(){
     return v.str();
 }
 
-std::string LShader::buildFragmentSource(){
+std::string LShaderBuilder::buildFragmentSource(){
     std::ostringstream f;
 
     f << fInit.str() << "void main(){\n";
@@ -73,4 +68,14 @@ std::string LShader::buildFragmentSource(){
     f<<", 1.0);\n}";
 
     return f.str();
+}
+
+LShader::LShader(LShaderBuilder& builder) : Shader(builder), data(builder.data) {
+
+}
+
+void LShader::applyEffects(){
+    for(LShader::EffectAndData& data : this->data){
+        data.effect->apply(*this, data.data);
+    }
 }

@@ -3,6 +3,5 @@
 #include "main.hpp"
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
-    Renderer *renderer = createRenderer();
-    return engine_main(renderer, hInstance, hPrevInstance, lpCmdLine, nCmdShow);
+    return engine_main(createRenderer, hInstance, hPrevInstance, lpCmdLine, nCmdShow);
 }

@@ -11,7 +11,7 @@ class AmbientLight : public LShader::Effect{
             this->color = color;
         }
 
-        void addTo(LShader& s){
+        void addTo(LShaderBuilder& s){
             LShader::EffectData data;
             s.newContext();
             std::string colorUniform = s.uniqueName("u_color");

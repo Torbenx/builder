@@ -27,7 +27,7 @@ void Reflection::bind(){
     framebuffer.bind();
 }
 
-void Reflection::addTo(LShader& s){
+void Reflection::addTo(LShaderBuilder& s){
     LShader::EffectData data;
     s.newContext();
     std::string textureUniform = s.uniqueName("u_texture");

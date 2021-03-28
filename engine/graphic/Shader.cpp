@@ -2,6 +2,52 @@
 #include "../util/log.hpp"
 #include "../gl/glLog.hpp"
 
+std::string ShaderBuilder::buildVertexSource(){
+    std::ostringstream s;
+    s << vInit.str() << "void main(){\n" << vMain.str() << "}";
+    return s.str();
+}
+
+std::string ShaderBuilder::buildFragmentSource(){
+    std::ostringstream s;
+    s << fInit.str() << "void main(){\n" << fMain.str() << "}";
+    return s.str();
+}
+
+void ShaderBuilder::newContext(){
+    contextCount += 1;
+}
+
+std::string ShaderBuilder::uniqueName(std::string name){
+    std::ostringstream s;
+    s << name << contextCount;
+    return s.str();
+}
+
+Shader::LocationHandle ShaderBuilder::addAttrib(std::string type, std::string name){
+    vInit << "attribute " << type << " " << name << ";\n";
+    GLuint handle = locations.size();
+    locations.push_back(Shader::Location(name, false));
+    return { handle };
+}
+
+Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string name, bool vertex){
+    (vertex ? vInit : fInit) << "uniform " << type << " " << name << ";\n";
+    GLuint handle = locations.size();
+    locations.push_back(Shader::Location(name, true));
+    return { handle };
+}
+
+void ShaderBuilder::addVarying(std::string type, std::string name){
+    vInit << "varying " << type << " " << name << ";\n";
+    fInit << "varying " << type << " " << name << ";\n";
+}
+
+int ShaderBuilder::nextTextureSlot(){
+    return textureSlot++;
+}
+
+
 const GLenum Shader::slots[] = {
     GL_TEXTURE0,GL_TEXTURE1,GL_TEXTURE2,GL_TEXTURE3,GL_TEXTURE4,GL_TEXTURE5,
     GL_TEXTURE6,GL_TEXTURE7,GL_TEXTURE8,GL_TEXTURE9,GL_TEXTURE10,GL_TEXTURE11,
@@ -11,8 +57,40 @@ const GLenum Shader::slots[] = {
     GL_TEXTURE30,GL_TEXTURE31
 };
 
-Shader::Shader(){
+void Shader::initalize(ShaderBuilder& builder){
+    GLuint id = glCreateProgram();
+    glId = id;
 
+    std::string vSource = builder.buildVertexSource();
+    const char *source = vSource.c_str();
+    //LOGD("\n\nVertex Shader:\n%s\n\n", source);
+
+    GLuint shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(shader, 1, &source, 0);
+    glCompileShader(shader);
+    glAttachShader(glId, shader);
+    glDeleteShader(shader);
+
+    std::string fSource = builder.buildFragmentSource();
+    source = fSource.c_str();
+    //LOGD("\n\nFragment Shader:\n%s\n\n", source);
+
+    shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(shader, 1, &source, 0);
+    glCompileShader(shader);
+    glAttachShader(glId, shader);
+    glDeleteShader(shader);
+
+    glLinkProgram(glId);
+
+    locations.resize(builder.locations.size());
+    for(int i=0;i<builder.locations.size();i++){
+        if(builder.locations[i].isUniform){
+            locations[i] = glGetUniformLocation(glId, builder.locations[i].name.c_str());
+        }else{
+            locations[i] = glGetAttribLocation(glId, builder.locations[i].name.c_str());
+        }
+    }
 }
 
 Shader::~Shader(){
@@ -21,100 +99,13 @@ Shader::~Shader(){
     }
 }
 
-bool Shader::init(){
-    if(needsInit()){
-        glId = glCreateProgram();
-
-        std::string vSource = buildVertexSource();
-        const char *source = vSource.c_str();
-        LOGD("\n\nVertex Shader:\n%s\n\n", source);
-
-        GLuint shader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(shader, 1, &source, 0);
-        glCompileShader(shader);
-        glAttachShader(glId, shader);
-        glDeleteShader(shader);
-
-        std::string fSource = buildFragmentSource();
-        source = fSource.c_str();
-        LOGD("\n\nFragment Shader:\n%s\n\n", source);
-
-        shader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(shader, 1, &source, 0);
-        glCompileShader(shader);
-        glAttachShader(glId, shader);
-        glDeleteShader(shader);
-
-        glLinkProgram(glId);
-
-        for(Location& location : locations){
-            if(location.isUniform){
-                location.location = glGetUniformLocation(glId, location.name.c_str());
-            }else{
-                location.location = glGetAttribLocation(glId, location.name.c_str());
-            }
-        }
-        return true;
-    }
-    return false;
-}
-
-bool Shader::needsInit(){
-    return glId == -1;
-}
-
-std::string Shader::buildVertexSource(){
-    std::ostringstream s;
-    s << vInit.str() << "void main(){\n" << vMain.str() << "}";
-    return s.str();
-}
-
-std::string Shader::buildFragmentSource(){
-    std::ostringstream s;
-    s << fInit.str() << "void main(){\n" << fMain.str() << "}";
-    return s.str();
-}
-
-void Shader::newContext(){
-    contextCount += 1;
-}
-
-std::string Shader::uniqueName(std::string name){
-    std::ostringstream s;
-    s << name << contextCount;
-    return s.str();
-}
-
-Shader::LocationHandle Shader::addAttrib(std::string type, std::string name){
-    vInit << "attribute " << type << " " << name << ";\n";
-    int handle = locations.size();
-    locations.push_back(Location(name, false));
-    return { handle };
-}
-
-Shader::LocationHandle Shader::addUniform(std::string type, std::string name, bool vertex){
-    (vertex ? vInit : fInit) << "uniform " << type << " " << name << ";\n";
-    int handle = locations.size();
-    locations.push_back(Location(name, true));
-    return { handle };
-}
-
-void Shader::addVarying(std::string type, std::string name){
-    vInit << "varying " << type << " " << name << ";\n";
-    fInit << "varying " << type << " " << name << ";\n";
-}
-
-int Shader::nextTextureSlot(){
-    return textureSlot++;
-}
-
 void Shader::use(){
     glUseProgram(glId);
 }
 
 GLuint Shader::getAttrib(Shader::LocationHandle attrib){
     //LOGD("getAttrib: %s, correct: %d", locations[attrib.handle].name.c_str(), !locations[attrib.handle].isUniform);
-    return locations[attrib.handle].location;
+    return locations[attrib.handle];
 }
 
 GLuint Shader::getAndEnableAttrib(Shader::LocationHandle attrib){
@@ -125,7 +116,7 @@ GLuint Shader::getAndEnableAttrib(Shader::LocationHandle attrib){
 
 GLint Shader::getUniform(Shader::LocationHandle uniform){
     //LOGD("getUniform: %s, correct: %d", locations[uniform.handle].name.c_str(), locations[uniform.handle].isUniform);
-    return locations[uniform.handle].location;
+    return locations[uniform.handle];
 }
 
 void Shader::uniform1f(Shader::LocationHandle uniform,float u){

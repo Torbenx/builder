@@ -18,8 +18,8 @@ void PointLight::draw(Renderable **ptrArray, int count){
     depthMap.draw(Mat4x4::Id, position, ptrArray, count);
 }
 
-void PointLight::addTo(LShader& s){
-     LShader::EffectData data;
+void PointLight::addTo(LShaderBuilder& s){
+    LShader::EffectData data;
     s.newContext();
     std::string textureUniform = s.uniqueName("u_depthMap");
     std::string colorUniform = s.uniqueName("u_color");

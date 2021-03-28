@@ -18,7 +18,7 @@ class SpotLight : public LShader::Effect{
         ~SpotLight();
         void init();
         void draw(Renderable **ptrArray, int count);
-        void addTo(LShader&);
+        void addTo(LShaderBuilder&);
         virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
 

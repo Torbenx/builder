@@ -10,10 +10,10 @@
 #include "lgraphic/DepthMap.hpp"
 #include "input/Look3d.hpp"
 #include "ui/text.hpp"
-#include "ui/TextComponent.hpp"
-#include "ui/TestComponent.hpp"
-#include "ui/DepthCubeMapComponent.hpp"
-#include "ui/DepthMapComponent.hpp"
+//#include "ui/TextComponent.hpp"
+//#include "ui/TestComponent.hpp"
+//#include "ui/DepthCubeMapComponent.hpp"
+//#include "ui/DepthMapComponent.hpp"
 #include "3d/Scene.hpp"
 #include "ui/UiScene.hpp"
 #include <cmath>
@@ -47,7 +47,7 @@ class DebugRenderable : public SceneObject{
             glDrawArrays(mode, 0, num);
         }
 
-        void draw2(SceneShader& shader, const SceneDrawData& data){
+        void draw2(LShader& shader, const SceneDrawData& data){
             shader.uniformMat4x4(data.modelUniform, model);
             shader.uniformVec3(data.uniforms[0], color);
             shader.attribPointer(data.positionAttrib, 3, *source);
@@ -99,7 +99,7 @@ class ObjectRenderable : public SceneObject{
             }
         }
 
-        void draw2(SceneShader& shader, const SceneDrawData& data){
+        void draw2(LShader& shader, const SceneDrawData& data){
             shader.uniformMat4x4(data.modelUniform, model);
             shader.attribPointer(data.positionAttrib, 3, *source);
             shader.attribPointer(data.normalAttrib, 3, *normals);
@@ -143,7 +143,7 @@ class TestRenderer : public Renderer{
         ObjectRenderable* pawn;
         uint64_t lframe;
         uint64_t lsecond;
-        int frameCounter;
+        int frameCounter = 0;
         float obj5_coords[4*3];
         Vec3 up;
         PointLight pointLight;
