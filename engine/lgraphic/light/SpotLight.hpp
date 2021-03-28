@@ -2,8 +2,10 @@
 #define HEADER_LGRAPHIC_LIGHT_SPOTLIGHT_H
 
 #include "../DepthMap.hpp"
+#include "../LShader.hpp"
+#include "../../math/MvpMatrix.hpp"
 
-class SpotLight{
+class SpotLight : public LShader::Effect{
     public:
         Vec3 direction,position,hDirection;
         DepthMap depthMap;
@@ -15,7 +17,9 @@ class SpotLight{
         SpotLight(Vec3 position,Vec3 direction,float hfov,float vfov,Vec3 hDirection,int texWidth,int texHeight,Vec3 color,float near,float far);
         ~SpotLight();
         void init();
-        void draw(Mat4x4 model, Renderable **ptrArray, int count);
+        void draw(Renderable **ptrArray, int count);
+        void addTo(LShader&);
+        virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
 
 #endif

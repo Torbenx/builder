@@ -3,68 +3,64 @@
 #include <cmath>
 #include <stdio.h>
 
-DepthCubeMap::DepthCubeMap(int width,int height,float _far){
+DepthCubeMap::DepthShader::DepthShader(float _far){
+    positionHandle = addAttrib("vec4", "a_position");
+    mvpMatrixHandle = addVertexUniform("mat4", "u_mvpMatrix");
+    modelMatrixHandle = addVertexUniform("mat4", "u_modelMatrix");
+    lightPosHandle = addFragmentUniform("vec3", "u_lightPos");
+    addVarying("vec3", "v_position");
+    vMain <<
+    "    vec4 pos = u_modelMatrix * a_position;\n"
+    "    v_position = pos.xyz;\n"
+    "    gl_Position = u_mvpMatrix * pos;\n";
+
+    fMain <<
+    "    float f0 = distance(u_lightPos, v_position)*255.0/";
+    char buff[100];
+    sprintf(buff, "%f", _far);
+    fMain << buff << ";\n" <<
+    "    float f1 = fract(f0);\n"
+    "    f0 -= f1;\n"
+    "    f1 *= 255.0;\n"
+    "    float f2 = fract(f1);\n"
+    "    f1 -= f2;\n"
+    "    f2 *= 255.0;\n"
+    "    float f3 = fract(f2);\n"
+    "    f2 -= f3;\n"
+    "    f3 *= 255.0;\n"
+    "    f3 = ceil(f3);\n"
+    "    gl_FragColor = vec4(f0,f1,f2,f3)/255.0;\n";
+}
+
+DepthCubeMap::DepthCubeMap(int width,int height,float _far) : shader(_far){
     this->width = width;
     this->height = height;
     this->m_far = _far;
-    vSource =
-        "attribute vec4 a_position;\n"
-        "uniform mat4 u_mvpMatrix;\n"
-        "uniform mat4 u_modelMatrix;\n"
-        "varying vec4 v_position;\n"
-        "void main(){\n"
-        "    v_position = u_modelMatrix*a_position;\n"
-        "    gl_Position = u_mvpMatrix*v_position;\n"
-        "}";
-    std::string f =
-        "varying vec4 v_position;\n"
-        "uniform vec3 u_lightPos;\n"
-        "void main(){\n"
-        "    float f0 = distance(u_lightPos,v_position.xyz)*255.0/";
-    char buff[100];
-    sprintf(buff,"%f",m_far);
-    f.append(buff);
-    f.append(
-        "    ;\n"
-        "    float f1 = fract(f0);\n"
-        "    f0 -= f1;\n"
-        "    f1 *= 255.0;\n"
-        "    float f2 = fract(f1);\n"
-        "    f1 -= f2;\n"
-        "    f2 *= 255.0;\n"
-        "    float f3 = fract(f2);\n"
-        "    f2 -= f3;\n"
-        "    f3 *= 255.0;\n"
-        "    f3 = ceil(f3);\n"
-        "    gl_FragColor = vec4(f0,f1,f2,f3)/255.0;\n"
-        "}");
-    fSource = f;
-    shader = new Shader(vSource,fSource);
 }
 
 DepthCubeMap::~DepthCubeMap(){
-    delete shader;
+
 }
 
 void DepthCubeMap::init(){
     texture.init();
     renderbuffer.init();
     framebuffer.init();
-    shader->init();
-    texture.texturePosX(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-    texture.textureNegX(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-    texture.texturePosY(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-    texture.textureNegY(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-    texture.texturePosZ(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-    texture.textureNegZ(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
-    renderbuffer.storageDepth16(width,height);
+    shader.init();
+    texture.texturePosX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+    texture.textureNegX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+    texture.texturePosY(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+    texture.textureNegY(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+    texture.texturePosZ(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+    texture.textureNegZ(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+    renderbuffer.storageDepth16(width, height);
     framebuffer.depthAttachment(renderbuffer);
-    framebuffer.setClearColor(1,1,1,1);
+    framebuffer.setClearColor(1, 1, 1, 1);
     framebuffer.viewport(width,height);
 }
 
 void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count){
-    shader->use();
+    shader.use();
     MvpMatrix mvpMatrix;
     float *m;
     mvpMatrix.projection = Mat4x4::frustum(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
@@ -81,7 +77,7 @@ void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int 
     mvpMatrix.model = model;
     GLboolean depthTest = glIsEnabled(GL_DEPTH_TEST);
     glEnable(GL_DEPTH_TEST);
-    shader->uniformVec3("u_lightPos",position);
+    shader.uniformVec3(shader.lightPosHandle, position);
     int face,i;
     for(face=0;face<6;face++){
         mvpMatrix.view = Mat4x4::Id;
@@ -122,14 +118,14 @@ void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int 
             m[4+1] = -1;
         }
         mvpMatrix.view *= Mat4x4::translate(position*-1);
-        shader->uniformMat4x4("u_mvpMatrix",mvpMatrix.setupMvp());
+        shader.uniformMat4x4(shader.mvpMatrixHandle, mvpMatrix.setupMvp());
         //mvpMatrix.view.debug();
-        framebuffer.colorAttachment(targets[face],texture);
+        framebuffer.colorAttachment(targets[face], texture);
         framebuffer.bind();
         //if(face != 2 && face != 3)continue;
 
         for(i=0;i<count;i++){
-            ptrArray[i]->draw(shader,"a_position","u_modelMatrix");
+            ptrArray[i]->draw(shader, shader.positionHandle, shader.modelMatrixHandle);
         }
     }
     Framebuffer::DEFAULT.bind();

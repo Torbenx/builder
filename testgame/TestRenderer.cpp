@@ -108,7 +108,7 @@ void TestRenderer::create(){
     fullscreen = charToKeycode(SPECIAL_KEY_F(11));
     exitKey = charToKeycode(SPECIAL_KEY_ESC);
 
-    textComp.text = "Hello World";
+    /*textComp.text = "Hello World";
     textComp.textSize = TypedSize::gl(0.1f);
     textComp.textColor = Vec4(1, 0, 0, 1);
     textComp.noBreaks = true;
@@ -116,11 +116,11 @@ void TestRenderer::create(){
     cubeComp.farDepth = 100.0f;
     cubeComp.texture = &spotLight.depthMap.texture;
 
-    refComp.texture = &reflection.texture;
+    refComp.texture = &reflection.texture;*/
 
 
     TypedSize pad = TypedSize::gl(0.1f);
-    uiScene.layout(&textComp)
+    /*uiScene.layout(&textComp)
         .alignTop()
         .alignLeft()
         .wrapContentWidth()
@@ -131,7 +131,7 @@ void TestRenderer::create(){
         .alignTop()
         .alignBottom()
         .alignLeft()
-        .alignRight();
+        .alignRight();*/
 
 
     ObjParser parser;
@@ -176,7 +176,7 @@ void TestRenderer::create(){
     pawnTexture.init();
     pawnTexture.texture(imgBuf, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
 
-    refComp.texture = &pawnTexture;
+    //refComp.texture = &pawnTexture;
 
     pawn = new ObjectRenderable(&pawnVertex, parser.indices ? &pawnIndices : nullptr, &pawnTexCoords, &pawnNormals, &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
     scene.addObject(pawn);
@@ -190,8 +190,8 @@ void TestRenderer::change(int newWidth, int newHeight){
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
 
-    textComp.metrics = metrics;
-    textComp.updateContent();
+    //textComp.metrics = metrics;
+    //textComp.updateContent();
     uiScene.metrics = metrics;
     uiScene.build();
 }
@@ -267,12 +267,12 @@ void TestRenderer::rawKey(uint32_t keycode, bool down){
 void TestRenderer::drawFrame(){
     uint64_t now = getNanos();
     if(now - lsecond >= NANOS_PER_SECOND){
-        //LOGD("FPS: %d",frameCounter);
+        LOGD("FPS: %d",frameCounter);
 
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
-        textComp.text = ss.str();
-        textComp.updateContent();
+        //textComp.text = ss.str();
+        //textComp.updateContent();
         uiScene.build();
 
         lsecond = now;
@@ -339,15 +339,15 @@ void TestRenderer::drawFrame(){
     if(navPointerId != POINTER_ID_INVALID){
         Vec2 center(navBaseX * 2.0f / Framebuffer::DEFAULT.width - 1.0f, navBaseY * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
         Vec2 radius(maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.width, maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.height);
-        util_drawCircle(center, radius, Vec4(0.7f, 0.7f, 0.7f, 1.0f));
+        //util_drawCircle(center, radius, Vec4(0.7f, 0.7f, 0.7f, 1.0f));
 
         center.set((navBaseX + navD.x / navMult) * 2.0f / Framebuffer::DEFAULT.width - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
         radius *= 0.25f;
-        util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
+        //util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
     //cubeComp.draw();
-    textComp.draw();
+    //textComp.draw();
     //refComp.draw();
 }
 

@@ -3,20 +3,22 @@
 
 #include "../../graphic/Framebuffer.hpp"
 #include "../../math/MvpMatrix.hpp"
+#include "../LShader.hpp"
 
-class Reflection{
+class Reflection : public LShader::Effect{
     public:
         Framebuffer framebuffer;
         Renderbuffer renderbuffer;
         Texture texture;
-        Vec3 reflection,position;
+        Vec3 reflection, position;
         float factor;
-        int width,height;
-        Reflection(Vec3 reflection,Vec3 position,int width,int height,float factor);
+        int width, height;
+        Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);
         void init();
         void bind();
-        void unbind();
         void getReflectionModel(Mat4x4& model);
+        void addTo(LShader& s);
+        virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
 
 #endif

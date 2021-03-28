@@ -2,17 +2,19 @@
 #define HEADER_LGRAPHIC_LIGHT_POINTLIGHT
 
 #include "../DepthCubeMap.hpp"
+#include "../LShader.hpp"
 
-class PointLight{
+class PointLight : public LShader::Effect{
     public:
         Vec3 position;
         DepthCubeMap depthMap;
         Vec3 color;
-        float halfBrightness,startBrightness;
         PointLight(Vec3 position,int width,int height,Vec3 color,float near,float far);
         ~PointLight();
         void init();
-        void draw(Mat4x4 model, Renderable **ptrArray, int count);
+        void draw(Renderable **ptrArray, int count);
+        void addTo(LShader&);
+        virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
 
 #endif

@@ -2,167 +2,229 @@
 #include "../util/log.hpp"
 #include "../gl/glLog.hpp"
 
-Shader::Shader(std::string vertex,std::string fragment){
-    vertexSource = vertex;
-    fragmentSource = fragment;
+const GLenum Shader::slots[] = {
+    GL_TEXTURE0,GL_TEXTURE1,GL_TEXTURE2,GL_TEXTURE3,GL_TEXTURE4,GL_TEXTURE5,
+    GL_TEXTURE6,GL_TEXTURE7,GL_TEXTURE8,GL_TEXTURE9,GL_TEXTURE10,GL_TEXTURE11,
+    GL_TEXTURE12,GL_TEXTURE13,GL_TEXTURE14,GL_TEXTURE15,GL_TEXTURE16,GL_TEXTURE17,
+    GL_TEXTURE18,GL_TEXTURE19,GL_TEXTURE20,GL_TEXTURE21,GL_TEXTURE22,GL_TEXTURE23,
+    GL_TEXTURE24,GL_TEXTURE25,GL_TEXTURE26,GL_TEXTURE27,GL_TEXTURE28,GL_TEXTURE29,
+    GL_TEXTURE30,GL_TEXTURE31
+};
+
+Shader::Shader(){
+
 }
 
 Shader::~Shader(){
-    glDeleteProgram(glId);
+    if(glId != -1){
+        glDeleteProgram(glId);
+    }
 }
 
 bool Shader::init(){
-    if(glId == -1){
-        const char *vSource = vertexSource.c_str();
-        const char *fSource = fragmentSource.c_str();
-        //LOGD("%s", vSource);
-        //LOGD("%s", fSource);
+    if(needsInit()){
         glId = glCreateProgram();
+
+        std::string vSource = buildVertexSource();
+        const char *source = vSource.c_str();
+        LOGD("\n\nVertex Shader:\n%s\n\n", source);
+
         GLuint shader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(shader,1,&vSource,0);
+        glShaderSource(shader, 1, &source, 0);
         glCompileShader(shader);
-        glAttachShader(glId,shader);
+        glAttachShader(glId, shader);
         glDeleteShader(shader);
+
+        std::string fSource = buildFragmentSource();
+        source = fSource.c_str();
+        LOGD("\n\nFragment Shader:\n%s\n\n", source);
+
         shader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(shader,1,&fSource,0);
+        glShaderSource(shader, 1, &source, 0);
         glCompileShader(shader);
-        glAttachShader(glId,shader);
+        glAttachShader(glId, shader);
         glDeleteShader(shader);
+
         glLinkProgram(glId);
+
+        for(Location& location : locations){
+            if(location.isUniform){
+                location.location = glGetUniformLocation(glId, location.name.c_str());
+            }else{
+                location.location = glGetAttribLocation(glId, location.name.c_str());
+            }
+        }
         return true;
     }
     return false;
+}
+
+bool Shader::needsInit(){
+    return glId == -1;
+}
+
+std::string Shader::buildVertexSource(){
+    std::ostringstream s;
+    s << vInit.str() << "void main(){\n" << vMain.str() << "}";
+    return s.str();
+}
+
+std::string Shader::buildFragmentSource(){
+    std::ostringstream s;
+    s << fInit.str() << "void main(){\n" << fMain.str() << "}";
+    return s.str();
+}
+
+void Shader::newContext(){
+    contextCount += 1;
+}
+
+std::string Shader::uniqueName(std::string name){
+    std::ostringstream s;
+    s << name << contextCount;
+    return s.str();
+}
+
+Shader::LocationHandle Shader::addAttrib(std::string type, std::string name){
+    vInit << "attribute " << type << " " << name << ";\n";
+    int handle = locations.size();
+    locations.push_back(Location(name, false));
+    return { handle };
+}
+
+Shader::LocationHandle Shader::addUniform(std::string type, std::string name, bool vertex){
+    (vertex ? vInit : fInit) << "uniform " << type << " " << name << ";\n";
+    int handle = locations.size();
+    locations.push_back(Location(name, true));
+    return { handle };
+}
+
+void Shader::addVarying(std::string type, std::string name){
+    vInit << "varying " << type << " " << name << ";\n";
+    fInit << "varying " << type << " " << name << ";\n";
+}
+
+int Shader::nextTextureSlot(){
+    return textureSlot++;
 }
 
 void Shader::use(){
     glUseProgram(glId);
 }
 
-GLuint Shader::getAttrib(std::string attrib){
-    std::map<std::string,GLint>::iterator it = locations.find(attrib);
-    if(it==locations.end()){
-        GLuint a = glGetAttribLocation(glId,attrib.c_str());
-        locations[attrib] = a;
-        return a;
-    }else{
-        return it->second;
-    }
+GLuint Shader::getAttrib(Shader::LocationHandle attrib){
+    //LOGD("getAttrib: %s, correct: %d", locations[attrib.handle].name.c_str(), !locations[attrib.handle].isUniform);
+    return locations[attrib.handle].location;
 }
 
-GLuint Shader::getAndEnableAttrib(std::string attrib){
+GLuint Shader::getAndEnableAttrib(Shader::LocationHandle attrib){
     GLuint a = getAttrib(attrib);
     glEnableVertexAttribArray(a);
     return a;
 }
 
-GLint Shader::getUniform(std::string uniform){
-    std::map<std::string,GLint>::iterator it = locations.find(uniform);
-    if(it==locations.end()){
-        GLint u = glGetUniformLocation(glId,uniform.c_str());
-        locations[uniform] = u;
-        return u;
-    }else{
-        return it->second;
-    }
+GLint Shader::getUniform(Shader::LocationHandle uniform){
+    //LOGD("getUniform: %s, correct: %d", locations[uniform.handle].name.c_str(), locations[uniform.handle].isUniform);
+    return locations[uniform.handle].location;
 }
 
-void Shader::uniform1f(std::string uniform,float u){
+void Shader::uniform1f(Shader::LocationHandle uniform,float u){
     glUniform1f(getUniform(uniform),u);
 }
 
-void Shader::uniform1i(std::string uniform,int u){
+void Shader::uniform1i(Shader::LocationHandle uniform,int u){
     glUniform1i(getUniform(uniform),u);
 }
 
-void Shader::uniform2f(std::string uniform,float u1,float u2){
+void Shader::uniform2f(Shader::LocationHandle uniform,float u1,float u2){
     glUniform2f(getUniform(uniform),u1,u2);
 }
 
-void Shader::uniform2f(std::string uniform,float *u){
+void Shader::uniform2f(Shader::LocationHandle uniform,float *u){
     glUniform2fv(getUniform(uniform),1,u);
 }
 
-void Shader::uniform2i(std::string uniform,int u1,int u2){
+void Shader::uniform2i(Shader::LocationHandle uniform,int u1,int u2){
     glUniform2i(getUniform(uniform),u1,u2);
 }
 
-void Shader::uniform2i(std::string uniform,int *u){
+void Shader::uniform2i(Shader::LocationHandle uniform,int *u){
     glUniform2iv(getUniform(uniform),1,u);
 }
 
-void Shader::uniform3f(std::string uniform,float u1,float u2,float u3){
+void Shader::uniform3f(Shader::LocationHandle uniform,float u1,float u2,float u3){
     glUniform3f(getUniform(uniform),u1,u2,u3);
 }
 
-void Shader::uniform3f(std::string uniform,float *u){
+void Shader::uniform3f(Shader::LocationHandle uniform,float *u){
     glUniform3fv(getUniform(uniform),1,u);
 }
 
-void Shader::uniform3i(std::string uniform,int u1,int u2,int u3){
+void Shader::uniform3i(Shader::LocationHandle uniform,int u1,int u2,int u3){
     glUniform3i(getUniform(uniform),u1,u2,u3);
 }
 
-void Shader::uniform3i(std::string uniform,int *u){
+void Shader::uniform3i(Shader::LocationHandle uniform,int *u){
     glUniform3iv(getUniform(uniform),1,u);
 }
 
-void Shader::uniform4f(std::string uniform,float u1,float u2,float u3,float u4){
+void Shader::uniform4f(Shader::LocationHandle uniform,float u1,float u2,float u3,float u4){
     glUniform4f(getUniform(uniform),u1,u2,u3,u4);
 }
 
-void Shader::uniform4f(std::string uniform,float *u){
+void Shader::uniform4f(Shader::LocationHandle uniform,float *u){
     glUniform4fv(getUniform(uniform),1,u);
 }
 
-void Shader::uniform4i(std::string uniform,int u1,int u2,int u3,int u4){
+void Shader::uniform4i(Shader::LocationHandle uniform,int u1,int u2,int u3,int u4){
     glUniform4i(getUniform(uniform),u1,u2,u3,u4);
 }
 
-void Shader::uniform4i(std::string uniform,int *u){
+void Shader::uniform4i(Shader::LocationHandle uniform,int *u){
     glUniform4iv(getUniform(uniform),1,u);
 }
 
-void Shader::uniformMatrix2f(std::string uniform,float *u){
+void Shader::uniformMatrix2f(Shader::LocationHandle uniform,float *u){
     glUniformMatrix2fv(getUniform(uniform),1,GL_FALSE,u);
 }
 
-void Shader::uniformMatrix3f(std::string uniform,float *u){
+void Shader::uniformMatrix3f(Shader::LocationHandle uniform,float *u){
     glUniformMatrix3fv(getUniform(uniform),1,GL_FALSE,u);
 }
 
-void Shader::uniformMatrix4f(std::string uniform,float *u){
+void Shader::uniformMatrix4f(Shader::LocationHandle uniform,float *u){
     glUniformMatrix4fv(getUniform(uniform),1,GL_FALSE,u);
 }
 
-void Shader::uniformVec2(std::string uniform,Vec2 u){
+void Shader::uniformVec2(Shader::LocationHandle uniform,Vec2 u){
     uniform2f(uniform,u.x,u.y);
 }
 
-void Shader::uniformVec3(std::string uniform,Vec3 u){
+void Shader::uniformVec3(Shader::LocationHandle uniform,Vec3 u){
     uniform3f(uniform,u.x,u.y,u.z);
 }
 
-void Shader::uniformVec4(std::string uniform,Vec4 u){
+void Shader::uniformVec4(Shader::LocationHandle uniform,Vec4 u){
     uniform4f(uniform,u.x,u.y,u.z,u.w);
 }
 
-void Shader::uniformMat4x4(std::string uniform,Mat4x4 u){
+void Shader::uniformMat4x4(Shader::LocationHandle uniform,Mat4x4 u){
     uniformMatrix4f(uniform,u.matrix);
 }
 
-void Shader::attribPointer(std::string attrib,int size,float *a){
+void Shader::attribPointer(Shader::LocationHandle attrib,int size,float *a){
     attribPointer(attrib,size,0,a);
 }
 
-void Shader::attribPointer(std::string attrib,int size,int stride,float *a){
+void Shader::attribPointer(Shader::LocationHandle attrib,int size,int stride,float *a){
     glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a);
 }
 
-void Shader::attribPointer(std::string attrib,int size,Bufferf& a){
+void Shader::attribPointer(Shader::LocationHandle attrib,int size,Bufferf& a){
     attribPointer(attrib,0,size,0,a);
 }
 
-void Shader::attribPointer(std::string attrib,int offset,int size,int stride,Bufferf& a){
+void Shader::attribPointer(Shader::LocationHandle attrib,int offset,int size,int stride,Bufferf& a){
     if(a.target==TE_BUFFER){
         glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a.source+offset);
     }else{
@@ -172,13 +234,13 @@ void Shader::attribPointer(std::string attrib,int offset,int size,int stride,Buf
     }
 }
 
-void Shader::uniformTexture(std::string uniform,Texture& u,GLuint slot){
+void Shader::uniformTexture(Shader::LocationHandle uniform,Texture& u,GLuint slot){
     glActiveTexture(slots[slot]);
     u.bind();
     uniform1i(uniform,slot);
 }
 
-void Shader::uniformCubeMap(std::string uniform,CubeMap& u,GLuint slot){
+void Shader::uniformCubeMap(Shader::LocationHandle uniform,CubeMap& u,GLuint slot){
     glActiveTexture(slots[slot]);
     u.bind();
     uniform1i(uniform,slot);

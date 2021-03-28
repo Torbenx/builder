@@ -4,15 +4,22 @@
 #include "../graphic/Shader.hpp"
 #include "../graphic/Framebuffer.hpp"
 #include "../util/Renderable.hpp"
+#include "../math/MvpMatrix.hpp"
 
 class DepthCubeMap{
     public:
+        class DepthShader : public Shader{
+        public:
+            LocationHandle positionHandle, mvpMatrixHandle, modelMatrixHandle, lightPosHandle;
+            DepthShader(float _far);
+        };
+
         CubeMap texture;
         Renderbuffer renderbuffer;
         Framebuffer framebuffer;
         int width,height;
         float m_far;
-        Shader *shader;
+        DepthShader shader;
         std::string vSource,fSource;
         DepthCubeMap(int width,int height,float far);
         ~DepthCubeMap();
@@ -23,7 +30,7 @@ class DepthCubeMap{
         GLenum targets[6] = {GL_TEXTURE_CUBE_MAP_POSITIVE_X,GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
             GL_TEXTURE_CUBE_MAP_POSITIVE_Y,GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
             GL_TEXTURE_CUBE_MAP_POSITIVE_Z,GL_TEXTURE_CUBE_MAP_NEGATIVE_Z};
-        
+
 };
 
 #endif
