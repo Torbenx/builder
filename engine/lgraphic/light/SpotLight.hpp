@@ -5,13 +5,14 @@
 
 class SpotLight{
     public:
-        Vec3 direction,position,up;
+        Vec3 direction,position,hDirection;
         DepthMap depthMap;
         float hfov,vfov;
         MvpMatrix mvpMatrix;
         int width,height;
         Vec3 color;
-        SpotLight(Vec3 position,Vec3 direction,float hfov,float vfov,int texWidth,int texHeight,Vec3 color,float near,float far);
+        SpotLight(Vec3 position,Vec3 direction,float fov,int texWidth,int texHeight,Vec3 color,float near,float far);
+        SpotLight(Vec3 position,Vec3 direction,float hfov,float vfov,Vec3 hDirection,int texWidth,int texHeight,Vec3 color,float near,float far);
         ~SpotLight();
         void init();
         void draw(Mat4x4 model, Renderable **ptrArray, int count);

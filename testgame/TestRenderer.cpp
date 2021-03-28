@@ -22,21 +22,22 @@ TestRenderer::TestRenderer() :
         pointLight(
             Vec3(0,1,-2),
             1024,1024,
-            Vec3(1,1,1)*4,
+            Vec3(1,1,1)*4.0f,
             1,
             100
         ),
         spotLight(
             Vec3(0,3.4,0),
             Vec3(0,-1,0),
+            M_PI*0.6,
             M_PI*0.4,
-            M_PI*0.4,
+            Vec3(1,0,0),
             2048,2048,
-            Vec3(1,1,1)*2.0f,
+            Vec3(1,1,1)*8.0f,
             1,
             100
         ),
-        ambientLight(Vec3(1, 1, 1)*0.4f),
+        ambientLight(Vec3(1, 1, 1)*1.0f),
         f1(GL_ARRAY_BUFFER),
         f2(GL_ARRAY_BUFFER),
         f3(GL_ARRAY_BUFFER),
@@ -48,7 +49,7 @@ TestRenderer::TestRenderer() :
         pawnTexCoords(GL_ARRAY_BUFFER),
         pawnNormals(GL_ARRAY_BUFFER),
         pawnTexture(GL_TEXTURE_2D),
-        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.03f),
+        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.3f),
         look(up, isAndroid()),
         pos(7,1,0)
         {}
@@ -78,7 +79,7 @@ void TestRenderer::create(){
     fNormal.bufferData(fNSrc,3*4*4,GL_STATIC_DRAW);
     obj1 = new DebugRenderable(&f1,&fNormal,Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
     obj2 = new DebugRenderable(&f2,&fNormal,Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
-    obj3 = new ReflectionDebugRenderable(&f3, &fNormal, Vec3(1,1,1)*0.5, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
+    obj3 = new ReflectionDebugRenderable(&f3, &fNormal, Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
     obj4 = new DebugRenderable(&f4,&fNormal,Vec3(1,1,0), 4); obj4->mode = GL_TRIANGLE_STRIP;
     obj5 = new DebugRenderable(&f5,&fNormal,Vec3(0,0,1), 4); obj5->mode = GL_TRIANGLE_STRIP;
     mvpMatrix.model = Mat4x4::Id;
@@ -184,7 +185,7 @@ void TestRenderer::create(){
 void TestRenderer::change(int newWidth, int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth/(float)newHeight;
-    mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0, as, 1, 100);
+    mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0, as, 0.1f, 100.0f);
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;

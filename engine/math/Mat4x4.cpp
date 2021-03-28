@@ -146,8 +146,8 @@ Mat4x4 Mat4x4::frustum(float left, float right, float bottom, float top, float n
     float r_width  = 1.0f / (right - left);
     float r_height = 1.0f / (top - bottom);
     float r_depth  = 1.0f / (near - far);
-    float x = 2.0f * r_width;
-    float y = 2.0f * r_height;
+    float x = 2.0f * near * r_width;
+    float y = 2.0f * near * r_height;
     float a = (right + left) * r_width;
     float b = (top + bottom) * r_height;
     float c = far * r_depth;
@@ -176,18 +176,18 @@ Mat4x4 Mat4x4::frustum(float left, float right, float bottom, float top, float n
 }
 
 Mat4x4 Mat4x4::frustumVH(float vfov, float hfov, float near, float far){
-    hfov = tan(hfov/2.0f);
-    vfov = tan(vfov/2.0f);
+    hfov = near*tan(hfov/2.0f);
+    vfov = near*tan(vfov/2.0f);
     return frustum(-vfov,vfov,-hfov,hfov,near,far);
 }
 
 Mat4x4 Mat4x4::frustumV(float vfov, float aspect, float near, float far){
-    vfov = tan(vfov/2.0f);
+    vfov = near*tan(vfov/2.0f);
     return frustum(-vfov,vfov,-vfov*aspect,vfov*aspect,near,far);
 }
 
 Mat4x4 Mat4x4::frustumH(float hfov, float aspect, float near, float far){
-    hfov = tan(hfov/2.0f);
+    hfov = near*tan(hfov/2.0f);
     return frustum(-hfov*aspect,hfov*aspect,-hfov,hfov,near,far);
 }
 
