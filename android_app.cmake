@@ -56,7 +56,11 @@ if(DEFINED CMAKE_SCRIPT_MODE_FILE)
     set(ANDROID_MIN_SDK_VERSION 24)
     set(ANDROID_TARGET_SDK_VERSION 27)
 
-    foreach(abi "x86" "x86_64" "armeabi-v7a" "arm64-v8a")
+    if(NOT DEFINED ABIS)
+        set(ABIS "x86" "x86_64" "armeabi-v7a" "arm64-v8a")
+    endif()
+
+    foreach(abi IN LISTS ABIS)
         message(STATUS "------------------------------------------")
         message(CHECK_START "setting up ANDROID_ABI=${abi}")
         execute_process(
