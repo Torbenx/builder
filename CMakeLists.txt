@@ -35,6 +35,8 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     find_package(Java COMPONENTS Development REQUIRED)
+    find_package(Python COMPONENTS Interpreter REQUIRED)
+    
     include(UseJava)
     include(android_app.cmake)
 

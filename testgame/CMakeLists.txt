@@ -34,8 +34,12 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         classes.dex
         assets/Pawn/Pawn.obj
         assets/Pawn/Pawn.jpg
-        PACKAGE com.tt.testgame
-        ACTIVITY com.tt.engine.MainActivity
         MANIFEST ${android_manifest}
+    )
+
+    add_custom_target(run_testgame
+        COMMAND ${Python_EXECUTABLE} ${CMAKE_SOURCE_DIR}/build_lib/android_log.py ${Android_ADB_EXECUTABLE} ${ANDROID_APP_PACKAGE} com.tt.engine.MainActivity
+        DEPENDS install_testgame_apk
+        USES_TERMINAL
     )
 endif()

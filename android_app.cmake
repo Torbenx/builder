@@ -1,18 +1,24 @@
 
-if(NOT DEFINED Java_KEYTOOL_EXECUTABLE)
-    find_program(Java_KEYTOOL_EXECUTABLE
-      NAMES keytool
-      HINTS ${_JAVA_HINTS}
-      PATHS ${_JAVA_PATHS}
-      REQUIRED
-    )
+if(NOT DEFINED ANDROID_SDK)
+    if(DEFINED ENV{ANDROID_HOME})
+        set(ANDROID_SDK $ENV{ANDROID_HOME} CACHE PATH "Android SDK location")
+    else()
+        message(FATAL_ERROR "No Android SDK")
+    endif()
 endif()
 
+message(STATUS "Using Android SDK ${ANDROID_SDK}")
+
+function(find_latest_version_triple _dir _out_var)
+    file(GLOB _versions RELATIVE ${_dir}/ ${_dir}/*)
+    list(FILTER _versions INCLUDE REGEX "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    list(SORT _versions COMPARE NATURAL ORDER DESCENDING)
+    list(GET _versions 0 _version)
+    set(${_out_var} ${_version} PARENT_SCOPE)
+endfunction()
+
 if(NOT DEFINED Android_BUILD_TOOLS_DIR)
-    file(GLOB build_tools_versions RELATIVE ${ANDROID_SDK}/build-tools/ ${ANDROID_SDK}/build-tools/*)
-    list(FILTER build_tools_versions INCLUDE REGEX "^[0-9]+\\.[0-9]\\.[0-9]$")
-    list(SORT build_tools_versions COMPARE NATURAL ORDER DESCENDING)
-    list(GET build_tools_versions 0 build_tools_version)
+    find_latest_version_triple(${ANDROID_SDK}/build-tools build_tools_version)
     set(Android_BUILD_TOOLS_DIR ${ANDROID_SDK}/build-tools/${build_tools_version} CACHE PATH "Android Build Tools Directory")
     message(STATUS "Using Android Build Tools Version ${build_tools_version}")
 endif()
@@ -28,12 +34,57 @@ find_program(Android_AAPT_EXECUTABLE aapt PATHS ${Android_BUILD_TOOLS_DIR} REQUI
 find_program(Android_ZIPALIGN_EXECUTABLE zipalign PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
 find_program(Android_ADB_EXECUTABLE adb PATHS ${ANDROID_SDK}/platform-tools REQUIRED)
 
+if(NOT DEFINED Android_NDK_DIR)
+    if(EXISTS ${ANDROID_SDK}/ndk)
+        find_latest_version_triple(${ANDROID_SDK}/ndk ndk_version)
+        message(STATUS "Using Android NDK version ${ndk_version}")
+        set(Android_NDK_DIR ${ANDROID_SDK}/ndk/${ndk_version} CACHE PATH "Android NDK Directory")
+    elseif(EXISTS ${ANDROID_SDK}/ndk-bundle)
+        message(STATUS "Using Android NDK-Bundle")
+        set(Android_NDK_DIR ${ANDROID_SDK}/ndk-bundle CACHE PATH "Android NDK Directory")
+    else()
+        message(FATAL_ERROR "Couldn't find Android NDK")
+    endif()
+endif()
+
+find_file(Android_CMAKE_TOOLCHAIN android.toolchain.cmake PATHS ${Android_NDK_DIR}/build/cmake REQUIRED)
+
+if(DEFINED CMAKE_SCRIPT_MODE_FILE)
+
+    get_filename_component(current_dir ${CMAKE_SCRIPT_MODE_FILE} DIRECTORY)
+
+    set(ANDROID_MIN_SDK_VERSION 24)
+    set(ANDROID_TARGET_SDK_VERSION 27)
+
+    foreach(abi "x86" "x86_64" "armeabi-v7a" "arm64-v8a")
+        message(STATUS "------------------------------------------")
+        message(CHECK_START "setting up ANDROID_ABI=${abi}")
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -G Ninja -S . -B abuild/${abi}
+            -DCMAKE_TOOLCHAIN_FILE=${Android_CMAKE_TOOLCHAIN} -DANDROID_ABI=${abi} -DANDROID_PLATFORM=${ANDROID_MIN_SDK_VERSION}
+            -DANDROID_SDK=${ANDROID_SDK} -DANDROID_MIN_SDK_VERSION=${ANDROID_MIN_SDK_VERSION} -DANDROID_TARGET_SDK_VERSION=${ANDROID_TARGET_SDK_VERSION}
+            WORKING_DIRECTORY ${current_dir}
+        )
+        message(CHECK_PASS "done")
+    endforeach()
+
+else()
+    if(NOT DEFINED Java_KEYTOOL_EXECUTABLE)
+        find_program(Java_KEYTOOL_EXECUTABLE
+          NAMES keytool
+          HINTS ${_JAVA_HINTS}
+          PATHS ${_JAVA_PATHS}
+          REQUIRED
+        )
+    endif()
+endif()
+
 function(add_apk _TARGET_NAME)
 
     cmake_parse_arguments(
         _add_apk
         "DEBUG"
-        "MANIFEST;PACKAGE;ACTIVITY"
+        "MANIFEST"
         "SOURCES"
         ${ARGN}
     )
@@ -120,23 +171,5 @@ function(add_apk _TARGET_NAME)
         DEPENDS ${_TARGET_NAME}
         COMMENT "Installing ${_TARGET_NAME}"
     )
-
-    if(DEFINED _add_apk_ACTIVITY AND DEFINED _add_apk_PACKAGE)
-        add_custom_target(run_${_TARGET_NAME}
-            COMMAND ${Android_ADB_EXECUTABLE} shell am start ${_add_apk_PACKAGE}/${_add_apk_ACTIVITY}
-            DEPENDS install_${_TARGET_NAME}
-            COMMENT "Launching ${_TARGET_NAME}"
-        )
-        if(DEFINED ANDROID_LOGGER)
-            find_package(Python COMPONENTS Interpreter REQUIRED)
-            message(${Python_EXECUTABLE})
-            add_custom_target(log_${_TARGET_NAME}
-                COMMAND ${Python_EXECUTABLE} ${ANDROID_LOGGER} ${Android_ADB_EXECUTABLE} ${_add_apk_PACKAGE} ${_add_apk_ACTIVITY}
-                COMMENT "Logging ${_TARGET_NAME}"
-                DEPENDS run_${_TARGET_NAME}
-                USES_TERMINAL
-            )
-        endif()
-    endif()
 
 endfunction()

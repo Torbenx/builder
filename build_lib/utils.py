@@ -4,11 +4,6 @@ import threading
 import traceback
 import sys
 
-arch_x86_32 = 1
-arch_x86_64 = 2
-arch_armv7a = 3
-arch_arm64v8a = 4
-
 def exec_cmd(cmd, shell, concat, cwd=None, stdout=None, stderr=None):
     if stdout and not stderr:
         stderr = subprocess.STDOUT

@@ -33,7 +33,7 @@ def find_pid(package):
 
 
 
-key = b"R"
+key = b"S"
 while True:
     if key == b"r":
         pid = find_pid(package)

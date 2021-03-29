@@ -28,8 +28,12 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         ${lib_dir}/libturbojpeg.so
         #${lib_dir}/${cxx_lib_file_name}
         classes.dex
-        PACKAGE com.tt.builder
-        ACTIVITY com.tt.engine.MainActivity
         MANIFEST ${android_manifest}
+    )
+
+    add_custom_target(run_builder
+        COMMAND ${Python_EXECUTABLE} ${CMAKE_SOURCE_DIR}/build_lib/android_log.py ${Android_ADB_EXECUTABLE} ${ANDROID_APP_PACKAGE} com.tt.engine.MainActivity
+        DEPENDS install_builder_apk
+        USES_TERMINAL
     )
 endif()
