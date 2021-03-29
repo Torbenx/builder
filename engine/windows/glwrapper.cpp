@@ -179,6 +179,7 @@ PFNGLVERTEXATTRIB4UIVPROC glVertexAttrib4uiv;
 PFNGLVERTEXATTRIB4USVPROC glVertexAttrib4usv;
 PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
 PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
+PFNGLGETSHADERIVPROC glGetShaderiv;
 
 void glwrapper_init(){
 wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) glwrapper_load("wglCreateContextAttribsARB");
@@ -379,4 +380,5 @@ glVertexAttrib4usv = (PFNGLVERTEXATTRIB4USVPROC) glwrapper_load("glVertexAttrib4
 glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC) glwrapper_load("glVertexAttribPointer");
 glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) glwrapper_load("glGenVertexArrays");
 glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) glwrapper_load("glBindVertexArray");
+glGetShaderiv = (PFNGLGETSHADERIVPROC) glwrapper_load("glGetShaderiv");
 }

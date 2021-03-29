@@ -1,17 +1,16 @@
 #ifndef HEADER_UI_CUBE_MAP_COMPONENT_H
 #define HEADER_UI_CUBE_MAP_COMPONENT_H
 
-#include "../graphic/Shader.hpp"
+#include "../util/Shaders.hpp"
 #include "UiComponent.hpp"
 
 class CubeMapComponent : public UiComponent{
     public:
-        Shader shader;
+        std::shared_ptr<SimpleCubeMapShader> shader;
         CubeMap *cubeMap;
         float coords[4*2];
         float texCoords[4*3];
-        CubeMapComponent();
-        CubeMapComponent(std::string header, std::string sampler, std::string texFunc, std::string modColor);
+        CubeMapComponent(bool createShader=true);
         void draw();
         void updateRect();
         virtual void doUniforms(){}

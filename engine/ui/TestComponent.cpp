@@ -1,23 +1,13 @@
 #include "TestComponent.hpp"
 
-TestComponent::TestComponent() :
-shader(
-"attribute vec4 a_position;\n"
-"void main(){\n"
-"   gl_Position = a_position;\n"
-"}",
-"uniform vec4 u_color;\n"
-"void main(){\n"
-"   gl_FragColor = u_color;\n"
-"}"){
-
+TestComponent::TestComponent(){
+    shader = Shaders::color();
 }
 
 void TestComponent::draw(){
-    shader.init();
-    shader.use();
-    shader.attribPointer("a_position", 2, coords);
-    shader.uniformVec4("u_color", color);
+    shader->use();
+    shader->attribPointer(shader->positionAttrib, 2, coords);
+    shader->uniformVec4(shader->colorUniform, color);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 

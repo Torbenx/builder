@@ -6,23 +6,16 @@
 #include "../util/Renderable.hpp"
 #include "../math/MvpMatrix.hpp"
 #include <string.h>
-#include <memory>
+#include "../util/Shaders.hpp"
 
 class DepthMap{
     public:
-        class DepthShader : public Shader{
-        public:
-            LocationHandle positionHandle, mvpMatrixHandle, modelMatrixHandle, lightPosHandle;
-            static std::unique_ptr<DepthShader> construct(float _far);
-            DepthShader(){}
-        };
-
         Texture texture;
         Renderbuffer renderbuffer;
         Framebuffer framebuffer;
         int width, height;
         float m_far;
-        std::unique_ptr<DepthShader> shader;
+        std::shared_ptr<SimpleDepthShader> shader;
         DepthMap(int width, int height, float far);
         ~DepthMap();
         void init();

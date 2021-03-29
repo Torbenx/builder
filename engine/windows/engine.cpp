@@ -15,7 +15,7 @@
 const char g_szClassName[] = "myWindowClass";
 
 Renderer *renderer;
-Renderer* (*get_renderer)();
+Renderer* (*createRenderer)();
 HWND engine_hwnd;
 ID3D11Device *dxDevice;
 HANDLE hDxDevice;
@@ -90,8 +90,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 LOGD("disabled vsync");
             }*/
 
-            renderer = get_renderer();
-            renderer->create();
+            renderer = createRenderer();
             return 0;
         }
         case WM_SIZE:{
@@ -237,7 +236,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 rendererState = RENDERER_STATE_INVISIBLE;
                 renderer->invisible();
             }
-            renderer->destroy();
             delete renderer;
             PostQuitMessage(0);
             return 0;
@@ -255,7 +253,7 @@ void Renderer::exit(){
 }
 
 int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
-    get_renderer = r;
+    createRenderer = r;
     time_init();
 
     int rawInputDeviceCount = 2;

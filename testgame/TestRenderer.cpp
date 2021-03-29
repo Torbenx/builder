@@ -1,20 +1,21 @@
-#include "Renderer.hpp"
-#include "util/log.hpp"
+#include <Renderer.hpp>
+#include <util/log.hpp>
 #include <string>
-#include "gl/glLog.hpp"
-#include "resource/ObjParser.hpp"
-#include "resource/asset_istream.hpp"
+#include <gl/glLog.hpp>
+#include <resource/ObjParser.hpp>
+#include <resource/asset_istream.hpp>
 #include <fstream>
 #include "TestRenderer.hpp"
-#include "util/time.hpp"
-#include "util/target.hpp"
-#include "fullscreen.hpp"
-#include "util/draw_util.hpp"
-#include "input/keycodes.hpp"
+#include <util/time.hpp>
+#include <util/target.hpp>
+#include <fullscreen.hpp>
+#include <util/draw_util.hpp>
+#include <input/keycodes.hpp>
 #include <turbojpeg.h>
+#include <math/constants.hpp>
 
 #ifdef PLATFORM_WINDOWS
-#include "windows/fullscreen.hpp"
+#include <windows/fullscreen.hpp>
 #endif
 
 TestRenderer::TestRenderer() :
@@ -29,8 +30,8 @@ TestRenderer::TestRenderer() :
         spotLight(
             Vec3(0,3.4,0),
             Vec3(0,-1,0),
-            M_PI*0.6,
-            M_PI*0.4,
+            F_PI*0.6f,
+            F_PI*0.4f,
             Vec3(1,0,0),
             2048,2048,
             Vec3(1,1,1)*8.0f,
@@ -52,9 +53,7 @@ TestRenderer::TestRenderer() :
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.3f),
         look(up, isAndroid()),
         pos(7,1,0)
-        {}
-
-void TestRenderer::create(){
+{
     pointLight.init();
     spotLight.init();
     reflection.init();
@@ -108,19 +107,19 @@ void TestRenderer::create(){
     fullscreen = charToKeycode(SPECIAL_KEY_F(11));
     exitKey = charToKeycode(SPECIAL_KEY_ESC);
 
-    /*textComp.text = "Hello World";
+    textComp.text = "Hello World";
     textComp.textSize = TypedSize::gl(0.1f);
     textComp.textColor = Vec4(1, 0, 0, 1);
     textComp.noBreaks = true;
 
-    cubeComp.farDepth = 100.0f;
+    cubeComp.farDepth = 5.0f;
     cubeComp.texture = &spotLight.depthMap.texture;
 
-    refComp.texture = &reflection.texture;*/
+    refComp.texture = &reflection.texture;
 
 
     TypedSize pad = TypedSize::gl(0.1f);
-    /*uiScene.layout(&textComp)
+    uiScene.layout(&textComp)
         .alignTop()
         .alignLeft()
         .wrapContentWidth()
@@ -128,15 +127,12 @@ void TestRenderer::create(){
     uiScene.layout(&cubeComp)
         .align(nullptr, pad);
     uiScene.layout(&refComp)
-        .alignTop()
-        .alignBottom()
-        .alignLeft()
-        .alignRight();*/
+        .align();
 
 
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
-    parser.parse(file, 20000, 20000);
+    parser.parse(file, 30000, 30000);
     pawnVertex.init();
     pawnVertex.bufferData(parser.vertex,parser.vertexCount*parser.dim*4,GL_STATIC_DRAW);
     pawnTexCoords.init();
@@ -176,22 +172,22 @@ void TestRenderer::create(){
     pawnTexture.init();
     pawnTexture.texture(imgBuf, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
 
-    //refComp.texture = &pawnTexture;
+    refComp.texture = &pawnTexture;
 
-    pawn = new ObjectRenderable(&pawnVertex, parser.indices ? &pawnIndices : nullptr, &pawnTexCoords, &pawnNormals, &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-M_PI/2.0, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
+    pawn = new ObjectRenderable(&pawnVertex, parser.indices ? &pawnIndices : nullptr, &pawnTexCoords, &pawnNormals, &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-F_PI/2.0f, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
     scene.addObject(pawn);
 }
 
 void TestRenderer::change(int newWidth, int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth/(float)newHeight;
-    mvpMatrix.projection = Mat4x4::frustumH(67.0 * M_PI / 180.0, as, 0.1f, 100.0f);
+    mvpMatrix.projection = Mat4x4::frustumH(67.0f * F_PI / 180.0f, as, 0.1f, 100.0f);
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
 
-    //textComp.metrics = metrics;
-    //textComp.updateContent();
+    textComp.metrics = metrics;
+    textComp.updateContent();
     uiScene.metrics = metrics;
     uiScene.build();
 }
@@ -267,12 +263,12 @@ void TestRenderer::rawKey(uint32_t keycode, bool down){
 void TestRenderer::drawFrame(){
     uint64_t now = getNanos();
     if(now - lsecond >= NANOS_PER_SECOND){
-        LOGD("FPS: %d",frameCounter);
+        //LOGD("FPS: %d", frameCounter);
 
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
-        //textComp.text = ss.str();
-        //textComp.updateContent();
+        textComp.text = ss.str();
+        textComp.updateContent();
         uiScene.build();
 
         lsecond = now;
@@ -347,11 +343,11 @@ void TestRenderer::drawFrame(){
     }
 
     //cubeComp.draw();
-    //textComp.draw();
+    textComp.draw();
     //refComp.draw();
 }
 
-void TestRenderer::destroy(){
+TestRenderer::~TestRenderer(){
     delete obj1;
     delete obj2;
     delete obj3;

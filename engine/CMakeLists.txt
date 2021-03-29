@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
 
-
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
    set(platform_source
@@ -54,15 +53,16 @@ add_library(engine SHARED
     "resource/asset_istream.cpp"
     "util/time.cpp"
     "util/target.cpp"
+    "util/Shaders.cpp"
     #"util/draw_util.cpp"
     "input/Pointer.cpp"
     "input/Look3d.cpp"
-    #"ui/TestComponent.cpp"
-    #"ui/TextureComponent.cpp"
-    #"ui/TextComponent.cpp"
-    #"ui/DepthMapComponent.cpp"
-    #"ui/CubeMapComponent.cpp"
-    #"ui/DepthCubeMapComponent.cpp"
+    "ui/TestComponent.cpp"
+    "ui/TextureComponent.cpp"
+    "ui/TextComponent.cpp"
+    "ui/DepthMapComponent.cpp"
+    "ui/CubeMapComponent.cpp"
+    "ui/DepthCubeMapComponent.cpp"
     "ui/TypedSize.cpp"
     "ui/UiComponent.cpp"
     "ui/UiScene.cpp"

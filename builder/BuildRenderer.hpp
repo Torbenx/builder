@@ -14,13 +14,12 @@ class BuildRenderer : public Renderer{
         std::vector<std::string> files;
         bool isProject = false;
         UiScene scene;
-        
+
         BuildRenderer();
-        void create();
-        void pointer(PointerEvent pointer);
-        void change(int newWidth, int newHeight);
+        void pointer(PointerEvent pointer) override;
+        void change(int newWidth, int newHeight) override;
         void setPath(std::string path);
-        void drawFrame();
+        void drawFrame() override;
 };
 
 #endif

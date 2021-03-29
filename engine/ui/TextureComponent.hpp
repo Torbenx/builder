@@ -2,16 +2,15 @@
 #define HEADER_UI_TEXTURECOMPONENT_H
 
 #include "UiComponent.hpp"
-#include "../graphic/Shader.hpp"
+#include "../util/Shaders.hpp"
 
 class TextureComponent : public UiComponent{
     public:
-        Shader shader;
+        std::shared_ptr<SimpleTextureShader> shader;
         Texture *texture;
         float coords[4*2];
         float texCoords[4*2];
-        TextureComponent();
-        TextureComponent(std::string header, std::string sampler, std::string texFunc, std::string modColor);
+        TextureComponent(bool createShader = true);
         void setTexRect(Rect rect);
         void draw();
         void updateRect();

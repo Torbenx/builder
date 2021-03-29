@@ -7,7 +7,6 @@ class DepthCubeMapComponent : public CubeMapComponent{
     public:
         float farDepth;
         DepthCubeMapComponent();
-        DepthCubeMapComponent(std::string sampler, std::string texFunc);
         void doUniforms();
 };
 

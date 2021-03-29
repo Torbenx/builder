@@ -7,10 +7,6 @@
 #include <dirent.h>
 
 BuildRenderer::BuildRenderer() : explorer(this), head(this){
-
-}
-
-void BuildRenderer::create(){
     setPath(isAndroid() ? "/data/data/com.tt.builder" : "C:/Users/Torben/Documents/dev/c++");
     #ifdef PLATFORM_ANDROID
         goFullscreen(FullscreenConfig::DEFAULT);
@@ -38,8 +34,6 @@ void BuildRenderer::change(int newWidth, int newHeight){
     metrics.y.dpi = dpi;
     scene.metrics = metrics;
     scene.build();
-    //LOGD("explorer: "); explorer.rect.debug();
-    //LOGD("head: "); head.rect.debug();
 }
 
 void BuildRenderer::drawFrame(){

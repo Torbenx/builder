@@ -1,21 +1,21 @@
 #ifndef HEADER_TESTRENDERER_H
 #define HEADER_TESTRENDERER_H
 
-#include "Renderer.hpp"
-#include "gl/glwrapper.hpp"
-#include "math/Vec2.hpp"
-#include "math/Vec3.hpp"
-#include "math/Mat4x4.hpp"
-#include "graphic/Shader.hpp"
-#include "lgraphic/DepthMap.hpp"
-#include "input/Look3d.hpp"
-#include "ui/text.hpp"
-//#include "ui/TextComponent.hpp"
-//#include "ui/TestComponent.hpp"
-//#include "ui/DepthCubeMapComponent.hpp"
-//#include "ui/DepthMapComponent.hpp"
-#include "3d/Scene.hpp"
-#include "ui/UiScene.hpp"
+#include <Renderer.hpp>
+#include <gl/glwrapper.hpp>
+#include <math/Vec2.hpp>
+#include <math/Vec3.hpp>
+#include <math/Mat4x4.hpp>
+#include <graphic/Shader.hpp>
+#include <lgraphic/DepthMap.hpp>
+#include <input/Look3d.hpp>
+#include <ui/text.hpp>
+#include <ui/TextComponent.hpp>
+#include <ui/TestComponent.hpp>
+#include <ui/DepthCubeMapComponent.hpp>
+#include <ui/DepthMapComponent.hpp>
+#include <3d/Scene.hpp>
+#include <ui/UiScene.hpp>
 #include <cmath>
 
 class DebugRenderable : public SceneObject{
@@ -169,20 +169,19 @@ class TestRenderer : public Renderer{
         int lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
         int navBaseX, navBaseY;
         int navDeltaX = 0, navDeltaY = 0;
-        //TextComponent textComp;
-        //DepthMapComponent cubeComp;
-        //TextureComponent refComp;
+        TextComponent textComp;
+        DepthMapComponent cubeComp;
+        TextureComponent refComp;
         Scene scene;
         UiScene uiScene;
 
         TestRenderer();
-        void create();
         void change(int width, int height);
         void pointer(PointerEvent event);
         void rawPointer(int dx, int dy);
         void rawKey(uint32_t keycode, bool down);
         void drawFrame();
-        void destroy();
+        ~TestRenderer();
 };
 
 #endif

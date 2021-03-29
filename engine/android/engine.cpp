@@ -17,12 +17,13 @@
 
 ALooper *looper;
 
-Renderer *renderer;
+Renderer* (*createRenderer)();
+Renderer *renderer = nullptr;
 int rendererState = RENDERER_STATE_INVISIBLE;
 AChoreographer *choreographer;
 
-void engine_setRenderer(Renderer *r){
-    renderer = r;
+void engine_setRenderer(Renderer* (*r)()){
+    createRenderer = r;
 }
 
 void android_initThread(int cmdFd){
@@ -88,7 +89,7 @@ void android_runThread(){
                             context = eglCreateContext(display, config, EGL_NO_CONTEXT, context_attrib_list);
                             CHECK_EGL(context, EGL_NO_CONTEXT, "eglCreateContext");
                             CHECK_EGL_BOOL(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context), "eglMakeCurrent (init)");
-                            renderer->create();
+                            renderer = createRenderer();
                             break;
                         }
                         case ENGINE_CMD_VISIBLE:
@@ -112,7 +113,6 @@ void android_runThread(){
                             renderer->invisible();
                             break;
                         case ENGINE_CMD_DESTROY:
-                            renderer->destroy();
                             delete renderer;
                             eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
                             eglDestroyContext(display, context);
@@ -122,7 +122,7 @@ void android_runThread(){
                             eglTerminate(display);
                             running = false;
                             break;
-                            
+
                         case ENGINE_CMD_SURFACE_CREATE:{
                             struct SurfaceCmdData data;
                             read(fd, &data, sizeof(struct SurfaceCmdData));
@@ -232,7 +232,7 @@ void android_runThread(){
                 break;
         }
     }
-    
+
     JNIEnv *env;
     jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
     env->DeleteGlobalRef(activity);

@@ -181,5 +181,6 @@ extern PFNGLVERTEXATTRIB4UIVPROC glVertexAttrib4uiv;
 extern PFNGLVERTEXATTRIB4USVPROC glVertexAttrib4usv;
 extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
 extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
+extern PFNGLGETSHADERIVPROC glGetShaderiv;
 
 #endif

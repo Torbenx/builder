@@ -32,8 +32,7 @@ public:
     std::vector<GLuint> locations;
 
     Shader(ShaderBuilder& builder){ initalize(builder); }
-    Shader(){}
-    ~Shader();
+    virtual ~Shader();
 
     void initalize(ShaderBuilder& builder);
     void use();
@@ -70,6 +69,9 @@ public:
     void attribPointer(LocationHandle attrib,int size,int stride,float *a);
     void attribPointer(LocationHandle attrib,int size,Bufferf& a);
     void attribPointer(LocationHandle attrib,int offset,int size,int stride,Bufferf& a);
+
+protected:
+    Shader(){}
 
 private:
     Shader(const Shader& other);

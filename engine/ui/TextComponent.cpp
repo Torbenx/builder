@@ -2,8 +2,9 @@
 #include "../util/log.hpp"
 #include "../util/time.hpp"
 
-TextComponent::TextComponent() : TextureComponent(TEXT_TEXTURE_GLSL_HEADER, TEXT_TEXTURE_GLSL_SAMPLER, "texture2D", ""){
+TextComponent::TextComponent() : TextureComponent(false){
     setTexRect(Rect::bltr(1.0f, 0.0f, 0.0f, 1.0f)); //invert y-direction
+    shader = Shaders::text();
 }
 
 void TextComponent::updateContent(){

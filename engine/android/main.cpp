@@ -1,9 +1,9 @@
 #include <jni.h>
 #include "main.hpp"
-#include "android/engine.hpp"
+#include <android/engine.hpp>
 
 void engine_getRenderer(){
-    engine_setRenderer(createRenderer());
+    engine_setRenderer(&createRenderer);
 }
 
 extern "C" {

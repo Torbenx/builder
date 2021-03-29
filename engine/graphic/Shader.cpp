@@ -61,25 +61,33 @@ void Shader::initalize(ShaderBuilder& builder){
     GLuint id = glCreateProgram();
     glId = id;
 
-    std::string vSource = builder.buildVertexSource();
-    const char *source = vSource.c_str();
-    //LOGD("\n\nVertex Shader:\n%s\n\n", source);
+    auto compileShader = [&](bool vertex, const char *source){
+        GLuint shader = glCreateShader(vertex ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER);
+        glShaderSource(shader, 1, &source, 0);
+        glCompileShader(shader);
+        GLint success = GL_FALSE;
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+        if(success == GL_FALSE){
+            GLint length = 0;
+            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+            GLchar message[length];
+            glGetShaderInfoLog(shader, length, &length, message);
+            LOGW("\n"
+            "--------------------\n"
+            "%s Shader failed to compile:\n"
+            "-------SOURCE-------\n%s\n"
+            "-------ERROR--------\n%s\n", vertex ? "Vertex" : "Fragment", source, message);
+        }else{
+            glAttachShader(glId, shader);
+        }
+        glDeleteShader(shader);
+    };
 
-    GLuint shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(shader, 1, &source, 0);
-    glCompileShader(shader);
-    glAttachShader(glId, shader);
-    glDeleteShader(shader);
+    std::string vSource = builder.buildVertexSource();
+    compileShader(true, vSource.c_str());
 
     std::string fSource = builder.buildFragmentSource();
-    source = fSource.c_str();
-    //LOGD("\n\nFragment Shader:\n%s\n\n", source);
-
-    shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(shader, 1, &source, 0);
-    glCompileShader(shader);
-    glAttachShader(glId, shader);
-    glDeleteShader(shader);
+    compileShader(false, fSource.c_str());
 
     glLinkProgram(glId);
 

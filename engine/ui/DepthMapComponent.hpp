@@ -7,7 +7,6 @@ class DepthMapComponent : public TextureComponent{
     public:
         float farDepth;
         DepthMapComponent();
-        DepthMapComponent(std::string sampler, std::string texFunc);
         void doUniforms();
 };
 
