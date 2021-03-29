@@ -10,14 +10,14 @@ package = sys.argv[2]
 activity = sys.argv[3]
 
 def log_package(package):
-    print "Logging "+package
+    print("Logging "+package)
     p = subprocess.Popen([adb_bin, "logcat", "-e", package])
     key = utils.getch()
     p.kill()
     return key
 
 def log_pid(pid):
-    print "Logging "+str(pid)
+    print("Logging "+str(pid))
     p = subprocess.Popen([adb_bin, "logcat", "--pid="+str(pid)])
     key = utils.getch()
     p.kill()
@@ -26,55 +26,55 @@ def log_pid(pid):
 def find_pid(package):
     p = subprocess.Popen([adb_bin, "shell", "for p in /proc/[0-9]*; do [[ $(<$p/cmdline) = %s ]] && echo ${p##*/}; done" % package], stdout = subprocess.PIPE)
     out,err = p.communicate()
-    if out=="":
+    if out==b'':
         return -1
     else:
         return int(out)
 
 
 
-key = "R"
+key = b"R"
 while True:
-    if key == "r":
+    if key == b"r":
         pid = find_pid(package)
         if pid == -1:
-            print "process not running"
+            print("process not running")
             key = utils.getch()
         else:
             key = log_pid(pid)
-    elif key == "R":
+    elif key == b"R":
         pid = -1
         tries = 10
         while pid == -1 and tries > 0:
             pid = find_pid(package)
             tries -= 1
         if pid != -1:
-            print "process not running"
             key = log_pid(pid)
         else:
+            print("process not running")
             key = utils.getch()
-    elif key == "p":
+    elif key == b"p":
         key = log_package(package)
-    elif key == "c":
+    elif key == b"c":
         utils.clear()
         key = utils.getch()
-    elif key == "k":
+    elif key == b"k":
         utils.exec_cmd([adb_bin, "shell", "am force-stop "+package], False, False)
         key = utils.getch()
-    elif key == "s":
+    elif key == b"s":
         utils.exec_cmd([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
         key = utils.getch()
-    elif key == "S":
+    elif key == b"S":
         utils.exec_cmd([adb_bin, "shell", "am", "start", package+"/"+activity], False, False)
-        key = "R"
-    elif key == "i":
-        print "package: "+package
-        print "activity: "+activity
-        print "adb location: "+adb_bin
-        print LOG_USAGE
+        key = b"R"
+    elif key == b"i":
+        print("package: "+package)
+        print("activity: "+activity)
+        print("adb location: "+adb_bin)
+        print(LOG_USAGE)
         key = utils.getch()
-    elif key == "e":
+    elif key == b"e":
         break
     else:
-        print LOG_USAGE
+        print(LOG_USAGE)
         key = utils.getch()

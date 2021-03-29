@@ -27,5 +27,5 @@ for arch in arch_list:
         "-DCMAKE_TOOLCHAIN_FILE="+android_ndk+"/build/cmake/android.toolchain.cmake",
         "-DANDROID_ABI="+name, "-DANDROID_PLATFORM="+str(min_sdk_version),
         "-DANDROID_SDK="+android_sdk, "-DANDROID_MIN_SDK_VERSION="+str(min_sdk_version), "-DANDROID_TARGET_SDK_VERSION="+str(target_sdk_version), #custom defines
-        "-DANDROID_LOGGER="+current_dir+"/build_lib/android_log.sh"
+        "-DANDROID_LOGGER="+current_dir+"/build_lib/android_log.py"
     ], shell, concat_cmd)
