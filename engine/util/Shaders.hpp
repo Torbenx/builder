@@ -44,7 +44,7 @@ struct SimpleDepthCubeMapShader : public SimpleCubeMapShader{
 static inline std::weak_ptr<type> w_##name; \
 static std::shared_ptr<type> name(){ \
     if(w_##name.expired()){ \
-        LOGD("constructed new Shaders::" #name); \
+        LOGD("constructing Shaders::" #name); \
         ShaderBuilder b; \
         auto p = std::make_shared<type>(); \
         p->apply##type(b __VA_OPT__(,) __VA_ARGS__); \

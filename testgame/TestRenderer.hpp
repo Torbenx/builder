@@ -20,14 +20,14 @@
 
 class DebugRenderable : public SceneObject{
     public:
-        Buffer<float> *source;
-        Buffer<float> *normals;
+        Buffer<Vec3> *source;
+        Buffer<Vec3> *normals;
         Vec3 color;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        DebugRenderable(Buffer<float> *s, Buffer<float> *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
+        DebugRenderable(Buffer<Vec3> *s, Buffer<Vec3> *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             normals = nor;
             color = c;
@@ -43,15 +43,15 @@ class DebugRenderable : public SceneObject{
 
         void draw(Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform){
             shader.uniformMat4x4(modelUniform, model);
-            shader.attribPointer(positionAttrib, 3, *source);
+            shader.attribPointer(positionAttrib, *source);
             glDrawArrays(mode, 0, num);
         }
 
         void draw2(LShader& shader, const SceneDrawData& data){
             shader.uniformMat4x4(data.modelUniform, model);
             shader.uniformVec3(data.uniforms[0], color);
-            shader.attribPointer(data.positionAttrib, 3, *source);
-            shader.attribPointer(data.normalAttrib, 3, *normals);
+            shader.attribPointer(data.positionAttrib, *source);
+            shader.attribPointer(data.normalAttrib, *normals);
             glDrawArrays(mode, 0, num);
         }
 };
@@ -118,7 +118,7 @@ class ReflectionDebugRenderable : public DebugRenderable{
     public:
         Reflection *reflection;
 
-        ReflectionDebugRenderable(Buffer<float> *s, Buffer<float> *nor, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, nor, c, n, m){
+        ReflectionDebugRenderable(Buffer<Vec3> *s, Buffer<Vec3> *nor, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, nor, c, n, m){
             reflection = r;
         }
 
@@ -144,17 +144,17 @@ class TestRenderer : public Renderer{
         uint64_t lframe;
         uint64_t lsecond;
         int frameCounter = 0;
-        float obj5_coords[4*3];
+        Vec3 obj5_coords[4];
         Vec3 up;
         PointLight pointLight;
         SpotLight spotLight;
         AmbientLight ambientLight;
-        std::unique_ptr<Buffer<float>> f1;
-        std::unique_ptr<Buffer<float>> f2;
-        std::unique_ptr<Buffer<float>> f3;
-        std::unique_ptr<Buffer<float>> f4;
-        std::unique_ptr<Buffer<float>> f5;
-        std::unique_ptr<Buffer<float>> fNormal;
+        std::unique_ptr<Buffer<Vec3>> f1;
+        std::unique_ptr<Buffer<Vec3>> f2;
+        std::unique_ptr<Buffer<Vec3>> f3;
+        std::unique_ptr<Buffer<Vec3>> f4;
+        std::unique_ptr<Buffer<Vec3>> f5;
+        std::unique_ptr<Buffer<Vec3>> fNormal;
         std::unique_ptr<Buffer<float>> pawnVertex;
         std::unique_ptr<Buffer<GLuint>> pawnIndices;
         std::unique_ptr<Buffer<float>> pawnTexCoords;

@@ -62,8 +62,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 0, 0, 0
             };
 
-
-
             SetPixelFormat(hdc,ChoosePixelFormat(hdc,&pfd),&pfd);
 
             HGLRC hglrc_initial = wglCreateContext(hdc);

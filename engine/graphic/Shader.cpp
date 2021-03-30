@@ -225,13 +225,8 @@ void Shader::attribPointer(Shader::LocationHandle attrib, int size, Buffer<float
 }
 
 void Shader::attribPointer(Shader::LocationHandle attrib, int offset, int size, int stride, Buffer<float>& a){
-    if(a.isGL()){
-        a.bind(GL_ARRAY_BUFFER);
-        glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-    }else{
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a.data());
-    }
+    a.bind(GL_ARRAY_BUFFER);
+    glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a.data());
 }
 
 void Shader::uniformTexture(Shader::LocationHandle uniform,Texture& u,GLuint slot){
