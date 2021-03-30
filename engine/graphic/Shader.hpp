@@ -65,10 +65,10 @@ public:
     void uniformTexture(LocationHandle uniform,Texture& u,GLuint slot);
     void uniformCubeMap(LocationHandle uniform,CubeMap& u,GLuint slot);
 
-    void attribPointer(LocationHandle attrib,int size,float *a);
-    void attribPointer(LocationHandle attrib,int size,int stride,float *a);
-    void attribPointer(LocationHandle attrib,int size,Bufferf& a);
-    void attribPointer(LocationHandle attrib,int offset,int size,int stride,Bufferf& a);
+    void attribPointer(LocationHandle attrib, int size, void* a);
+    void attribPointer(LocationHandle attrib, int offset, int size, int stride, void* a);
+    void attribPointer(LocationHandle attrib, int size, Buffer& a);
+    void attribPointer(LocationHandle attrib, int offset, int size, int stride, Buffer& a);
 
 protected:
     Shader(){}

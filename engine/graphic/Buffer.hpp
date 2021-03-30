@@ -3,59 +3,90 @@
 
 #include "../gl/glwrapper.hpp"
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
-const static GLint TE_BUFFER = 0x00cf;
-
-template <typename T>
 class Buffer{
     public:
-        GLint target;
-        GLint usage;
-        GLuint glId = -1;
-        GLsizeiptr size;
-        T *source;
 
-        Buffer(GLint target){
-            this->target = target;
+        enum WriteFrequency : GLenum{
+            Rare = GL_STATIC_DRAW,
+            Often = GL_DYNAMIC_DRAW,
+        };
+
+        static Buffer* wrap(void *data, int sizeInBytes){
+            return new Buffer(data, sizeInBytes, false);
+        }
+
+        static Buffer* adopt(void *data, int sizeInBytes){
+            return new Buffer(data, sizeInBytes, true);
+        }
+
+        Buffer(void *data, int sizeInBytes, bool owns) :
+            isGLBuffer(false), m_size(sizeInBytes)
+        {
+            impl.mem.data = data;
+            impl.mem.owns = owns;
         }
 
         ~Buffer(){
-            glDeleteBuffers(1,&glId);
-        }
-
-        bool init(){
-            if(target!=TE_BUFFER&&!glIsBuffer(glId)){
-                glGenBuffers(1,&glId);
-                return true;
-            }
-            return false;
-        }
-
-        void bind(){
-            glBindBuffer(target,glId);
-        }
-
-        void bufferData(T* data,GLsizeiptr sizeInBytes,GLint usage){
-            source = data;
-            size = sizeInBytes;
-            this->usage = usage;
-            if(target!=TE_BUFFER){
-                bind();
-                glBufferData(target,sizeInBytes,data,usage);
+            if(isGL())
+                glDeleteBuffers(1, &impl.gl.glId);
+            else if(impl.mem.owns){
+                free(impl.mem.data);
             }
         }
 
-        void bufferSubData(T *data,GLintptr offset,GLsizeiptr sizeInBytes){
-            bind();
-            glBufferSubData(target,offset,sizeInBytes,data);
+        bool isGL(){
+            return isGLBuffer;
         }
+
+        void* data(){
+            return impl.mem.data;
+        }
+
+        int size(){
+            return m_size;
+        }
+
+        void bind(GLenum target){
+            glBindBuffer(target, impl.gl.glId);
+        }
+
+        void update(void *data, int offset, int sizeInBytes){
+            if(isGL()){
+                bind(GL_ARRAY_BUFFER);
+                glBufferSubData(GL_ARRAY_BUFFER, offset, sizeInBytes, data);
+            }else{
+                memcpy(((uint8_t*)impl.mem.data)+offset, data, sizeInBytes);
+            }
+        }
+
+        Buffer* upload(WriteFrequency wf){
+            return new Buffer(data(), size(), wf);
+        }
+
     private:
-        Buffer(const Buffer& other);
-};
-typedef Buffer<float> Bufferf;
-typedef Buffer<uint32_t> Bufferi;
+        bool isGLBuffer;
+        union{
+            struct{
+                GLuint glId;
+            } gl;
+            struct {
+                void *data;
+                bool owns;
+            } mem;
+        } impl;
+        GLsizeiptr m_size;
 
-template class Buffer<float>;
-template class Buffer<uint32_t>;
+        Buffer(const Buffer& other);
+        Buffer(void *data, int sizeInBytes, WriteFrequency wf) :
+            isGLBuffer(true), m_size(sizeInBytes)
+        {
+            glGenBuffers(1, &impl.gl.glId);
+            bind(GL_ARRAY_BUFFER);
+            glBufferData(GL_ARRAY_BUFFER, size(), data, wf);
+        }
+};
 
 #endif

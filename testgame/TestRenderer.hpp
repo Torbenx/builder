@@ -20,14 +20,14 @@
 
 class DebugRenderable : public SceneObject{
     public:
-        Bufferf *source;
-        Bufferf *normals;
+        Buffer *source;
+        Buffer *normals;
         Vec3 color;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        DebugRenderable(Bufferf *s, Bufferf *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
+        DebugRenderable(Buffer *s, Buffer *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             normals = nor;
             color = c;
@@ -58,16 +58,16 @@ class DebugRenderable : public SceneObject{
 
 class ObjectRenderable : public SceneObject{
     public:
-        Bufferf *source;
-        Bufferf *texCoords;
-        Bufferf *normals;
-        Bufferi *indices;
+        Buffer *source;
+        Buffer *texCoords;
+        Buffer *normals;
+        Buffer *indices;
         Texture *texture;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        ObjectRenderable(Bufferf *s, Bufferi *i, Bufferf *t, Bufferf *nor, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
+        ObjectRenderable(Buffer *s, Buffer *i, Buffer *t, Buffer *nor, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             indices = i;
             texCoords = t;
@@ -92,7 +92,7 @@ class ObjectRenderable : public SceneObject{
             shader.uniformMat4x4(modelUniform, model);
             shader.attribPointer(positionAttrib, 3, *source);
             if(indices){
-                indices->bind();
+                indices->bind(GL_ELEMENT_ARRAY_BUFFER);
                 glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
             }else{
                 glDrawArrays(mode, 0, num);
@@ -106,7 +106,7 @@ class ObjectRenderable : public SceneObject{
             shader.uniformTexture(data.textureUniforms[0], *texture, 10);
             shader.attribPointer(data.texPositionAttribs[0], 2, *texCoords);
             if(indices){
-                indices->bind();
+                indices->bind(GL_ELEMENT_ARRAY_BUFFER);
                 glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
             }else{
                 glDrawArrays(mode, 0, num);
@@ -118,7 +118,7 @@ class ReflectionDebugRenderable : public DebugRenderable{
     public:
         Reflection *reflection;
 
-        ReflectionDebugRenderable(Bufferf *s, Bufferf *nor, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, nor, c, n, m){
+        ReflectionDebugRenderable(Buffer *s, Buffer *nor, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, nor, c, n, m){
             reflection = r;
         }
 
@@ -149,16 +149,16 @@ class TestRenderer : public Renderer{
         PointLight pointLight;
         SpotLight spotLight;
         AmbientLight ambientLight;
-        Bufferf f1;
-        Bufferf f2;
-        Bufferf f3;
-        Bufferf f4;
-        Bufferf f5;
-        Bufferf fNormal;
-        Bufferf pawnVertex;
-        Bufferi pawnIndices;
-        Bufferf pawnTexCoords;
-        Bufferf pawnNormals;
+        std::unique_ptr<Buffer> f1;
+        std::unique_ptr<Buffer> f2;
+        std::unique_ptr<Buffer> f3;
+        std::unique_ptr<Buffer> f4;
+        std::unique_ptr<Buffer> f5;
+        std::unique_ptr<Buffer> fNormal;
+        std::unique_ptr<Buffer> pawnVertex;
+        std::unique_ptr<Buffer> pawnIndices;
+        std::unique_ptr<Buffer> pawnTexCoords;
+        std::unique_ptr<Buffer> pawnNormals;
         Texture pawnTexture;
         MvpMatrix mvpMatrix;
         Reflection reflection;

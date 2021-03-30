@@ -211,25 +211,26 @@ void Shader::uniformMat4x4(Shader::LocationHandle uniform,Mat4x4 u){
     uniformMatrix4f(uniform,u.matrix);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib,int size,float *a){
-    attribPointer(attrib,size,0,a);
+void Shader::attribPointer(Shader::LocationHandle attrib, int size, void* a){
+    attribPointer(attrib, 0, size, 0, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib,int size,int stride,float *a){
-    glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a);
+void Shader::attribPointer(Shader::LocationHandle attrib, int offset, int size, int stride, void* a){
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib,int size,Bufferf& a){
-    attribPointer(attrib,0,size,0,a);
+void Shader::attribPointer(Shader::LocationHandle attrib, int size, Buffer& a){
+    attribPointer(attrib, 0, size, 0, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib,int offset,int size,int stride,Bufferf& a){
-    if(a.target==TE_BUFFER){
-        glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,a.source+offset);
+void Shader::attribPointer(Shader::LocationHandle attrib, int offset, int size, int stride, Buffer& a){
+    if(a.isGL()){
+        a.bind(GL_ARRAY_BUFFER);
+        glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, (void*)offset);
     }else{
-        a.bind();
-        glVertexAttribPointer(getAndEnableAttrib(attrib),size,GL_FLOAT,GL_FALSE,stride,(void*)offset);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a.data());
     }
 }
 

@@ -39,16 +39,6 @@ TestRenderer::TestRenderer() :
             100
         ),
         ambientLight(Vec3(1, 1, 1)*1.0f),
-        f1(GL_ARRAY_BUFFER),
-        f2(GL_ARRAY_BUFFER),
-        f3(GL_ARRAY_BUFFER),
-        f4(GL_ARRAY_BUFFER),
-        f5(TE_BUFFER),
-        fNormal(GL_ARRAY_BUFFER),
-        pawnVertex(GL_ARRAY_BUFFER),
-        pawnIndices(GL_ELEMENT_ARRAY_BUFFER),
-        pawnTexCoords(GL_ARRAY_BUFFER),
-        pawnNormals(GL_ARRAY_BUFFER),
         pawnTexture(GL_TEXTURE_2D),
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.3f),
         look(up, isAndroid()),
@@ -59,28 +49,22 @@ TestRenderer::TestRenderer() :
     reflection.init();
     reflection.framebuffer.setClearColor(0,0,0,1);
     Framebuffer::DEFAULT.setClearColor(0,0,0,1);
-    f1.init();
     float f1Src[] = {-1,-0,-1,1,-0,-1,-1,-0,1,1,-0,1};
-    f1.bufferData(f1Src,3*4*4,GL_STATIC_DRAW);
-    f2.init();
+    f1.reset(Buffer::wrap(f1Src, 3*4*4)->upload(Buffer::WriteFrequency::Rare));
     float f2Src[] = {-1,3,0,1,3,0,-1,3,2,1,3,2};
-    f2.bufferData(f2Src,3*4*4,GL_STATIC_DRAW);
-    f3.init();
+    f2.reset(Buffer::wrap(f2Src,3*4*4)->upload(Buffer::WriteFrequency::Rare));
     float f3Src[] = {-10,-2,-10,-10,-2,10,10,-2,-10,10,-2,10};
-    f3.bufferData(f3Src,3*4*4,GL_STATIC_DRAW);
-    f4.init();
+    f3.reset(Buffer::wrap(f3Src,3*4*4)->upload(Buffer::WriteFrequency::Rare));
     float f4Src[] = {-10,4,-10,-10,4,10,10,4,-10,10,4,10};
-    f4.bufferData(f4Src,3*4*4,GL_STATIC_DRAW);
-    f5.init();
-    f5.bufferData(obj5_coords,3*4*4,GL_DYNAMIC_DRAW);
-    fNormal.init();
+    f4.reset(Buffer::wrap(f4Src,3*4*4)->upload(Buffer::WriteFrequency::Rare));
+    f5.reset(Buffer::wrap(obj5_coords,3*4*4));
     float fNSrc[] = {0,1,0,0,1,0,0,1,0,0,1,0};
-    fNormal.bufferData(fNSrc,3*4*4,GL_STATIC_DRAW);
-    obj1 = new DebugRenderable(&f1,&fNormal,Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
-    obj2 = new DebugRenderable(&f2,&fNormal,Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
-    obj3 = new ReflectionDebugRenderable(&f3, &fNormal, Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
-    obj4 = new DebugRenderable(&f4,&fNormal,Vec3(1,1,0), 4); obj4->mode = GL_TRIANGLE_STRIP;
-    obj5 = new DebugRenderable(&f5,&fNormal,Vec3(0,0,1), 4); obj5->mode = GL_TRIANGLE_STRIP;
+    fNormal.reset(Buffer::wrap(fNSrc,3*4*4)->upload(Buffer::WriteFrequency::Rare));
+    obj1 = new DebugRenderable(f1.get(),fNormal.get(),Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
+    obj2 = new DebugRenderable(f2.get(),fNormal.get(),Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
+    obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
+    obj4 = new DebugRenderable(f4.get(),fNormal.get(),Vec3(1,1,0), 4); obj4->mode = GL_TRIANGLE_STRIP;
+    obj5 = new DebugRenderable(f5.get(),fNormal.get(),Vec3(0,0,1), 4); obj5->mode = GL_TRIANGLE_STRIP;
     mvpMatrix.model = Mat4x4::Id;
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
@@ -133,15 +117,11 @@ TestRenderer::TestRenderer() :
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
     parser.parse(file, 30000, 30000);
-    pawnVertex.init();
-    pawnVertex.bufferData(parser.vertex,parser.vertexCount*parser.dim*4,GL_STATIC_DRAW);
-    pawnTexCoords.init();
-    pawnTexCoords.bufferData(parser.texCoords,parser.vertexCount*2*4,GL_STATIC_DRAW);
-    pawnNormals.init();
-    pawnNormals.bufferData(parser.normals,parser.vertexCount*parser.dim*4,GL_STATIC_DRAW);
+    pawnVertex.reset(Buffer::wrap(parser.vertex,parser.vertexCount*parser.dim*4)->upload(Buffer::WriteFrequency::Rare));
+    pawnTexCoords.reset(Buffer::wrap(parser.texCoords,parser.vertexCount*2*4)->upload(Buffer::WriteFrequency::Rare));
+    pawnNormals.reset(Buffer::wrap(parser.normals,parser.vertexCount*parser.dim*4)->upload(Buffer::WriteFrequency::Rare));
     if(parser.indices){
-        pawnIndices.init();
-        pawnIndices.bufferData(parser.indices,parser.n*4,GL_STATIC_DRAW);
+        pawnIndices.reset(Buffer::wrap(parser.indices,parser.n*4)->upload(Buffer::WriteFrequency::Rare));
     }
 
     asset_istream jpegFile("Pawn/Pawn.jpg");
@@ -174,7 +154,7 @@ TestRenderer::TestRenderer() :
 
     refComp.texture = &pawnTexture;
 
-    pawn = new ObjectRenderable(&pawnVertex, parser.indices ? &pawnIndices : nullptr, &pawnTexCoords, &pawnNormals, &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-F_PI/2.0f, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
+    pawn = new ObjectRenderable(pawnVertex.get(), parser.indices ? pawnIndices.get() : nullptr, pawnTexCoords.get(), pawnNormals.get(), &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-F_PI/2.0f, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
     scene.addObject(pawn);
 }
 
