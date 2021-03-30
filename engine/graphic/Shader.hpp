@@ -67,8 +67,25 @@ public:
 
     void attribPointer(LocationHandle attrib, int size, void* a);
     void attribPointer(LocationHandle attrib, int offset, int size, int stride, void* a);
-    void attribPointer(LocationHandle attrib, int size, Buffer& a);
-    void attribPointer(LocationHandle attrib, int offset, int size, int stride, Buffer& a);
+    void attribPointer(LocationHandle attrib, int size, Buffer<float>& a);
+    void attribPointer(LocationHandle attrib, int offset, int size, int stride, Buffer<float>& a);
+
+    template< typename T, int S >
+    void attribPointer(LocationHandle attrib, Buffer<T>& a){
+        if(a.isGL()){
+            a.bind(GL_ARRAY_BUFFER);
+            glVertexAttribPointer(getAndEnableAttrib(attrib), S, GL_FLOAT, GL_FALSE, 0, (void*)0 /*offset*/);
+        }else{
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glVertexAttribPointer(getAndEnableAttrib(attrib), S, GL_FLOAT, GL_FALSE, 0, a.data());
+        }
+    }
+
+    template< typename T, int S >
+    void attribPointer(LocationHandle attrib, T* a){
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glVertexAttribPointer(getAndEnableAttrib(attrib), S, GL_FLOAT, GL_FALSE, 0, a);
+    }
 
 protected:
     Shader(){}
@@ -77,6 +94,15 @@ private:
     Shader(const Shader& other);
     GLuint glId = -1;
 };
+
+template void Shader::attribPointer<float, 1>(LocationHandle, Buffer<float>&);
+template void Shader::attribPointer<Vec2, 2>(LocationHandle, Buffer<Vec2>&);
+template void Shader::attribPointer<Vec3, 3>(LocationHandle, Buffer<Vec3>&);
+template void Shader::attribPointer<Vec4, 4>(LocationHandle, Buffer<Vec4>&);
+template void Shader::attribPointer<float, 1>(LocationHandle, float*);
+template void Shader::attribPointer<Vec2, 2>(LocationHandle, Vec2*);
+template void Shader::attribPointer<Vec3, 3>(LocationHandle, Vec3*);
+template void Shader::attribPointer<Vec4, 4>(LocationHandle, Vec4*);
 
 class ShaderBuilder{
 public:

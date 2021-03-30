@@ -20,14 +20,14 @@
 
 class DebugRenderable : public SceneObject{
     public:
-        Buffer *source;
-        Buffer *normals;
+        Buffer<float> *source;
+        Buffer<float> *normals;
         Vec3 color;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        DebugRenderable(Buffer *s, Buffer *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
+        DebugRenderable(Buffer<float> *s, Buffer<float> *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             normals = nor;
             color = c;
@@ -58,16 +58,16 @@ class DebugRenderable : public SceneObject{
 
 class ObjectRenderable : public SceneObject{
     public:
-        Buffer *source;
-        Buffer *texCoords;
-        Buffer *normals;
-        Buffer *indices;
+        Buffer<float> *source;
+        Buffer<float> *texCoords;
+        Buffer<float> *normals;
+        Buffer<GLuint> *indices;
         Texture *texture;
         Mat4x4 model;
         int num;
         GLenum mode = GL_TRIANGLES;
 
-        ObjectRenderable(Buffer *s, Buffer *i, Buffer *t, Buffer *nor, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
+        ObjectRenderable(Buffer<float> *s, Buffer<GLuint> *i, Buffer<float> *t, Buffer<float> *nor, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
             indices = i;
             texCoords = t;
@@ -118,7 +118,7 @@ class ReflectionDebugRenderable : public DebugRenderable{
     public:
         Reflection *reflection;
 
-        ReflectionDebugRenderable(Buffer *s, Buffer *nor, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, nor, c, n, m){
+        ReflectionDebugRenderable(Buffer<float> *s, Buffer<float> *nor, Vec3 c, int n, Reflection *r, Mat4x4 m=Mat4x4::Id) : DebugRenderable(s, nor, c, n, m){
             reflection = r;
         }
 
@@ -149,16 +149,16 @@ class TestRenderer : public Renderer{
         PointLight pointLight;
         SpotLight spotLight;
         AmbientLight ambientLight;
-        std::unique_ptr<Buffer> f1;
-        std::unique_ptr<Buffer> f2;
-        std::unique_ptr<Buffer> f3;
-        std::unique_ptr<Buffer> f4;
-        std::unique_ptr<Buffer> f5;
-        std::unique_ptr<Buffer> fNormal;
-        std::unique_ptr<Buffer> pawnVertex;
-        std::unique_ptr<Buffer> pawnIndices;
-        std::unique_ptr<Buffer> pawnTexCoords;
-        std::unique_ptr<Buffer> pawnNormals;
+        std::unique_ptr<Buffer<float>> f1;
+        std::unique_ptr<Buffer<float>> f2;
+        std::unique_ptr<Buffer<float>> f3;
+        std::unique_ptr<Buffer<float>> f4;
+        std::unique_ptr<Buffer<float>> f5;
+        std::unique_ptr<Buffer<float>> fNormal;
+        std::unique_ptr<Buffer<float>> pawnVertex;
+        std::unique_ptr<Buffer<GLuint>> pawnIndices;
+        std::unique_ptr<Buffer<float>> pawnTexCoords;
+        std::unique_ptr<Buffer<float>> pawnNormals;
         Texture pawnTexture;
         MvpMatrix mvpMatrix;
         Reflection reflection;

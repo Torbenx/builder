@@ -6,13 +6,13 @@
 #define GET_UI_BUILDER(comp) scene->layout(comp)
 
 UiScene::UiScene(){
-    solver.fixed = (float*)malloc(4 * sizeof(float));
+    solver.fixed = new float[4];
     solver.fixedCount = 4;
     solver.fixed_to_eqns.resize(4);
 }
 
 UiScene::~UiScene(){
-    free(solver.fixed);
+    delete solver.fixed;
 }
 
 UiSceneBuilder UiScene::layout(UiComponent* comp){
@@ -161,7 +161,7 @@ UiSceneBuilder& UiSceneBuilder::centerHorizontal(UiComponent* other, float fract
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     UiGeneralEquation eq;
     eq.termCount = 4;
-    eq.terms = (UiEquationTerm*) malloc(eq.termCount * sizeof(UiEquationTerm));
+    eq.terms = new UiEquationTerm[eq.termCount];
     eq.terms[0].factor = -(1.0f-fraction);
     eq.terms[0].var = ob.left();
     eq.terms[1].factor = -fraction;
@@ -184,7 +184,7 @@ UiSceneBuilder& UiSceneBuilder::centerVertical(UiComponent* other, float fractio
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     UiGeneralEquation eq;
     eq.termCount = 4;
-    eq.terms = (UiEquationTerm*) malloc(eq.termCount * sizeof(UiEquationTerm));
+    eq.terms = new UiEquationTerm[eq.termCount];
     eq.terms[0].factor = -fraction;
     eq.terms[0].var = ob.top();
     eq.terms[1].factor = -(1.0f-fraction);

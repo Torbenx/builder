@@ -220,11 +220,11 @@ void Shader::attribPointer(Shader::LocationHandle attrib, int offset, int size, 
     glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib, int size, Buffer& a){
+void Shader::attribPointer(Shader::LocationHandle attrib, int size, Buffer<float>& a){
     attribPointer(attrib, 0, size, 0, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib, int offset, int size, int stride, Buffer& a){
+void Shader::attribPointer(Shader::LocationHandle attrib, int offset, int size, int stride, Buffer<float>& a){
     if(a.isGL()){
         a.bind(GL_ARRAY_BUFFER);
         glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, (void*)offset);

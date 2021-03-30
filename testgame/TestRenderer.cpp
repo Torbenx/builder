@@ -50,16 +50,16 @@ TestRenderer::TestRenderer() :
     reflection.framebuffer.setClearColor(0,0,0,1);
     Framebuffer::DEFAULT.setClearColor(0,0,0,1);
     float f1Src[] = {-1,-0,-1,1,-0,-1,-1,-0,1,1,-0,1};
-    f1.reset(Buffer::wrap(f1Src, 3*4*4)->upload(Buffer::WriteFrequency::Rare));
+    f1.reset(Buffer<float>::wrap(f1Src, 3*4)->upload(WriteFrequency::Rare));
     float f2Src[] = {-1,3,0,1,3,0,-1,3,2,1,3,2};
-    f2.reset(Buffer::wrap(f2Src,3*4*4)->upload(Buffer::WriteFrequency::Rare));
+    f2.reset(Buffer<float>::wrap(f2Src,3*4)->upload(WriteFrequency::Rare));
     float f3Src[] = {-10,-2,-10,-10,-2,10,10,-2,-10,10,-2,10};
-    f3.reset(Buffer::wrap(f3Src,3*4*4)->upload(Buffer::WriteFrequency::Rare));
+    f3.reset(Buffer<float>::wrap(f3Src,3*4)->upload(WriteFrequency::Rare));
     float f4Src[] = {-10,4,-10,-10,4,10,10,4,-10,10,4,10};
-    f4.reset(Buffer::wrap(f4Src,3*4*4)->upload(Buffer::WriteFrequency::Rare));
-    f5.reset(Buffer::wrap(obj5_coords,3*4*4));
+    f4.reset(Buffer<float>::wrap(f4Src,3*4)->upload(WriteFrequency::Rare));
+    f5.reset(Buffer<float>::wrap(obj5_coords,3*4));
     float fNSrc[] = {0,1,0,0,1,0,0,1,0,0,1,0};
-    fNormal.reset(Buffer::wrap(fNSrc,3*4*4)->upload(Buffer::WriteFrequency::Rare));
+    fNormal.reset(Buffer<float>::wrap(fNSrc,3*4*4)->upload(WriteFrequency::Rare));
     obj1 = new DebugRenderable(f1.get(),fNormal.get(),Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
     obj2 = new DebugRenderable(f2.get(),fNormal.get(),Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
     obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
@@ -116,12 +116,12 @@ TestRenderer::TestRenderer() :
 
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
-    parser.parse(file, 30000, 30000);
-    pawnVertex.reset(Buffer::wrap(parser.vertex,parser.vertexCount*parser.dim*4)->upload(Buffer::WriteFrequency::Rare));
-    pawnTexCoords.reset(Buffer::wrap(parser.texCoords,parser.vertexCount*2*4)->upload(Buffer::WriteFrequency::Rare));
-    pawnNormals.reset(Buffer::wrap(parser.normals,parser.vertexCount*parser.dim*4)->upload(Buffer::WriteFrequency::Rare));
+    parser.parse(file, 16000, 16000);
+    pawnVertex.reset(Buffer<float>::wrap(parser.vertex,parser.vertexCount*parser.dim)->upload(WriteFrequency::Rare));
+    pawnTexCoords.reset(Buffer<float>::wrap(parser.texCoords,parser.vertexCount*2)->upload(WriteFrequency::Rare));
+    pawnNormals.reset(Buffer<float>::wrap(parser.normals,parser.vertexCount*parser.dim)->upload(WriteFrequency::Rare));
     if(parser.indices){
-        pawnIndices.reset(Buffer::wrap(parser.indices,parser.n*4)->upload(Buffer::WriteFrequency::Rare));
+        pawnIndices.reset(Buffer<GLuint>::wrap(parser.indices,parser.n)->upload(WriteFrequency::Rare));
     }
 
     asset_istream jpegFile("Pawn/Pawn.jpg");

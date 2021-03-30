@@ -57,7 +57,7 @@ void UiSolver::solve(){
         printf("\n");
     }*/
 
-    solutions = (UiSolution*) malloc(varCount * sizeof(UiSolution));
+    solutions = new UiSolution[varCount];
     for(size_t i=0;i<varCount;i++){
         solutions[i].svar = UI_VAR_INVALID;
     }
@@ -287,7 +287,7 @@ float UiSolver::getSolution(ui_var_t var){
 
 void UiSolver::clear(){
     for(UiGeneralEquation& eq : generalEquations){
-        free(eq.terms);
+        delete eq.terms;
     }
     generalEquations.clear();
     simpleEquations.clear();
@@ -299,7 +299,7 @@ void UiSolver::clear(){
 
 void UiSolver::freeSolution(){
     if(solutions){
-        free(solutions);
+        delete solutions;
         solutions = nullptr;
     }
     values.clear();
