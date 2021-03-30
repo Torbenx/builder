@@ -28,12 +28,12 @@ void DepthCubeMap::init(){
 }
 
 void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count){
+    GL_VERIFY(glIsEnabled(GL_DEPTH_TEST));
     shader->use();
     MvpMatrix mvpMatrix;
     float *m;
     mvpMatrix.projection = Mat4x4::frustum(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
     mvpMatrix.model = model;
-    glEnable(GL_DEPTH_TEST);
     shader->uniformVec3(shader->lightPosUniform, position);
     shader->uniform1f(shader->farUniform, m_far);
     int face,i;

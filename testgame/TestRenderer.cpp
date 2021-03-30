@@ -1,7 +1,6 @@
 #include <Renderer.hpp>
 #include <util/log.hpp>
 #include <string>
-#include <gl/glLog.hpp>
 #include <resource/ObjParser.hpp>
 #include <resource/asset_istream.hpp>
 #include <fstream>

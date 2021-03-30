@@ -1,6 +1,5 @@
 #include "Shader.hpp"
 #include "../util/log.hpp"
-#include "../gl/glLog.hpp"
 
 std::string ShaderBuilder::buildVertexSource(){
     std::ostringstream s;
@@ -58,13 +57,14 @@ const GLenum Shader::slots[] = {
 };
 
 void Shader::initalize(ShaderBuilder& builder){
-    GLuint id = glCreateProgram();
-    glId = id;
+    GL_VERIFY(!glIsProgram(glId));
+    glId = glCreateProgram();
 
     auto compileShader = [&](bool vertex, const char *source){
         GLuint shader = glCreateShader(vertex ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER);
         glShaderSource(shader, 1, &source, 0);
         glCompileShader(shader);
+#ifdef VALIDATE_GL
         GLint success = GL_FALSE;
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if(success == GL_FALSE){
@@ -77,9 +77,10 @@ void Shader::initalize(ShaderBuilder& builder){
             "%s Shader failed to compile:\n"
             "-------SOURCE-------\n%s\n"
             "-------ERROR--------\n%s\n", vertex ? "Vertex" : "Fragment", source, message);
-        }else{
+        }else
+#endif
             glAttachShader(glId, shader);
-        }
+
         glDeleteShader(shader);
     };
 
@@ -108,6 +109,7 @@ Shader::~Shader(){
 }
 
 void Shader::use(){
+    GL_VERIFY(glIsProgram(glId));
     glUseProgram(glId);
 }
 

@@ -28,9 +28,8 @@ class Buffer{
         ~Buffer(){
             if(isGL())
                 glDeleteBuffers(1, &glId);
-            else if(m_owns){
+            else if(m_owns)
                 delete[] data();
-            }
         }
 
         bool isGL(){

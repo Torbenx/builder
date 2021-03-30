@@ -25,12 +25,12 @@ void DepthMap::init(){
 }
 
 void DepthMap::draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count){
+    GL_VERIFY(glIsEnabled(GL_DEPTH_TEST));
     framebuffer.bind();
     shader->use();
     shader->uniformMat4x4(shader->mvpUniform, mvpMatrix.setupMvp());
     shader->uniformVec3(shader->lightPosUniform, position);
     shader->uniform1f(shader->farUniform, m_far);
-    glEnable(GL_DEPTH_TEST);
     int i;
     for(i=0;i<count;i++){
         ptrArray[i]->draw(*shader, shader->positionAttrib, shader->modelUniform);

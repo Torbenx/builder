@@ -1,6 +1,5 @@
 #include "Framebuffer.hpp"
 #include "../util/log.hpp"
-#include "../gl/glLog.hpp"
 
 Framebuffer Framebuffer::DEFAULT(true);
 

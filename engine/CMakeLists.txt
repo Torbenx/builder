@@ -48,7 +48,6 @@ add_library(engine SHARED
     "lgraphic/light/PointLight.cpp"
     "lgraphic/light/SpotLight.cpp"
     "lgraphic/reflection/Reflection.cpp"
-    "gl/glLog.cpp"
     "resource/ObjParser.cpp"
     "resource/asset_istream.cpp"
     "util/time.cpp"
