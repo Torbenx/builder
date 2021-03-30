@@ -15,7 +15,6 @@ void Reflection::getReflectionModel(Mat4x4& model){
 void Reflection::init(){
     texture.init();
     renderbuffer.init();
-    framebuffer.init();
     texture.texture(nullptr, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     renderbuffer.storageDepth16(width, height);
     framebuffer.colorAttachment(texture);

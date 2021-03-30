@@ -14,7 +14,6 @@ DepthCubeMap::~DepthCubeMap(){
 void DepthCubeMap::init(){
     texture.init();
     renderbuffer.init();
-    framebuffer.init();
     texture.texturePosX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     texture.textureNegX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     texture.texturePosY(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
@@ -23,12 +22,13 @@ void DepthCubeMap::init(){
     texture.textureNegZ(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     renderbuffer.storageDepth16(width, height);
     framebuffer.depthAttachment(renderbuffer);
-    framebuffer.setClearColor(1, 1, 1, 1);
+    framebuffer.clearColor(1, 1, 1, 1);
     framebuffer.viewport(width,height);
 }
 
 void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count){
     GL_VERIFY(glIsEnabled(GL_DEPTH_TEST));
+    framebuffer.bind();
     shader->use();
     MvpMatrix mvpMatrix;
     float *m;
@@ -78,7 +78,7 @@ void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int 
         mvpMatrix.view *= Mat4x4::translate(position*-1);
         shader->uniformMat4x4(shader->mvpUniform, mvpMatrix.setupMvp());
         framebuffer.colorAttachment(targets[face], texture);
-        framebuffer.bind();
+        framebuffer.clear();
         for(i=0;i<count;i++){
             ptrArray[i]->draw(*shader, shader->positionAttrib, shader->modelUniform);
         }

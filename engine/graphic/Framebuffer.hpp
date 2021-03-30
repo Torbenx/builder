@@ -7,43 +7,72 @@
 #include "CubeMap.hpp"
 
 class Framebuffer{
-    public:
-        static Framebuffer DEFAULT;
-        GLuint glId = -1;
-        Texture *colorTex = 0,*depthTex = 0,*stencilTex = 0;
-        Renderbuffer *colorBuffer = 0,*depthBuffer = 0,*stencilBuffer = 0;
-        CubeMap *colorCube = 0,*depthCube = 0,*stencilCube = 0;
-        GLenum colorCubeTarget,depthCubeTarget,stencilCubeTarget;
-        Vec4 clearColor;
-        int offsetY,offsetX,width,height;
-        bool isDefault,rMask = true,gMask = true,bMask = true,aMask = true,dMask = true;
-        unsigned int sMask = 0xffffffff;
-        Framebuffer();
-        ~Framebuffer();
-        void bind();
-        bool init();
-        void texture(GLenum attachment,Texture *a);
-        void cubeMap(GLenum attachment,GLenum target,CubeMap *a);
-        void renderbuffer(GLenum attachment,Renderbuffer *a);
-        void colorAttachment(Texture& a);
-        void colorAttachment(Renderbuffer& a);
-        void colorAttachment(GLenum target,CubeMap& a);
-        void depthAttachment(Texture& a);
-        void depthAttachment(Renderbuffer& a);
-        void depthAttachment(GLenum target,CubeMap& a);
-        void stencilAttachment(Texture& a);
-        void stencilAttachment(Renderbuffer& a);
-        void stencilAttachment(GLenum target,CubeMap& a);
-        void setClearColor(float r,float g,float b,float a);
-        void setClearColor(Vec4 color);
-        void viewport(int width,int height);
-        void viewport(int offsetX,int offsetY,int width,int height);
-        void colorMask(bool r,bool g,bool b,bool a);
-        void depthMask(bool d);
-        void stencilMask(unsigned int s);
-    private:
-        Framebuffer(const Framebuffer& other);
-        Framebuffer(bool isDefault);
+public:
+    static Framebuffer DEFAULT;
+
+    //this should be private
+    int offsetY, offsetX, width, height;
+
+    Framebuffer() : Framebuffer(false, 0) {}
+    ~Framebuffer();
+    void bind();
+
+    void clear();
+
+    void colorAttachment(Texture& a);
+    void colorAttachment(Renderbuffer& a);
+    void colorAttachment(GLenum target,CubeMap& a);
+    void depthAttachment(Texture& a);
+    void depthAttachment(Renderbuffer& a);
+    void depthAttachment(GLenum target,CubeMap& a);
+    void stencilAttachment(Texture& a);
+    void stencilAttachment(Renderbuffer& a);
+    void stencilAttachment(GLenum target, CubeMap& a);
+
+    void clearColor(float r, float g, float b, float a);
+    void clearColor(Vec4 color);
+    void viewport(int width, int height);
+    void viewport(int offsetX, int offsetY, int width, int height);
+    void colorMask(bool r, bool g, bool b, bool a);
+    void depthMask(bool d);
+    void stencilMask(GLbitfield s);
+
+private:
+    struct Attachment{
+        enum Type{
+            Empty,
+            TextureAttachemnt,
+            RenderbufferAttachment,
+            CubeMapAttachment,
+        } type;
+
+        union{
+            Texture *texture;
+            Renderbuffer *renderbuffer;
+            struct{
+                CubeMap *cubeMap;
+                GLenum target;
+            } cube;
+        } data;
+
+        Attachment() : type(Type::Empty) {}
+    };
+
+    static Framebuffer *currentFramebuffer;
+
+    GLuint glId;
+    bool isDefault;
+    Attachment m_colorAttachment, m_depthAttachment, m_stencilAttachment;
+    Vec4 m_clearColor;
+    bool rMask = true, gMask = true, bMask = true, aMask = true, dMask = true;
+    GLbitfield sMask = 0xffffffff;
+    GLbitfield clearMask = 0;
+
+    Framebuffer(bool isDefault, GLbitfield clearMask);
+    Framebuffer(const Framebuffer& other);
+
+    bool isCurrent() { return this == currentFramebuffer; }
+    bool attach(GLenum, Attachment&);
 };
 
 #endif

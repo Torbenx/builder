@@ -11,7 +11,7 @@ BuildRenderer::BuildRenderer() : explorer(this), head(this){
     #ifdef PLATFORM_ANDROID
         goFullscreen(FullscreenConfig::DEFAULT);
     #endif
-    Framebuffer::DEFAULT.clearColor = Vec4(0.1f, 0.1f, 0.1f, 1.0f);
+    Framebuffer::DEFAULT.clearColor(0.1f, 0.1f, 0.1f, 1.0f);
     scene.layout(&head)
         .alignTop()
         .alignLeft()
@@ -37,7 +37,7 @@ void BuildRenderer::change(int newWidth, int newHeight){
 }
 
 void BuildRenderer::drawFrame(){
-    Framebuffer::DEFAULT.bind();
+    Framebuffer::DEFAULT.clear();
     explorer.draw();
     head.draw();
 }

@@ -46,8 +46,8 @@ TestRenderer::TestRenderer() :
     pointLight.init();
     spotLight.init();
     reflection.init();
-    reflection.framebuffer.setClearColor(0,0,0,1);
-    Framebuffer::DEFAULT.setClearColor(0,0,0,1);
+    reflection.framebuffer.clearColor(0,0,0,1);
+    Framebuffer::DEFAULT.clearColor(0,0,0,1);
     Vec3 f1Src[] = {Vec3(-1,-0,-1), Vec3(1,-0,-1), Vec3(-1,-0,1), Vec3(1,-0,1)};
     f1.reset(Buffer<Vec3>::wrap(f1Src, 4)->upload(WriteFrequency::Rare));
     Vec3 f2Src[] = {Vec3(-1,3,0), Vec3(1,3,0), Vec3(-1,3,2), Vec3(1,3,2)};
@@ -59,11 +59,11 @@ TestRenderer::TestRenderer() :
     f5.reset(Buffer<Vec3>::wrap(obj5_coords, 4));
     Vec3 fNSrc[] = {up, up, up, up};
     fNormal.reset(Buffer<Vec3>::wrap(fNSrc, 4)->upload(WriteFrequency::Rare));
-    obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1,0,0), 4); obj1->mode = GL_TRIANGLE_STRIP;
-    obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0,1,0), 4); obj2->mode = GL_TRIANGLE_STRIP;
+    obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1,0,0)*0.5, 4); obj1->mode = GL_TRIANGLE_STRIP;
+    obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0,1,0)*0.5, 4); obj2->mode = GL_TRIANGLE_STRIP;
     obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
-    obj4 = new DebugRenderable(f4.get(), fNormal.get(), Vec3(1,1,0), 4); obj4->mode = GL_TRIANGLE_STRIP;
-    obj5 = new DebugRenderable(f5.get(), fNormal.get(), Vec3(0,0,1), 4); obj5->mode = GL_TRIANGLE_STRIP;
+    obj4 = new DebugRenderable(f4.get(), fNormal.get(), Vec3(1,1,0)*0.5, 4); obj4->mode = GL_TRIANGLE_STRIP;
+    obj5 = new DebugRenderable(f5.get(), fNormal.get(), Vec3(0,0,1)*0.5, 4); obj5->mode = GL_TRIANGLE_STRIP;
     mvpMatrix.model = Mat4x4::Id;
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
@@ -71,7 +71,7 @@ TestRenderer::TestRenderer() :
     scene.addObject(obj1);
     scene.addObject(obj2);
     scene.addObject(obj3);
-    //scene.addObject(obj4);
+    scene.addObject(obj4);
     scene.addObject(obj5);
     scene.addReflection(reflection);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
@@ -296,7 +296,6 @@ void TestRenderer::drawFrame(){
     obj5_coords[3]  = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
     //mvpMatrix.view.setLookAt(Vec3(plp.x*2.0f,1,plp.z*2.0f),Vec3(0,-1,0),up);
     glEnable(GL_DEPTH_TEST);
-    Framebuffer::DEFAULT.bind();
     scene.draw(mvpMatrix);
     glDisable(GL_DEPTH_TEST);
 

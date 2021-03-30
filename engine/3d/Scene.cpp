@@ -79,8 +79,9 @@ void Scene::draw(MvpMatrix mvp){
         (*rit)->bind();
         (*rit)->getReflectionModel(mvp.model);
         doDraw(mvp, false);
-        Framebuffer::DEFAULT.bind();
     }
+    Framebuffer::DEFAULT.bind();
+    Framebuffer::DEFAULT.clear();
     mvp.model = Mat4x4::Id;
     doDraw(mvp);
 }

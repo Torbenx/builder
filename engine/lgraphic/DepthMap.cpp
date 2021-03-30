@@ -15,18 +15,18 @@ DepthMap::~DepthMap(){
 void DepthMap::init(){
     texture.init();
     renderbuffer.init();
-    framebuffer.init();
     framebuffer.colorAttachment(texture);
     renderbuffer.storageDepth16(width,height);
     framebuffer.depthAttachment(renderbuffer);
     texture.texture(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
     framebuffer.viewport(width,height);
-    framebuffer.setClearColor(1,1,1,1);
+    framebuffer.clearColor(1,1,1,1);
 }
 
 void DepthMap::draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count){
     GL_VERIFY(glIsEnabled(GL_DEPTH_TEST));
     framebuffer.bind();
+    framebuffer.clear();
     shader->use();
     shader->uniformMat4x4(shader->mvpUniform, mvpMatrix.setupMvp());
     shader->uniformVec3(shader->lightPosUniform, position);
