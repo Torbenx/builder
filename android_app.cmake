@@ -1,13 +1,15 @@
 
-if(NOT DEFINED ANDROID_SDK)
-    if(DEFINED ENV{ANDROID_HOME})
-        set(ANDROID_SDK $ENV{ANDROID_HOME} CACHE PATH "Android SDK location")
-    else()
-        message(FATAL_ERROR "No Android SDK")
-    endif()
-endif()
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
 
-message(STATUS "Using Android SDK ${ANDROID_SDK}")
+find_package(Java COMPONENTS Development REQUIRED)
+if(NOT DEFINED Java_KEYTOOL_EXECUTABLE)
+    find_program(Java_KEYTOOL_EXECUTABLE
+      NAMES keytool
+      HINTS ${_JAVA_HINTS}
+      PATHS ${_JAVA_PATHS}
+      REQUIRED
+    )
+endif()
 
 function(find_latest_version_triple _dir _out_var)
     file(GLOB _versions RELATIVE ${_dir}/ ${_dir}/*)
@@ -22,17 +24,15 @@ if(NOT DEFINED Android_BUILD_TOOLS_DIR)
     set(Android_BUILD_TOOLS_DIR ${ANDROID_SDK}/build-tools/${build_tools_version} CACHE PATH "Android Build Tools Directory")
     message(STATUS "Using Android Build Tools Version ${build_tools_version}")
 endif()
-
-set(Android_ANDROID_JAR ${ANDROID_SDK}/platforms/android-${ANDROID_TARGET_SDK_VERSION}/android.jar)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
 find_file(Android_DX_JAVA_EXECUTABLE dx.jar PATHS ${Android_BUILD_TOOLS_DIR} ${Android_BUILD_TOOLS_DIR}/lib REQUIRED)
 find_file(Android_APKSIGNER_JAVA_EXECUTABLE apksigner.jar PATHS ${Android_BUILD_TOOLS_DIR} ${Android_BUILD_TOOLS_DIR}/lib REQUIRED)
 set(Android_DX_EXECUTABLE ${Java_JAVA_EXECUTABLE} -jar ${Android_DX_JAVA_EXECUTABLE})
 set(Android_APKSIGNER_EXECUTABLE ${Java_JAVA_EXECUTABLE} -jar ${Android_APKSIGNER_JAVA_EXECUTABLE})
-
 find_program(Android_AAPT_EXECUTABLE aapt PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
 find_program(Android_ZIPALIGN_EXECUTABLE zipalign PATHS ${Android_BUILD_TOOLS_DIR} REQUIRED)
 find_program(Android_ADB_EXECUTABLE adb PATHS ${ANDROID_SDK}/platform-tools REQUIRED)
+
+find_file(Android_ANDROID_JAR android.jar PATHS ${ANDROID_SDK}/platforms/android-${ANDROID_TARGET_SDK_VERSION} REQUIRED)
 
 if(NOT DEFINED Android_NDK_DIR)
     if(EXISTS ${ANDROID_SDK}/ndk)
@@ -46,48 +46,13 @@ if(NOT DEFINED Android_NDK_DIR)
         message(FATAL_ERROR "Couldn't find Android NDK")
     endif()
 endif()
-
 find_file(Android_CMAKE_TOOLCHAIN android.toolchain.cmake PATHS ${Android_NDK_DIR}/build/cmake REQUIRED)
-
-if(DEFINED CMAKE_SCRIPT_MODE_FILE)
-
-    get_filename_component(current_dir ${CMAKE_SCRIPT_MODE_FILE} DIRECTORY)
-
-    set(ANDROID_MIN_SDK_VERSION 24)
-    set(ANDROID_TARGET_SDK_VERSION 27)
-
-    if(NOT DEFINED ABIS)
-        set(ABIS "x86" "x86_64" "armeabi-v7a" "arm64-v8a")
-    endif()
-
-    foreach(abi IN LISTS ABIS)
-        message(STATUS "------------------------------------------")
-        message(CHECK_START "setting up ANDROID_ABI=${abi}")
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} -G Ninja -S . -B abuild/${abi}
-            -DCMAKE_TOOLCHAIN_FILE=${Android_CMAKE_TOOLCHAIN} -DANDROID_ABI=${abi} -DANDROID_PLATFORM=${ANDROID_MIN_SDK_VERSION}
-            -DANDROID_SDK=${ANDROID_SDK} -DANDROID_MIN_SDK_VERSION=${ANDROID_MIN_SDK_VERSION} -DANDROID_TARGET_SDK_VERSION=${ANDROID_TARGET_SDK_VERSION}
-            WORKING_DIRECTORY ${current_dir}
-        )
-        message(CHECK_PASS "done")
-    endforeach()
-
-else()
-    if(NOT DEFINED Java_KEYTOOL_EXECUTABLE)
-        find_program(Java_KEYTOOL_EXECUTABLE
-          NAMES keytool
-          HINTS ${_JAVA_HINTS}
-          PATHS ${_JAVA_PATHS}
-          REQUIRED
-        )
-    endif()
-endif()
 
 function(add_apk _TARGET_NAME)
 
     cmake_parse_arguments(
         _add_apk
-        "DEBUG"
+        ""
         "MANIFEST"
         "SOURCES"
         ${ARGN}
@@ -99,7 +64,6 @@ function(add_apk _TARGET_NAME)
     #relative to ANDROID_APK_WORKING_DIR
     set(apk_file_name ${_TARGET_NAME}_wip.apk)
 
-    #relative to build dir
     set(apk_file ${ANDROID_APK_WORKING_DIR}/${apk_file_name})
     set(apk_file_aligned ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}_aligned.apk)
     set(apk_file_output ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}.apk)
@@ -108,7 +72,6 @@ function(add_apk _TARGET_NAME)
     set_property(GLOBAL APPEND PROPERTY JOB_POOLS ${apk_modification_pol}=1)
 
     set(depfile_dir dep)
-    #relative to build directory
     set(package_depfile ${depfile_dir}/package.dep)
 
     set(package_cmd ${Android_AAPT_EXECUTABLE} package -f -M ${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file})
@@ -122,7 +85,6 @@ function(add_apk _TARGET_NAME)
 
     set(add_depfiles)
     foreach(_source IN LISTS _add_apk_SOURCES)
-        #relative to build directory
         set(_depfile ${depfile_dir}/${_source}.dep)
 
         add_custom_command(
