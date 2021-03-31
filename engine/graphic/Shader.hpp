@@ -22,7 +22,6 @@ class ShaderBuilder;
 
 class Shader{
 public:
-    static const GLenum slots[];
 
     struct LocationHandle{
         GLuint handle;
