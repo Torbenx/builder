@@ -15,10 +15,9 @@ void TextComponent::updateContent(){
     if(textTexture){
         delete textTexture;
     }
-    textTexture = new TextTexture();
-    textTexture->init(textFormat->getWidth(), textFormat->getHeight());
+    textTexture = new TextTexture(textFormat->getWidth(), textFormat->getHeight());
     textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
-    texture = &textTexture->texture;
+    texture = textTexture;
 //#ifdef PLATFORM_WINDOWS
     texture->setTexParameter(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
 //#else

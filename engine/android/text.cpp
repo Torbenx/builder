@@ -41,16 +41,10 @@ TextFormat::~TextFormat(){
     delete format;
 }
 
-TextTexture::TextTexture() : texture(GL_TEXTURE_EXTERNAL_OES){
-    internal = new SurfaceTextureTextImpl();
-}
-
-void TextTexture::init(int width, int height){
-    SurfaceTextureTextImpl *impl = (SurfaceTextureTextImpl*)internal;
-    texture.init();
-    impl->obj = android_textTextureConstructor(texture.glId, width, height);
-    texture.width = width;
-    texture.height = height;
+TextTexture::TextTexture(int width, int height) : Texture(false, width, height){
+    SurfaceTextureTextImpl *impl = new SurfaceTextureTextImpl();
+    internal = impl;
+    impl->obj = android_textTextureConstructor(glId, width, height);
 }
 
 void TextTexture::drawText(const TextFormat& format, Vec2 position, Vec4 color, bool clear){

@@ -1,6 +1,8 @@
 #include "Reflection.hpp"
 
-Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float factor){
+Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float factor) :
+    texture(std::move(*Texture::color(width, height, Texture::Format::RGBA8888)))
+{
     this->reflection = reflection;
     this->position = position;
     this->factor = factor;
@@ -13,9 +15,6 @@ void Reflection::getReflectionModel(Mat4x4& model){
 }
 
 void Reflection::init(){
-    texture.init();
-    renderbuffer.init();
-    texture.texture(nullptr, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     renderbuffer.storageDepth16(width, height);
     framebuffer.colorAttachment(texture);
     framebuffer.depthAttachment(renderbuffer);

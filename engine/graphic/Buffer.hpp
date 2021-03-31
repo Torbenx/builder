@@ -4,6 +4,9 @@
 #include "../gl/glwrapper.hpp"
 #include <stdint.h>
 #include <cstring>
+#include "../math/Vec2.hpp"
+#include "../math/Vec3.hpp"
+#include "../math/Vec4.hpp"
 
 enum WriteFrequency : GLenum{
     Rare = GL_STATIC_DRAW,
@@ -20,6 +23,10 @@ public:
 
     static Buffer<T>* adopt(T *data, int size){
         return new Buffer(data, size, true);
+    }
+
+    static Buffer<T>* allocate(int size){
+        return new Buffer(new T[size], size, true);
     }
 
     Buffer(T *data, int size, bool owns) :

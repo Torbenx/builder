@@ -159,7 +159,7 @@ class TestRenderer : public Renderer{
         std::unique_ptr<Buffer<GLuint>> pawnIndices;
         std::unique_ptr<Buffer<float>> pawnTexCoords;
         std::unique_ptr<Buffer<float>> pawnNormals;
-        Texture pawnTexture;
+        std::unique_ptr<Texture> pawnTexture;
         MvpMatrix mvpMatrix;
         Reflection reflection;
         Look3d look;

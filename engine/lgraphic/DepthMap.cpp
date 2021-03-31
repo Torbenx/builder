@@ -3,6 +3,7 @@
 
 DepthMap::DepthMap(int width,int height,float _far){
     shader = Shaders::depth();
+    texture.reset(Texture::color(width, height, Texture::Format::RGBA8888));
     this->width = width;
     this->height = height;
     this->m_far = _far;
@@ -13,12 +14,9 @@ DepthMap::~DepthMap(){
 }
 
 void DepthMap::init(){
-    texture.init();
-    renderbuffer.init();
-    framebuffer.colorAttachment(texture);
+    framebuffer.colorAttachment(*texture);
     renderbuffer.storageDepth16(width,height);
     framebuffer.depthAttachment(renderbuffer);
-    texture.texture(NULL,width,height,GL_RGBA,GL_UNSIGNED_BYTE);
     framebuffer.viewport(width,height);
     framebuffer.clearColor(1,1,1,1);
 }

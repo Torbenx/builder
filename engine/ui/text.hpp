@@ -25,16 +25,14 @@ class TextFormat{
         TextFormat(const TextFormat& other){};
 };
 
-class TextTexture{
+class TextTexture : public Texture{
     public:
         void* internal;
-        Texture texture;
-        TextTexture();
+        TextTexture(int width, int height);
         ~TextTexture();
-        void init(int width, int height);
         void drawText(const TextFormat& text, Vec2 position, Vec4 color, bool clear);
     private:
-        TextTexture(const TextTexture& other){};
+        TextTexture(const TextTexture& other);
 };
 
 #endif

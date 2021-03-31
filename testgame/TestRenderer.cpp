@@ -38,7 +38,6 @@ TestRenderer::TestRenderer() :
             100
         ),
         ambientLight(Vec3(1, 1, 1)*1.0f),
-        pawnTexture(GL_TEXTURE_2D),
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.3f),
         look(up, isAndroid()),
         pos(7,1,0)
@@ -96,7 +95,7 @@ TestRenderer::TestRenderer() :
     textComp.noBreaks = true;
 
     cubeComp.farDepth = 5.0f;
-    cubeComp.texture = &spotLight.depthMap.texture;
+    cubeComp.texture = spotLight.depthMap.texture.get();
 
     refComp.texture = &reflection.texture;
 
@@ -148,12 +147,11 @@ TestRenderer::TestRenderer() :
 
     tjDecompress2(tjInstance, jpegFileBuf, jpegFileSize, imgBuf, width, 0, height, pixelFormat, 0);
 
-    pawnTexture.init();
-    pawnTexture.texture(imgBuf, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+    pawnTexture.reset(Texture::color(imgBuf, width, height, Texture::Format::RGBA8888));
 
-    refComp.texture = &pawnTexture;
+    refComp.texture = pawnTexture.get();
 
-    pawn = new ObjectRenderable(pawnVertex.get(), parser.indices ? pawnIndices.get() : nullptr, pawnTexCoords.get(), pawnNormals.get(), &pawnTexture, parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-F_PI/2.0f, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
+    pawn = new ObjectRenderable(pawnVertex.get(), parser.indices ? pawnIndices.get() : nullptr, pawnTexCoords.get(), pawnNormals.get(), pawnTexture.get(), parser.n, Mat4x4::diagonal(Vec3(1,1,1)*0.2f) * Mat4x4::rotate(-F_PI/2.0f, Vec3(1,0,0)) * Mat4x4::translate(Vec3(-16,-11,0)));
     scene.addObject(pawn);
 }
 

@@ -10,7 +10,7 @@
 
 class DepthMap{
     public:
-        Texture texture;
+        std::unique_ptr<Texture> texture;
         Renderbuffer renderbuffer;
         Framebuffer framebuffer;
         int width, height;

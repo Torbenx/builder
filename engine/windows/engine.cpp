@@ -24,8 +24,9 @@ int lastMouseX = INT_MAX;
 int lastMouseY = INT_MAX;
 std::map<unsigned int,unsigned int> counter;
 
-void text_init();
-void time_init();
+void init_text();
+void init_time();
+void init_textureFormats();
 
 void gl_debug_callback(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam){
     if(severity != GL_DEBUG_SEVERITY_NOTIFICATION)
@@ -82,7 +83,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             ID3D11DeviceContext *dxContext;
             D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
-            text_init();
+            init_text();
 
             /*if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
@@ -252,7 +253,8 @@ void Renderer::exit(){
 
 int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
     createRenderer = r;
-    time_init();
+    init_time();
+    init_textureFormats();
 
     int rawInputDeviceCount = 2;
     RAWINPUTDEVICE rid[rawInputDeviceCount];

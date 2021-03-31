@@ -22,6 +22,8 @@ Renderer *renderer = nullptr;
 int rendererState = RENDERER_STATE_INVISIBLE;
 AChoreographer *choreographer;
 
+void init_textureFormats();
+
 void engine_setRenderer(Renderer* (*r)()){
     createRenderer = r;
 }
@@ -57,6 +59,9 @@ void android_runThread(){
     EGLSurface surface = EGL_NO_SURFACE;
     FrameCallbackData callbackData = {false, &display, &surface};
     ANativeWindow *window;
+
+    init_textureFormats();
+
     while(running){
         int fd;
         int events;

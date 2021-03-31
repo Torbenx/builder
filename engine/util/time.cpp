@@ -26,7 +26,7 @@ uint64_t getEpochSeconds(){
 uint64_t performenceFrequency;
 #define EPOCH_TICKS 0x019DB1DED53E8000
 
-void time_init(){
+void init_time(){
     LARGE_INTEGER t;
     QueryPerformanceFrequency(&t);
     performenceFrequency = t.QuadPart;

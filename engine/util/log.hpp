@@ -33,8 +33,8 @@
 #endif
 
 #ifdef VALIDATE_GL
-#define GL_VERIFY(cond, ...) {if(!(cond)) LOGW("GL_VERIFY failed %s:%d: %s(): " #cond "; " __VA_ARGS__, __FILE__, __LINE__, __func__)}
-#define GL_EXPECT(lhs, rhs, ...) {GLenum l = (lhs); GLenum r = (rhs); if(l != r) LOGW("GL_EXPECT failed: %s:%d: %s(): " #lhs " {0x%x} == " #rhs " {0x%x}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r)}
+#define GL_VERIFY(cond, ...) { if(!(cond)) LOGW("GL_VERIFY failed %s:%d: %s(): " #cond "; " __VA_ARGS__, __FILE__, __LINE__, __func__); }
+#define GL_EXPECT(lhs, rhs, ...) { GLenum l = (lhs); GLenum r = (rhs); if(l != r) LOGW("GL_EXPECT failed: %s:%d: %s(): " #lhs " {0x%x} == " #rhs " {0x%x}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r); }
 #else
 #define GL_VERIFY(cond, ...)
 #define GL_EXPECT(lhs, rhs, ...)

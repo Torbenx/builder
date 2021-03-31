@@ -13,7 +13,6 @@ DepthCubeMap::~DepthCubeMap(){
 
 void DepthCubeMap::init(){
     texture.init();
-    renderbuffer.init();
     texture.texturePosX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     texture.textureNegX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     texture.texturePosY(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
