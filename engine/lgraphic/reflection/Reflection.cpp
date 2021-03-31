@@ -1,7 +1,7 @@
 #include "Reflection.hpp"
 
 Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float factor) :
-    texture(std::move(*Texture::color(width, height, Texture::Format::RGBA8888)))
+    texture(Texture::color(width, height, Texture::Format::RGBA8888).move())
 {
     this->reflection = reflection;
     this->position = position;

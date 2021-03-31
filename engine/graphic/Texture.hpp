@@ -4,6 +4,7 @@
 #include "../gl/glwrapper.hpp"
 #include "Buffer.hpp"
 #include "forward.hpp"
+#include "../util/ptrs.hpp"
 
 class Texture{
 public:
@@ -16,29 +17,43 @@ public:
     static GLenum glBaseFormatOf(Format);
     static GLenum glTypeOf(Format);
 
-    static Texture* depth(int bitdepth, int width, int height, bool renderingOnly=false);
-    static Texture* stencil(int width, int height);
-    static Texture* color(void *data, int width, int height, Format format, Format targetFormat);
-    static Texture* color(void *data, int width, int height, Format format);
-    static Texture* color(int width, int height, Format format, bool renderingOnly=false);
+    enum WrappingMode : GLint{
+        Clamp = GL_CLAMP_TO_EDGE,
+        Repeat = GL_REPEAT,
+        MirroredRepeat = GL_MIRRORED_REPEAT,
+        ClampBorder = GL_CLAMP_TO_BORDER,
+    };
 
-    /*GLfloat minFilter = GL_LINEAR;
-    GLfloat magFilter = GL_LINEAR;
-    GLfloat wrapS = GL_CLAMP_TO_EDGE;
-    GLfloat wrapT = GL_CLAMP_TO_EDGE;*/
+    enum Filter : GLint{
+        Linear = GL_LINEAR,
+        Nearest = GL_NEAREST,
+    };
+
+    static return_ptr<Texture> depth(int bitdepth, int width, int height, bool renderingOnly=false);
+    static return_ptr<Texture> stencil(int width, int height);
+    static return_ptr<Texture> color(void *data, int width, int height, Format format, Format targetFormat);
+    static return_ptr<Texture> color(void *data, int width, int height, Format format);
+    static return_ptr<Texture> color(int width, int height, Format format, bool renderingOnly=false);
 
     Texture(Texture&&);
     virtual ~Texture();
     void bind();
+
+    void wrappingMode(WrappingMode xMode, WrappingMode yMode); //default value is WrappingMode::Repeat
+    void magnifyFilter(Filter); //default value is Filter::Linear
+    void minifyFilter(Filter); //default value is Filter::Linear (GL default this to GL_NEAREST_MIPMAP_LINEAR so we have to override for non mipmaps)
+    void borderColor(Vec4 color); //default value is Vec4(0,0,0,0)
+
     //void subTexture(GLvoid *data, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum type);
-    void setTexParameter(GLfloat minfilter, GLfloat magfilter, GLfloat wraps, GLfloat wrapt);
-    void applyTexParameter();
+
     int width(){ return m_width; }
     int height(){ return m_height; }
 
 protected:
-    Texture(bool isRenderbuffer, int width, int height);
+    Texture(bool isRenderbuffer, int width, int height, GLenum target=GL_TEXTURE_2D, GLenum binding=GL_TEXTURE_BINDING_2D);
     GLuint glId;
+    GLenum target;
+    GLenum binding;
     friend Framebuffer;
 
 private:

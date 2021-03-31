@@ -99,7 +99,6 @@ TextTexture::TextTexture(int width, int height) : Texture(false, width, height){
     dxSurface->Release();
 
     if(impl->sharedTexture)wglDXLockObjectsNV(hDxDevice, 1, &impl->sharedTexture);
-    applyTexParameter();
 }
 
 void TextTexture::drawText(const TextFormat& text, Vec2 position, Vec4 color, bool clear){

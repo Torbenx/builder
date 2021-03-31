@@ -3,7 +3,7 @@
 
 DepthMap::DepthMap(int width,int height,float _far){
     shader = Shaders::depth();
-    texture.reset(Texture::color(width, height, Texture::Format::RGBA8888));
+    texture = Texture::color(width, height, Texture::Format::RGBA8888).unique();
     this->width = width;
     this->height = height;
     this->m_far = _far;

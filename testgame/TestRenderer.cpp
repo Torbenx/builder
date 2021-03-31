@@ -70,7 +70,7 @@ TestRenderer::TestRenderer() :
     scene.addObject(obj1);
     scene.addObject(obj2);
     scene.addObject(obj3);
-    scene.addObject(obj4);
+    //scene.addObject(obj4);
     scene.addObject(obj5);
     scene.addReflection(reflection);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
@@ -147,7 +147,7 @@ TestRenderer::TestRenderer() :
 
     tjDecompress2(tjInstance, jpegFileBuf, jpegFileSize, imgBuf, width, 0, height, pixelFormat, 0);
 
-    pawnTexture.reset(Texture::color(imgBuf, width, height, Texture::Format::RGBA8888));
+    pawnTexture = Texture::color(imgBuf, width, height, Texture::Format::RGBA8888).unique();
 
     refComp.texture = pawnTexture.get();
 

@@ -28,7 +28,7 @@ GLenum Texture::glTypeOf(Texture::Format f){
     return formatsGLType[f];
 }
 
-Texture* Texture::depth(int bitdepth, int width, int height, bool renderingOnly){
+return_ptr<Texture> Texture::depth(int bitdepth, int width, int height, bool renderingOnly){
     Texture *tex = new Texture(renderingOnly, width, height);
     GLenum format;
     if(bitdepth == 16){
@@ -43,27 +43,27 @@ Texture* Texture::depth(int bitdepth, int width, int height, bool renderingOnly)
     }else{
         glBindTexture(GL_TEXTURE_2D, tex->glId);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
-        tex->applyTexParameter();
+        tex->minifyFilter(Filter::Linear);
     }
-    return tex;
+    return return_ptr(tex);
 }
 
-Texture* Texture::stencil(int width, int height){
+return_ptr<Texture> Texture::stencil(int width, int height){
     Texture *tex = new Texture(true, width, height);
     glBindRenderbuffer(GL_RENDERBUFFER, tex->glId);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
-    return tex;
+    return return_ptr(tex);
 }
 
-Texture* Texture::color(void *data, int width, int height, Texture::Format format){
+return_ptr<Texture> Texture::color(void *data, int width, int height, Texture::Format format){
     Texture *tex = new Texture(false, width, height);
     glBindTexture(GL_TEXTURE_2D, tex->glId);
     glTexImage2D(GL_TEXTURE_2D, 0, glBaseFormatOf(format), width, height, 0, glBaseFormatOf(format), glTypeOf(format), data);
-    tex->applyTexParameter();
-    return tex;
+    tex->minifyFilter(Filter::Linear);
+    return return_ptr(tex);
 }
 
-Texture* Texture::color(int width, int height, Texture::Format format, bool renderingOnly){
+return_ptr<Texture> Texture::color(int width, int height, Texture::Format format, bool renderingOnly){
     Texture *tex = new Texture(renderingOnly, width, height);
     if(renderingOnly){
         glBindRenderbuffer(GL_RENDERBUFFER, tex->glId);
@@ -71,16 +71,20 @@ Texture* Texture::color(int width, int height, Texture::Format format, bool rend
     }else{
         glBindTexture(GL_TEXTURE_2D, tex->glId);
         glTexImage2D(GL_TEXTURE_2D, 0, glFormatOf(format), width, height, 0, glBaseFormatOf(format), glTypeOf(format), nullptr);
-        tex->applyTexParameter();
+        tex->minifyFilter(Filter::Linear);
     }
-    return tex;
+    return return_ptr(tex);
 }
 
-Texture::Texture(Texture&& other) : isRenderbuffer(other.isRenderbuffer), glId(other.glId), m_width(other.m_width), m_height(other.m_height){
+Texture::Texture(Texture&& other) :
+    isRenderbuffer(other.isRenderbuffer), glId(other.glId), m_width(other.m_width), m_height(other.m_height), target(other.target), binding(other.binding)
+{
     other.glId = 0;
 }
 
-Texture::Texture(bool isRenderbuffer, int width, int height) : isRenderbuffer(isRenderbuffer), m_width(width), m_height(height) {
+Texture::Texture(bool isRenderbuffer, int width, int height, GLenum target, GLenum binding) :
+    isRenderbuffer(isRenderbuffer), m_width(width), m_height(height), target(target), binding(binding)
+{
     if(isRenderbuffer){
         glGenRenderbuffers(1, &glId);
     }else{
@@ -90,7 +94,6 @@ Texture::Texture(bool isRenderbuffer, int width, int height) : isRenderbuffer(is
 
 Texture::~Texture(){
     if(glId == 0){
-        LOGD("move worked!");
         return;
     }
     if(isRenderbuffer){
@@ -101,25 +104,35 @@ Texture::~Texture(){
 }
 
 void Texture::bind(){
-    glBindTexture(GL_TEXTURE_2D, glId);
+    GL_VERIFY(!isRenderbuffer);
+    glBindTexture(target, glId);
+}
+
+void Texture::magnifyFilter(Texture::Filter filter){
+    GL_VERIFY(!isRenderbuffer);
+    GL_GET_EXPECT(binding, glId);
+    glTexParameteri(binding, GL_TEXTURE_MAG_FILTER, filter);
+}
+
+void Texture::minifyFilter(Texture::Filter filter){
+    GL_VERIFY(!isRenderbuffer);
+    GL_GET_EXPECT(binding, glId);
+    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter);
+}
+
+void Texture::wrappingMode(Texture::WrappingMode xMode, Texture::WrappingMode yMode){
+    GL_VERIFY(!isRenderbuffer);
+    GL_GET_EXPECT(binding, glId);
+    glTexParameteri(target, GL_TEXTURE_WRAP_S, xMode);
+    glTexParameteri(target, GL_TEXTURE_WRAP_T, yMode);
+}
+
+void Texture::borderColor(Vec4 color){
+    GL_VERIFY(!isRenderbuffer);
+    GL_GET_EXPECT(binding, glId);
+    glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, &color.x);
 }
 
 /*void Texture::subTexture(GLvoid *data,GLint xoffset,GLint yoffset,GLsizei width,GLsizei height,GLenum type){
     glTexSubImage2D(GL_TEXTURE_2D, 0, xoffset,yoffset,width,height,format,type,data);
 }*/
-
-void Texture::setTexParameter(GLfloat minfilter,GLfloat magfilter,GLfloat wraps,GLfloat wrapt){
-    /*minFilter = minfilter;
-    magFilter = magfilter;
-    wrapS = wraps;
-    wrapT = wrapt;*/
-    applyTexParameter();
-}
-
-void Texture::applyTexParameter(){
-    bind();
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-}

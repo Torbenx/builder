@@ -21,10 +21,8 @@ Framebuffer::~Framebuffer(){
 }
 
 void Framebuffer::bind(){
+    GL_GET_EXPECT(GL_FRAMEBUFFER_BINDING, currentFramebuffer->glId);
 #ifdef VALIDATE_GL
-    GLint fbo = 0;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
-    GL_EXPECT(fbo, currentFramebuffer->glId);
     if(isCurrent()) LOGD("framebuffer %d already bound", glId);
 #endif
 

@@ -19,7 +19,8 @@ void TextComponent::updateContent(){
     textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
     texture = textTexture;
 //#ifdef PLATFORM_WINDOWS
-    texture->setTexParameter(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
+    texture->bind();
+    texture->wrappingMode(Texture::WrappingMode::ClampBorder, Texture::WrappingMode::ClampBorder);
 //#else
 //    texture->setTexParameter(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 //#endif
