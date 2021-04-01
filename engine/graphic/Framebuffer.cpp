@@ -54,9 +54,6 @@ bool Framebuffer::attach(GLenum attachment, Attachment& att){
             else
                 glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, att.data.texture->glId, 0);
             return true;
-        case Attachment::Type::RenderbufferAttachment:
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, att.data.renderbuffer->glId);
-            return true;
         case Attachment::Type::CubeMapAttachment:
             glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, att.data.cube.target, att.data.cube.cubeMap->glId, 0);
             return true;
@@ -69,13 +66,6 @@ bool Framebuffer::attach(GLenum attachment, Attachment& att){
 void Framebuffer::colorAttachment(Texture& a){
     m_colorAttachment.type = Attachment::Type::TextureAttachemnt;
     m_colorAttachment.data.texture = &a;
-    if(isCurrent()) attach(GL_COLOR_ATTACHMENT0, m_colorAttachment);
-    clearMask |= GL_COLOR_BUFFER_BIT;
-}
-
-void Framebuffer::colorAttachment(Renderbuffer& a){
-    m_colorAttachment.type = Attachment::Type::RenderbufferAttachment;
-    m_colorAttachment.data.renderbuffer = &a;
     if(isCurrent()) attach(GL_COLOR_ATTACHMENT0, m_colorAttachment);
     clearMask |= GL_COLOR_BUFFER_BIT;
 }
@@ -95,13 +85,6 @@ void Framebuffer::depthAttachment(Texture& a){
     clearMask |= GL_DEPTH_BUFFER_BIT;
 }
 
-void Framebuffer::depthAttachment(Renderbuffer& a){
-    m_depthAttachment.type = Attachment::Type::RenderbufferAttachment;
-    m_depthAttachment.data.renderbuffer = &a;
-    if(isCurrent()) attach(GL_DEPTH_ATTACHMENT, m_depthAttachment);
-    clearMask |= GL_DEPTH_BUFFER_BIT;
-}
-
 void Framebuffer::depthAttachment(GLenum target, CubeMap& a){
     m_depthAttachment.type = Attachment::Type::CubeMapAttachment;
     m_depthAttachment.data.cube.cubeMap = &a;
@@ -113,13 +96,6 @@ void Framebuffer::depthAttachment(GLenum target, CubeMap& a){
 void Framebuffer::stencilAttachment(Texture& a){
     m_stencilAttachment.type = Attachment::Type::TextureAttachemnt;
     m_stencilAttachment.data.texture = &a;
-    if(isCurrent()) attach(GL_STENCIL_ATTACHMENT, m_stencilAttachment);
-    clearMask |= GL_STENCIL_BUFFER_BIT;
-}
-
-void Framebuffer::stencilAttachment(Renderbuffer& a){
-    m_stencilAttachment.type = Attachment::Type::RenderbufferAttachment;
-    m_stencilAttachment.data.renderbuffer = &a;
     if(isCurrent()) attach(GL_STENCIL_ATTACHMENT, m_stencilAttachment);
     clearMask |= GL_STENCIL_BUFFER_BIT;
 }

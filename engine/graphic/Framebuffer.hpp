@@ -1,7 +1,6 @@
 #ifndef HEADER_GRAPHIC_FRAMEBUFFER_H
 #define HEADER_GRAPHIC_FRAMEBUFFER_H
 
-#include "Renderbuffer.hpp"
 #include "Texture.hpp"
 #include "../math/Vec4.hpp"
 #include "CubeMap.hpp"
@@ -20,13 +19,10 @@ public:
     void clear();
 
     void colorAttachment(Texture& a);
-    void colorAttachment(Renderbuffer& a);
     void colorAttachment(GLenum target,CubeMap& a);
     void depthAttachment(Texture& a);
-    void depthAttachment(Renderbuffer& a);
     void depthAttachment(GLenum target,CubeMap& a);
     void stencilAttachment(Texture& a);
-    void stencilAttachment(Renderbuffer& a);
     void stencilAttachment(GLenum target, CubeMap& a);
 
     void clearColor(float r, float g, float b, float a);
@@ -42,13 +38,11 @@ private:
         enum Type{
             Empty,
             TextureAttachemnt,
-            RenderbufferAttachment,
             CubeMapAttachment,
         } type;
 
         union{
             Texture *texture;
-            Renderbuffer *renderbuffer;
             struct{
                 CubeMap *cubeMap;
                 GLenum target;

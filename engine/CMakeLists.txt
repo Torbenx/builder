@@ -33,7 +33,6 @@ endif()
 add_library(engine SHARED
     "graphic/CubeMap.cpp"
     "graphic/Framebuffer.cpp"
-    "graphic/Renderbuffer.cpp"
     "graphic/Shader.cpp"
     "graphic/Texture.cpp"
     "math/Mat4x4.cpp"
