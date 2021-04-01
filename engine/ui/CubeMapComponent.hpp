@@ -8,8 +8,8 @@ class CubeMapComponent : public UiComponent{
     public:
         std::shared_ptr<SimpleCubeMapShader> shader;
         CubeMap *cubeMap;
-        float coords[4*2];
-        float texCoords[4*3];
+        Buffer<Vec2> coords;
+        Buffer<Vec3> texCoords;
         CubeMapComponent(bool createShader=true);
         void draw(Framebuffer&);
         void updateRect();

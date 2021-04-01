@@ -8,8 +8,8 @@ class TextureComponent : public UiComponent{
     public:
         std::shared_ptr<SimpleTextureShader> shader;
         Texture *texture;
-        float coords[4*2];
-        float texCoords[4*2];
+        Buffer<Vec2> coords;
+        Buffer<Vec2> texCoords;
         TextureComponent(bool createShader = true);
         void setTexRect(Rect rect);
         void draw(Framebuffer&);

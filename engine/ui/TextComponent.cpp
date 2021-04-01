@@ -11,25 +11,21 @@ void TextComponent::updateContent(){
     if(textFormat){
         delete textFormat;
     }
-    textFormat = new TextFormat(text, noBreaks ? -1 : ceil(TypedSize::gl(rect.getWidth()).toPixels(metrics.x)), textSize.toPixels(metrics.y));
+    textFormat = new TextFormat(text, noBreaks ? -1 : ceil(TypedSize::gl(rect.width()).toPixels(metrics.x)), textSize.toPixels(metrics.y));
     if(textTexture){
         delete textTexture;
     }
     textTexture = new TextTexture(textFormat->getWidth(), textFormat->getHeight());
     textTexture->drawText(*textFormat, Vec2(0.0f, 0.0f), textColor, true);
     texture = textTexture;
-//#ifdef PLATFORM_WINDOWS
     texture->bind();
     texture->wrappingMode(Texture::WrappingMode::ClampBorder, Texture::WrappingMode::ClampBorder);
-//#else
-//    texture->setTexParameter(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-//#endif
 }
 
 void TextComponent::updateRect(){
     TextureComponent::updateRect();
     if(!noBreaks)updateContent();
-    Rect texRect = Rect::bltr(rect.getHeight() / getContentHeight().toGL(metrics), 0.0f, 0.0f, rect.getWidth() / getContentWidth().toGL(metrics));
+    Rect texRect = Rect::bltr(rect.height() / getContentHeight().toGL(metrics), 0.0f, 0.0f, rect.width() / getContentWidth().toGL(metrics));
     setTexRect(texRect);
 }
 

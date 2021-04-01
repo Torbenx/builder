@@ -1,26 +1,14 @@
 #include "TestComponent.hpp"
 
-TestComponent::TestComponent(){
-    shader = Shaders::color();
-}
+TestComponent::TestComponent() : shader(Shaders::color()), coords(4) {}
 
 void TestComponent::draw(Framebuffer& framebuffer){
     shader->use();
-    shader->attribPointer(shader->positionAttrib, 2, coords);
+    shader->attribPointer(shader->positionAttrib, coords);
     shader->uniformVec4(shader->colorUniform, color);
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
 
 void TestComponent::updateRect(){
-    coords[0] = rect.getLeft();
-    coords[1] = rect.getBottom();
-
-    coords[2] = rect.getRight();
-    coords[3] = rect.getBottom();
-
-    coords[4] = rect.getLeft();
-    coords[5] = rect.getTop();
-
-    coords[6] = rect.getRight();
-    coords[7] = rect.getTop();
+    this->coords.update(rect.corners());
 }

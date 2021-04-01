@@ -17,10 +17,6 @@ void Reflection::getReflectionModel(Mat4x4& model){
     model = Mat4x4::reflection(reflection,position);
 }
 
-void Reflection::bind(){
-    framebuffer.bind();
-}
-
 void Reflection::addTo(LShaderBuilder& s){
     LShader::EffectData data;
     s.newContext();

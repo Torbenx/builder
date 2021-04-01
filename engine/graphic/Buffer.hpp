@@ -4,13 +4,14 @@
 #include "../gl/glwrapper.hpp"
 #include <stdint.h>
 #include <cstring>
+#include <array>
 #include "../math/Vec2.hpp"
 #include "../math/Vec3.hpp"
 #include "../math/Vec4.hpp"
 #include "../util/ptrs.hpp"
 
 enum WriteFrequency : GLenum{
-    Rare = GL_STATIC_DRAW,
+    Normal = GL_STATIC_DRAW,
     Often = GL_DYNAMIC_DRAW,
 };
 
@@ -26,11 +27,15 @@ public:
         return new Buffer<T>(data, size, true);
     }
 
-    static return_ptr<Buffer<T>> allocate(int size){
+    static return_ptr<Buffer<T>> alloc(int size){
         return new Buffer<T>(new T[size], size, true);
     }
 
-    static return_ptr<Buffer<T>> upload(T *data, int size, WriteFrequency wf){
+    static return_ptr<Buffer<T>> allocUp(int size, WriteFrequency wf=Normal){
+        return upload(nullptr, size, wf);
+    }
+
+    static return_ptr<Buffer<T>> upload(T *data, int size, WriteFrequency wf=Normal){
         Buffer *b = Buffer::wrap(data, size).release();
         b->upload(wf);
         return b;
@@ -42,8 +47,20 @@ public:
     }
 
     template< int N >
-    static return_ptr<Buffer<T>> upload(T (&data)[N], WriteFrequency wf){
+    static return_ptr<Buffer<T>> upload(T (&data)[N], WriteFrequency wf=Normal){
         Buffer *b = new Buffer<T>(data, N, false);
+        b->upload(wf);
+        return b;
+    }
+
+    template< std::size_t N >
+    static return_ptr<Buffer<T>> wrap(std::array<T, N>& data){
+        return new Buffer<T>(data.data(), N, false);
+    }
+
+    template< std::size_t N >
+    static return_ptr<Buffer<T>> upload(std::array<T, N>& data, WriteFrequency wf=Normal){
+        Buffer *b = new Buffer<T>(data.data(), N, false);
         b->upload(wf);
         return b;
     }
@@ -54,7 +71,7 @@ public:
     }
 
     template< int N >
-    static return_ptr<Buffer<T>> upload(T (&&data)[N], WriteFrequency wf){
+    static return_ptr<Buffer<T>> upload(T (&&data)[N], WriteFrequency wf=Normal){
         Buffer *b = new Buffer<T>(data, N, false);
         b->upload(wf);
         return b;
@@ -103,7 +120,26 @@ public:
         glBindBuffer(target, glId);
     }
 
-    void update(T *data, int offset, int size){
+    template< int N >
+    void update(const T (&data)[N]){
+        update(data, N);
+    }
+
+    template< std::size_t N >
+    void update(const std::array<T, N>& data){
+        update(data.data(), N);
+    }
+
+    template< int N >
+    void update(const T (&&data)[N]){
+        update(data, N);
+    }
+
+    void update(const T *data, int size){
+        update(data, 0, size);
+    }
+
+    void update(const T *data, int offset, int size){
         if(isGL()){
             bind(GL_ARRAY_BUFFER);
             glBufferSubData(GL_ARRAY_BUFFER, (GLintptr)(this->data() + offset), size * sizeof(T), data);
@@ -112,7 +148,7 @@ public:
         }
     }
 
-    void upload(WriteFrequency wf){
+    void upload(WriteFrequency wf=Normal){
         GL_VERIFY(!isGL());
         isGLBuffer = true;
         glGenBuffers(1, &glId);
@@ -124,6 +160,8 @@ public:
         m_data = nullptr;
         m_owns = true;
     }
+
+    Buffer(int size) : Buffer(new T[size], size, true) {}
 
 private:
     GLuint glId;

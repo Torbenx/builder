@@ -3,21 +3,19 @@
 
 #include "Vec2.hpp"
 #include <stddef.h>
+#include <array>
 
 class Rect{
     public:
         float top,bottom,left,right;
         Rect();
-        float getWidth();
-        float getHeight();
-        float getTop();
-        float getLeft();
-        float getBottom();
-        float getRight();
-        Vec2 getTopLeft();
-        Vec2 getTopRight();
-        Vec2 getBottomRight();
-        Vec2 getBottomLeft();
+        float width();
+        float height();
+        Vec2 topLeft();
+        Vec2 topRight();
+        Vec2 bottomRight();
+        Vec2 bottomLeft();
+        std::array<Vec2, 4> corners();
         bool contains(Vec2 p);
         void debug();
         Rect operator+=(Vec2 v);

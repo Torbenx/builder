@@ -32,7 +32,7 @@ TestRenderer::TestRenderer() :
             F_PI*0.6f,
             F_PI*0.4f,
             Vec3(1,0,0),
-            2048,2048,
+            2048, 2048,
             Vec3(1,1,1)*8.0f,
             1,
             100
@@ -44,13 +44,12 @@ TestRenderer::TestRenderer() :
 {
     reflection.framebuffer.clearColor(0,0,0,1);
     Framebuffer::DEFAULT.clearColor(0,0,0,1);
-    f1 = Buffer<Vec3>::upload({ Vec3(-1,-0,-1), Vec3(1,-0,-1), Vec3(-1,-0,1), Vec3(1,-0,1) }, WriteFrequency::Rare).unique();
-    f2 = Buffer<Vec3>::upload({ Vec3(-1,3,0), Vec3(1,3,0), Vec3(-1,3,2), Vec3(1,3,2) }, WriteFrequency::Rare).unique();
-    f3 = Buffer<Vec3>::upload({ Vec3(-10,-2,-10), Vec3(-10,-2,10), Vec3(10,-2,-10), Vec3(10,-2,10) }, WriteFrequency::Rare).unique();
-    f4 = Buffer<Vec3>::upload({ Vec3(-10,4,-10), Vec3(-10,4,10), Vec3(10,4,-10), Vec3(10,4,10) }, WriteFrequency::Rare).unique();
+    f1 = Buffer<Vec3>::upload({ Vec3(-1,-0,-1), Vec3(1,-0,-1), Vec3(-1,-0,1), Vec3(1,-0,1) }).unique();
+    f2 = Buffer<Vec3>::upload({ Vec3(-1,3,0), Vec3(1,3,0), Vec3(-1,3,2), Vec3(1,3,2) }).unique();
+    f3 = Buffer<Vec3>::upload({ Vec3(-10,-2,-10), Vec3(-10,-2,10), Vec3(10,-2,-10), Vec3(10,-2,10) }).unique();
+    f4 = Buffer<Vec3>::upload({ Vec3(-10,4,-10), Vec3(-10,4,10), Vec3(10,4,-10), Vec3(10,4,10) }).unique();
     f5 = Buffer<Vec3>::wrap(obj5_coords).unique();
-    Vec3 fNSrc[] = {up, up, up, up};
-    fNormal = Buffer<Vec3>::upload(fNSrc, 4, WriteFrequency::Rare).unique();
+    fNormal = Buffer<Vec3>::upload({up, up, up, up}).unique();
     obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1,0,0)*0.5, 4); obj1->mode = DrawMode::TriangleStrip;
     obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0,1,0)*0.5, 4); obj2->mode = DrawMode::TriangleStrip;
     obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = DrawMode::TriangleStrip;
@@ -108,11 +107,11 @@ TestRenderer::TestRenderer() :
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
     parser.parse(file, 16000, 16000);
-    pawnVertex = Buffer<float>::upload(parser.vertex,parser.vertexCount*parser.dim, WriteFrequency::Rare).unique();
-    pawnTexCoords = Buffer<float>::upload(parser.texCoords,parser.vertexCount*2, WriteFrequency::Rare).unique();
-    pawnNormals = Buffer<float>::upload(parser.normals,parser.vertexCount*parser.dim, WriteFrequency::Rare).unique();
+    pawnVertex = Buffer<float>::upload(parser.vertex, parser.vertexCount*parser.dim).unique();
+    pawnTexCoords = Buffer<float>::upload(parser.texCoords, parser.vertexCount*2).unique();
+    pawnNormals = Buffer<float>::upload(parser.normals, parser.vertexCount*parser.dim).unique();
     if(parser.indices){
-        pawnIndices = Buffer<GLuint>::upload(parser.indices,parser.n, WriteFrequency::Rare).unique();
+        pawnIndices = Buffer<GLuint>::upload(parser.indices, parser.n).unique();
     }
 
     asset_istream jpegFile("Pawn/Pawn.jpg");

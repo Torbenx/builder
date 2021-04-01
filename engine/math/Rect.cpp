@@ -2,47 +2,40 @@
 #include "../util/log.hpp"
 
 Rect::Rect(){
-    
+
 }
 
-float Rect::getWidth(){
+float Rect::width(){
     return right - left;
 }
 
-float Rect::getHeight(){
+float Rect::height(){
     return top - bottom;
 }
 
-float Rect::getTop(){
-    return top;
-}
-
-float Rect::getBottom(){
-    return bottom;
-}
-
-float Rect::getLeft(){
-    return left;
-}
-
-float Rect::getRight(){
-    return right;
-}
-
-Vec2 Rect::getTopLeft(){
+Vec2 Rect::topLeft(){
     return Vec2(left, top);
 }
 
-Vec2 Rect::getTopRight(){
+Vec2 Rect::topRight(){
     return Vec2(right, top);
 }
 
-Vec2 Rect::getBottomRight(){
+Vec2 Rect::bottomRight(){
     return Vec2(right, bottom);
 }
 
-Vec2 Rect::getBottomLeft(){
+Vec2 Rect::bottomLeft(){
     return Vec2(left, bottom);
+}
+
+std::array<Vec2, 4> Rect::corners(){
+    return {
+        bottomLeft(),
+        bottomRight(),
+        topLeft(),
+        topRight()
+    };
 }
 
 bool Rect::contains(Vec2 p){

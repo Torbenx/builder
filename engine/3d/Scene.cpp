@@ -76,9 +76,11 @@ void Scene::draw(MvpMatrix mvp){
         (*lit)->draw(renderables.data(), renderables.size());
     }
     for(std::vector<Reflection*>::iterator rit=reflections.begin();rit!=reflections.end();rit++){
-        (*rit)->bind();
+        Framebuffer& framebuffer = (*rit)->framebuffer;
+        framebuffer.bind();
+        framebuffer.clear();
         (*rit)->getReflectionModel(mvp.model);
-        doDraw((*rit)->framebuffer, mvp, false);
+        doDraw(framebuffer, mvp, false);
     }
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();

@@ -13,7 +13,6 @@ class Reflection : public LShader::Effect{
         Vec3 reflection, position;
         float factor;
         Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);
-        void bind();
         void getReflectionModel(Mat4x4& model);
         void addTo(LShaderBuilder& s);
         virtual void apply(LShader&, const  LShader::EffectData&) override;

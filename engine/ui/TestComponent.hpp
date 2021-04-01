@@ -3,12 +3,13 @@
 
 #include "UiComponent.hpp"
 #include "../util/Shaders.hpp"
+#include "../graphic/Buffer.hpp"
 
 class TestComponent : public UiComponent{
     public:
         std::shared_ptr<SingleColorShader> shader;
         Vec4 color;
-        float coords[4*2];
+        Buffer<Vec2> coords;
         TestComponent();
         void draw(Framebuffer&);
         void updateRect();
