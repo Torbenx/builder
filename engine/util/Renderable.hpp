@@ -7,6 +7,7 @@
 class Renderable{
     public:
         virtual void draw(
+            Framebuffer& framebuffer,
             Shader& shader,
             Shader::LocationHandle postionHandle,
             Shader::LocationHandle modelHandle

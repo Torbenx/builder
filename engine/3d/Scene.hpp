@@ -31,11 +31,11 @@ struct SceneDrawData{
 class SceneShader;
 
 class SceneObject : public Renderable{
-    public:
-        virtual ColorSources getColorSources() = 0;
-        virtual std::string *getTextureTypes(){ return nullptr; }
-        virtual Reflection **getReflections(){ return nullptr; }
-        virtual void draw2(LShader& shader, const SceneDrawData& data) = 0;
+public:
+    virtual ColorSources getColorSources() = 0;
+    virtual std::string *getTextureTypes(){ return nullptr; }
+    virtual Reflection **getReflections(){ return nullptr; }
+    virtual void draw2(Framebuffer& framebuffer, LShader& shader, const SceneDrawData& data) = 0;
 };
 
 class SceneShader{
@@ -47,22 +47,23 @@ public:
 };
 
 class Scene{
-    public:
-        std::list<SceneShader> shaders;
-        std::vector<Renderable*> renderables;
-        std::vector<PointLight*> pointLights;
-        std::vector<SpotLight*> spotLights;
-        std::vector<AmbientLight*> ambientLights;
-        std::vector<Reflection*> reflections;
-        Scene();
-        ~Scene();
-        void addLight(PointLight& light);
-        void addLight(SpotLight& light);
-        void addLight(AmbientLight& light);
-        void addReflection(Reflection& ref);
-        void addObject(SceneObject *obj);
-        void draw(MvpMatrix mvp);
-        void doDraw(MvpMatrix& mvp, bool drawReflections=true);
+public:
+    Scene();
+    ~Scene();
+    void addLight(PointLight& light);
+    void addLight(SpotLight& light);
+    void addLight(AmbientLight& light);
+    void addReflection(Reflection& ref);
+    void addObject(SceneObject *obj);
+    void draw(MvpMatrix mvp);
+private:
+    std::list<SceneShader> shaders;
+    std::vector<Renderable*> renderables;
+    std::vector<PointLight*> pointLights;
+    std::vector<SpotLight*> spotLights;
+    std::vector<AmbientLight*> ambientLights;
+    std::vector<Reflection*> reflections;
+    void doDraw(Framebuffer& framebuffer, MvpMatrix& mvp, bool drawReflections=true);
 };
 
 

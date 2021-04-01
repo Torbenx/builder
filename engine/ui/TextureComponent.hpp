@@ -12,7 +12,7 @@ class TextureComponent : public UiComponent{
         float texCoords[4*2];
         TextureComponent(bool createShader = true);
         void setTexRect(Rect rect);
-        void draw();
+        void draw(Framebuffer&);
         void updateRect();
         virtual void doUniforms(){}
 };

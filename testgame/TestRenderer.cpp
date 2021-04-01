@@ -51,11 +51,11 @@ TestRenderer::TestRenderer() :
     f5 = Buffer<Vec3>::wrap(obj5_coords).unique();
     Vec3 fNSrc[] = {up, up, up, up};
     fNormal = Buffer<Vec3>::upload(fNSrc, 4, WriteFrequency::Rare).unique();
-    obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1,0,0)*0.5, 4); obj1->mode = GL_TRIANGLE_STRIP;
-    obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0,1,0)*0.5, 4); obj2->mode = GL_TRIANGLE_STRIP;
-    obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
-    obj4 = new DebugRenderable(f4.get(), fNormal.get(), Vec3(1,1,0)*0.5, 4); obj4->mode = GL_TRIANGLE_STRIP;
-    obj5 = new DebugRenderable(f5.get(), fNormal.get(), Vec3(0,0,1)*0.5, 4); obj5->mode = GL_TRIANGLE_STRIP;
+    obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1,0,0)*0.5, 4); obj1->mode = DrawMode::TriangleStrip;
+    obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0,1,0)*0.5, 4); obj2->mode = DrawMode::TriangleStrip;
+    obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = DrawMode::TriangleStrip;
+    obj4 = new DebugRenderable(f4.get(), fNormal.get(), Vec3(1,1,0)*0.5, 4); obj4->mode = DrawMode::TriangleStrip;
+    obj5 = new DebugRenderable(f5.get(), fNormal.get(), Vec3(0,0,1)*0.5, 4); obj5->mode = DrawMode::TriangleStrip;
     mvpMatrix.model = Mat4x4::Id;
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
@@ -291,18 +291,18 @@ void TestRenderer::drawFrame(){
     glDisable(GL_DEPTH_TEST);
 
     if(navPointerId != POINTER_ID_INVALID){
-        Vec2 center(navBaseX * 2.0f / Framebuffer::DEFAULT.width - 1.0f, navBaseY * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
-        Vec2 radius(maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.width, maxSpeed / navMult * 2.0f / Framebuffer::DEFAULT.height);
+        Vec2 center(navBaseX * 2.0f / uiScene.metrics.width() - 1.0f, navBaseY * -2.0f / uiScene.metrics.height() + 1.0f);
+        Vec2 radius(maxSpeed / navMult * 2.0f / uiScene.metrics.width(), maxSpeed / navMult * 2.0f / uiScene.metrics.height());
         //util_drawCircle(center, radius, Vec4(0.7f, 0.7f, 0.7f, 1.0f));
 
-        center.set((navBaseX + navD.x / navMult) * 2.0f / Framebuffer::DEFAULT.width - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / Framebuffer::DEFAULT.height + 1.0f);
+        center.set((navBaseX + navD.x / navMult) * 2.0f / uiScene.metrics.width() - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / uiScene.metrics.height() + 1.0f);
         radius *= 0.25f;
         //util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    //cubeComp.draw();
-    textComp.draw();
-    //refComp.draw();
+    //cubeComp.draw(Framebuffer::DEFAULT);
+    textComp.draw(Framebuffer::DEFAULT);
+    //refComp.draw(Framebuffer::DEFAULT);
 }
 
 TestRenderer::~TestRenderer(){

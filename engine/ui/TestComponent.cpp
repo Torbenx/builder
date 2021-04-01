@@ -4,11 +4,11 @@ TestComponent::TestComponent(){
     shader = Shaders::color();
 }
 
-void TestComponent::draw(){
+void TestComponent::draw(Framebuffer& framebuffer){
     shader->use();
     shader->attribPointer(shader->positionAttrib, 2, coords);
     shader->uniformVec4(shader->colorUniform, color);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
 
 void TestComponent::updateRect(){

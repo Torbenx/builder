@@ -13,7 +13,7 @@ class TextComponent : public TextureComponent{
         TypedSize textSize;
         bool noBreaks = false;
         TextComponent();
-        void draw();
+        void draw(Framebuffer&);
         void updateRect();
         void updateContent();
         TypedSizeXY getContentWidth();

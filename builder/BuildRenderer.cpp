@@ -38,8 +38,8 @@ void BuildRenderer::change(int newWidth, int newHeight){
 
 void BuildRenderer::drawFrame(){
     Framebuffer::DEFAULT.clear();
-    explorer.draw();
-    head.draw();
+    explorer.draw(Framebuffer::DEFAULT);
+    head.draw(Framebuffer::DEFAULT);
 }
 
 void BuildRenderer::pointer(PointerEvent event){

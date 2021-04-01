@@ -65,12 +65,11 @@ public:
     }
 
     ~Buffer(){
-        if(owns()){
-            if(isGL())
-                glDeleteBuffers(1, &glId);
-            else
-                delete[] data();
-        }
+        if(!owns()) return;
+        if(isGL())
+            glDeleteBuffers(1, &glId);
+        else
+            delete[] data();
     }
 
     return_ptr<Buffer<T>> view(int offset, int size){
@@ -143,5 +142,6 @@ template class Buffer<Vec4>;
 
 template class Buffer<GLuint>;
 template class Buffer<GLushort>;
+template class Buffer<GLubyte>;
 
 #endif

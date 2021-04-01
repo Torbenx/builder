@@ -27,6 +27,6 @@ void DepthMap::draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, 
     shader->uniform1f(shader->farUniform, m_far);
     int i;
     for(i=0;i<count;i++){
-        ptrArray[i]->draw(*shader, shader->positionAttrib, shader->modelUniform);
+        ptrArray[i]->draw(framebuffer, *shader, shader->positionAttrib, shader->modelUniform);
     }
 }

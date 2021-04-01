@@ -5,7 +5,7 @@ CubeMapComponent::CubeMapComponent(bool createShader){
         shader = Shaders::cubeMap();
 }
 
-void CubeMapComponent::draw(){
+void CubeMapComponent::draw(Framebuffer&){
     shader->use();
     shader->attribPointer(shader->positionAttrib, 2, coords);
     shader->attribPointer(shader->texCoordAttrib, 3, texCoords);

@@ -6,7 +6,7 @@ TextureComponent::TextureComponent(bool createShader){
     setTexRect(Rect::bltr(0.0f, 0.0f, 1.0f, 1.0f));
 }
 
-void TextureComponent::draw(){
+void TextureComponent::draw(Framebuffer&){
     shader->use();
     shader->attribPointer(shader->positionAttrib, 2, coords);
     shader->attribPointer(shader->texCoordAttrib, 2, texCoords);

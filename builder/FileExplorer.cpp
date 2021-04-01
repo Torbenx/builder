@@ -39,7 +39,7 @@ void FileExplorer::setPath(std::string path){
         .alignTop(nullptr, TypedSize::windowsDIP(5));
     fileNameComps.push_back(back);
     makeClickable(*back, 0);
-    
+
     if(!((BuildRenderer*)renderer)->files.empty()){
         int id = 1;
         for(auto it=((BuildRenderer*)renderer)->files.begin();it!=((BuildRenderer*)renderer)->files.end();it++){
@@ -86,13 +86,13 @@ void FileExplorer::onClick(int id){
     }
 }
 
-void FileExplorer::draw(){
-    background.draw();
+void FileExplorer::draw(Framebuffer& framebuffer){
+    background.draw(framebuffer);
     for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
-        (*it)->draw();
+        (*it)->draw(framebuffer);
     }
 }
 
 FileExplorer::~FileExplorer(){
-    
+
 }

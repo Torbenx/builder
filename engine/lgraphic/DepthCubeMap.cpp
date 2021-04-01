@@ -73,7 +73,7 @@ void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int 
         framebuffer.colorAttachment(targets[face], texture);
         framebuffer.clear();
         for(i=0;i<count;i++){
-            ptrArray[i]->draw(*shader, shader->positionAttrib, shader->modelUniform);
+            ptrArray[i]->draw(framebuffer, *shader, shader->positionAttrib, shader->modelUniform);
         }
     }
 }

@@ -41,10 +41,10 @@ TypedSizeXY TextComponent::getContentHeight(){
     return TypedSize::pixels(textFormat->getHeight()).asYSize();
 }
 
-void TextComponent::draw(){
+void TextComponent::draw(Framebuffer& framebuffer){
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
-    TextureComponent::draw();
+    TextureComponent::draw(framebuffer);
     glDisable(GL_BLEND);
 }
 

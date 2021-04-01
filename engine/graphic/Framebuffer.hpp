@@ -5,18 +5,50 @@
 #include "../math/Vec4.hpp"
 #include "CubeMap.hpp"
 
+template< typename T >
+struct IndexTraits { inline static GLenum glType; };
+
+template<> struct IndexTraits<GLuint> { inline static GLenum glType = GL_UNSIGNED_INT; };
+template<> struct IndexTraits<GLushort> { inline static GLenum glType = GL_UNSIGNED_SHORT; };
+template<> struct IndexTraits<GLubyte> { inline static GLenum glType = GL_UNSIGNED_BYTE; };
+
+#define VALIDATE_FRAMEBUFFER_STATE \
+    GL_VERIFY(isCurrent()); \
+    GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+
+enum DrawMode : GLenum{
+    Points = GL_POINTS,
+    Lines = GL_LINES,
+    LineStrip = GL_LINE_STRIP,
+    LineLoop = GL_LINE_LOOP,
+    Triangles = GL_TRIANGLES,
+    TriangleStrip = GL_TRIANGLE_STRIP,
+    TriangleFan = GL_TRIANGLE_FAN,
+};
+
 class Framebuffer{
 public:
-    static Framebuffer DEFAULT;
 
-    //this should be private
-    int offsetY, offsetX, width, height;
+    static Framebuffer DEFAULT;
 
     Framebuffer() : Framebuffer(false, 0) {}
     ~Framebuffer();
     void bind();
 
     void clear();
+
+    template< typename T >
+    void draw(DrawMode mode, Buffer<T>& indices){
+        VALIDATE_FRAMEBUFFER_STATE
+        indices.bind(GL_ELEMENT_ARRAY_BUFFER);
+        glDrawElements(mode, indices.size(), IndexTraits<T>::glType, indices.data());
+    }
+
+    void draw(DrawMode mode, int count){
+        VALIDATE_FRAMEBUFFER_STATE
+        glDrawArrays(mode, 0, count);
+    }
+
 
     void colorAttachment(Texture& a);
     void colorAttachment(GLenum target,CubeMap& a);
@@ -61,6 +93,7 @@ private:
     bool rMask = true, gMask = true, bMask = true, aMask = true, dMask = true;
     GLbitfield sMask = 0xffffffff;
     GLbitfield clearMask = 0;
+    int offsetY, offsetX, width, height;
 
     Framebuffer(bool isDefault, GLbitfield clearMask);
     Framebuffer(const Framebuffer& other);

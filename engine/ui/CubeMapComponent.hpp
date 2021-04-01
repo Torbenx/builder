@@ -11,7 +11,7 @@ class CubeMapComponent : public UiComponent{
         float coords[4*2];
         float texCoords[4*3];
         CubeMapComponent(bool createShader=true);
-        void draw();
+        void draw(Framebuffer&);
         void updateRect();
         virtual void doUniforms(){}
         virtual void positiveX(Rect rect);

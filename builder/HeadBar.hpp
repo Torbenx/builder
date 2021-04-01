@@ -16,7 +16,7 @@ class HeadBar : public UiSceneComponent{
         HeadBar(void *renderer);
         void setPath(std::string path);
         void updateRect();
-        void draw();
+        void draw(Framebuffer&);
         ~HeadBar();
 };
 

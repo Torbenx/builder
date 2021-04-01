@@ -10,7 +10,7 @@ class TestComponent : public UiComponent{
         Vec4 color;
         float coords[4*2];
         TestComponent();
-        void draw();
+        void draw(Framebuffer&);
         void updateRect();
 };
 

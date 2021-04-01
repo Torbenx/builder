@@ -9,6 +9,9 @@ struct SizeMetrics{
 struct ScreenMetrics{
     SizeMetrics x;
     SizeMetrics y;
+
+    int width() { return x.size; }
+    int height() {return y.size; }
 };
 
 enum TYPED_SIZE_TYPE{
@@ -24,37 +27,37 @@ struct LazyTypedSizeXY;
 struct TypedSize{
     static TypedSize zero;
     static TypedSize nan;
-    
+
     TYPED_SIZE_TYPE type;
     float value;
-    
+
     float toPixels(SizeMetrics metrics);
     float toGL(SizeMetrics metrics);
     float toAndroidDIP(SizeMetrics metrics);
     float toWindowsDIP(SizeMetrics metrics);
     float to(TYPED_SIZE_TYPE type, SizeMetrics m);
-    
+
     TypedSizeXY asXSize();
     TypedSizeXY asYSize();
-    
+
     static TypedSize pixels(float f);
     static TypedSize gl(float f);
     static TypedSize androidDIP(float f);
     static TypedSize windowsDIP(float f);
-    
+
     TypedSize& operator*=(float f);
 };
 
 struct TypedSizeXY{
     bool isX;
     TypedSize size;
-    
+
     float toPixels(ScreenMetrics metrics);
     float toGL(ScreenMetrics metrics);
     float toAndroidDIP(ScreenMetrics metrics);
     float toWindowsDIP(ScreenMetrics metrics);
     float to(TYPED_SIZE_TYPE type, ScreenMetrics m);
-    
+
     LazyTypedSizeXY lazy();
 };
 

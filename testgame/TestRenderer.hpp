@@ -25,7 +25,7 @@ class DebugRenderable : public SceneObject{
         Vec3 color;
         Mat4x4 model;
         int num;
-        GLenum mode = GL_TRIANGLES;
+        DrawMode mode = DrawMode::Triangles;
 
         DebugRenderable(Buffer<Vec3> *s, Buffer<Vec3> *nor, Vec3 c, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
@@ -41,18 +41,18 @@ class DebugRenderable : public SceneObject{
             return colors;
         }
 
-        void draw(Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform){
+        void draw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform){
             shader.uniformMat4x4(modelUniform, model);
             shader.attribPointer(positionAttrib, *source);
-            glDrawArrays(mode, 0, num);
+            framebuffer.draw(mode, num);
         }
 
-        void draw2(LShader& shader, const SceneDrawData& data){
+        void draw2(Framebuffer& framebuffer, LShader& shader, const SceneDrawData& data){
             shader.uniformMat4x4(data.modelUniform, model);
             shader.uniformVec3(data.uniforms[0], color);
             shader.attribPointer(data.positionAttrib, *source);
             shader.attribPointer(data.normalAttrib, *normals);
-            glDrawArrays(mode, 0, num);
+            framebuffer.draw(mode, num);
         }
 };
 
@@ -65,7 +65,6 @@ class ObjectRenderable : public SceneObject{
         Texture *texture;
         Mat4x4 model;
         int num;
-        GLenum mode = GL_TRIANGLES;
 
         ObjectRenderable(Buffer<float> *s, Buffer<GLuint> *i, Buffer<float> *t, Buffer<float> *nor, Texture *tex, int n, Mat4x4 m=Mat4x4::Id){
             source = s;
@@ -88,29 +87,25 @@ class ObjectRenderable : public SceneObject{
             return r;
         }
 
-        void draw(Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform){
+        void draw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform){
             shader.uniformMat4x4(modelUniform, model);
             shader.attribPointer(positionAttrib, 3, *source);
-            if(indices){
-                indices->bind(GL_ELEMENT_ARRAY_BUFFER);
-                glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
-            }else{
-                glDrawArrays(mode, 0, num);
-            }
+            if(indices)
+                framebuffer.draw(DrawMode::Triangles, *indices);
+            else
+                framebuffer.draw(DrawMode::Triangles, num);
         }
 
-        void draw2(LShader& shader, const SceneDrawData& data){
+        void draw2(Framebuffer& framebuffer, LShader& shader, const SceneDrawData& data){
             shader.uniformMat4x4(data.modelUniform, model);
             shader.attribPointer(data.positionAttrib, 3, *source);
             shader.attribPointer(data.normalAttrib, 3, *normals);
             shader.uniformTexture(data.textureUniforms[0], *texture, 10);
             shader.attribPointer(data.texPositionAttribs[0], 2, *texCoords);
-            if(indices){
-                indices->bind(GL_ELEMENT_ARRAY_BUFFER);
-                glDrawElements(mode, num, GL_UNSIGNED_INT, 0);
-            }else{
-                glDrawArrays(mode, 0, num);
-            }
+            if(indices)
+                framebuffer.draw(DrawMode::Triangles, *indices);
+            else
+                framebuffer.draw(DrawMode::Triangles, num);
         }
 };
 

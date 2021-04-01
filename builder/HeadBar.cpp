@@ -53,10 +53,10 @@ void HeadBar::updateRect(){
     UiSceneComponent::updateRect();
 }
 
-void HeadBar::draw(){
-    box.draw();
-    subTitle.draw();
-    title.draw();
+void HeadBar::draw(Framebuffer& framebuffer){
+    box.draw(framebuffer);
+    subTitle.draw(framebuffer);
+    title.draw(framebuffer);
 }
 
 HeadBar::~HeadBar(){

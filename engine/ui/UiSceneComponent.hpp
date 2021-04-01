@@ -17,7 +17,7 @@ class UiSceneComponent : public UiComponent{
         UiSceneComponent();
         void makeClickable(UiComponent& comp, int id);
         void updateRect();
-        void draw(){}
+        void draw(Framebuffer&){}
         virtual void pointer(PointerEvent event);
         virtual void onClick(int id){}
 };

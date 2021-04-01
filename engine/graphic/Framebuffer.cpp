@@ -5,10 +5,6 @@ Framebuffer Framebuffer::DEFAULT(true, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
 
 Framebuffer *Framebuffer::currentFramebuffer = &Framebuffer::DEFAULT;
 
-#define VALIDATE_FRAMEBUFFER_STATE \
-    GL_VERIFY(isCurrent()); \
-    GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
-
 Framebuffer::Framebuffer(bool isDefault, GLbitfield clearMask) : isDefault(isDefault), clearMask(clearMask){
     if(isDefault)
         glId = 0;

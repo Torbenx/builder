@@ -14,12 +14,12 @@ class FileExplorer : public UiSceneComponent{
         std::string path;
         void *renderer;
         TestComponent background;
-    
+
         FileExplorer(void *renderer);
         void setPath(std::string path);
         void updateRect();
         void onClick(int id);
-        void draw();
+        void draw(Framebuffer&);
         ~FileExplorer();
 };
 
