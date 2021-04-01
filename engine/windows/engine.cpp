@@ -1,7 +1,7 @@
 #include <Windows.h>
 #include <stdio.h>
 #include <ctime>
-#include "../GL/glwrapper.hpp"
+#include "../gl/glwrapper.hpp"
 #include "../Renderer.hpp"
 #include "../graphic/Shader.hpp"
 #include "../util/log.hpp"

@@ -1,24 +1,20 @@
 #include "Reflection.hpp"
 
 Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float factor) :
-    texture(Texture::color(width, height, Texture::Format::RGBA8888).move())
+    texture(Texture::color(width, height, Texture::Format::RGBA8888).move()),
+    depthAttachment(Texture::depth(width, height, 16, true).move())
 {
     this->reflection = reflection;
     this->position = position;
     this->factor = factor;
-    this->width = width;
-    this->height = height;
+
+    framebuffer.colorAttachment(texture);
+    framebuffer.depthAttachment(depthAttachment);
+    framebuffer.viewport(width, height);
 }
 
 void Reflection::getReflectionModel(Mat4x4& model){
     model = Mat4x4::reflection(reflection,position);
-}
-
-void Reflection::init(){
-    renderbuffer.storageDepth16(width, height);
-    framebuffer.colorAttachment(texture);
-    framebuffer.depthAttachment(renderbuffer);
-    framebuffer.viewport(width, height);
 }
 
 void Reflection::bind(){

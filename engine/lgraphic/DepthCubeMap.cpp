@@ -1,17 +1,8 @@
 #include "DepthCubeMap.hpp"
 
-DepthCubeMap::DepthCubeMap(int width,int height,float _far){
+DepthCubeMap::DepthCubeMap(int width, int height, float _far) : depthAttachment(Texture::depth(width, height, 16, true).move()){
     shader = Shaders::depth();
-    this->width = width;
-    this->height = height;
     this->m_far = _far;
-}
-
-DepthCubeMap::~DepthCubeMap(){
-
-}
-
-void DepthCubeMap::init(){
     texture.init();
     texture.texturePosX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     texture.textureNegX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
@@ -19,10 +10,13 @@ void DepthCubeMap::init(){
     texture.textureNegY(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     texture.texturePosZ(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
     texture.textureNegZ(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
-    renderbuffer.storageDepth16(width, height);
-    framebuffer.depthAttachment(renderbuffer);
+    framebuffer.depthAttachment(depthAttachment);
     framebuffer.clearColor(1, 1, 1, 1);
-    framebuffer.viewport(width,height);
+    framebuffer.viewport(width, height);
+}
+
+DepthCubeMap::~DepthCubeMap(){
+
 }
 
 void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count){

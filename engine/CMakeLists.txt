@@ -73,8 +73,4 @@ add_library(engine SHARED
     ${platform_source}
 )
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    target_link_options(engine PUBLIC "-static-libstdc++")
-endif()
-
 target_link_libraries(engine ${platform_libs} turbojpeg)

@@ -10,16 +10,13 @@
 class DepthCubeMap{
     public:
         CubeMap texture;
-        Renderbuffer renderbuffer;
+        Texture depthAttachment;
         Framebuffer framebuffer;
-        int width,height;
         float m_far;
         std::shared_ptr<SimpleDepthShader> shader;
-        std::string vSource,fSource;
-        DepthCubeMap(int width,int height,float far);
+        DepthCubeMap(int width, int height, float far);
         ~DepthCubeMap();
-        void init();
-        void draw(Mat4x4 model,Vec3 position,Renderable **ptrArray,int count);
+        void draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count);
     private:
         Mat4x4 projection = Mat4x4();
         GLenum targets[6] = {GL_TEXTURE_CUBE_MAP_POSITIVE_X,GL_TEXTURE_CUBE_MAP_NEGATIVE_X,

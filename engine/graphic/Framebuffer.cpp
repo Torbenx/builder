@@ -49,7 +49,10 @@ bool Framebuffer::attach(GLenum attachment, Attachment& att){
         case Attachment::Type::Empty:
             return false;
         case Attachment::Type::TextureAttachemnt:
-            glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, att.data.texture->glId, 0);
+            if(att.data.texture->isRenderbuffer)
+                glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, att.data.texture->glId);
+            else
+                glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, att.data.texture->glId, 0);
             return true;
         case Attachment::Type::RenderbufferAttachment:
             glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, att.data.renderbuffer->glId);

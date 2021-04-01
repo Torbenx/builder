@@ -42,22 +42,15 @@ TestRenderer::TestRenderer() :
         look(up, isAndroid()),
         pos(7,1,0)
 {
-    pointLight.init();
-    spotLight.init();
-    reflection.init();
     reflection.framebuffer.clearColor(0,0,0,1);
     Framebuffer::DEFAULT.clearColor(0,0,0,1);
-    Vec3 f1Src[] = {Vec3(-1,-0,-1), Vec3(1,-0,-1), Vec3(-1,-0,1), Vec3(1,-0,1)};
-    f1.reset(Buffer<Vec3>::wrap(f1Src, 4)->upload(WriteFrequency::Rare));
-    Vec3 f2Src[] = {Vec3(-1,3,0), Vec3(1,3,0), Vec3(-1,3,2), Vec3(1,3,2)};
-    f2.reset(Buffer<Vec3>::wrap(f2Src, 4)->upload(WriteFrequency::Rare));
-    Vec3 f3Src[] = {Vec3(-10,-2,-10), Vec3(-10,-2,10), Vec3(10,-2,-10), Vec3(10,-2,10)};
-    f3.reset(Buffer<Vec3>::wrap(f3Src, 4)->upload(WriteFrequency::Rare));
-    Vec3 f4Src[] = {Vec3(-10,4,-10), Vec3(-10,4,10), Vec3(10,4,-10), Vec3(10,4,10)};
-    f4.reset(Buffer<Vec3>::wrap(f4Src, 4)->upload(WriteFrequency::Rare));
-    f5.reset(Buffer<Vec3>::wrap(obj5_coords, 4));
+    f1 = Buffer<Vec3>::upload({ Vec3(-1,-0,-1), Vec3(1,-0,-1), Vec3(-1,-0,1), Vec3(1,-0,1) }, WriteFrequency::Rare).unique();
+    f2 = Buffer<Vec3>::upload({ Vec3(-1,3,0), Vec3(1,3,0), Vec3(-1,3,2), Vec3(1,3,2) }, WriteFrequency::Rare).unique();
+    f3 = Buffer<Vec3>::upload({ Vec3(-10,-2,-10), Vec3(-10,-2,10), Vec3(10,-2,-10), Vec3(10,-2,10) }, WriteFrequency::Rare).unique();
+    f4 = Buffer<Vec3>::upload({ Vec3(-10,4,-10), Vec3(-10,4,10), Vec3(10,4,-10), Vec3(10,4,10) }, WriteFrequency::Rare).unique();
+    f5 = Buffer<Vec3>::wrap(obj5_coords).unique();
     Vec3 fNSrc[] = {up, up, up, up};
-    fNormal.reset(Buffer<Vec3>::wrap(fNSrc, 4)->upload(WriteFrequency::Rare));
+    fNormal = Buffer<Vec3>::upload(fNSrc, 4, WriteFrequency::Rare).unique();
     obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1,0,0)*0.5, 4); obj1->mode = GL_TRIANGLE_STRIP;
     obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0,1,0)*0.5, 4); obj2->mode = GL_TRIANGLE_STRIP;
     obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = GL_TRIANGLE_STRIP;
@@ -95,7 +88,7 @@ TestRenderer::TestRenderer() :
     textComp.noBreaks = true;
 
     cubeComp.farDepth = 5.0f;
-    cubeComp.texture = spotLight.depthMap.texture.get();
+    cubeComp.texture = &spotLight.depthMap;
 
     refComp.texture = &reflection.texture;
 
@@ -115,11 +108,11 @@ TestRenderer::TestRenderer() :
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
     parser.parse(file, 16000, 16000);
-    pawnVertex.reset(Buffer<float>::wrap(parser.vertex,parser.vertexCount*parser.dim)->upload(WriteFrequency::Rare));
-    pawnTexCoords.reset(Buffer<float>::wrap(parser.texCoords,parser.vertexCount*2)->upload(WriteFrequency::Rare));
-    pawnNormals.reset(Buffer<float>::wrap(parser.normals,parser.vertexCount*parser.dim)->upload(WriteFrequency::Rare));
+    pawnVertex = Buffer<float>::upload(parser.vertex,parser.vertexCount*parser.dim, WriteFrequency::Rare).unique();
+    pawnTexCoords = Buffer<float>::upload(parser.texCoords,parser.vertexCount*2, WriteFrequency::Rare).unique();
+    pawnNormals = Buffer<float>::upload(parser.normals,parser.vertexCount*parser.dim, WriteFrequency::Rare).unique();
     if(parser.indices){
-        pawnIndices.reset(Buffer<GLuint>::wrap(parser.indices,parser.n)->upload(WriteFrequency::Rare));
+        pawnIndices = Buffer<GLuint>::upload(parser.indices,parser.n, WriteFrequency::Rare).unique();
     }
 
     asset_istream jpegFile("Pawn/Pawn.jpg");

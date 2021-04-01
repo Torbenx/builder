@@ -29,7 +29,7 @@ public:
         Nearest = GL_NEAREST,
     };
 
-    static return_ptr<Texture> depth(int bitdepth, int width, int height, bool renderingOnly=false);
+    static return_ptr<Texture> depth(int width, int height, int bitdepth, bool renderingOnly=false);
     static return_ptr<Texture> stencil(int width, int height);
     static return_ptr<Texture> color(void *data, int width, int height, Format format, Format targetFormat);
     static return_ptr<Texture> color(void *data, int width, int height, Format format);

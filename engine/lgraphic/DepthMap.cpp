@@ -1,24 +1,20 @@
 #include <stdio.h>
 #include "DepthMap.hpp"
 
-DepthMap::DepthMap(int width,int height,float _far){
+DepthMap::DepthMap(int width,int height,float _far) :
+    Texture(Texture::color(width, height, Texture::Format::RGBA8888).move()),
+    depthAttachment(Texture::depth(width, height, 16, true).move())
+{
     shader = Shaders::depth();
-    texture = Texture::color(width, height, Texture::Format::RGBA8888).unique();
-    this->width = width;
-    this->height = height;
     this->m_far = _far;
+    framebuffer.colorAttachment(*this);
+    framebuffer.depthAttachment(depthAttachment);
+    framebuffer.viewport(width, height);
+    framebuffer.clearColor(1, 1, 1, 1);
 }
 
 DepthMap::~DepthMap(){
 
-}
-
-void DepthMap::init(){
-    framebuffer.colorAttachment(*texture);
-    renderbuffer.storageDepth16(width,height);
-    framebuffer.depthAttachment(renderbuffer);
-    framebuffer.viewport(width,height);
-    framebuffer.clearColor(1,1,1,1);
 }
 
 void DepthMap::draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count){

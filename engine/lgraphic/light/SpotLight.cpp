@@ -7,10 +7,8 @@ SpotLight::SpotLight(Vec3 position,Vec3 direction,float hfov,float vfov,Vec3 hDi
     this->hDirection = hDirection;
     this->hfov = hfov;
     this->vfov = vfov;
-    width = texWidth;
-    height = texHeight;
     this->color = color;
-    mvpMatrix.projection = Mat4x4::frustumVH(vfov,hfov,_near,_far);
+    mvpMatrix.projection = Mat4x4::frustumVH(vfov, hfov, _near, _far);
 }
 
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int texHeight, Vec3 color, float _near, float _far)
@@ -20,10 +18,6 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int
 
 SpotLight::~SpotLight(){
 
-}
-
-void SpotLight::init(){
-    depthMap.init();
 }
 
 void SpotLight::draw(Renderable **ptrArray,int count){
@@ -67,7 +61,7 @@ void SpotLight::addTo(LShaderBuilder& s){
 
 void SpotLight::apply(LShader& s, const LShader::EffectData& data){
     s.uniformMat4x4(data.handles[0], mvpMatrix.setupMvp());
-    s.uniformTexture(data.handles[1], *depthMap.texture, data.textureSlot);
+    s.uniformTexture(data.handles[1], depthMap, data.textureSlot);
     s.uniformVec3(data.handles[2], color);
     s.uniformVec3(data.handles[3], position);
 }

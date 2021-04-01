@@ -28,7 +28,7 @@ GLenum Texture::glTypeOf(Texture::Format f){
     return formatsGLType[f];
 }
 
-return_ptr<Texture> Texture::depth(int bitdepth, int width, int height, bool renderingOnly){
+return_ptr<Texture> Texture::depth(int width, int height, int bitdepth, bool renderingOnly){
     Texture *tex = new Texture(renderingOnly, width, height);
     GLenum format;
     if(bitdepth == 16){
@@ -45,14 +45,14 @@ return_ptr<Texture> Texture::depth(int bitdepth, int width, int height, bool ren
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
         tex->minifyFilter(Filter::Linear);
     }
-    return return_ptr(tex);
+    return tex;
 }
 
 return_ptr<Texture> Texture::stencil(int width, int height){
     Texture *tex = new Texture(true, width, height);
     glBindRenderbuffer(GL_RENDERBUFFER, tex->glId);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
-    return return_ptr(tex);
+    return tex;
 }
 
 return_ptr<Texture> Texture::color(void *data, int width, int height, Texture::Format format){
@@ -60,7 +60,7 @@ return_ptr<Texture> Texture::color(void *data, int width, int height, Texture::F
     glBindTexture(GL_TEXTURE_2D, tex->glId);
     glTexImage2D(GL_TEXTURE_2D, 0, glBaseFormatOf(format), width, height, 0, glBaseFormatOf(format), glTypeOf(format), data);
     tex->minifyFilter(Filter::Linear);
-    return return_ptr(tex);
+    return tex;
 }
 
 return_ptr<Texture> Texture::color(int width, int height, Texture::Format format, bool renderingOnly){
@@ -73,7 +73,7 @@ return_ptr<Texture> Texture::color(int width, int height, Texture::Format format
         glTexImage2D(GL_TEXTURE_2D, 0, glFormatOf(format), width, height, 0, glBaseFormatOf(format), glTypeOf(format), nullptr);
         tex->minifyFilter(Filter::Linear);
     }
-    return return_ptr(tex);
+    return tex;
 }
 
 Texture::Texture(Texture&& other) :
