@@ -1,6 +1,6 @@
-#include "TextComponent.hpp"
-#include "../util/log.hpp"
-#include "../util/time.hpp"
+#include "ui/TextComponent.hpp"
+#include "util/log.hpp"
+#include "util/time.hpp"
 
 TextComponent::TextComponent() : TextureComponent(false){
     setTexRect(Rect::bltr(1.0f, 0.0f, 0.0f, 1.0f)); //invert y-direction

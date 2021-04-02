@@ -1,5 +1,5 @@
-#include "Mat3x3.hpp"
-#include "../util/log.hpp"
+#include "math/Mat3x3.hpp"
+#include "util/log.hpp"
 #include <cmath>
 
 Mat3x3 Mat3x3::Id(true);
@@ -20,7 +20,7 @@ Mat3x3::Mat3x3(bool id){
 }
 
 Mat3x3::Mat3x3(){
-    
+
 }
 
 Mat3x3 Mat3x3::rotate(float radians){
@@ -28,15 +28,15 @@ Mat3x3 Mat3x3::rotate(float radians){
     float *m = re.matrix;
     float c = cos(radians);
     float s = sin(radians);
-    
+
     m[0] = c;
     m[1] = s;
     m[2] = 0.0f;
-    
+
     m[3] = -s;
     m[4] = c;
     m[5] = 0.0f;
-    
+
     m[6] = 0.0f;
     m[7] = 0.0f;
     m[8] = 1.0f;
@@ -61,11 +61,11 @@ Mat3x3 Mat3x3::reflection(Vec2 n, Vec2 pos){
     m[0] = 1.0f-2.0f*n.x*n.x;
     m[1] =     -2.0f*n.x*n.x;
     m[2] = 0.0f;
-    
+
     m[3] =     -2.0f*n.y*n.x;
     m[4] = 1.0f-2.0f*n.y*n.y;
     m[5] = 0.0f;
-    
+
     float l = 2.0f*Vec2::dot(n,pos);
     m[6] = l*n.x;
     m[7] = l*n.y;
@@ -142,15 +142,15 @@ Mat3x3 operator*(Mat3x3 left, Mat3x3 right){
     m0[0] = m1[0]*m2[0] + m1[3]*m2[1] + m1[6]*m2[2];
     m0[1] = m1[1]*m2[0] + m1[4]*m2[1] + m1[7]*m2[2];
     m0[2] = m1[2]*m2[0] + m1[5]*m2[1] + m1[8]*m2[2];
-    
+
     m0[3] = m1[0]*m2[3] + m1[3]*m2[4] + m1[6]*m2[5];
     m0[4] = m1[1]*m2[3] + m1[4]*m2[4] + m1[7]*m2[5];
     m0[5] = m1[2]*m2[3] + m1[5]*m2[4] + m1[8]*m2[5];
-    
+
     m0[6] = m1[0]*m2[6] + m1[3]*m2[7] + m1[3]*m2[8];
     m0[7] = m1[1]*m2[6] + m1[4]*m2[7] + m1[4]*m2[8];
     m0[8] = m1[1]*m2[6] + m1[5]*m2[7] + m1[5]*m2[8];
-    
+
     return re;
 }
 

@@ -2,8 +2,7 @@
 // Created by Torben Thaysen on 03.02.2016.
 //
 
-#ifndef HEADER_GL_GLWRAPPER_H
-#define HEADER_GL_GLWRAPPER_H
+#pragma once
 
 #include <windows.h>
 #include <GL/gl.h>
@@ -187,5 +186,3 @@ extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
 extern PFNGLGETSHADERIVPROC glGetShaderiv;
 
 }
-
-#endif

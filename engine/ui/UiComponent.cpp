@@ -1,4 +1,4 @@
-#include "UiComponent.hpp"
+#include "ui/UiComponent.hpp"
 
 TypedSizeXY UiComponent_getContentWidth(LazyTypedSizeXY *thiz);
 TypedSizeXY UiComponent_getContentHeight(LazyTypedSizeXY *thiz);

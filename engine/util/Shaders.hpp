@@ -1,10 +1,9 @@
-#ifndef HEADER_UTIL_SHADERS_H
-#define HEADER_UTIL_SHADERS_H
+#pragma once
 
-#include "../graphic/Shader.hpp"
+#include "GL/Shader.hpp"
+#include "util/text.hpp"
+#include "util/log.hpp"
 #include <memory>
-#include "../ui/text.hpp"
-#include "log.hpp"
 
 struct SimpleTextureShader : public Shader{
     LocationHandle positionAttrib, texCoordAttrib, textureUniform;
@@ -67,5 +66,3 @@ public:
 private:
     Shaders();
 };
-
-#endif

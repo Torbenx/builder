@@ -1,6 +1,6 @@
-#include "UiScene.hpp"
-#include "../util/log.hpp"
-#include "../util/time.hpp"
+#include "ui/UiScene.hpp"
+#include "util/log.hpp"
+#include "util/time.hpp"
 #include <algorithm>
 
 #define GET_UI_BUILDER(comp) scene->layout(comp)

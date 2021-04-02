@@ -1,5 +1,4 @@
-#ifndef HEADER_RESOURCE_ASSET_ISTREAM_H
-#define HEADER_RESOURCE_ASSET_ISTREAM_H
+#pragma once
 
 #include <iostream>
 
@@ -10,5 +9,3 @@ class asset_istream : public std::istream{
     private:
         asset_istream(const asset_istream& other) = delete;
 };
-
-#endif

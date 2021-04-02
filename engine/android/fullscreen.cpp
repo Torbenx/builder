@@ -1,19 +1,19 @@
-#include "../fullscreen.hpp"
-#include "engine.hpp"
+#include "util/fullscreen.hpp"
+#include "android/engine.hpp"
 
 FullscreenConfig FullscreenConfig::DEFAULT;
 bool engine_fullscreen = false;
 
 FullscreenConfig::FullscreenConfig(){
-    
+
 }
 
 FullscreenConfig::FullscreenConfig(const FullscreenConfig& other){
-    
+
 }
 
 FullscreenConfig::~FullscreenConfig(){
-    
+
 }
 
 void goFullscreen(FullscreenConfig config){

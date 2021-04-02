@@ -1,5 +1,5 @@
-#include "Shader.hpp"
-#include "../util/log.hpp"
+#include "GL/Shader.hpp"
+#include "util/log.hpp"
 
 std::string ShaderBuilder::buildVertexSource(){
     std::ostringstream s;

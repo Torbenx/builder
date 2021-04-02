@@ -1,4 +1,4 @@
-#include "asset_istream.hpp"
+#include "resource/asset_istream.hpp"
 #include <fstream>
 
 #ifdef PLATFORM_WINDOWS

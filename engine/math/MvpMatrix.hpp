@@ -1,8 +1,7 @@
-#ifndef HEADER_MATH_MVPMATRIX_H
-#define HEADER_MATH_MVPMATRIX_H
+#pragma once
 
-#include "Mat4x4.hpp"
-#include "../util/log.hpp"
+#include "math/Mat4x4.hpp"
+#include "util/log.hpp"
 
 class MvpMatrix{
     public:
@@ -26,5 +25,3 @@ class MvpMatrix{
             setupMvp().debug();
         }
 };
-
-#endif

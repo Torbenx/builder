@@ -1,8 +1,5 @@
-#ifndef HEADER_ENGINE_MAIN_H
-#define HEADER_ENGINE_MAIN_H
+#pragma once
 
 #include <Renderer.hpp>
 
 Renderer *createRenderer();
-
-#endif

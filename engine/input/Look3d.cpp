@@ -1,5 +1,5 @@
-#include "Look3d.hpp"
-#include "../util/log.hpp"
+#include "input/Look3d.hpp"
+#include "util/log.hpp"
 
 Look3d::Look3d(Vec3 up, bool invert){
     this->up = up.normalize();

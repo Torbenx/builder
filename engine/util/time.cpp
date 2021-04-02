@@ -1,10 +1,8 @@
-#include "time.hpp"
-
+#include "util/time.hpp"
 
 #ifdef PLATFORM_ANDROID
 
 #include <time.h>
-#include "log.hpp"
 
 uint64_t getNanos(){
     timespec ts;

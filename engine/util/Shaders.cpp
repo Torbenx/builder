@@ -1,4 +1,4 @@
-#include "Shaders.hpp"
+#include "util/Shaders.hpp"
 
 void SimpleTextureShader::applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler, const std::string& texFunc){
     positionAttrib = b.addAttrib("vec4", "a_position");

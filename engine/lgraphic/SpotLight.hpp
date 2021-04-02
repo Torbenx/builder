@@ -1,9 +1,8 @@
-#ifndef HEADER_LGRAPHIC_LIGHT_SPOTLIGHT_H
-#define HEADER_LGRAPHIC_LIGHT_SPOTLIGHT_H
+#pragma once
 
-#include "../DepthMap.hpp"
-#include "../LShader.hpp"
-#include "../../math/MvpMatrix.hpp"
+#include "lgraphic/DepthMap.hpp"
+#include "lgraphic/LShader.hpp"
+#include "math/MvpMatrix.hpp"
 
 class SpotLight : public LShader::Effect{
     public:
@@ -19,5 +18,3 @@ class SpotLight : public LShader::Effect{
         void addTo(LShaderBuilder&);
         virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
-
-#endif

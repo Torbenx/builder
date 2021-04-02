@@ -1,11 +1,10 @@
-//
+// 
 // Created by Torben Thaysen on 03.02.2016.
 //
 
-#ifndef HEADER_UTIL_LOG_H
-#define HEADER_UTIL_LOG_H
+#pragma once
 
-#define VALIDATE_GL
+//#define VALIDATE_GL
 
 #ifdef PLATFORM_WINDOWS
 
@@ -40,6 +39,4 @@
 #define GL_VERIFY(cond, ...)
 #define GL_EXPECT(lhs, rhs, ...)
 #define GL_GET_EXPECT(pname, rhs, ...)
-#endif
-
 #endif

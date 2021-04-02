@@ -1,4 +1,4 @@
-#include "DepthCubeMap.hpp"
+#include "lgraphic/DepthCubeMap.hpp"
 
 DepthCubeMap::DepthCubeMap(int width, int height, float _far) : depthAttachment(Texture::depth(width, height, 16, true).move()){
     shader = Shaders::depth();

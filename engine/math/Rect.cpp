@@ -1,5 +1,5 @@
-#include "Rect.hpp"
-#include "../util/log.hpp"
+#include "math/Rect.hpp"
+#include "util/log.hpp"
 
 Rect::Rect(){
 

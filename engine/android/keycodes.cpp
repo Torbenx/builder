@@ -1,4 +1,4 @@
-#include "../input/keycodes.hpp"
+#include "input/keycodes.hpp"
 
 unsigned char keycodeToChar(uint32_t keycode){
     if(keycode >= 7 && keycode <= 16)return (char)(keycode - 7 + 0x30);

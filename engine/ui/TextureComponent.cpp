@@ -1,4 +1,4 @@
-#include "TextureComponent.hpp"
+#include "ui/TextureComponent.hpp"
 
 TextureComponent::TextureComponent(bool createShader) : coords(4), texCoords(4){
     if(createShader)

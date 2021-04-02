@@ -1,11 +1,10 @@
-#ifndef HEADER_GRAPHIC_SHADER_H
-#define HEADER_GRAPHIC_SHADER_H
+#pragma once
 
-#include "../gl/glwrapper.hpp"
-#include "../math/Vec4.hpp"
-#include "Buffer.hpp"
-#include "Texture.hpp"
-#include "CubeMap.hpp"
+#include "GL/glwrapper.hpp"
+#include "math/Vec4.hpp"
+#include "GL/Buffer.hpp"
+#include "GL/Texture.hpp"
+#include "GL/CubeMap.hpp"
 #include <string>
 #include <vector>
 #include <sstream>
@@ -132,5 +131,3 @@ private:
 
     friend Shader;
 };
-
-#endif

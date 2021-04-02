@@ -1,5 +1,4 @@
-#ifndef HEADER_UTIL_TARGET_H
-#define HEADER_UTIL_TARGET_H
+#pragma once
 
 #ifdef PLATFORM_WINDOWS
 #define IS_WINDOWS true
@@ -16,5 +15,3 @@
 bool isWindows();
 bool isAndroid();
 bool rawInput();
-
-#endif

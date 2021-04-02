@@ -1,12 +1,11 @@
-#ifndef HEADER_LGRAPHIC_DEPTHMAP_H
-#define HEADER_LGRAPHIC_DEPTHMAP_H
+#pragma once
 
-#include "../graphic/Shader.hpp"
-#include "../graphic/Framebuffer.hpp"
-#include "../util/Renderable.hpp"
-#include "../math/MvpMatrix.hpp"
+#include "GL/Shader.hpp"
+#include "GL/Framebuffer.hpp"
+#include "util/Renderable.hpp"
+#include "math/MvpMatrix.hpp"
+#include "util/Shaders.hpp"
 #include <string.h>
-#include "../util/Shaders.hpp"
 
 class DepthMap : public Texture{
     public:
@@ -18,5 +17,3 @@ class DepthMap : public Texture{
         ~DepthMap();
         void draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count);
 };
-
-#endif

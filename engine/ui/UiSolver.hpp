@@ -1,10 +1,9 @@
-#ifndef HEADER_UI_UISOLVER_H
-#define HEADER_UI_UISOLVER_H
+#pragma once
 
+#include "ui/TypedSize.hpp"
 #include <map>
 #include <vector>
 #include <list>
-#include "TypedSize.hpp"
 
 #define UI_VAR_CONST_BIT 0x80000000
 #define UI_VAR_INVALID 0x7fffffff
@@ -89,5 +88,3 @@ class UiSolver{
         std::vector<std::vector<ui_eqn_t>> vars_to_eqns;
         std::vector<std::vector<ui_eqn_t>> fixed_to_eqns;
 };
-
-#endif

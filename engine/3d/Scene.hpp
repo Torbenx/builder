@@ -1,11 +1,10 @@
-#ifndef HEADER_3D_SCENE_H
-#define HEADER_3D_SCENE_H
+#pragma once
 
-#include "../lgraphic/LShader.hpp"
-#include "../lgraphic/light/AmbientLight.hpp"
-#include "../lgraphic/light/SpotLight.hpp"
-#include "../lgraphic/light/PointLight.hpp"
-#include "../lgraphic/reflection/Reflection.hpp"
+#include "lgraphic/LShader.hpp"
+#include "lgraphic/AmbientLight.hpp"
+#include "lgraphic/SpotLight.hpp"
+#include "lgraphic/PointLight.hpp"
+#include "lgraphic/Reflection.hpp"
 #include <vector>
 #include <list>
 #include <memory>
@@ -65,7 +64,3 @@ private:
     std::vector<Reflection*> reflections;
     void doDraw(Framebuffer& framebuffer, MvpMatrix& mvp, bool drawReflections=true);
 };
-
-
-
-#endif

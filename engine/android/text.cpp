@@ -1,5 +1,5 @@
-#include "../ui/text.hpp"
-#include "engine.hpp"
+#include "util/text.hpp"
+#include "android/engine.hpp"
 #include <jni.h>
 
 typedef struct{

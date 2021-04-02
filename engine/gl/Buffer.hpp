@@ -1,14 +1,13 @@
-#ifndef HEADER_GRAPHIC_BUFFER_H
-#define HEADER_GRAPHIC_BUFFER_H
+#pragma once
 
-#include "../gl/glwrapper.hpp"
+#include "GL/glwrapper.hpp"
+#include "math/Vec2.hpp"
+#include "math/Vec3.hpp"
+#include "math/Vec4.hpp"
+#include "util/ptrs.hpp"
 #include <stdint.h>
 #include <cstring>
 #include <array>
-#include "../math/Vec2.hpp"
-#include "../math/Vec3.hpp"
-#include "../math/Vec4.hpp"
-#include "../util/ptrs.hpp"
 
 enum WriteFrequency : GLenum{
     Normal = GL_STATIC_DRAW,
@@ -181,5 +180,3 @@ template class Buffer<Vec4>;
 template class Buffer<GLuint>;
 template class Buffer<GLushort>;
 template class Buffer<GLubyte>;
-
-#endif

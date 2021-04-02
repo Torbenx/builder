@@ -1,4 +1,4 @@
-#include "TypedSize.hpp"
+#include "ui/TypedSize.hpp"
 #include <cmath>
 #include <math.h>
 

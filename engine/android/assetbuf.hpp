@@ -1,8 +1,7 @@
-#ifndef HEADER_ANDROID_ASSETBUF_H
-#define HEADER_ANDROID_ASSETBUF_H
+#pragma once
 
+#include "android/engine.hpp"
 #include <iostream>
-#include "engine.hpp"
 
 class assetbuf : public std::streambuf{
     protected:
@@ -17,5 +16,3 @@ class assetbuf : public std::streambuf{
         assetbuf(std::string file);
         ~assetbuf();
 };
-
-#endif

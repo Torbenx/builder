@@ -60,12 +60,10 @@ else()
 endif()
 
 include_directories(libs/libjpeg-turbo)
-
+include_directories(engine)
 set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(engine)
-
-include_directories(engine)
 
 add_subdirectory(builder)
 add_subdirectory(testgame)

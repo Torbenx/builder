@@ -1,8 +1,7 @@
-#ifndef HEADER_UI_TEXT_H
-#define HEADER_UI_TEXT_H
+#pragma once
 
-#include "../graphic/Texture.hpp"
-#include "../math/Vec4.hpp"
+#include "GL/Texture.hpp"
+#include "math/Vec4.hpp"
 #include <string>
 
 #ifdef PLATFORM_ANDROID
@@ -34,5 +33,3 @@ class TextTexture : public Texture{
     private:
         TextTexture(const TextTexture& other);
 };
-
-#endif

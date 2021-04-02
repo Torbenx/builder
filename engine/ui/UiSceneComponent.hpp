@@ -1,9 +1,8 @@
-#ifndef HEADER_UI_SCENE_COMPONENT_H
-#define HEADER_UI_SCENE_COMPONENT_H
+#pragma once
 
-#include "UiScene.hpp"
+#include "ui/UiScene.hpp"
+#include "ui/UiInput.hpp"
 #include <list>
-#include "UiInput.hpp"
 
 struct UiRendererClickable{
     UiComponent *comp;
@@ -21,5 +20,3 @@ class UiSceneComponent : public UiComponent{
         virtual void pointer(PointerEvent event);
         virtual void onClick(int id){}
 };
-
-#endif

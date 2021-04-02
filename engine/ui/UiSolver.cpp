@@ -1,8 +1,8 @@
-#include "UiSolver.hpp"
+#include "ui/UiSolver.hpp"
+#include "util/log.hpp"
 #include <algorithm>
 #include <cmath>
 #include <math.h>
-#include "../util/log.hpp"
 
 UiSolver::UiSolver(){
     varCount = 0;

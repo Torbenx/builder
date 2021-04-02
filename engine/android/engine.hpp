@@ -1,8 +1,7 @@
-#ifndef HEADER_ANDROID_ENGINE_H
-#define HEADER_ANDROID_ENGINE_H
+#pragma once
 
-#include "../Renderer.hpp"
-#include "../math/Mat4x4.hpp"
+#include "Renderer.hpp"
+#include "math/Mat4x4.hpp"
 #include <android/asset_manager.h>
 #include <jni.h>
 #include <android/looper.h>
@@ -55,5 +54,3 @@ void android_exit();
 
 void android_initThread(int cmdFd);
 void android_runThread();
-
-#endif

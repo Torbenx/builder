@@ -1,7 +1,6 @@
-#ifndef HEADER_UI_DEPTH_MAP_COMPONENT_H
-#define HEADER_UI_DEPTH_MAP_COMPONENT_H
+#pragma once
 
-#include "TextureComponent.hpp"
+#include "ui/TextureComponent.hpp"
 
 class DepthMapComponent : public TextureComponent{
     public:
@@ -9,5 +8,3 @@ class DepthMapComponent : public TextureComponent{
         DepthMapComponent();
         void doUniforms();
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HEADER_INPUT_KEYCODES_H
-#define HEADER_INPUT_KEYCODES_H
+#pragma once
 
 #include <stdint.h>
 
@@ -24,5 +23,3 @@ uint32_t charToKeycode(unsigned char c);
 #define RIGHT_MOUSE_BUTTON 2
 #define MIDDLE_MOUSE_BUTTON 3
 #define EXTRA_MOUSE_BUTTON(x) (3+x)
-
-#endif

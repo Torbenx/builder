@@ -1,8 +1,7 @@
-#ifndef HEADER_UI_TEXTCOMPONENT_H
-#define HEADER_UI_TEXTCOMPONENT_H
+#pragma once
 
-#include "TextureComponent.hpp"
-#include "text.hpp"
+#include "ui/TextureComponent.hpp"
+#include "util/text.hpp"
 
 class TextComponent : public TextureComponent{
     public:
@@ -20,5 +19,3 @@ class TextComponent : public TextureComponent{
         TypedSizeXY getContentHeight();
         ~TextComponent();
 };
-
-#endif

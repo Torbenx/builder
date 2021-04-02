@@ -1,4 +1,4 @@
-#include "DepthCubeMapComponent.hpp"
+#include "ui/DepthCubeMapComponent.hpp"
 
 DepthCubeMapComponent::DepthCubeMapComponent() : CubeMapComponent(false){
     shader = Shaders::depthCubeMap();

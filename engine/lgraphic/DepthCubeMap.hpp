@@ -1,11 +1,10 @@
-#ifndef HEADER_LGRAPHIC_DEPTHCUBEMAP_H
-#define HEADER_LGRAPHIC_DEPTHCUBEMAP_H
+#pragma once
 
-#include "../graphic/Shader.hpp"
-#include "../graphic/Framebuffer.hpp"
-#include "../util/Renderable.hpp"
-#include "../util/Shaders.hpp"
-#include "../math/MvpMatrix.hpp"
+#include "GL/Shader.hpp"
+#include "GL/Framebuffer.hpp"
+#include "util/Renderable.hpp"
+#include "util/Shaders.hpp"
+#include "math/MvpMatrix.hpp"
 
 class DepthCubeMap{
     public:
@@ -24,5 +23,3 @@ class DepthCubeMap{
             GL_TEXTURE_CUBE_MAP_POSITIVE_Z,GL_TEXTURE_CUBE_MAP_NEGATIVE_Z};
 
 };
-
-#endif

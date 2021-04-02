@@ -1,8 +1,7 @@
-#ifndef HEADER_UI_UI_INPUT_H
-#define HEADER_UI_UI_INPUT_H
+#pragma once
 
-#include "../input/Pointer.hpp"
-#include "TypedPoint.hpp"
+#include "input/Pointer.hpp"
+#include "ui/TypedPoint.hpp"
 
 #ifdef PLATFORM_WINDOWS
 #define POINTER_EVENT_POINT_TYPE TYPED_POINT_TOP_LOW_PIXELS
@@ -16,5 +15,3 @@ struct UiPointerEvent{
     int event;
     TypedPoint p;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HEADER_RENDERER_H
-#define HEADER_RENDERER_H
+#pragma once
 
 #include "input/Pointer.hpp"
 #include <stdint.h>
@@ -50,5 +49,3 @@ class Renderer{
 
         virtual ~Renderer(){}
 };
-
-#endif

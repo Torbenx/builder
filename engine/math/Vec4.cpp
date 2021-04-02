@@ -1,6 +1,6 @@
-#include "Vec4.hpp"
+#include "math/Vec4.hpp"
+#include "util/log.hpp"
 #include <cmath>
-#include "../util/log.hpp"
 
 Vec4::Vec4(){
     set(0,0,0,0);

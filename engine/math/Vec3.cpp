@@ -1,6 +1,6 @@
-#include "Vec3.hpp"
+#include "math/Vec3.hpp"
+#include "util/log.hpp"
 #include <cmath>
-#include "../util/log.hpp"
 
 Vec3::Vec3(){
     set(0,0,0);

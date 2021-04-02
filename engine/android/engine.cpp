@@ -1,7 +1,7 @@
+#include "Renderer.hpp"
+#include "android/engine.hpp"
+#include "util/log.hpp"
 #include <jni.h>
-#include "../Renderer.hpp"
-#include "engine.hpp"
-#include "../util/log.hpp"
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>

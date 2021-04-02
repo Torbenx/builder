@@ -1,16 +1,12 @@
 #include "BuildRenderer.hpp"
-#include "util/log.hpp"
-#include "graphic/Framebuffer.hpp"
-#include "fullscreen.hpp"
-#include "util/target.hpp"
-#include "fullscreen.hpp"
+#include <util/log.hpp>
+#include <GL/Framebuffer.hpp>
+#include <util/target.hpp>
+#include <util/fullscreen.hpp>
 #include <dirent.h>
 
 BuildRenderer::BuildRenderer() : explorer(this), head(this){
     setPath(isAndroid() ? "/data/data/com.tt.builder" : "C:/Users/Torben/Documents/dev/c++");
-    #ifdef PLATFORM_ANDROID
-        goFullscreen(FullscreenConfig::DEFAULT);
-    #endif
     Framebuffer::DEFAULT.clearColor(0.1f, 0.1f, 0.1f, 1.0f);
     scene.layout(&head)
         .alignTop()

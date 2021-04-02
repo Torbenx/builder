@@ -1,6 +1,6 @@
-#include "../ui/text.hpp"
-#include "engine.hpp"
-#include "../util/log.hpp"
+#include "util/text.hpp"
+#include "util/log.hpp"
+#include "windows/engine.hpp"
 #include <d2d1.h>
 #include <d2d1_1.h>
 #include <Dwrite.h>

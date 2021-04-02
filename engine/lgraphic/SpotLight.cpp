@@ -1,5 +1,5 @@
-#include "SpotLight.hpp"
-#include "../../util/log.hpp"
+#include "lgraphic/SpotLight.hpp"
+#include "util/log.hpp"
 
 SpotLight::SpotLight(Vec3 position,Vec3 direction,float hfov,float vfov,Vec3 hDirection,int texWidth,int texHeight,Vec3 color,float _near,float _far) : depthMap(texWidth,texHeight,_far){
     this->position = position;

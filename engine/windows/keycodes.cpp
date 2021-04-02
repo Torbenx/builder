@@ -1,6 +1,6 @@
-#include "../input/keycodes.hpp"
+#include "input/keycodes.hpp"
+#include "util/log.hpp"
 #include <Windows.h>
-#include "../util/log.hpp"
 
 unsigned char keycodeToChar(uint32_t keycode){
     if(keycode >= 0x30 && keycode <= 0x39)return (char)keycode;

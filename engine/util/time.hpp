@@ -1,5 +1,4 @@
-#ifndef HEADER_UTIL_TIME_H
-#define HEADER_UTIL_TIME_H
+#pragma once
 
 #include <stdint.h>
 
@@ -7,5 +6,3 @@
 
 uint64_t getNanos();
 uint64_t getEpochSeconds();
-
-#endif

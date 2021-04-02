@@ -1,5 +1,5 @@
-#include "Pointer.hpp"
-#include "../util/log.hpp"
+#include "input/Pointer.hpp"
+#include "util/log.hpp"
 #include <vector>
 #ifdef PLATFORM_WINDOWS
 #include <Windows.h>
@@ -109,7 +109,7 @@ int getPointerCount(bool mustBeDown){
 }
 
 void setCursorVisible(bool visible){
-    
+
 }
 
 PointerEvent teleportCursor(float x, float y){

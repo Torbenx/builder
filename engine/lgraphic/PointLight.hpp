@@ -1,8 +1,7 @@
-#ifndef HEADER_LGRAPHIC_LIGHT_POINTLIGHT
-#define HEADER_LGRAPHIC_LIGHT_POINTLIGHT
+#pragma once
 
-#include "../DepthCubeMap.hpp"
-#include "../LShader.hpp"
+#include "lgraphic/DepthCubeMap.hpp"
+#include "lgraphic/LShader.hpp"
 
 class PointLight : public LShader::Effect{
     public:
@@ -15,5 +14,3 @@ class PointLight : public LShader::Effect{
         void addTo(LShaderBuilder&);
         virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
-
-#endif

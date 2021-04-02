@@ -1,8 +1,7 @@
-#ifndef HEADER_UI_TEXTURECOMPONENT_H
-#define HEADER_UI_TEXTURECOMPONENT_H
+#pragma once
 
-#include "UiComponent.hpp"
-#include "../util/Shaders.hpp"
+#include "ui/UiComponent.hpp"
+#include "util/Shaders.hpp"
 
 class TextureComponent : public UiComponent{
     public:
@@ -16,5 +15,3 @@ class TextureComponent : public UiComponent{
         void updateRect(ScreenMetrics&);
         virtual void doUniforms(){}
 };
-
-#endif

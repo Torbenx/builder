@@ -1,4 +1,4 @@
-#include "CubeMapComponent.hpp"
+#include "ui/CubeMapComponent.hpp"
 
 CubeMapComponent::CubeMapComponent(bool createShader) : coords(4), texCoords(4){
     if(createShader)

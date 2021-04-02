@@ -1,4 +1,4 @@
-#include "TestComponent.hpp"
+#include "ui/TestComponent.hpp"
 
 TestComponent::TestComponent() : shader(Shaders::color()), coords(4) {}
 

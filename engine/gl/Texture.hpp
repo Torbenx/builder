@@ -1,10 +1,9 @@
-#ifndef HEADER_GRAPHIC_TEXTURE_H
-#define HEADER_GRAPHIC_TEXTURE_H
+#pragma once
 
-#include "../gl/glwrapper.hpp"
-#include "Buffer.hpp"
-#include "forward.hpp"
-#include "../util/ptrs.hpp"
+#include "GL/glwrapper.hpp"
+#include "GL/Buffer.hpp"
+#include "GL/forward.hpp"
+#include "util/ptrs.hpp"
 
 class Texture{
 public:
@@ -61,5 +60,3 @@ private:
     bool isRenderbuffer;
     int m_width, m_height;
 };
-
-#endif

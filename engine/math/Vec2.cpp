@@ -1,6 +1,6 @@
-#include "Vec2.hpp"
+#include "math/Vec2.hpp"
+#include "util/log.hpp"
 #include <cmath>
-#include "../util/log.hpp"
 
 Vec2::Vec2(){
     set(0,0);
@@ -9,24 +9,24 @@ Vec2::Vec2(){
 Vec2::Vec2(const Vec2& xy){
     set(xy.x,xy.y);
 }
-        
+
 Vec2::Vec2(float xy){
     set(xy);
 }
-        
+
 Vec2::Vec2(float x,float y){
     set(x,y);
 }
-        
+
 void Vec2::set(float newX,float newY){
     x = newX;
     y = newY;
 }
-        
+
 void Vec2::set(float xy){
     set(xy,xy);
 }
-        
+
 void Vec2::set(Vec2& xy){
     set(xy.x,xy.y);
 }
@@ -36,19 +36,19 @@ Vec2 Vec2::floor(){
     y = ::floor(y);
     return *this;
 }
-        
+
 Vec2 Vec2::ceil(){
     x = ::ceil(x);
     y = ::ceil(y);
     return *this;
 }
-        
+
 Vec2 Vec2::fract(){
     x = x-::floor(x);
     y = y-::floor(y);
     return *this;
 }
-        
+
 float Vec2::length(){
     return sqrt(dot(*this,*this));
 }
@@ -63,43 +63,43 @@ Vec2 Vec2::operator+=(Vec2 right){
     this->y += right.y;
     return *this;
 }
-        
+
 Vec2 Vec2::operator+=(float right){
     this->x += right;
     this->y += right;
     return *this;
 }
-        
+
 Vec2 Vec2::operator-=(Vec2 right){
     this->x -= right.x;
     this->y -= right.y;
     return *this;
 }
-        
+
 Vec2 Vec2::operator-=(float right){
     this->x -= right;
     this->y -= right;
     return *this;
 }
-        
+
 Vec2 Vec2::operator*=(Vec2 right){
     this->x *= right.x;
     this->y *= right.y;
     return *this;
 }
-        
+
 Vec2 Vec2::operator*=(float right){
     this->x *= right;
     this->y *= right;
     return *this;
 }
-        
+
 Vec2 Vec2::operator/=(Vec2 right){
     this->x /= right.x;
     this->y /= right.y;
     return *this;
 }
-        
+
 Vec2 Vec2::operator/=(float right){
     this->x /= right;
     this->y /= right;

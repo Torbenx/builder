@@ -1,7 +1,6 @@
-#ifndef HEADER_UI_CUBE_MAP_COMPONENT_H
-#define HEADER_UI_CUBE_MAP_COMPONENT_H
+#pragma once
 
-#include "../util/Shaders.hpp"
+#include "util/Shaders.hpp"
 #include "UiComponent.hpp"
 
 class CubeMapComponent : public UiComponent{
@@ -21,5 +20,3 @@ class CubeMapComponent : public UiComponent{
         virtual void positiveZ(Rect rect);
         virtual void negativeZ(Rect rect);
 };
-
-#endif

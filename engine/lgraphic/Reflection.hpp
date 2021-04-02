@@ -1,9 +1,8 @@
-#ifndef HEADER_LGRAPHIC_REFLECTION_REFLECTION_H
-#define HEADER_LGRAPHIC_REFLECTION_REFLECTION_H
+#pragma once
 
-#include "../../graphic/Framebuffer.hpp"
-#include "../../math/MvpMatrix.hpp"
-#include "../LShader.hpp"
+#include "GL/Framebuffer.hpp"
+#include "math/MvpMatrix.hpp"
+#include "lgraphic/LShader.hpp"
 
 class Reflection : public LShader::Effect{
     public:
@@ -17,5 +16,3 @@ class Reflection : public LShader::Effect{
         void addTo(LShaderBuilder& s);
         virtual void apply(LShader&, const  LShader::EffectData&) override;
 };
-
-#endif

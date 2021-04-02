@@ -1,5 +1,5 @@
-#include <jni.h>
 #include "main.hpp"
+#include <jni.h>
 #include <android/engine.hpp>
 
 void engine_getRenderer(){

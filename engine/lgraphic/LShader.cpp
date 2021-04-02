@@ -1,5 +1,5 @@
-#include "LShader.hpp"
-#include "../util/log.hpp"
+#include "lgraphic/LShader.hpp"
+#include "util/log.hpp"
 
 const std::string LShader::WORLD_POSITION = "v_worldPos";
 const std::string LShader::WORLD_NORMAL = "v_normal";

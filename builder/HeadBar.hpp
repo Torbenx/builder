@@ -1,9 +1,8 @@
-#ifndef HEADER_HEAD_BAR_H
-#define HEADER_HEAD_BAR_H
+#pragma once
 
-#include "ui/UiSceneComponent.hpp"
-#include "ui/TextComponent.hpp"
-#include "ui/TestComponent.hpp"
+#include <ui/UiSceneComponent.hpp>
+#include <ui/TextComponent.hpp>
+#include <ui/TestComponent.hpp>
 
 class HeadBar : public UiSceneComponent{
     public:
@@ -20,5 +19,3 @@ class HeadBar : public UiSceneComponent{
         void draw(Framebuffer&);
         ~HeadBar();
 };
-
-#endif

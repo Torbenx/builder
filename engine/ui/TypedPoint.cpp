@@ -1,4 +1,4 @@
-#include "TypedPoint.hpp"
+#include "ui/TypedPoint.hpp"
 #include <math.h>
 #include <cassert>
 

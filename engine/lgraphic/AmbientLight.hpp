@@ -1,8 +1,7 @@
-#ifndef HEADER_LGAPHIC_LIGHT_AMBIENTLIGHT_H
-#define HEADER_LGAPHIC_LIGHT_AMBIENTLIGHT_H
+#pragma once
 
-#include "../../math/Vec4.hpp"
-#include "../LShader.hpp"
+#include "math/Vec4.hpp"
+#include "lgraphic/LShader.hpp"
 
 class AmbientLight : public LShader::Effect{
     public:
@@ -24,5 +23,3 @@ class AmbientLight : public LShader::Effect{
             s.uniformVec3(data.handles[0], color);
         }
 };
-
-#endif

@@ -1,7 +1,6 @@
-#ifndef HEADER_UI_TYPED_SIZE_H
-#define HEADER_UI_TYPED_SIZE_H
+#pragma once
 
-#include "../util/target.hpp"
+#include "util/target.hpp"
 
 struct SizeMetrics{
     int size;
@@ -75,5 +74,3 @@ struct LazyTypedSizeXY{
 TypedSize operator-(TypedSize size);
 TypedSize operator*(float left, TypedSize right);
 TypedSize operator*(TypedSize left, float right);
-
-#endif

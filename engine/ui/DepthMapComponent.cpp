@@ -1,4 +1,4 @@
-#include "DepthMapComponent.hpp"
+#include "ui/DepthMapComponent.hpp"
 
 DepthMapComponent::DepthMapComponent() : TextureComponent(false){
     shader = Shaders::depthMap();

@@ -1,15 +1,14 @@
-#ifndef HEADER_TESTRENDERER_H
-#define HEADER_TESTRENDERER_H
+#pragma once
 
 #include <Renderer.hpp>
-#include <gl/glwrapper.hpp>
+#include <GL/glwrapper.hpp>
 #include <math/Vec2.hpp>
 #include <math/Vec3.hpp>
 #include <math/Mat4x4.hpp>
-#include <graphic/Shader.hpp>
+#include <GL/Shader.hpp>
 #include <lgraphic/DepthMap.hpp>
 #include <input/Look3d.hpp>
-#include <ui/text.hpp>
+#include <util/text.hpp>
 #include <ui/TextComponent.hpp>
 #include <ui/TestComponent.hpp>
 #include <ui/DepthCubeMapComponent.hpp>
@@ -178,5 +177,3 @@ class TestRenderer : public Renderer{
         void drawFrame();
         ~TestRenderer();
 };
-
-#endif

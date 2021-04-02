@@ -1,5 +1,5 @@
-#include "draw_util.hpp"
-#include "../graphic/Shader.hpp"
+#include "util/draw_util.hpp"
+#include "GL/Shader.hpp"
 
 Shader utilCircleShader(
     "attribute vec4 a_position;\n"

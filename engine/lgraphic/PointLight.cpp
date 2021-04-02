@@ -1,4 +1,4 @@
-#include "PointLight.hpp"
+#include "lgraphic/PointLight.hpp"
 #include <cmath>
 
 PointLight::PointLight(Vec3 position,int width,int height,Vec3 color,float near,float _far) : depthMap(width,height,_far){

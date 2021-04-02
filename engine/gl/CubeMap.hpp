@@ -1,7 +1,6 @@
-#ifndef HEADER_GRAPHIC_CUBEMAP_H
-#define HEADER_GRAPHIC_CUBEMAP_H
+#pragma once
 
-#include "../gl/glwrapper.hpp"
+#include "GL/glwrapper.hpp"
 
 class CubeMap{
     public:
@@ -29,5 +28,3 @@ class CubeMap{
         CubeMap(const CubeMap& other);
         void texture(GLenum target,void* data,GLsizei width,GLsizei height,GLenum format,GLenum type);
 };
-
-#endif

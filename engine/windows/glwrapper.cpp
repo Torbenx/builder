@@ -2,8 +2,7 @@
 // Created by Torben Thaysen on 03.02.2016.
 //
 
-#include "glwrapper.hpp"
-#include "windows.h"
+#include "windows/glwrapper.hpp"
 
 PROC glwrapper_load(LPCSTR name){
     return wglGetProcAddress(name);

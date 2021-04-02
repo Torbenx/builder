@@ -1,8 +1,7 @@
-#ifndef HEADER_UTIL_PTR_H
-#define HEADER_UTIL_PTR_H
+#pragma once
 
+#include "util/log.hpp"
 #include <memory>
-#include "log.hpp"
 
 template< class T >
 class return_ptr{
@@ -39,5 +38,3 @@ public:
 private:
     T *ptr;
 };
-
-#endif

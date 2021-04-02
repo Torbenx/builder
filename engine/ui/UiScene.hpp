@@ -1,8 +1,7 @@
-#ifndef HEADER_UI_UISCENE_H
-#define HEADER_UI_UISCENE_H
+#pragma once
 
-#include "UiComponent.hpp"
-#include "UiSolver.hpp"
+#include "ui/UiComponent.hpp"
+#include "ui/UiSolver.hpp"
 #include <vector>
 
 #define UI_VAR_TOP 0
@@ -63,5 +62,3 @@ class UiSceneBuilder{
         UiSceneBuilder& wrapContentHeight();
         UiSceneBuilder& wrapContent();
 };
-
-#endif

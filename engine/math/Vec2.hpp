@@ -1,5 +1,4 @@
-#ifndef HEADER_MATH_VEC2_H
-#define HEADER_MATH_VEC2_H
+#pragma once
 
 class Vec2{
     public:
@@ -47,5 +46,3 @@ Vec2 operator+(Vec2 v);
 
 bool operator==(Vec2 left,Vec2 right);
 bool operator!=(Vec2 left,Vec2 right);
-
-#endif

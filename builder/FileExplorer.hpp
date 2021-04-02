@@ -1,11 +1,10 @@
-#ifndef HEADER_FILE_EXPLORER_H
-#define HEADER_FILE_EXPLORER_H
+#pragma once
 
-#include "ui/UiSceneComponent.hpp"
+#include <ui/UiSceneComponent.hpp>
+#include <ui/TestComponent.hpp>
+#include <ui/TextComponent.hpp>
 #include <string>
-#include "ui/TextComponent.hpp"
 #include <vector>
-#include "ui/TestComponent.hpp"
 
 class FileExplorer : public UiSceneComponent{
     public:
@@ -23,5 +22,3 @@ class FileExplorer : public UiSceneComponent{
         void draw(Framebuffer&);
         ~FileExplorer();
 };
-
-#endif

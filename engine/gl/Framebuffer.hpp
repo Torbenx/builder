@@ -1,9 +1,8 @@
-#ifndef HEADER_GRAPHIC_FRAMEBUFFER_H
-#define HEADER_GRAPHIC_FRAMEBUFFER_H
+#pragma once
 
-#include "Texture.hpp"
-#include "../math/Vec4.hpp"
-#include "CubeMap.hpp"
+#include "GL/Texture.hpp"
+#include "math/Vec4.hpp"
+#include "GL/CubeMap.hpp"
 
 template< typename T >
 struct IndexTraits { inline static GLenum glType; };
@@ -101,5 +100,3 @@ private:
     bool isCurrent() { return this == currentFramebuffer; }
     bool attach(GLenum, Attachment&);
 };
-
-#endif

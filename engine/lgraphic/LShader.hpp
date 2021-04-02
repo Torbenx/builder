@@ -1,7 +1,6 @@
-#ifndef HEADER_LGRAPHIC_LSHADER_H
-#define HEADER_LGRAPHIC_LSHADER_H
+#pragma once
 
-#include "../graphic/Shader.hpp"
+#include "GL/Shader.hpp"
 
 class LShaderBuilder;
 
@@ -53,5 +52,3 @@ private:
     std::vector<LShader::EffectAndData> data;
     friend LShader;
 };
-
-#endif

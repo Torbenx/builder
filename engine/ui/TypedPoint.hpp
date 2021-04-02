@@ -1,8 +1,7 @@
-#ifndef HEADER_UI_TYPED_POINT_H
-#define HEADER_UI_TYPED_POINT_H
+#pragma once
 
-#include "../math/Vec2.hpp"
-#include "TypedSize.hpp"
+#include "math/Vec2.hpp"
+#include "ui/TypedSize.hpp"
 
 enum TYPED_POINT_TYPE{
     TYPED_POINT_TOP_LOW_PIXELS,
@@ -15,7 +14,7 @@ enum TYPED_POINT_TYPE{
 struct TypedPoint{
     TYPED_POINT_TYPE type;
     Vec2 p;
-    
+
     Vec2 toTopLowPixels(ScreenMetrics m);
     Vec2 toBottomLowPixels(ScreenMetrics m);
     Vec2 toAndroidPixels(ScreenMetrics m){return toTopLowPixels(m);}
@@ -24,9 +23,9 @@ struct TypedPoint{
     Vec2 toAndroidDIP(ScreenMetrics m);
     Vec2 toGL(ScreenMetrics m);
     Vec2 to(TYPED_POINT_TYPE type, ScreenMetrics m);
-    
+
     TYPED_SIZE_TYPE getSizeType();
-    
+
     static TypedPoint topLowPixels(Vec2 p);
     static TypedPoint bottomLowPixels(Vec2 p);
     static TypedPoint androidPixels(Vec2 p){return topLowPixels(p);}
@@ -34,8 +33,6 @@ struct TypedPoint{
     static TypedPoint windowsDIP(Vec2 p);
     static TypedPoint androidDIP(Vec2 p);
     static TypedPoint gl(Vec2 p);
-    
+
     static TYPED_SIZE_TYPE getSizeType(TYPED_POINT_TYPE type);
 };
-
-#endif

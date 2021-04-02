@@ -1,8 +1,7 @@
-#ifndef HEADER_MATH_VEC4_H
-#define HEADER_MATH_VEC4_H
+#pragma once
 
-#include "Vec3.hpp"
-#include "Mat4x4.hpp"
+#include "math/Vec3.hpp"
+#include "math/Mat4x4.hpp"
 
 class Vec4{
     public:
@@ -59,5 +58,3 @@ bool operator!=(Vec4 left,Vec4 right);
 
 Vec4 operator*(Vec4 left, Mat4x4 right);
 Vec4 operator*(Mat4x4 left, Vec4 right);
-
-#endif

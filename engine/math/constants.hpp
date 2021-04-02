@@ -1,6 +1,3 @@
-#ifndef HEADER_MATH_CONSTANTS_H
-#define HEADER_MATH_CONSTANTS_H
+#pragma once
 
 #define F_PI 3.14159265358979323846264338328f
-
-#endif

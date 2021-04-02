@@ -1,4 +1,4 @@
-#include "UiInput.hpp"
+#include "ui/UiInput.hpp"
 
 UiPointerEvent::UiPointerEvent(PointerEvent ev){
     pointerId = ev.pointerId;

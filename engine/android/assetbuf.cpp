@@ -1,7 +1,7 @@
-#include "assetbuf.hpp"
-#include "../resource/asset_istream.hpp"
+#include "android/assetbuf.hpp"
+#include "resource/asset_istream.hpp"
+#include "util/log.hpp"
 #include <string.h>
-#include "../util/log.hpp"
 
 asset_istream::asset_istream(std::string file) : std::istream(new assetbuf(file)){
 

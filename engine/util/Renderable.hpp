@@ -1,8 +1,7 @@
-#ifndef HEADER_UTIL_RENDERABLE_H
-#define HEADER_UTIL_RENDERABLE_H
+#pragma once
 
+#include "GL/Shader.hpp"
 #include <string>
-#include "../graphic/Shader.hpp"
 
 class Renderable{
     public:
@@ -14,5 +13,3 @@ class Renderable{
         ) = 0;
         virtual ~Renderable(){}
 };
-
-#endif

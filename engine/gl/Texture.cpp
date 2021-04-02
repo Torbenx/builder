@@ -1,5 +1,5 @@
-#include "Texture.hpp"
-#include "../util/log.hpp"
+#include "GL/Texture.hpp"
+#include "util/log.hpp"
 
 constexpr int channelFormatLookupSize = Texture::Format::Count;
 

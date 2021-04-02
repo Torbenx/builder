@@ -1,6 +1,6 @@
-#include "fullscreen.hpp"
-#include "engine.hpp"
-#include "../util/log.hpp"
+#include "windows/fullscreen.hpp"
+#include "windows/engine.hpp"
+#include "util/log.hpp"
 #include <list>
 
 bool equalDEVMODE(DEVMODE first, DEVMODE second){
@@ -100,7 +100,7 @@ void goFullscreenImpl(FullscreenConfigImpl config){
         width = saved_config.deviceMode.dmPelsWidth;
         height = saved_config.deviceMode.dmPelsHeight;
     }
-    
+
     SetWindowPos(engine_hwnd, HWND_TOPMOST, 0, 0, width, height, 0);
     LOGD("setting %s to: %dx%d@%ld", saved_config.adapterName.c_str(), width, height, saved_config.deviceMode.dmDisplayFrequency);
     long ret;

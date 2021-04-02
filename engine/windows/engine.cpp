@@ -1,16 +1,16 @@
+#include "GL/glwrapper.hpp"
+#include "Renderer.hpp"
+#include "GL/Shader.hpp"
+#include "util/log.hpp"
+#include "input/keycodes.hpp"
+#include "windows/fullscreen.hpp"
+#include "windows/engine.hpp"
 #include <Windows.h>
 #include <stdio.h>
 #include <ctime>
-#include "../gl/glwrapper.hpp"
-#include "../Renderer.hpp"
-#include "../graphic/Shader.hpp"
-#include "../util/log.hpp"
-#include "engine.hpp"
 #include <list>
 #include <map>
-#include "fullscreen.hpp"
 #include <Windowsx.h>
-#include "../input/keycodes.hpp"
 
 const char g_szClassName[] = "myWindowClass";
 

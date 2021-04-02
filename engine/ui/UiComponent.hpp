@@ -1,12 +1,11 @@
-#ifndef HEADER_UI_UICOMPONENT_H
-#define HEADER_UI_UICOMPONENT_H
+#pragma once
 
-#include "TypedSize.hpp"
-#include "../math/Rect.hpp"
-#include "UiSolver.hpp"
+#include "ui/TypedSize.hpp"
+#include "math/Rect.hpp"
+#include "ui/UiSolver.hpp"
+#include "GL/Framebuffer.hpp"
 #include <tgmath.h>
 #include <cmath>
-#include "../graphic/Framebuffer.hpp"
 
 class UiComponent{
     public:
@@ -23,5 +22,3 @@ class UiComponent{
         LazyTypedSizeXY getContentWidthLazy();
         LazyTypedSizeXY getContentHeightLazy();
 };
-
-#endif

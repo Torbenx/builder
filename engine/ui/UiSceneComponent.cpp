@@ -1,5 +1,4 @@
-#include "UiSceneComponent.hpp"
-#include "../fullscreen.hpp"
+#include "ui/UiSceneComponent.hpp"
 
 UiSceneComponent::UiSceneComponent(){
 

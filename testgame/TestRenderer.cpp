@@ -1,13 +1,13 @@
+#include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <util/log.hpp>
 #include <string>
 #include <resource/ObjParser.hpp>
 #include <resource/asset_istream.hpp>
 #include <fstream>
-#include "TestRenderer.hpp"
 #include <util/time.hpp>
 #include <util/target.hpp>
-#include <fullscreen.hpp>
+#include <util/fullscreen.hpp>
 #include <util/draw_util.hpp>
 #include <input/keycodes.hpp>
 #include <turbojpeg.h>

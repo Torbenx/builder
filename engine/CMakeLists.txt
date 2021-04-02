@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
@@ -29,13 +29,11 @@ else()
     message(FATAL_ERROR "Unsupported system: " ${CMAKE_SYSTEM_NAME})
 endif()
 
-add_definitions(-DSHOULD_EXPORT)
-
 add_library(engine SHARED
-    "graphic/CubeMap.cpp"
-    "graphic/Framebuffer.cpp"
-    "graphic/Shader.cpp"
-    "graphic/Texture.cpp"
+    "GL/CubeMap.cpp"
+    "GL/Framebuffer.cpp"
+    "GL/Shader.cpp"
+    "GL/Texture.cpp"
     "math/Mat4x4.cpp"
     "math/Mat3x3.cpp"
     "math/Vec2.cpp"
@@ -45,9 +43,9 @@ add_library(engine SHARED
     "lgraphic/DepthCubeMap.cpp"
     "lgraphic/DepthMap.cpp"
     "lgraphic/LShader.cpp"
-    "lgraphic/light/PointLight.cpp"
-    "lgraphic/light/SpotLight.cpp"
-    "lgraphic/reflection/Reflection.cpp"
+    "lgraphic/PointLight.cpp"
+    "lgraphic/SpotLight.cpp"
+    "lgraphic/Reflection.cpp"
     "resource/ObjParser.cpp"
     "resource/asset_istream.cpp"
     "util/time.cpp"
@@ -73,4 +71,5 @@ add_library(engine SHARED
     ${platform_source}
 )
 
+set_target_properties(engine PROPERTIES UNITY_BUILD ON)
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg)

@@ -1,5 +1,5 @@
+#include "lgraphic/DepthMap.hpp"
 #include <stdio.h>
-#include "DepthMap.hpp"
 
 DepthMap::DepthMap(int width,int height,float _far) :
     Texture(Texture::color(width, height, Texture::Format::RGBA8888).move()),

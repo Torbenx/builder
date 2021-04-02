@@ -1,7 +1,6 @@
-#ifndef HEADER_MATH_RECT_H
-#define HEADER_MATH_RECT_H
+#pragma once
 
-#include "Vec2.hpp"
+#include "math/Vec2.hpp"
 #include <stddef.h>
 #include <array>
 
@@ -25,5 +24,3 @@ class Rect{
         static Rect bltr(float bottom, float left, float top, float right);
         static Rect tlbr(float top, float left, float bottom, float right);
 };
-
-#endif

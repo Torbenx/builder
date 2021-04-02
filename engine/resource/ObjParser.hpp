@@ -1,5 +1,4 @@
-#ifndef HEADER_RESOURCE_OBJPARSER_H
-#define HEADER_RESOURCE_OBJPARSER_H
+#pragma once
 
 #include <istream>
 
@@ -15,5 +14,3 @@ class ObjParser{
         void parse(std::istream& in, int nv, int ni);
         void freeCache();
 };
-
-#endif

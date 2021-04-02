@@ -1,9 +1,8 @@
-#ifndef HEADER_UI_TESTCOMPONENT_H
-#define HEADER_UI_TESTCOMPONENT_H
+#pragma once
 
-#include "UiComponent.hpp"
-#include "../util/Shaders.hpp"
-#include "../graphic/Buffer.hpp"
+#include "ui/UiComponent.hpp"
+#include "util/Shaders.hpp"
+#include "GL/Buffer.hpp"
 
 class TestComponent : public UiComponent{
     public:
@@ -14,5 +13,3 @@ class TestComponent : public UiComponent{
         void draw(Framebuffer&);
         void updateRect(ScreenMetrics&);
 };
-
-#endif

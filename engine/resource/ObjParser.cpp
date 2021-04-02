@@ -1,5 +1,5 @@
-#include "ObjParser.hpp"
-#include "../util/log.hpp"
+#include "resource/ObjParser.hpp"
+#include "util/log.hpp"
 #include <cstring>
 
 #define MAX_POLY_TYPE 4

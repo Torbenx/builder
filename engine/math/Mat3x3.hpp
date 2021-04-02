@@ -1,15 +1,14 @@
-#ifndef HEADER_MATH_MAT3X3_H
-#define HEADER_MATH_MAT3X3_H
+#pragma once
 
-#include "Vec2.hpp"
+#include "math/Vec2.hpp"
 
 /*
-  
+
   Format:
   m[0]  m[3]  m[6]
   m[1]  m[4]  m[7]
   m[2]  m[5]  m[8]
-  
+
 */
 
 class Mat3x3{
@@ -34,5 +33,3 @@ Mat3x3 operator*(Mat3x3 left, Mat3x3 right);
 
 Mat3x3 operator*(Mat3x3 left, float right);
 Mat3x3 operator*(float left, Mat3x3 right);
-
-#endif

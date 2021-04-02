@@ -1,5 +1,5 @@
 #ifdef PLATFORM_WINDOWS
-#include "../windows/glwrapper.hpp"
+#include "windows/glwrapper.hpp"
 #endif
 
 #ifdef PLATFORM_ANDROID

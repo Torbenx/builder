@@ -1,7 +1,6 @@
-#ifndef HEADER_BUILD_RENDERER_H
-#define HEADER_BUILD_RENDERER_H
+#pragma once
 
-#include "Renderer.hpp"
+#include <Renderer.hpp>
 #include "FileExplorer.hpp"
 #include "HeadBar.hpp"
 #include <string>
@@ -21,5 +20,3 @@ class BuildRenderer : public Renderer{
         void setPath(std::string path);
         void drawFrame() override;
 };
-
-#endif
