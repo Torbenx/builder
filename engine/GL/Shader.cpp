@@ -229,14 +229,14 @@ void Shader::attribPointer(Shader::LocationHandle attrib, int offset, int size, 
     glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a.data());
 }
 
-void Shader::uniformTexture(Shader::LocationHandle uniform,Texture& u,GLuint slot){
+void Shader::uniformTexture(Shader::LocationHandle uniform, Texture& u, GLuint slot){
     glActiveTexture(GL_TEXTURE0 + slot);
     u.bind();
     uniform1i(uniform, slot);
 }
 
-void Shader::uniformCubeMap(Shader::LocationHandle uniform,CubeMap& u,GLuint slot){
+void Shader::uniformCubeMap(Shader::LocationHandle uniform, CubeMap& u, GLuint slot){
     glActiveTexture(GL_TEXTURE0 + slot);
     u.bind();
-    uniform1i(uniform,slot);
+    uniform1i(uniform, slot);
 }

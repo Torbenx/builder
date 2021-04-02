@@ -1,16 +1,12 @@
 #include "lgraphic/DepthCubeMap.hpp"
 
-DepthCubeMap::DepthCubeMap(int width, int height, float _far) : depthAttachment(Texture::depth(width, height, 16, true).move()){
+DepthCubeMap::DepthCubeMap(int width, int height, float _far) :
+    depthAttachment(Texture::depth(width, height, 16, true).move()),
+    texture(CubeMap::color(width, height, Texture::Format::RGBA8888).move())
+{
     shader = Shaders::depth();
     this->m_far = _far;
-    texture.init();
-    texture.texturePosX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
-    texture.textureNegX(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
-    texture.texturePosY(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
-    texture.textureNegY(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
-    texture.texturePosZ(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
-    texture.textureNegZ(NULL, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
-    framebuffer.depthAttachment(depthAttachment);
+    framebuffer.attach(depthAttachment);
     framebuffer.clearColor(1, 1, 1, 1);
     framebuffer.viewport(width, height);
 }
@@ -29,7 +25,7 @@ void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int 
     mvpMatrix.model = model;
     shader->uniformVec3(shader->lightPosUniform, position);
     shader->uniform1f(shader->farUniform, m_far);
-    int face,i;
+    int face;
     for(face=0;face<6;face++){
         mvpMatrix.view = Mat4x4::Id;
         m = mvpMatrix.view.matrix;
@@ -70,9 +66,9 @@ void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int 
         }
         mvpMatrix.view *= Mat4x4::translate(position*-1);
         shader->uniformMat4x4(shader->mvpUniform, mvpMatrix.setupMvp());
-        framebuffer.colorAttachment(targets[face], texture);
+        framebuffer.attach(texture, (CubeMap::Face)(GL_TEXTURE_CUBE_MAP_POSITIVE_X+face));
         framebuffer.clear();
-        for(i=0;i<count;i++){
+        for(int i=0;i<count;i++){
             ptrArray[i]->draw(framebuffer, *shader, shader->positionAttrib, shader->modelUniform);
         }
     }

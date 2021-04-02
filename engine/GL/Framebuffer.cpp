@@ -5,6 +5,10 @@ Framebuffer Framebuffer::DEFAULT(true, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
 
 Framebuffer *Framebuffer::currentFramebuffer = &Framebuffer::DEFAULT;
 
+//must match Texture::Type
+GLenum GL_ATTACHMENTS[] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+GLenum GL_BUFFER_BITS[] = { GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT };
+
 Framebuffer::Framebuffer(bool isDefault, GLbitfield clearMask) : isDefault(isDefault), clearMask(clearMask){
     if(isDefault)
         glId = 0;
@@ -24,9 +28,9 @@ void Framebuffer::bind(){
 
     glBindFramebuffer(GL_FRAMEBUFFER, glId);
     currentFramebuffer = this;
-    attach(GL_COLOR_ATTACHMENT0, m_colorAttachment);
-    attach(GL_DEPTH_ATTACHMENT, m_depthAttachment);
-    attach(GL_STENCIL_ATTACHMENT, m_stencilAttachment);
+    if(attachments[Texture::Type::Color].texture) applyAttchment(Texture::Type::Color);
+    if(attachments[Texture::Type::Depth].texture) applyAttchment(Texture::Type::Depth);
+    if(attachments[Texture::Type::Stencil].texture) applyAttchment(Texture::Type::Stencil);
     GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
     glClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
     glViewport(offsetX, offsetY, width, height);
@@ -40,68 +44,26 @@ void Framebuffer::clear(){
     glClear(clearMask);
 }
 
-bool Framebuffer::attach(GLenum attachment, Attachment& att){
-    switch(att.type){
-        case Attachment::Type::Empty:
-            return false;
-        case Attachment::Type::TextureAttachemnt:
-            if(att.data.texture->isRenderbuffer)
-                glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, att.data.texture->glId);
-            else
-                glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, att.data.texture->target, att.data.texture->glId, 0);
-            return true;
-        case Attachment::Type::CubeMapAttachment:
-            glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, att.data.cube.target, att.data.cube.cubeMap->glId, 0);
-            return true;
-        default:
-            LOGE("invalid attchment type!!!");
-            return false;
-    }
+void Framebuffer::applyAttchment(Texture::Type type){
+    if(attachments[type].texture->isRenderbuffer)
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], GL_RENDERBUFFER, attachments[type].texture->glId);
+    else
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], attachments[type].subTarget, attachments[type].texture->glId, 0);
 }
 
-void Framebuffer::colorAttachment(Texture& a){
-    m_colorAttachment.type = Attachment::Type::TextureAttachemnt;
-    m_colorAttachment.data.texture = &a;
-    if(isCurrent()) attach(GL_COLOR_ATTACHMENT0, m_colorAttachment);
-    clearMask |= GL_COLOR_BUFFER_BIT;
+void Framebuffer::attach(Texture& texture){
+    attachInteral(texture, texture.target);
 }
 
-void Framebuffer::colorAttachment(GLenum target, CubeMap& a){
-    m_colorAttachment.type = Attachment::Type::CubeMapAttachment;
-    m_colorAttachment.data.cube.cubeMap = &a;
-    m_colorAttachment.data.cube.target = target;
-    if(isCurrent()) attach(GL_COLOR_ATTACHMENT0, m_colorAttachment);
-    clearMask |= GL_COLOR_BUFFER_BIT;
+void Framebuffer::attach(CubeMap& cubeMap, CubeMap::Face face){
+    attachInteral(cubeMap, face);
 }
 
-void Framebuffer::depthAttachment(Texture& a){
-    m_depthAttachment.type = Attachment::Type::TextureAttachemnt;
-    m_depthAttachment.data.texture = &a;
-    if(isCurrent()) attach(GL_DEPTH_ATTACHMENT, m_depthAttachment);
-    clearMask |= GL_DEPTH_BUFFER_BIT;
-}
-
-void Framebuffer::depthAttachment(GLenum target, CubeMap& a){
-    m_depthAttachment.type = Attachment::Type::CubeMapAttachment;
-    m_depthAttachment.data.cube.cubeMap = &a;
-    m_depthAttachment.data.cube.target = target;
-    if(isCurrent()) attach(GL_DEPTH_ATTACHMENT, m_depthAttachment);
-    clearMask |= GL_DEPTH_BUFFER_BIT;
-}
-
-void Framebuffer::stencilAttachment(Texture& a){
-    m_stencilAttachment.type = Attachment::Type::TextureAttachemnt;
-    m_stencilAttachment.data.texture = &a;
-    if(isCurrent()) attach(GL_STENCIL_ATTACHMENT, m_stencilAttachment);
-    clearMask |= GL_STENCIL_BUFFER_BIT;
-}
-
-void Framebuffer::stencilAttachment(GLenum target, CubeMap& a){
-    m_stencilAttachment.type = Attachment::Type::CubeMapAttachment;
-    m_stencilAttachment.data.cube.cubeMap = &a;
-    m_stencilAttachment.data.cube.target = target;
-    if(isCurrent()) attach(GL_STENCIL_ATTACHMENT, m_stencilAttachment);
-    clearMask |= GL_STENCIL_BUFFER_BIT;
+void Framebuffer::attachInteral(Texture& texture, GLenum subTarget){
+    attachments[texture.type].texture = &texture;
+    attachments[texture.type].subTarget = subTarget;
+    clearMask |= GL_BUFFER_BITS[texture.type];
+    if(isCurrent()) applyAttchment(texture.type);
 }
 
 void Framebuffer::clearColor(float r, float g, float b, float a){
@@ -126,7 +88,7 @@ void Framebuffer::viewport(int offsetX, int offsetY, int width, int height){
     if(isCurrent()) glViewport(offsetX, offsetY, width, height);
 }
 
-void Framebuffer::colorMask(bool r,bool g,bool b,bool a){
+void Framebuffer::colorMask(bool r, bool g, bool b, bool a){
     rMask = r;
     gMask = g;
     bMask = b;

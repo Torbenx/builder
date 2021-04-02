@@ -49,12 +49,8 @@ public:
     }
 
 
-    void colorAttachment(Texture& a);
-    void colorAttachment(GLenum target,CubeMap& a);
-    void depthAttachment(Texture& a);
-    void depthAttachment(GLenum target,CubeMap& a);
-    void stencilAttachment(Texture& a);
-    void stencilAttachment(GLenum target, CubeMap& a);
+    void attach(Texture& a);
+    void attach(CubeMap& a, CubeMap::Face);
 
     void clearColor(float r, float g, float b, float a);
     void clearColor(Vec4 color);
@@ -65,30 +61,15 @@ public:
     void stencilMask(GLbitfield s);
 
 private:
-    struct Attachment{
-        enum Type{
-            Empty,
-            TextureAttachemnt,
-            CubeMapAttachment,
-        } type;
-
-        union{
-            Texture *texture;
-            struct{
-                CubeMap *cubeMap;
-                GLenum target;
-            } cube;
-        } data;
-
-        Attachment() : type(Type::Empty) {}
-    };
-
     static Framebuffer *currentFramebuffer;
 
+    struct {
+        Texture *texture;
+        GLenum subTarget;
+    } attachments[3];
     GLuint glId;
-    bool isDefault;
-    Attachment m_colorAttachment, m_depthAttachment, m_stencilAttachment;
     Vec4 m_clearColor;
+    bool isDefault;
     bool rMask = true, gMask = true, bMask = true, aMask = true, dMask = true;
     GLbitfield sMask = 0xffffffff;
     GLbitfield clearMask = 0;
@@ -97,6 +78,7 @@ private:
     Framebuffer(bool isDefault, GLbitfield clearMask);
     Framebuffer(const Framebuffer& other);
 
+    void attachInteral(Texture& texture, GLenum subTarget);
+    void applyAttchment(Texture::Type type);
     bool isCurrent() { return this == currentFramebuffer; }
-    bool attach(GLenum, Attachment&);
 };

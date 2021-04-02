@@ -12,6 +12,10 @@ public:
         Count = RGBA8888+1
     };
 
+    enum Type{
+        Color = 0, Depth = 1, Stencil = 2,
+    };
+
     static GLint glFormatOf(Format);
     static GLenum glBaseFormatOf(Format);
     static GLenum glTypeOf(Format);
@@ -46,13 +50,14 @@ public:
     //void subTexture(GLvoid *data, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum type);
 
 protected:
-    Texture(bool isRenderbuffer, int width, int height, GLenum target=GL_TEXTURE_2D, GLenum binding=GL_TEXTURE_BINDING_2D);
+    Texture(Type type, bool isRenderbuffer, GLenum target=GL_TEXTURE_2D, GLenum binding=GL_TEXTURE_BINDING_2D);
     GLuint glId;
     GLenum target;
     GLenum binding;
+    Type type;
+    bool isRenderbuffer;
     friend Framebuffer;
 
 private:
     Texture(const Texture& other);
-    bool isRenderbuffer;
 };

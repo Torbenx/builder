@@ -77,8 +77,8 @@ public:
     void uniformVec3(LocationHandle uniform,Vec3 u);
     void uniformVec4(LocationHandle uniform,Vec4 u);
     void uniformMat4x4(LocationHandle uniform,Mat4x4 u);
-    void uniformTexture(LocationHandle uniform,Texture& u,GLuint slot);
-    void uniformCubeMap(LocationHandle uniform,CubeMap& u,GLuint slot);
+    void uniformTexture(LocationHandle uniform, Texture& u, GLuint slot);
+    void uniformCubeMap(LocationHandle uniform, CubeMap& u, GLuint slot);
 
     void attribPointer(LocationHandle attrib, int size, void* a);
     void attribPointer(LocationHandle attrib, int offset, int size, int stride, void* a);

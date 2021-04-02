@@ -78,7 +78,7 @@ TextFormat::~TextFormat(){
 
 
 
-TextTexture::TextTexture(int width, int height) : Texture(false, width, height){
+TextTexture::TextTexture(int width, int height) : Texture(Color, false){
     DxTextTextureImpl *impl = new DxTextTextureImpl();
     internal = impl;
 

@@ -7,7 +7,7 @@ DepthMap::DepthMap(int width, int height) :
 {
     shader = Shaders::depth();
     //framebuffer.colorAttachment(*this);
-    framebuffer.depthAttachment(depthAttachment);
+    framebuffer.attach(depthAttachment);
     framebuffer.viewport(width, height);
     //framebuffer.clearColor(1, 1, 1, 1);
 }

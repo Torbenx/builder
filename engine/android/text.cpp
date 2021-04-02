@@ -41,7 +41,8 @@ TextFormat::~TextFormat(){
     delete format;
 }
 
-TextTexture::TextTexture(int width, int height) : Texture(false, width, height, GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_BINDING_EXTERNAL_OES){
+
+TextTexture::TextTexture(int width, int height) : Texture(Color, false, GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_BINDING_EXTERNAL_OES){
     SurfaceTextureTextImpl *impl = new SurfaceTextureTextImpl();
     internal = impl;
     impl->obj = android_textTextureConstructor(glId, width, height);

@@ -8,8 +8,8 @@ Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float 
     this->position = position;
     this->factor = factor;
 
-    framebuffer.colorAttachment(texture);
-    framebuffer.depthAttachment(depthAttachment);
+    framebuffer.attach(texture);
+    framebuffer.attach(depthAttachment);
     framebuffer.viewport(width, height);
 }
 

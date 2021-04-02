@@ -29,7 +29,7 @@ GLenum Texture::glTypeOf(Texture::Format f){
 }
 
 return_ptr<Texture> Texture::depth(int width, int height, int bitdepth, bool renderingOnly){
-    Texture *tex = new Texture(renderingOnly, width, height);
+    Texture *tex = new Texture(Depth, renderingOnly);
     GLenum format;
     if(bitdepth == 16){
         format = GL_DEPTH_COMPONENT16;
@@ -50,14 +50,14 @@ return_ptr<Texture> Texture::depth(int width, int height, int bitdepth, bool ren
 }
 
 return_ptr<Texture> Texture::stencil(int width, int height){
-    Texture *tex = new Texture(true, width, height);
+    Texture *tex = new Texture(Stencil, true);
     glBindRenderbuffer(GL_RENDERBUFFER, tex->glId);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
     return tex;
 }
 
 return_ptr<Texture> Texture::color(void *data, int width, int height, Texture::Format format){
-    Texture *tex = new Texture(false, width, height);
+    Texture *tex = new Texture(Color, false);
     glBindTexture(GL_TEXTURE_2D, tex->glId);
     glTexImage2D(GL_TEXTURE_2D, 0, glBaseFormatOf(format), width, height, 0, glBaseFormatOf(format), glTypeOf(format), data);
     tex->minifyFilter(Filter::Linear);
@@ -65,7 +65,7 @@ return_ptr<Texture> Texture::color(void *data, int width, int height, Texture::F
 }
 
 return_ptr<Texture> Texture::color(int width, int height, Texture::Format format, bool renderingOnly){
-    Texture *tex = new Texture(renderingOnly, width, height);
+    Texture *tex = new Texture(Color, renderingOnly);
     if(renderingOnly){
         glBindRenderbuffer(GL_RENDERBUFFER, tex->glId);
         glRenderbufferStorage(GL_RENDERBUFFER, glFormatOf(format), width, height);
@@ -78,13 +78,13 @@ return_ptr<Texture> Texture::color(int width, int height, Texture::Format format
 }
 
 Texture::Texture(Texture&& other) :
-    isRenderbuffer(other.isRenderbuffer), glId(other.glId), target(other.target), binding(other.binding)
+    type(other.type), isRenderbuffer(other.isRenderbuffer), glId(other.glId), target(other.target), binding(other.binding)
 {
     other.glId = 0;
 }
 
-Texture::Texture(bool isRenderbuffer, int width, int height, GLenum target, GLenum binding) :
-    isRenderbuffer(isRenderbuffer), target(target), binding(binding)
+Texture::Texture(Type type, bool isRenderbuffer, GLenum target, GLenum binding) :
+    type(type), isRenderbuffer(isRenderbuffer), target(target), binding(binding)
 {
     if(isRenderbuffer){
         glGenRenderbuffers(1, &glId);
