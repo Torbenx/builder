@@ -14,8 +14,8 @@ class TextComponent : public TextureComponent{
         bool noBreaks = false;
         TextComponent();
         void draw(Framebuffer&);
-        void updateRect();
-        void updateContent();
+        void updateRect(ScreenMetrics&);
+        void updateContent(ScreenMetrics&);
         TypedSizeXY getContentWidth();
         TypedSizeXY getContentHeight();
         ~TextComponent();

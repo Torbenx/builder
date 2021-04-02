@@ -14,7 +14,7 @@ void CubeMapComponent::draw(Framebuffer& framebuffer){
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
 
-void CubeMapComponent::updateRect(){
+void CubeMapComponent::updateRect(ScreenMetrics&){
     coords.update(rect.corners());
 }
 

@@ -12,7 +12,7 @@ class TestComponent : public UiComponent{
         Buffer<Vec2> coords;
         TestComponent();
         void draw(Framebuffer&);
-        void updateRect();
+        void updateRect(ScreenMetrics&);
 };
 
 #endif

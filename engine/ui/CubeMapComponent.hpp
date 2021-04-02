@@ -12,7 +12,7 @@ class CubeMapComponent : public UiComponent{
         Buffer<Vec3> texCoords;
         CubeMapComponent(bool createShader=true);
         void draw(Framebuffer&);
-        void updateRect();
+        void updateRect(ScreenMetrics&);
         virtual void doUniforms(){}
         virtual void positiveX(Rect rect);
         virtual void negativeX(Rect rect);

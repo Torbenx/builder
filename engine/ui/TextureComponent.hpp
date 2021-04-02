@@ -13,7 +13,7 @@ class TextureComponent : public UiComponent{
         TextureComponent(bool createShader = true);
         void setTexRect(Rect rect);
         void draw(Framebuffer&);
-        void updateRect();
+        void updateRect(ScreenMetrics&);
         virtual void doUniforms(){}
 };
 

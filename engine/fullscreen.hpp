@@ -2,12 +2,12 @@
 #define HEADER_FULLSCREEN_H
 
 class FullscreenConfig{
-    public:
-        static FullscreenConfig DEFAULT;
-        void *impl;
-        FullscreenConfig();
-        FullscreenConfig(const FullscreenConfig& config);
-        ~FullscreenConfig();
+public:
+    static FullscreenConfig DEFAULT;
+    void *impl;
+    FullscreenConfig();
+    FullscreenConfig(const FullscreenConfig& config);
+    ~FullscreenConfig();
 };
 
 bool isFullscreen();

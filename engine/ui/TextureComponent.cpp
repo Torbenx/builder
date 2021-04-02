@@ -15,7 +15,7 @@ void TextureComponent::draw(Framebuffer& framebuffer){
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
 
-void TextureComponent::updateRect(){
+void TextureComponent::updateRect(ScreenMetrics&){
     coords.update(rect.corners());
 }
 

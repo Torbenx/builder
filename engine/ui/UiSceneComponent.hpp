@@ -16,7 +16,7 @@ class UiSceneComponent : public UiComponent{
         std::list<UiRendererClickable> clickables;
         UiSceneComponent();
         void makeClickable(UiComponent& comp, int id);
-        void updateRect();
+        void updateRect(ScreenMetrics&);
         void draw(Framebuffer&){}
         virtual void pointer(PointerEvent event);
         virtual void onClick(int id){}

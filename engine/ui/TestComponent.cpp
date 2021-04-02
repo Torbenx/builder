@@ -9,6 +9,6 @@ void TestComponent::draw(Framebuffer& framebuffer){
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
 
-void TestComponent::updateRect(){
+void TestComponent::updateRect(ScreenMetrics&){
     this->coords.update(rect.corners());
 }

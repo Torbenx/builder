@@ -14,15 +14,16 @@ HeadBar::HeadBar(void *renderer){
 void HeadBar::setPath(std::string path){
     title.text = path;
     if(hasMetrics){
-        updateRect();
+        updateRect(metrics);
     }
 }
 
-void HeadBar::updateRect(){
-    title.metrics = metrics;
-    title.updateContent();
-    subTitle.metrics = metrics;
-    subTitle.updateContent();
+void HeadBar::updateRect(ScreenMetrics& metrics){
+    hasMetrics = true;
+    this->metrics = metrics;
+
+    title.updateContent(metrics);
+    subTitle.updateContent(metrics);
     scene.clear();
     /*if(title.textFormat->getWidth() > metrics.x.size){
         scene.layout(&title)
@@ -49,8 +50,7 @@ void HeadBar::updateRect(){
         .centerHorizontal(&title, 0.75);
     scene.layout(&box)
         .align(&title);
-    hasMetrics = true;
-    UiSceneComponent::updateRect();
+    UiSceneComponent::updateRect(metrics);
 }
 
 void HeadBar::draw(Framebuffer& framebuffer){

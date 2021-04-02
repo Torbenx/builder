@@ -7,7 +7,7 @@ TextComponent::TextComponent() : TextureComponent(false){
     shader = Shaders::text();
 }
 
-void TextComponent::updateContent(){
+void TextComponent::updateContent(ScreenMetrics& metrics){
     if(textFormat){
         delete textFormat;
     }
@@ -22,19 +22,23 @@ void TextComponent::updateContent(){
     texture->wrappingMode(Texture::WrappingMode::ClampBorder, Texture::WrappingMode::ClampBorder);
 }
 
-void TextComponent::updateRect(){
-    TextureComponent::updateRect();
-    if(!noBreaks)updateContent();
+void TextComponent::updateRect(ScreenMetrics& metrics){
+    TextureComponent::updateRect(metrics);
+    if(!noBreaks) updateContent(metrics);
     Rect texRect = Rect::bltr(rect.height() / getContentHeight().toGL(metrics), 0.0f, 0.0f, rect.width() / getContentWidth().toGL(metrics));
     setTexRect(texRect);
 }
 
 TypedSizeXY TextComponent::getContentWidth(){
-    return TypedSize::pixels(textFormat->getWidth()).asXSize();
+    if(textFormat)
+        return TypedSize::pixels(textFormat->getWidth()).asXSize();
+    return TypedSize::nan.asXSize();
 }
 
 TypedSizeXY TextComponent::getContentHeight(){
-    return TypedSize::pixels(textFormat->getHeight()).asYSize();
+    if(textFormat)
+        return TypedSize::pixels(textFormat->getHeight()).asYSize();
+    return TypedSize::nan.asYSize();
 }
 
 void TextComponent::draw(Framebuffer& framebuffer){

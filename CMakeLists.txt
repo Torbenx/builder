@@ -23,6 +23,8 @@ function(add_assets _TARGET)
     add_dependencies(${_TARGET} ${_TARGET}_assets)
 endfunction()
 
+add_subdirectory(libs)
+
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     add_definitions(-DPLATFORM_WINDOWS)
@@ -31,6 +33,9 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
     set(ASSETS_OUTPUT_DIR ${CMAKE_BINARY_DIR})
+
+    include_directories(libs/EGL/api)
+    include_directories(libs/OpenGL/api)
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
@@ -54,11 +59,9 @@ else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
 endif()
 
-add_subdirectory(libs)
-
 include_directories(libs/libjpeg-turbo)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2a")
+set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(engine)
 

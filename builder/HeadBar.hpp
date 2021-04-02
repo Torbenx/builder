@@ -12,10 +12,11 @@ class HeadBar : public UiSceneComponent{
         TextComponent subTitle;
         TestComponent box;
         bool hasMetrics = false;
+        ScreenMetrics metrics;
 
         HeadBar(void *renderer);
         void setPath(std::string path);
-        void updateRect();
+        void updateRect(ScreenMetrics&);
         void draw(Framebuffer&);
         ~HeadBar();
 };

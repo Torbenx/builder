@@ -6,12 +6,13 @@ FileExplorer::FileExplorer(void *renderer){
     this->renderer = renderer;
 }
 
-void FileExplorer::updateRect(){
+void FileExplorer::updateRect(ScreenMetrics& metrics){
     if(!hasMetrics){
         hasMetrics = true;
+        this->metrics = metrics;
         setPath(path);
     }
-    UiSceneComponent::updateRect();
+    UiSceneComponent::updateRect(metrics);
 }
 
 void FileExplorer::setPath(std::string path){
@@ -71,10 +72,9 @@ void FileExplorer::setPath(std::string path){
     }
     if(hasMetrics){
         for(auto it=fileNameComps.begin();it!=fileNameComps.end();it++){
-            (*it)->metrics = metrics;
-            (*it)->updateContent();
+            (*it)->updateContent(metrics);
         }
-        UiSceneComponent::updateRect();
+        UiSceneComponent::updateRect(metrics);
     }
 }
 

@@ -1,6 +1,8 @@
 #ifndef HEADER_UI_TYPED_SIZE_H
 #define HEADER_UI_TYPED_SIZE_H
 
+#include "../util/target.hpp"
+
 struct SizeMetrics{
     int size;
     int dpi;
@@ -11,7 +13,7 @@ struct ScreenMetrics{
     SizeMetrics y;
 
     int width() { return x.size; }
-    int height() {return y.size; }
+    int height() { return y.size; }
 };
 
 enum TYPED_SIZE_TYPE{

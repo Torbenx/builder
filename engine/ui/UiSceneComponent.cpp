@@ -2,7 +2,7 @@
 #include "../fullscreen.hpp"
 
 UiSceneComponent::UiSceneComponent(){
-    
+
 }
 
 void UiSceneComponent::makeClickable(UiComponent& comp, int id){
@@ -12,7 +12,7 @@ void UiSceneComponent::makeClickable(UiComponent& comp, int id){
     clickables.push_back(clickable);
 }
 
-void UiSceneComponent::updateRect(){
+void UiSceneComponent::updateRect(ScreenMetrics& metrics){
     scene.metrics = metrics;
     scene.setParent(rect);
     scene.build();

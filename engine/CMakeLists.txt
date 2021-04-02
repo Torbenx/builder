@@ -29,6 +29,7 @@ else()
     message(FATAL_ERROR "Unsupported system: " ${CMAKE_SYSTEM_NAME})
 endif()
 
+add_definitions(-DSHOULD_EXPORT)
 
 add_library(engine SHARED
     "graphic/CubeMap.cpp"
@@ -72,4 +73,4 @@ add_library(engine SHARED
     ${platform_source}
 )
 
-target_link_libraries(engine ${platform_libs} turbojpeg)
+target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg)

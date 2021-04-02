@@ -46,7 +46,6 @@ void UiScene::build(){
     solver.solve();
 
     for(auto it=components.begin();it!=components.end();it++){
-        (*it)->metrics = metrics;
         Rect rect = Rect::bltr(
             solver.getSolution((*it)->base+UI_VAR_BOTTOM),
             solver.getSolution((*it)->base+UI_VAR_LEFT),
@@ -58,7 +57,7 @@ void UiScene::build(){
         if(std::isnan(rect.left)) LOGW("{%s}.left not determined",typeid(*it).name());
         if(std::isnan(rect.right)) LOGW("{%s}.right not determined",typeid(*it).name());
         (*it)->rect = rect;
-        (*it)->updateRect();
+        (*it)->updateRect(metrics);
     }
 
     solver.freeSolution();

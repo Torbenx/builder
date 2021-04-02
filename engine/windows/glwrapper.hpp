@@ -5,11 +5,14 @@
 #ifndef HEADER_GL_GLWRAPPER_H
 #define HEADER_GL_GLWRAPPER_H
 
+#include <windows.h>
 #include <GL/gl.h>
 #include <GL/wglext.h>
 #include <GL/glcorearb.h>
 
 void glwrapper_init();
+
+extern "C" {
 
 extern PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
 extern PFNGLDEBUGMESSAGECALLBACKARBPROC glDebugMessageCallbackARB;
@@ -182,5 +185,7 @@ extern PFNGLVERTEXATTRIB4USVPROC glVertexAttrib4usv;
 extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
 extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
 extern PFNGLGETSHADERIVPROC glGetShaderiv;
+
+}
 
 #endif

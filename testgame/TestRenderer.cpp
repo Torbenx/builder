@@ -155,8 +155,7 @@ void TestRenderer::change(int newWidth, int newHeight){
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
 
-    textComp.metrics = metrics;
-    textComp.updateContent();
+    textComp.updateContent(metrics);
     uiScene.metrics = metrics;
     uiScene.build();
 }
@@ -237,7 +236,7 @@ void TestRenderer::drawFrame(){
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
         textComp.text = ss.str();
-        textComp.updateContent();
+        textComp.updateContent(uiScene.metrics);
         uiScene.build();
 
         lsecond = now;

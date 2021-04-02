@@ -11,13 +11,12 @@
 class UiComponent{
     public:
         Rect rect;
-        ScreenMetrics metrics;
         ui_var_t base = UI_VAR_INVALID;
 
-        virtual void updateContent(){}
+        virtual void updateContent(ScreenMetrics&){}
         virtual TypedSizeXY getContentWidth(){ return TypedSize::nan.asXSize(); }
         virtual TypedSizeXY getContentHeight(){ return TypedSize::nan.asYSize(); }
-        virtual void updateRect() = 0;
+        virtual void updateRect(ScreenMetrics&) = 0;
         virtual void draw(Framebuffer&) = 0;
         virtual ~UiComponent(){}
 
