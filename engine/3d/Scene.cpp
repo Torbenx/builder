@@ -117,7 +117,7 @@ void Scene::doDraw(Framebuffer& framebuffer, MvpMatrix& mvp, bool drawReflection
                 shader.data.texPositionAttribs[i] = builder.addAttrib("vec2", "a_texCoord");
                 builder.addVarying("vec2", "v_texCoord");
                 builder.vMain << "v_texCoord = a_texCoord;\n";
-                builder.fMain << "vec3 texColor = texture2D(u_texture, v_texCoord).rgb;\n";
+                builder.fMain << "vec3 texColor = texture(u_texture, v_texCoord).rgb;\n";
                 builder.fragmentDiffuseColor = "texColor";
             }
             shader.data.attribs = new Shader::LocationHandle[colors.nAttribs];

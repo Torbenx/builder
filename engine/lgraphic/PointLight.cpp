@@ -34,7 +34,7 @@ void PointLight::addTo(LShaderBuilder& s){
     s.fMain << "const float " << _far << " = " << buff << ";\n";
 
     s.fMain << "vec3 " << direction << " = " << LShader::WORLD_POSITION << " - " << lightPosUniform << ";\n";
-    s.fMain << "float " << depth << " = dot(vec4(" << _far << "," << _far << "/255.0," << _far << "/255.0/255.0," << _far << "/255.0/255.0/255.0),textureCube(" << textureUniform << "," << direction << "));\n";
+    s.fMain << "float " << depth << " = dot(vec4(" << _far << "," << _far << "/255.0," << _far << "/255.0/255.0," << _far << "/255.0/255.0/255.0), texture(" << textureUniform << "," << direction << "));\n";
     s.fMain << "float " << distance << " = length(" << direction << ");\n";
     s.fMain << direction << " /= " << distance << ";\n";
     s.fMain << "if(" << distance << "<=" << depth << "*1.01){\n";

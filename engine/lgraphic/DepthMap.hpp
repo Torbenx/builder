@@ -11,9 +11,8 @@ class DepthMap : public Texture{
     public:
         Texture depthAttachment;
         Framebuffer framebuffer;
-        float m_far;
         std::shared_ptr<SimpleDepthShader> shader;
-        DepthMap(int width, int height, float far);
+        DepthMap(int width, int height);
         ~DepthMap();
         void draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count);
 };

@@ -14,7 +14,7 @@ void SimpleTextureShader::applySimpleTextureShader(ShaderBuilder& b, const std::
 
 void SimpleTextShader::applySimpleTextShader(ShaderBuilder& b){
     b.fInit << TEXT_TEXTURE_GLSL_HEADER;
-    applySimpleTextureShader(b, TEXT_TEXTURE_GLSL_SAMPLER, "texture2D");
+    applySimpleTextureShader(b, TEXT_TEXTURE_GLSL_SAMPLER, "texture");
 }
 
 void SimpleDepthShader::applySimpleDepthShader(ShaderBuilder& b){
@@ -63,7 +63,7 @@ void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::
 }
 
 void SimpleDepthMapShader::applySimpleDepthMapShader(ShaderBuilder& b){
-    applySimpleTextureShader(b, "sampler2D", "texture2D");
+    applySimpleTextureShader(b, "sampler2D", "texture");
     farUniform = b.addFragmentUniform("float", "u_far");
     b.fMain <<
     "   vec4 bits = vec4(u_far,u_far/255.0,u_far/255.0/255.0,u_far/255.0/255.0/255.0);\n"

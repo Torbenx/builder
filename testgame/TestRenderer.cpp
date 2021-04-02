@@ -23,19 +23,19 @@ TestRenderer::TestRenderer() :
             Vec3(0,1,-2),
             1024,1024,
             Vec3(1,1,1)*4.0f,
-            1,
+            0.5f,
             100
         ),
         spotLight(
             Vec3(0,3.4,0),
             Vec3(0,-1,0),
-            F_PI*0.6f,
+            F_PI*0.4f,
             F_PI*0.4f,
             Vec3(1,0,0),
             2048, 2048,
             Vec3(1,1,1)*8.0f,
-            1,
-            100
+            0.5f,
+            30
         ),
         ambientLight(Vec3(1, 1, 1)*1.0f),
         reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.3f),
@@ -86,8 +86,8 @@ TestRenderer::TestRenderer() :
     textComp.textColor = Vec4(1, 0, 0, 1);
     textComp.noBreaks = true;
 
-    cubeComp.farDepth = 5.0f;
-    cubeComp.texture = &spotLight.depthMap;
+    cubeComp.farDepth = 1.0f;
+    cubeComp.texture = &spotLight.depthMap.depthAttachment;
 
     refComp.texture = &reflection.texture;
 
@@ -106,7 +106,7 @@ TestRenderer::TestRenderer() :
 
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
-    parser.parse(file, 16000, 16000);
+    parser.parse(file, 30000, 30000);
     pawnVertex = Buffer<float>::upload(parser.vertex, parser.vertexCount*parser.dim).unique();
     pawnTexCoords = Buffer<float>::upload(parser.texCoords, parser.vertexCount*2).unique();
     pawnNormals = Buffer<float>::upload(parser.normals, parser.vertexCount*parser.dim).unique();

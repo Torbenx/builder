@@ -56,7 +56,7 @@ static std::shared_ptr<type> name(){ \
 
 class Shaders{
 public:
-    DECLARE_SHADER(texture, SimpleTextureShader, "sampler2D", "texture2D")
+    DECLARE_SHADER(texture, SimpleTextureShader, "sampler2D", "texture")
     DECLARE_SHADER(depth, SimpleDepthShader)
     DECLARE_SHADER(text, SimpleTextShader)
     DECLARE_SHADER(color, SingleColorShader)

@@ -150,8 +150,8 @@ Mat4x4 Mat4x4::frustum(float left, float right, float bottom, float top, float _
     float y = 2.0f * _near * r_height;
     float a = (right + left) * r_width;
     float b = (top + bottom) * r_height;
-    float c = _far * r_depth;
-    float d = _far * _near * r_depth;
+    float c = (_near + _far) * r_depth;
+    float d = 2.0f * _far * _near * r_depth;
 
     m[ 0] = x;
     m[ 1] = 0.0f;

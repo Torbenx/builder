@@ -1,10 +1,10 @@
-// 
+//
 // Created by Torben Thaysen on 03.02.2016.
 //
 
 #pragma once
 
-//#define VALIDATE_GL
+#define VALIDATE_GL
 
 #ifdef PLATFORM_WINDOWS
 

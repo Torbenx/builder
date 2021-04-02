@@ -29,7 +29,7 @@ void Reflection::addTo(LShaderBuilder& s){
     s.vMain << positionVarying << " = " << LShader::SCREEN_POSITION << ";\n";
     char buff[100];
     sprintf(buff, "%f", factor);
-    s.fMain << "vec3 " << color <<" = "<< buff << " * texture2D(" << textureUniform << ",(" << positionVarying << ".xy/" << positionVarying << ".w+1.0)/2.0).rgb;\n";
+    s.fMain << "vec3 " << color <<" = "<< buff << " * texture(" << textureUniform << ",(" << positionVarying << ".xy/" << positionVarying << ".w+1.0)/2.0).rgb;\n";
     s.fragmentColor = color;
     s.addEffect(*this, data);
 }

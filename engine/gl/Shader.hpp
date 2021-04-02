@@ -117,7 +117,7 @@ public:
     Shader::LocationHandle addUniform(std::string type, std::string name, bool vertex);
     Shader::LocationHandle addVertexUniform(std::string type, std::string name){ return addUniform(type, name, true); }
     Shader::LocationHandle addFragmentUniform(std::string type, std::string name){ return addUniform(type, name, false); }
-    void addVarying(std::string type, std::string name);
+    void addVarying(std::string type, std::string name, std::string qualifier="");
     int nextTextureSlot();
 
 protected:

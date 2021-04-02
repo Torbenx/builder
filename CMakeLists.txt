@@ -23,8 +23,6 @@ function(add_assets _TARGET)
     add_dependencies(${_TARGET} ${_TARGET}_assets)
 endfunction()
 
-add_subdirectory(libs)
-
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     add_definitions(-DPLATFORM_WINDOWS)
@@ -58,6 +56,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
 endif()
+
+add_subdirectory(libs)
 
 include_directories(libs/libjpeg-turbo)
 include_directories(engine)

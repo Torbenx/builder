@@ -3,13 +3,13 @@
 
 std::string ShaderBuilder::buildVertexSource(){
     std::ostringstream s;
-    s << vInit.str() << "void main(){\n" << vMain.str() << "}";
+    s << "#version 300 es\n" << vInit.str() << "void main(){\n" << vMain.str() << "}";
     return s.str();
 }
 
 std::string ShaderBuilder::buildFragmentSource(){
     std::ostringstream s;
-    s << fInit.str() << "void main(){\n" << fMain.str() << "}";
+    s << "#version 300 es\n" << fInit.str() << "out vec4 gl_FragColor;\n" << "void main(){\n" << fMain.str() << "}";
     return s.str();
 }
 
@@ -24,7 +24,7 @@ std::string ShaderBuilder::uniqueName(std::string name){
 }
 
 Shader::LocationHandle ShaderBuilder::addAttrib(std::string type, std::string name){
-    vInit << "attribute " << type << " " << name << ";\n";
+    vInit << "in " << type << " " << name << ";\n";
     GLuint handle = locations.size();
     locations.push_back(Shader::Location(name, false));
     return { handle };
@@ -37,9 +37,9 @@ Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string n
     return { handle };
 }
 
-void ShaderBuilder::addVarying(std::string type, std::string name){
-    vInit << "varying " << type << " " << name << ";\n";
-    fInit << "varying " << type << " " << name << ";\n";
+void ShaderBuilder::addVarying(std::string type, std::string name, std::string qualifiers){
+    vInit << qualifiers << "out " << type << " " << name << ";\n";
+    fInit << qualifiers << "in " << type << " " << name << ";\n";
 }
 
 int ShaderBuilder::nextTextureSlot(){
