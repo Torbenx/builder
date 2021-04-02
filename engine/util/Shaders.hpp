@@ -7,7 +7,7 @@
 
 struct SimpleTextureShader : public Shader{
     LocationHandle positionAttrib, texCoordAttrib, textureUniform;
-    void applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler, const std::string& texFunc);
+    void applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler);
 };
 
 struct SimpleTextShader : public SimpleTextureShader{
@@ -26,7 +26,7 @@ struct SingleColorShader : public Shader{
 
 struct SimpleCubeMapShader : public Shader{
     LocationHandle positionAttrib, texCoordAttrib, cubeMapUniform;
-    void applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler, const std::string& texFunc);
+    void applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler);
 };
 
 struct SimpleDepthMapShader : public SimpleTextureShader{
@@ -56,11 +56,11 @@ static std::shared_ptr<type> name(){ \
 
 class Shaders{
 public:
-    DECLARE_SHADER(texture, SimpleTextureShader, "sampler2D", "texture")
+    DECLARE_SHADER(texture, SimpleTextureShader, "sampler2D")
     DECLARE_SHADER(depth, SimpleDepthShader)
     DECLARE_SHADER(text, SimpleTextShader)
     DECLARE_SHADER(color, SingleColorShader)
-    DECLARE_SHADER(cubeMap, SimpleCubeMapShader, "samplerCube", "textureCube")
+    DECLARE_SHADER(cubeMap, SimpleCubeMapShader, "samplerCube")
     DECLARE_SHADER(depthMap, SimpleDepthMapShader)
     DECLARE_SHADER(depthCubeMap, SimpleDepthCubeMapShader)
 private:

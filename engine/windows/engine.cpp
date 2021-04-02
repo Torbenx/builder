@@ -55,7 +55,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 0,
                 0,
                 0, 0, 0, 0,
-                24,                        //Number of bits for the depthbuffer
+                16,                        //Number of bits for the depthbuffer
                 0,                        //Number of bits for the stencilbuffer
                 0,                        //Number of Aux buffers in the framebuffer.
                 PFD_MAIN_PLANE,

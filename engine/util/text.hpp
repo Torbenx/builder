@@ -6,10 +6,9 @@
 
 #ifdef PLATFORM_ANDROID
 #define TEXT_TEXTURE_GLSL_SAMPLER "samplerExternalOES"
-#define TEXT_TEXTURE_GLSL_HEADER "#extension GL_OES_EGL_image_external : require\n"
+#define TEXT_TEXTURE_GLSL_EXTENSION "GL_OES_EGL_image_external_essl3"
 #else
 #define TEXT_TEXTURE_GLSL_SAMPLER "sampler2D"
-#define TEXT_TEXTURE_GLSL_HEADER ""
 #endif
 
 class TextFormat{

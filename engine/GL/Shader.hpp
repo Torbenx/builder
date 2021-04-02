@@ -5,9 +5,18 @@
 #include "GL/Buffer.hpp"
 #include "GL/Texture.hpp"
 #include "GL/CubeMap.hpp"
+#include "util/target.hpp"
 #include <string>
 #include <vector>
 #include <sstream>
+
+#ifdef PLATFORM_ANDROID
+#define GLSL_VERSION_HEADER "#version 300 es\n"
+#endif
+
+#ifdef PLATFORM_WINDOWS
+#define GLSL_VERSION_HEADER "#version 150\n"
+#endif
 
 template< typename T >
 struct VectorTraits{ inline static int length; };
@@ -113,11 +122,12 @@ public:
     virtual ~ShaderBuilder(){}
     void newContext();
     std::string uniqueName(std::string name);
-    Shader::LocationHandle addAttrib(std::string type, std::string name);
-    Shader::LocationHandle addUniform(std::string type, std::string name, bool vertex);
-    Shader::LocationHandle addVertexUniform(std::string type, std::string name){ return addUniform(type, name, true); }
-    Shader::LocationHandle addFragmentUniform(std::string type, std::string name){ return addUniform(type, name, false); }
-    void addVarying(std::string type, std::string name, std::string qualifier="");
+    Shader::LocationHandle addAttrib(std::string type, std::string name, std::string qualifiers="");
+    Shader::LocationHandle addUniform(std::string type, std::string name, std::string qualifiers, bool vertex);
+    Shader::LocationHandle addVertexUniform(std::string type, std::string name, std::string qualifiers=""){ return addUniform(type, name, qualifiers, true); }
+    Shader::LocationHandle addFragmentUniform(std::string type, std::string name, std::string qualifiers=""){ return addUniform(type, name, qualifiers, false); }
+    void addVarying(std::string type, std::string name, std::string qualifiers="");
+    void requireExtension(std::string extension);
     int nextTextureSlot();
 
 protected:

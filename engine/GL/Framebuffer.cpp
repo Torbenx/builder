@@ -48,7 +48,7 @@ bool Framebuffer::attach(GLenum attachment, Attachment& att){
             if(att.data.texture->isRenderbuffer)
                 glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, att.data.texture->glId);
             else
-                glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, att.data.texture->glId, 0);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, att.data.texture->target, att.data.texture->glId, 0);
             return true;
         case Attachment::Type::CubeMapAttachment:
             glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, att.data.cube.target, att.data.cube.cubeMap->glId, 0);

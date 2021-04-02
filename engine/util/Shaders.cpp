@@ -1,6 +1,6 @@
 #include "util/Shaders.hpp"
 
-void SimpleTextureShader::applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler, const std::string& texFunc){
+void SimpleTextureShader::applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler){
     positionAttrib = b.addAttrib("vec4", "a_position");
     texCoordAttrib = b.addAttrib("vec2", "a_texCoord");
     textureUniform = b.addFragmentUniform(sampler, "u_texture");
@@ -9,12 +9,14 @@ void SimpleTextureShader::applySimpleTextureShader(ShaderBuilder& b, const std::
     "   v_texCoord = a_texCoord;\n"
     "   gl_Position = a_position;\n";
     b.fMain <<
-    "   gl_FragColor = " << texFunc << "(u_texture, v_texCoord);\n";
+    "   gl_FragColor = texture(u_texture, v_texCoord);\n";
 }
 
 void SimpleTextShader::applySimpleTextShader(ShaderBuilder& b){
-    b.fInit << TEXT_TEXTURE_GLSL_HEADER;
-    applySimpleTextureShader(b, TEXT_TEXTURE_GLSL_SAMPLER, "texture");
+#ifdef TEXT_TEXTURE_GLSL_EXTENSION
+    b.requireExtension(TEXT_TEXTURE_GLSL_EXTENSION);
+#endif
+    applySimpleTextureShader(b, TEXT_TEXTURE_GLSL_SAMPLER);
 }
 
 void SimpleDepthShader::applySimpleDepthShader(ShaderBuilder& b){
@@ -50,7 +52,7 @@ void SingleColorShader::applySingleColorShader(ShaderBuilder& b){
     b.fMain << "gl_FragColor = u_color;\n";
 }
 
-void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler, const std::string& texFunc){
+void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler){
     positionAttrib = b.addAttrib("vec4", "a_position");
     texCoordAttrib = b.addAttrib("vec3", "a_texCoord");
     cubeMapUniform = b.addFragmentUniform(sampler, "u_cubeMap");
@@ -59,11 +61,11 @@ void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::
     "   v_texCoord = a_texCoord;\n"
     "   gl_Position = a_position;\n";
     b.fMain <<
-    "   gl_FragColor = " << texFunc << "(u_cubeMap, v_texCoord);\n";
+    "   gl_FragColor = texture(u_cubeMap, v_texCoord);\n";
 }
 
 void SimpleDepthMapShader::applySimpleDepthMapShader(ShaderBuilder& b){
-    applySimpleTextureShader(b, "sampler2D", "texture");
+    applySimpleTextureShader(b, "sampler2D");
     farUniform = b.addFragmentUniform("float", "u_far");
     b.fMain <<
     "   vec4 bits = vec4(u_far,u_far/255.0,u_far/255.0/255.0,u_far/255.0/255.0/255.0);\n"
@@ -71,7 +73,7 @@ void SimpleDepthMapShader::applySimpleDepthMapShader(ShaderBuilder& b){
 }
 
 void SimpleDepthCubeMapShader::applySimpleDepthCubeMapShader(ShaderBuilder& b){
-    applySimpleCubeMapShader(b, "samplerCube", "textureCube");
+    applySimpleCubeMapShader(b, "samplerCube");
     farUniform = b.addFragmentUniform("float", "u_far");
     b.fMain <<
     "   vec4 bits = vec4(u_far,u_far/255.0,u_far/255.0/255.0,u_far/255.0/255.0/255.0);\n"

@@ -78,13 +78,13 @@ return_ptr<Texture> Texture::color(int width, int height, Texture::Format format
 }
 
 Texture::Texture(Texture&& other) :
-    isRenderbuffer(other.isRenderbuffer), glId(other.glId), m_width(other.m_width), m_height(other.m_height), target(other.target), binding(other.binding)
+    isRenderbuffer(other.isRenderbuffer), glId(other.glId), target(other.target), binding(other.binding)
 {
     other.glId = 0;
 }
 
 Texture::Texture(bool isRenderbuffer, int width, int height, GLenum target, GLenum binding) :
-    isRenderbuffer(isRenderbuffer), m_width(width), m_height(height), target(target), binding(binding)
+    isRenderbuffer(isRenderbuffer), target(target), binding(binding)
 {
     if(isRenderbuffer){
         glGenRenderbuffers(1, &glId);

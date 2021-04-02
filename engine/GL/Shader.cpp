@@ -3,13 +3,13 @@
 
 std::string ShaderBuilder::buildVertexSource(){
     std::ostringstream s;
-    s << "#version 300 es\n" << vInit.str() << "void main(){\n" << vMain.str() << "}";
+    s << GLSL_VERSION_HEADER << vInit.str() << "void main(){\n" << vMain.str() << "}";
     return s.str();
 }
 
 std::string ShaderBuilder::buildFragmentSource(){
     std::ostringstream s;
-    s << "#version 300 es\n" << fInit.str() << "out vec4 gl_FragColor;\n" << "void main(){\n" << fMain.str() << "}";
+    s << GLSL_VERSION_HEADER << fInit.str() << "out vec4 gl_FragColor;\n" << "void main(){\n" << fMain.str() << "}";
     return s.str();
 }
 
@@ -23,15 +23,15 @@ std::string ShaderBuilder::uniqueName(std::string name){
     return s.str();
 }
 
-Shader::LocationHandle ShaderBuilder::addAttrib(std::string type, std::string name){
-    vInit << "in " << type << " " << name << ";\n";
+Shader::LocationHandle ShaderBuilder::addAttrib(std::string type, std::string name, std::string qualifiers){
+    vInit << qualifiers << "in " << type << " " << name << ";\n";
     GLuint handle = locations.size();
     locations.push_back(Shader::Location(name, false));
     return { handle };
 }
 
-Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string name, bool vertex){
-    (vertex ? vInit : fInit) << "uniform " << type << " " << name << ";\n";
+Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string name, std::string qualifiers, bool vertex){
+    (vertex ? vInit : fInit) << qualifiers << "uniform " << type << " " << name << ";\n";
     GLuint handle = locations.size();
     locations.push_back(Shader::Location(name, true));
     return { handle };
@@ -40,6 +40,11 @@ Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string n
 void ShaderBuilder::addVarying(std::string type, std::string name, std::string qualifiers){
     vInit << qualifiers << "out " << type << " " << name << ";\n";
     fInit << qualifiers << "in " << type << " " << name << ";\n";
+}
+
+void ShaderBuilder::requireExtension(std::string extension){
+    vInit << "#extension " << extension << " : require\n";
+    fInit << "#extension " << extension << " : require\n";
 }
 
 int ShaderBuilder::nextTextureSlot(){

@@ -45,9 +45,6 @@ public:
 
     //void subTexture(GLvoid *data, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum type);
 
-    int width(){ return m_width; }
-    int height(){ return m_height; }
-
 protected:
     Texture(bool isRenderbuffer, int width, int height, GLenum target=GL_TEXTURE_2D, GLenum binding=GL_TEXTURE_BINDING_2D);
     GLuint glId;
@@ -58,5 +55,4 @@ protected:
 private:
     Texture(const Texture& other);
     bool isRenderbuffer;
-    int m_width, m_height;
 };

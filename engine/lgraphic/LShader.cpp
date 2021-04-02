@@ -20,7 +20,7 @@ void LShaderBuilder::addEffect(LShader::Effect& effect, const LShader::EffectDat
 
 std::string LShaderBuilder::buildVertexSource(){
     std::ostringstream v;
-    v << "#version 300 es\n" << vInit.str() << "void main(){\n";
+    v << GLSL_VERSION_HEADER << vInit.str() << "void main(){\n";
 
     v << LShader::WORLD_POSITION << " = (";
     if(!rawToWorldMatrix.empty()){
@@ -49,7 +49,7 @@ std::string LShaderBuilder::buildVertexSource(){
 std::string LShaderBuilder::buildFragmentSource(){
     std::ostringstream f;
 
-    f << "#version 300 es\n" << fInit.str() << "out vec4 gl_FragColor;\n" << "void main(){\n";
+    f << GLSL_VERSION_HEADER << fInit.str() << "out vec4 gl_FragColor;\n" << "void main(){\n";
     f << "vec3 " << LShader::LIGHT_INTENSITY << " = vec3(0.0);\n";
 
     f << fMain.str() << "gl_FragColor = vec4(";
