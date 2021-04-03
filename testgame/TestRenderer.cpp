@@ -22,7 +22,7 @@ TestRenderer::TestRenderer() :
         pointLight(
             Vec3(0,1,-2),
             1024,1024,
-            Vec3(1,1,1)*4.0f,
+            Vec3(1,1,1)*8.0f,
             0.5f,
             100
         ),
@@ -87,7 +87,7 @@ TestRenderer::TestRenderer() :
     textComp.noBreaks = true;
 
     cubeComp.farDepth = 1.0f;
-    cubeComp.texture = &spotLight.depthMap.depthAttachment;
+    cubeComp.texture = &spotLight.depthMap;
 
     refComp.texture = &reflection.texture;
 

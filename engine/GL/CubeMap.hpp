@@ -27,6 +27,7 @@ public:
     };
 
     static return_ptr<CubeMap> color(int width, int height, Texture::Format format);
+    static return_ptr<CubeMap> depth(int width, int height, DepthBits bits);
 
     static inline struct{
         GLenumIterator<Face> begin(){ return GLenumIterator<Face>(GL_TEXTURE_CUBE_MAP_POSITIVE_X); }

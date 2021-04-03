@@ -32,7 +32,7 @@ public:
 
     Framebuffer() : Framebuffer(false, 0) {}
     ~Framebuffer();
-    void bind();
+    void bind(bool restoreAttachments = true);
 
     void clear();
 

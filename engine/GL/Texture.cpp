@@ -28,21 +28,14 @@ GLenum Texture::glTypeOf(Texture::Format f){
     return formatsGLType[f];
 }
 
-return_ptr<Texture> Texture::depth(int width, int height, int bitdepth, bool renderingOnly){
+return_ptr<Texture> Texture::depth(int width, int height, DepthBits bits, bool renderingOnly){
     Texture *tex = new Texture(Depth, renderingOnly);
-    GLenum format;
-    if(bitdepth == 16){
-        format = GL_DEPTH_COMPONENT16;
-    }else{
-        GL_EXPECT(bitdepth, 24);
-        format = GL_DEPTH_COMPONENT24;
-    }
     if(renderingOnly){
         glBindRenderbuffer(GL_RENDERBUFFER, tex->glId);
-        glRenderbufferStorage(GL_RENDERBUFFER, format, width, height);
+        glRenderbufferStorage(GL_RENDERBUFFER, bits, width, height);
     }else{
         glBindTexture(GL_TEXTURE_2D, tex->glId);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, bits, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
         tex->minifyFilter(Filter::Linear);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
     }

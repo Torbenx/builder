@@ -7,18 +7,22 @@
 
 class Texture{
 public:
-    enum Format{
-        RGBA8888,
-        Count = RGBA8888+1
-    };
-
     enum Type{
         Color = 0, Depth = 1, Stencil = 2,
     };
 
+    enum Format{
+        RGBA8888,
+        Count = RGBA8888+1
+    };
     static GLint glFormatOf(Format);
     static GLenum glBaseFormatOf(Format);
     static GLenum glTypeOf(Format);
+
+    enum DepthBits : GLint{
+        D16 = GL_DEPTH_COMPONENT16,
+        D24 = GL_DEPTH_COMPONENT24,
+    };
 
     enum WrappingMode : GLint{
         Clamp = GL_CLAMP_TO_EDGE,
@@ -32,7 +36,7 @@ public:
         Nearest = GL_NEAREST,
     };
 
-    static return_ptr<Texture> depth(int width, int height, int bitdepth, bool renderingOnly=false);
+    static return_ptr<Texture> depth(int width, int height, DepthBits bits, bool renderingOnly=false);
     static return_ptr<Texture> stencil(int width, int height);
     static return_ptr<Texture> color(void *data, int width, int height, Format format, Format targetFormat);
     static return_ptr<Texture> color(void *data, int width, int height, Format format);

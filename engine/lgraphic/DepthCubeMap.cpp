@@ -1,25 +1,21 @@
 #include "lgraphic/DepthCubeMap.hpp"
 
-DepthCubeMap::DepthCubeMap(int width, int height, float _far) :
-    depthAttachment(Texture::depth(width, height, 16, true).move()),
-    texture(CubeMap::color(width, height, Texture::Format::RGBA8888).move()),
-    m_far(_far)
+DepthCubeMap::DepthCubeMap(int width, int height, float _near, float _far) :
+    CubeMap(CubeMap::depth(width, height, ::Texture::DepthBits::D16).move()),
+    m_far(_far), m_near(_near)
 {
     shader = Shaders::depth();
-    framebuffer.attach(depthAttachment);
     framebuffer.clearColor(1, 1, 1, 1);
     framebuffer.viewport(width, height);
 }
 
 void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count){
     GL_VERIFY(glIsEnabled(GL_DEPTH_TEST));
-    framebuffer.bind();
+    framebuffer.bind(false);
     shader->use();
     MvpMatrix mvpMatrix;
-    mvpMatrix.projection = Mat4x4::frustum(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, m_far);
+    mvpMatrix.projection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
     mvpMatrix.model = model;
-    shader->uniformVec3(shader->lightPosUniform, position);
-    shader->uniform1f(shader->farUniform, m_far);
     for(auto face : CubeMap::Faces){
         mvpMatrix.view = Mat4x4::Id;
         switch(face){
@@ -43,7 +39,7 @@ void DepthCubeMap::draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int 
                 break;
         }
         shader->uniformMat4x4(shader->mvpUniform, mvpMatrix.setupMvp());
-        framebuffer.attach(texture, face);
+        framebuffer.attach(*this, face);
         framebuffer.clear();
         for(int i=0;i<count;i++){
             ptrArray[i]->draw(framebuffer, *shader, shader->positionAttrib, shader->modelUniform);

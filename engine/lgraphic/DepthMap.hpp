@@ -8,10 +8,10 @@
 #include <string.h>
 
 class DepthMap : public Texture{
-    public:
-        Texture depthAttachment;
-        Framebuffer framebuffer;
-        std::shared_ptr<SimpleDepthShader> shader;
-        DepthMap(int width, int height);
-        void draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count);
+public:
+    Framebuffer framebuffer;
+    DepthMap(int width, int height);
+    void draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count);
+private:
+    std::shared_ptr<SimpleDepthShader> shader;
 };

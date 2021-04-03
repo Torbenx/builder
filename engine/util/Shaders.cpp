@@ -23,26 +23,8 @@ void SimpleDepthShader::applySimpleDepthShader(ShaderBuilder& b){
     positionAttrib = b.addAttrib("vec4", "a_position");
     mvpUniform = b.addVertexUniform("mat4", "u_mvpMatrix");
     modelUniform = b.addVertexUniform("mat4", "u_modelMatrix");
-    lightPosUniform = b.addFragmentUniform("vec3", "u_lightPos");
-    farUniform = b.addFragmentUniform("float", "u_far");
-    b.addVarying("vec3", "v_position");
-    b.vMain <<
-    "    vec4 pos = u_modelMatrix * a_position;\n"
-    "    v_position = pos.xyz;\n"
-    "    gl_Position = u_mvpMatrix * pos;\n";
-    b.fMain <<
-    "    float f0 = distance(u_lightPos, v_position)*255.0/u_far;\n"
-    "    float f1 = fract(f0);\n"
-    "    f0 -= f1;\n"
-    "    f1 *= 255.0;\n"
-    "    float f2 = fract(f1);\n"
-    "    f1 -= f2;\n"
-    "    f2 *= 255.0;\n"
-    "    float f3 = fract(f2);\n"
-    "    f2 -= f3;\n"
-    "    f3 *= 255.0;\n"
-    "    f3 = ceil(f3);\n"
-    "    gl_FragColor = vec4(f0,f1,f2,f3)/255.0;\n";
+    b.vMain <<"    gl_Position = u_mvpMatrix * u_modelMatrix * a_position;\n";
+    b.disableFragmentShader();
 }
 
 void SingleColorShader::applySingleColorShader(ShaderBuilder& b){

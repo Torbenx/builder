@@ -56,6 +56,10 @@ int ShaderBuilder::nextTextureSlot(){
     return textureSlot++;
 }
 
+void ShaderBuilder::disableFragmentShader(){
+    fragmentShaderDisabled = true;
+}
+
 void Shader::initalize(ShaderBuilder& builder){
     GL_VERIFY(!glIsProgram(glId));
     glId = glCreateProgram();
@@ -87,8 +91,10 @@ void Shader::initalize(ShaderBuilder& builder){
     std::string vSource = builder.buildVertexSource();
     compileShader(true, vSource.c_str());
 
-    std::string fSource = builder.buildFragmentSource();
-    compileShader(false, fSource.c_str());
+    if(!builder.fragmentShaderDisabled){
+        std::string fSource = builder.buildFragmentSource();
+        compileShader(false, fSource.c_str());
+    }
 
     glLinkProgram(glId);
 
@@ -100,6 +106,10 @@ void Shader::initalize(ShaderBuilder& builder){
             locations[i] = glGetAttribLocation(glId, builder.locations[i].name.c_str());
         }
     }
+}
+
+Shader::Shader(Shader&& other) : glId(other.glId), locations(std::move(other.locations)) {
+    other.glId = -1;
 }
 
 Shader::~Shader(){

@@ -54,7 +54,7 @@ void SpotLight::addTo(LShaderBuilder& s){
 
 void SpotLight::apply(LShader& s, const LShader::EffectData& data){
     s.uniformMat4x4(data.handles[0], mvpMatrix.setupMvp());
-    s.uniformTexture(data.handles[1], depthMap.depthAttachment, data.textureSlot);
+    s.uniformTexture(data.handles[1], depthMap, data.textureSlot);
     s.uniformVec3(data.handles[2], color);
     s.uniformVec3(data.handles[3], position);
 }

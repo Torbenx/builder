@@ -2,7 +2,7 @@
 
 Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float factor) :
     texture(Texture::color(width, height, Texture::Format::RGBA8888).move()),
-    depthAttachment(Texture::depth(width, height, 16, true).move())
+    depthAttachment(Texture::depth(width, height, Texture::DepthBits::D16, true).move())
 {
     this->reflection = reflection;
     this->position = position;

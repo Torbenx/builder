@@ -47,6 +47,7 @@ public:
     std::vector<GLuint> locations;
 
     Shader(ShaderBuilder& builder){ initalize(builder); }
+    Shader(Shader&&);
     virtual ~Shader();
 
     void initalize(ShaderBuilder& builder);
@@ -129,6 +130,7 @@ public:
     void addVarying(std::string type, std::string name, std::string qualifiers="");
     void requireExtension(std::string extension);
     int nextTextureSlot();
+    void disableFragmentShader();
 
 protected:
     virtual std::string buildVertexSource();
@@ -138,6 +140,7 @@ private:
     std::vector<Shader::Location> locations;
     int contextCount = 0;
     int textureSlot = 0;
+    bool fragmentShaderDisabled = false;
 
     friend Shader;
 };

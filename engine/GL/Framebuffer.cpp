@@ -20,7 +20,7 @@ Framebuffer::~Framebuffer(){
     glDeleteFramebuffers(1, &glId);
 }
 
-void Framebuffer::bind(){
+void Framebuffer::bind(bool restoreAttachments){
     GL_GET_EXPECT(GL_FRAMEBUFFER_BINDING, currentFramebuffer->glId);
 #ifdef VALIDATE_GL
     if(isCurrent()) LOGD("framebuffer %d already bound", glId);
@@ -28,10 +28,12 @@ void Framebuffer::bind(){
 
     glBindFramebuffer(GL_FRAMEBUFFER, glId);
     currentFramebuffer = this;
-    if(attachments[Texture::Type::Color].texture) applyAttchment(Texture::Type::Color);
-    if(attachments[Texture::Type::Depth].texture) applyAttchment(Texture::Type::Depth);
-    if(attachments[Texture::Type::Stencil].texture) applyAttchment(Texture::Type::Stencil);
-    GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+    if(restoreAttachments){
+        if(attachments[Texture::Type::Color].texture) applyAttchment(Texture::Type::Color);
+        if(attachments[Texture::Type::Depth].texture) applyAttchment(Texture::Type::Depth);
+        if(attachments[Texture::Type::Stencil].texture) applyAttchment(Texture::Type::Stencil);
+        GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+    }
     glClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
     glViewport(offsetX, offsetY, width, height);
     glDepthMask(dMask);
