@@ -29,7 +29,12 @@ else()
     message(FATAL_ERROR "Unsupported system: " ${CMAKE_SYSTEM_NAME})
 endif()
 
-add_library(engine SHARED
+set(linkage SHARED)
+if(ENGINE_LINK_STATIC)
+    set(linkage STATIC)
+endif()
+
+add_library(engine ${linkage}
     "GL/CubeMap.cpp"
     "GL/Framebuffer.cpp"
     "GL/Shader.cpp"

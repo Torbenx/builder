@@ -25,7 +25,7 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
     int tpos = 0;
     int npos = 0;
     int ipos = 0;
-    int bufsize = 256;
+    const int bufsize = 256;
     char buf[bufsize];
     polyType = -1;
     dim = -1;
@@ -151,7 +151,7 @@ void ObjParser::parse(std::istream& in, int nv, int ni){
                     polyType = r;
                     ObjParserIndex *old = index;
                     index = new ObjParserIndex[ni * polyType];
-                    std::memcpy(index, old, polyType * sizeof(uint32_t));
+                    std::memcpy(index, old, polyType * sizeof(ObjParserIndex));
                     delete[] old;
                 }else{
                     LOGW("inconsistent poly type");

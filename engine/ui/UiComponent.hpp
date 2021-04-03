@@ -4,7 +4,6 @@
 #include "math/Rect.hpp"
 #include "ui/UiSolver.hpp"
 #include "GL/Framebuffer.hpp"
-#include <tgmath.h>
 #include <cmath>
 
 class UiComponent{

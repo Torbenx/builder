@@ -19,12 +19,12 @@
 #endif
 
 template< typename T >
-struct VectorTraits{ inline static int length; };
+struct VectorTraits{ static const int length; };
 
-template<> struct VectorTraits<float>{ inline static int length = 1; };
-template<> struct VectorTraits<Vec2>{ inline static int length = 2; };
-template<> struct VectorTraits<Vec3>{ inline static int length = 3; };
-template<> struct VectorTraits<Vec4>{ inline static int length = 4; };
+template<> struct VectorTraits<float>{ static const int length = 1; };
+template<> struct VectorTraits<Vec2>{ static const int length = 2; };
+template<> struct VectorTraits<Vec3>{ static const int length = 3; };
+template<> struct VectorTraits<Vec4>{ static const int length = 4; };
 
 class ShaderBuilder;
 

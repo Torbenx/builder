@@ -7,7 +7,7 @@
 
 struct SimpleTextureShader : public Shader{
     LocationHandle positionAttrib, texCoordAttrib, textureUniform;
-    void applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler);
+    void applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler="sampler2D");
 };
 
 struct SimpleTextShader : public SimpleTextureShader{
@@ -26,7 +26,7 @@ struct SingleColorShader : public Shader{
 
 struct SimpleCubeMapShader : public Shader{
     LocationHandle positionAttrib, texCoordAttrib, cubeMapUniform;
-    void applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler);
+    void applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler="samplerCube");
 };
 
 struct SimpleDepthMapShader : public SimpleTextureShader{
@@ -39,28 +39,27 @@ struct SimpleDepthCubeMapShader : public SimpleCubeMapShader{
     void applySimpleDepthCubeMapShader(ShaderBuilder& b);
 };
 
-#define DECLARE_SHADER(name, type, ...) \
+#define DECLARE_SHADER(name, type) \
 static inline std::weak_ptr<type> w_##name; \
 static std::shared_ptr<type> name(){ \
     if(w_##name.expired()){ \
-        LOGD("constructing Shaders::" #name); \
         ShaderBuilder b; \
         auto p = std::make_shared<type>(); \
-        p->apply##type(b __VA_OPT__(,) __VA_ARGS__); \
+        p->apply##type(b); \
         p->initalize(b); \
         w_##name = p; \
         return p; \
     } \
     return w_##name.lock(); \
-} \
+}
 
 class Shaders{
 public:
-    DECLARE_SHADER(texture, SimpleTextureShader, "sampler2D")
+    DECLARE_SHADER(texture, SimpleTextureShader)
     DECLARE_SHADER(depth, SimpleDepthShader)
     DECLARE_SHADER(text, SimpleTextShader)
     DECLARE_SHADER(color, SingleColorShader)
-    DECLARE_SHADER(cubeMap, SimpleCubeMapShader, "samplerCube")
+    DECLARE_SHADER(cubeMap, SimpleCubeMapShader)
     DECLARE_SHADER(depthMap, SimpleDepthMapShader)
     DECLARE_SHADER(depthCubeMap, SimpleDepthCubeMapShader)
 private:

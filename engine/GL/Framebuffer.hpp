@@ -5,11 +5,11 @@
 #include "GL/CubeMap.hpp"
 
 template< typename T >
-struct IndexTraits { inline static GLenum glType; };
+struct IndexTraits { static const GLenum glType; };
 
-template<> struct IndexTraits<GLuint> { inline static GLenum glType = GL_UNSIGNED_INT; };
-template<> struct IndexTraits<GLushort> { inline static GLenum glType = GL_UNSIGNED_SHORT; };
-template<> struct IndexTraits<GLubyte> { inline static GLenum glType = GL_UNSIGNED_BYTE; };
+template<> struct IndexTraits<GLuint> { static const GLenum glType = GL_UNSIGNED_INT; };
+template<> struct IndexTraits<GLushort> { static const GLenum glType = GL_UNSIGNED_SHORT; };
+template<> struct IndexTraits<GLubyte> { static const GLenum glType = GL_UNSIGNED_BYTE; };
 
 #define VALIDATE_FRAMEBUFFER_STATE \
     GL_VERIFY(isCurrent()); \
@@ -64,7 +64,7 @@ private:
     static Framebuffer *currentFramebuffer;
 
     struct {
-        Texture *texture;
+        Texture *texture = nullptr;
         GLenum subTarget;
     } attachments[3];
     GLuint glId;

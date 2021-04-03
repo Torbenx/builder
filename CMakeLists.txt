@@ -26,7 +26,6 @@ endfunction()
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     add_definitions(-DPLATFORM_WINDOWS)
-    add_definitions(-Wno-attributes)
     set(PLATFORM_MAIN_SOURCE ${CMAKE_SOURCE_DIR}/engine/windows/main.cpp)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -61,6 +60,7 @@ add_subdirectory(libs)
 
 include_directories(libs/libjpeg-turbo)
 include_directories(engine)
+
 set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(engine)

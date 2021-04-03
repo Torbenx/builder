@@ -11,3 +11,7 @@ bool isAndroid(){
 bool rawInput(){
     return IS_WINDOWS;
 }
+
+bool usingGLES(){
+    return IS_ANDROID;
+}

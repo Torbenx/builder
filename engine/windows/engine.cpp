@@ -76,7 +76,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             HGLRC hglrc = wglCreateContextAttribsARB(hdc, NULL, context_attribs);
 
             wglMakeCurrent(hdc, hglrc);
-            glDebugMessageCallbackARB(gl_debug_callback, nullptr);
+            glDebugMessageCallbackARB((GLDEBUGPROCARB)gl_debug_callback, nullptr);
             glEnable(GL_DEBUG_OUTPUT);
             glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
@@ -105,7 +105,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             return 0;
         }
         case WM_ACTIVATE:{
-            LOGD("WM_ACTIVATE: %llx",wParam);
+            LOGD("WM_ACTIVATE: %llx", wParam);
             bool activate = LOWORD(wParam);
             bool minimized = HIWORD(wParam);
             if(activate && !minimized){
@@ -145,9 +145,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             if(rendererState == RENDERER_STATE_FOREGROUND){
                 UINT size;
                 GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &size, sizeof(RAWINPUTHEADER));
-                BYTE data[size];
-                GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data, &size, sizeof(RAWINPUTHEADER));
-                RAWINPUT *raw = (RAWINPUT*)data;
+                std::vector<BYTE> data(size);
+                GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data.data(), &size, sizeof(RAWINPUTHEADER));
+                RAWINPUT *raw = (RAWINPUT*)data.data();
                 switch(raw->header.dwType){
                     case RIM_TYPEMOUSE:{
                         int dx,dy;
@@ -256,7 +256,7 @@ int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, 
     init_time();
     init_textureFormats();
 
-    int rawInputDeviceCount = 2;
+    const int rawInputDeviceCount = 2;
     RAWINPUTDEVICE rid[rawInputDeviceCount];
 
     rid[0].usUsagePage = 0x01;

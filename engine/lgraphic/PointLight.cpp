@@ -21,13 +21,11 @@ void PointLight::addTo(LShaderBuilder& s){
     data.handles[1] = s.addFragmentUniform("vec3", colorUniform);
     data.handles[2] = s.addFragmentUniform("vec3", lightPosUniform);
     std::string depth = s.uniqueName("depth");
-    std::string tdepth = s.uniqueName("tdepth");
+    std::string result = s.uniqueName("result");
     std::string direction = s.uniqueName("direction");
-    std::string distance = s.uniqueName("distance");
 
     char buff[100];
     s.fMain << "vec3 " << direction << " = " << LShader::WORLD_POSITION << " - " << lightPosUniform << ";\n";
-
     std::string a = s.uniqueName("a");
     sprintf(buff, "%f", (depthMap.m_near + depthMap.m_far) / (depthMap.m_far - depthMap.m_near));
     s.fMain << "const float " << a << " = " << buff << ";\n";
@@ -35,10 +33,8 @@ void PointLight::addTo(LShaderBuilder& s){
     sprintf(buff, "%f", 2.0f * depthMap.m_near * depthMap.m_far / (depthMap.m_far - depthMap.m_near));
     s.fMain << "const float " << b << " = " << buff << ";\n";
     s.fMain << "float " << depth << " = " << a << "-" << b << "/max(abs(" << direction << ".x), max(abs(" << direction << ".y), abs(" << direction << ".z)));\n";
-
-    s.fMain << "float " << tdepth << " = texture(" << textureUniform << ",vec4(" << direction << ", (" << depth << "+1.0)/2.0*0.999));\n";
-    s.fMain << "float " << distance << " = length(" << direction << ");\n";
-    s.fMain << LShader::LIGHT_INTENSITY << " += " << tdepth << " * abs(dot(" << LShader::WORLD_NORMAL << ", " << direction << ")) * " << colorUniform << " / (" << distance << "*" << distance << "*" << distance << ");\n";
+    s.fMain << "float " << result << " = texture(" << textureUniform << ",vec4(" << direction << ", (" << depth << "+1.0)/2.0*0.999));\n";
+    s.fMain << LShader::LIGHT_INTENSITY << " += " << result << " * abs(dot(" << LShader::WORLD_NORMAL << ", normalize(" << direction << "))) * " << colorUniform << " / dot(" << direction << "," << direction << ");\n";
     s.addEffect(*this, data);
 }
 

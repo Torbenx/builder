@@ -61,7 +61,7 @@ TestRenderer::TestRenderer() :
     scene.addObject(obj1);
     scene.addObject(obj2);
     scene.addObject(obj3);
-    scene.addObject(obj4);
+    //scene.addObject(obj4);
     scene.addObject(obj5);
     scene.addReflection(reflection);
     look.dir = (Vec3(0,-1,0) - pos).normalize();
@@ -87,9 +87,7 @@ TestRenderer::TestRenderer() :
 
     cubeComp.farDepth = 1.0f;
     cubeComp.texture = &spotLight.depthMap;
-
     refComp.texture = &reflection.texture;
-
 
     TypedSize pad = TypedSize::gl(0.1f);
     uiScene.layout(&textComp)
@@ -105,7 +103,7 @@ TestRenderer::TestRenderer() :
 
     ObjParser parser;
     asset_istream file("Pawn/Pawn.obj");
-    parser.parse(file, 30000, 30000);
+    parser.parse(file, 16000, 16000);
     pawnVertex = Buffer<float>::upload(parser.vertex, parser.vertexCount*parser.dim).unique();
     pawnTexCoords = Buffer<float>::upload(parser.texCoords, parser.vertexCount*2).unique();
     pawnNormals = Buffer<float>::upload(parser.normals, parser.vertexCount*parser.dim).unique();

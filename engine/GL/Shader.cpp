@@ -1,5 +1,6 @@
 #include "GL/Shader.hpp"
 #include "util/log.hpp"
+#include "util/target.hpp"
 
 std::string ShaderBuilder::buildVertexSource(){
     std::ostringstream s;
@@ -74,13 +75,13 @@ void Shader::initalize(ShaderBuilder& builder){
         if(success == GL_FALSE){
             GLint length = 0;
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-            GLchar message[length];
-            glGetShaderInfoLog(shader, length, &length, message);
+            std::vector<GLchar> message(length);
+            glGetShaderInfoLog(shader, length, &length, message.data());
             LOGW("\n"
             "--------------------\n"
             "%s Shader failed to compile:\n"
             "-------SOURCE-------\n%s\n"
-            "-------ERROR--------\n%s\n", vertex ? "Vertex" : "Fragment", source, message);
+            "-------ERROR--------\n%s\n", vertex ? "Vertex" : "Fragment", source, message.data());
         }else
 #endif
             glAttachShader(glId, shader);
@@ -91,7 +92,7 @@ void Shader::initalize(ShaderBuilder& builder){
     std::string vSource = builder.buildVertexSource();
     compileShader(true, vSource.c_str());
 
-    if(!builder.fragmentShaderDisabled){
+    if(usingGLES() || !builder.fragmentShaderDisabled){
         std::string fSource = builder.buildFragmentSource();
         compileShader(false, fSource.c_str());
     }

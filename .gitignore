@@ -1,3 +1,4 @@
 build/
 abuild/
 debug.keystore
+.vs/

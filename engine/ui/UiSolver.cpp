@@ -200,7 +200,7 @@ void UiSolver::exploreGeneralEq(ui_eqn_t eq){
 }
 
 void UiSolver::solveLinearSystem(size_t size){
-    float matrix[size*(size+1)];
+    std::vector<float> matrix(size*(size+1));
 
     auto print_matrix = [&](){
         for(size_t j=0;j<size;j++){

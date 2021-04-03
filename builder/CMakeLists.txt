@@ -8,7 +8,7 @@ set(source
 )
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    add_executable(builder ${source} ${PLATFORM_MAIN_SOURCE})
+    add_executable(builder WIN32 ${source} ${PLATFORM_MAIN_SOURCE})
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     add_library(builder SHARED ${source} ${PLATFORM_MAIN_SOURCE})
 endif()

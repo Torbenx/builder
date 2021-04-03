@@ -30,20 +30,17 @@ void SpotLight::addTo(LShaderBuilder& s){
     data.handles[1] = s.addFragmentUniform("sampler2DShadow", textureUniform);
     data.textureSlot = s.nextTextureSlot();
     data.handles[2] = s.addFragmentUniform("vec3", colorUniform);
-    s.addVarying("vec4", positionVarying);
+    s.addVarying("vec3", positionVarying);
     data.handles[3] = s.addFragmentUniform("vec3", lightPosUniform);
-    std::string depth = s.uniqueName("depth");
+    std::string result = s.uniqueName("result");
     std::string direction = s.uniqueName("direction");
-    std::string distance = s.uniqueName("distance");
     std::string pos = s.uniqueName("pos");
-    s.vMain << positionVarying << " = " << mvpUniform << " * vec4(" << LShader::WORLD_POSITION << ",1.0);\n";
-    s.fMain << "vec3 " << pos << " = " << positionVarying << ".xyz/" << positionVarying << ".w;\n";
+    s.vMain << "vec4 " << pos << " = " << mvpUniform << " * vec4(" << LShader::WORLD_POSITION << ",1.0);\n";
+    s.vMain << positionVarying << " = " << pos << ".xyz / " << pos << ".w;\n";
     s.fMain << "vec3 " << direction << " = " << LShader::WORLD_POSITION << " - " << lightPosUniform << ";\n";
-    s.fMain << "float " << distance << " = length(" << direction << ");\n";
-    s.fMain << direction << " /= " << distance << ";\n";
-    s.fMain << "float " << depth << " = texture(" << textureUniform << ",(" << pos << "+1.0)/2.0 * vec3(1.0, 1.0, 0.999));\n";
-    s.fMain << "if(" << "dot(" << pos << ".xy," << pos << ".xy) <= 1.0 && " << pos << ".z >= 0.0){\n";
-    s.fMain << LShader::LIGHT_INTENSITY << " += " << depth << " * max(0.0, -dot(" << LShader::WORLD_NORMAL << ", " << direction << ")) * " << colorUniform << " / (" << distance << "*" << distance << ");\n}\n";
+    s.fMain << "float " << result << " = texture(" << textureUniform << ",(" << positionVarying << " + 1.0) / 2.0 * vec3(1.0, 1.0, 0.999));\n";
+    s.fMain << "if(" << "dot(" << positionVarying << ".xy," << positionVarying << ".xy) <= 1.0 && " << positionVarying << ".z >= -1.0){\n";
+    s.fMain << LShader::LIGHT_INTENSITY << " += " << result << " * max(0.0, -dot(" << LShader::WORLD_NORMAL << ", normalize(" << direction << "))) * " << colorUniform << " / dot(" << direction << "," << direction << ");\n}\n";
     s.addEffect(*this, data);
 }
 

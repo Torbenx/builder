@@ -15,3 +15,4 @@
 bool isWindows();
 bool isAndroid();
 bool rawInput();
+bool usingGLES();

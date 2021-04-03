@@ -38,10 +38,12 @@
 #define GL_VERIFY(cond, ...) { if(!(cond)) LOGW("GL_VERIFY failed %s:%d: %s(): " #cond "; " __VA_ARGS__, __FILE__, __LINE__, __func__); }
 #define GL_EXPECT(lhs, rhs, ...) { GLenum l = (lhs); GLenum r = (rhs); if(l != r) LOGW("GL_EXPECT failed: %s:%d: %s(): " #lhs " {0x%x} == " #rhs " {0x%x}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r); }
 #define GL_GET_EXPECT(pname, rhs, ...) { GLint l; glGetIntegerv(pname, &l); GLenum r = (rhs); if(l != r) LOGW("GL_GET_EXPECT failed: %s:%d: %s(): " #pname " {0x%x} == " #rhs " {0x%x}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r); }
+#define GL_VERIFY_NOT_REACHED(...) GL_VERIFY(false, __VA_ARGS__)
 #else
 #define GL_VERIFY(cond, ...)
 #define GL_EXPECT(lhs, rhs, ...)
 #define GL_GET_EXPECT(pname, rhs, ...)
+#define GL_VERIFY_NOT_REACHED(...)
 #endif
 
 #ifdef VALIDATE_MATH

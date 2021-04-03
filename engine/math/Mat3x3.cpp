@@ -90,6 +90,7 @@ Mat3x3 Mat3x3::diagonal(Vec2 v){
 
 Mat3x3 Mat3x3::invert(Mat3x3 matrix){
     LOGW("invert not implemented");
+    return Mat3x3();
 }
 
 Mat3x3 Mat3x3::operator*=(Mat3x3 right){

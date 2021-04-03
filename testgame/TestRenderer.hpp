@@ -143,6 +143,7 @@ class TestRenderer : public Renderer{
         PointLight pointLight;
         SpotLight spotLight;
         AmbientLight ambientLight;
+        Reflection reflection;
         std::unique_ptr<Buffer<Vec3>> f1;
         std::unique_ptr<Buffer<Vec3>> f2;
         std::unique_ptr<Buffer<Vec3>> f3;
@@ -155,7 +156,6 @@ class TestRenderer : public Renderer{
         std::unique_ptr<Buffer<float>> pawnNormals;
         std::unique_ptr<Texture> pawnTexture;
         Mat4x4 projection;
-        Reflection reflection;
         Look3d look;
         uint32_t w = -1,a = -1,s = -1,d = -1, fullscreen = -1, exitKey = -1, upKey = -1, downKey = -1;
         Vec3 pos;

@@ -6,7 +6,7 @@ set(source
 )
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    add_executable(testgame ${source} ${PLATFORM_MAIN_SOURCE})
+    add_executable(testgame WIN32 ${source} ${PLATFORM_MAIN_SOURCE})
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     add_library(testgame SHARED ${source} ${PLATFORM_MAIN_SOURCE})
 endif()
