@@ -4,7 +4,8 @@
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3 hDirection, int texWidth, int texHeight, Vec3 color, float _near, float _far) :
     depthMap(texWidth, texHeight), position(position), direction(direction), hfov(hfov), vfov(vfov), hDirection(hDirection), color(color), m_near(_near), m_far(_far)
 {
-    mvpMatrix.projection = Mat4x4::frustumVH(vfov, hfov, _near, _far);
+    projection = Mat4x4::frustumVH(vfov, hfov, _near, _far);
+    view = Mat4x4::look(position, direction, hDirection);
 }
 
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int texHeight, Vec3 color, float _near, float _far)
@@ -13,9 +14,8 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int
 }
 
 void SpotLight::draw(Renderable **ptrArray,int count){
-    mvpMatrix.model = Mat4x4::Id;
-    mvpMatrix.view = Mat4x4::look(position, direction, hDirection);
-    depthMap.draw(mvpMatrix, position, ptrArray, count);
+    Mat4x4 mat = projection * view;
+    depthMap.draw(mat, ptrArray, count);
 }
 
 void SpotLight::addTo(LShaderBuilder& s){
@@ -42,18 +42,14 @@ void SpotLight::addTo(LShaderBuilder& s){
     s.fMain << "float " << distance << " = length(" << direction << ");\n";
     s.fMain << direction << " /= " << distance << ";\n";
     s.fMain << "float " << depth << " = texture(" << textureUniform << ",(" << pos << "+1.0)/2.0 * vec3(1.0, 1.0, 0.999));\n";
-
-    //s.fMain << "vec3 hack = " << s.fragmentDiffuseColor << ";\n";
-    //s.fragmentDiffuseColor = "hack";
-    //s.fMain << "hack = vec3(max(" << pos << ".z - " << depth << ", 0.0), max(" << depth << " - " << pos << ".z, 0.0), 0.0);\n";
-
     s.fMain << "if(" << "dot(" << pos << ".xy," << pos << ".xy) <= 1.0 && " << pos << ".z >= 0.0){\n";
     s.fMain << LShader::LIGHT_INTENSITY << " += " << depth << " * max(0.0, -dot(" << LShader::WORLD_NORMAL << ", " << direction << ")) * " << colorUniform << " / (" << distance << "*" << distance << ");\n}\n";
     s.addEffect(*this, data);
 }
 
 void SpotLight::apply(LShader& s, const LShader::EffectData& data){
-    s.uniformMat4x4(data.handles[0], mvpMatrix.setupMvp());
+    Mat4x4 mat = projection * view;
+    s.uniformMat4x4(data.handles[0], mat);
     s.uniformTexture(data.handles[1], depthMap, data.textureSlot);
     s.uniformVec3(data.handles[2], color);
     s.uniformVec3(data.handles[3], position);

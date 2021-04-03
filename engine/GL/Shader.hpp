@@ -77,7 +77,7 @@ public:
     void uniformVec2(LocationHandle uniform,Vec2 u);
     void uniformVec3(LocationHandle uniform,Vec3 u);
     void uniformVec4(LocationHandle uniform,Vec4 u);
-    void uniformMat4x4(LocationHandle uniform,Mat4x4 u);
+    void uniformMat4x4(LocationHandle uniform, Mat4x4& u);
     void uniformTexture(LocationHandle uniform, Texture& u, GLuint slot);
     void uniformCubeMap(LocationHandle uniform, CubeMap& u, GLuint slot);
 

@@ -13,8 +13,8 @@ Reflection::Reflection(Vec3 reflection,Vec3 position,int width,int height,float 
     framebuffer.viewport(width, height);
 }
 
-void Reflection::getReflectionModel(Mat4x4& model){
-    model = Mat4x4::reflection(reflection,position);
+Mat4x4 Reflection::getReflectionMatrix(){
+    return Mat4x4::reflection(reflection, position);
 }
 
 void Reflection::addTo(LShaderBuilder& s){

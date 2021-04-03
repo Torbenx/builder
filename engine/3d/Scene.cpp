@@ -68,7 +68,7 @@ void Scene::addObject(SceneObject *obj){
     shaders.back().objects.push_back(obj);
 }
 
-void Scene::draw(MvpMatrix mvp){
+void Scene::draw(Mat4x4 vp){
     for(std::vector<PointLight*>::iterator lit=pointLights.begin();lit!=pointLights.end();lit++){
         (*lit)->draw(renderables.data(), renderables.size());
     }
@@ -79,17 +79,15 @@ void Scene::draw(MvpMatrix mvp){
         Framebuffer& framebuffer = (*rit)->framebuffer;
         framebuffer.bind();
         framebuffer.clear();
-        (*rit)->getReflectionModel(mvp.model);
-        doDraw(framebuffer, mvp, false);
+        Mat4x4 rvp = vp * (*rit)->getReflectionMatrix();
+        doDraw(framebuffer, rvp, false);
     }
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
-    mvp.model = Mat4x4::Id;
-    doDraw(Framebuffer::DEFAULT, mvp);
+    doDraw(Framebuffer::DEFAULT, vp);
 }
 
-void Scene::doDraw(Framebuffer& framebuffer, MvpMatrix& mvp, bool drawReflections){
-    Mat4x4 matrix = mvp.setupMvp();
+void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& mvp, bool drawReflections){
     for(SceneShader& shader : shaders){
         SceneObject *obj = shader.objects.front();
         ColorSources colors = obj->getColorSources();
@@ -141,7 +139,7 @@ void Scene::doDraw(Framebuffer& framebuffer, MvpMatrix& mvp, bool drawReflection
         }
         shader.shader->use();
         shader.shader->applyEffects();
-        shader.shader->uniformMat4x4(shader.mvpMatrixHandle, matrix);
+        shader.shader->uniformMat4x4(shader.mvpMatrixHandle, mvp);
         for(SceneObject* obj : shader.objects){
             obj->draw2(framebuffer, *shader.shader, shader.data);
         }

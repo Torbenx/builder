@@ -54,7 +54,7 @@ public:
     void addLight(AmbientLight& light);
     void addReflection(Reflection& ref);
     void addObject(SceneObject *obj);
-    void draw(MvpMatrix mvp);
+    void draw(Mat4x4 mvp);
 private:
     std::list<SceneShader> shaders;
     std::vector<Renderable*> renderables;
@@ -62,5 +62,5 @@ private:
     std::vector<SpotLight*> spotLights;
     std::vector<AmbientLight*> ambientLights;
     std::vector<Reflection*> reflections;
-    void doDraw(Framebuffer& framebuffer, MvpMatrix& mvp, bool drawReflections=true);
+    void doDraw(Framebuffer& framebuffer, Mat4x4& mvp, bool drawReflections=true);
 };

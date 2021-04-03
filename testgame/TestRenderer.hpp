@@ -154,7 +154,7 @@ class TestRenderer : public Renderer{
         std::unique_ptr<Buffer<float>> pawnTexCoords;
         std::unique_ptr<Buffer<float>> pawnNormals;
         std::unique_ptr<Texture> pawnTexture;
-        MvpMatrix mvpMatrix;
+        Mat4x4 projection;
         Reflection reflection;
         Look3d look;
         uint32_t w = -1,a = -1,s = -1,d = -1, fullscreen = -1, exitKey = -1, upKey = -1, downKey = -1;

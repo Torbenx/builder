@@ -217,8 +217,8 @@ void Shader::uniformVec4(Shader::LocationHandle uniform,Vec4 u){
     uniform4f(uniform,u.x,u.y,u.z,u.w);
 }
 
-void Shader::uniformMat4x4(Shader::LocationHandle uniform,Mat4x4 u){
-    uniformMatrix4f(uniform,u.matrix);
+void Shader::uniformMat4x4(Shader::LocationHandle uniform, Mat4x4& u){
+    uniformMatrix4f(uniform, u.matrix);
 }
 
 void Shader::attribPointer(Shader::LocationHandle attrib, int size, void* a){

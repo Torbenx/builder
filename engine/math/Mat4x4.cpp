@@ -43,9 +43,10 @@ Mat4x4 Mat4x4::translate(Vec3 v){
 }
 
 Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
+    MATH_EXPECT_NORMALIZED(dir);
+    MATH_EXPECT_NORMALIZED(up);
     Mat4x4 re;
     float *m = re.matrix;
-    dir.normalize();
     Vec3 ex = Vec3::cross(dir, up);
     ex.normalize();
     Vec3 ey = Vec3::cross(ex, dir); //already unit length
@@ -73,17 +74,17 @@ Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
 }
 
 Mat4x4 Mat4x4::lookAt(Vec3 eye, Vec3 center, Vec3 up){
-    return look(eye, center-eye, up);
+    return look(eye, (center-eye).normalize(), up);
 }
 
 Mat4x4 Mat4x4::rotate(float radians, Vec3 axis){
+    MATH_EXPECT_NORMALIZED(axis);
     Mat4x4 re;
     float *m = re.matrix;
     float c = cos(radians);
     float s = sin(radians);
     float nc = 1.0f-c;
     Vec3 v = axis;
-    v.normalize();
 
     m[ 0] = v.x * v.x * nc +       c;
     m[ 1] = v.y * v.x * nc + v.y * s;
@@ -112,10 +113,9 @@ Mat4x4 Mat4x4::rotateAbout(Vec3 pos, float radians, Vec3 axis){
 }
 
 Mat4x4 Mat4x4::reflection(Vec3 n, Vec3 pos){
+    MATH_EXPECT_NORMALIZED(n);
     Mat4x4 re;
     float *m = re.matrix;
-
-    n.normalize();
 
     m[ 0] = 1.0f-2.0f*n.x*n.x;
     m[ 1] =     -2.0f*n.x*n.y;

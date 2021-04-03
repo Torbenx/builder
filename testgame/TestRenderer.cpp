@@ -29,7 +29,7 @@ TestRenderer::TestRenderer() :
         spotLight(
             Vec3(0,3.4,0),
             Vec3(0,-1,0),
-            F_PI*0.4f,
+            F_PI*0.2f,
             F_PI*0.4f,
             Vec3(1,0,0),
             2048, 2048,
@@ -55,7 +55,6 @@ TestRenderer::TestRenderer() :
     obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1,1,1)*0.1, 4, &reflection); obj3->mode = DrawMode::TriangleStrip;
     obj4 = new DebugRenderable(f4.get(), fNormal.get(), Vec3(1,1,0)*0.5, 4); obj4->mode = DrawMode::TriangleStrip;
     obj5 = new DebugRenderable(f5.get(), fNormal.get(), Vec3(0,0,1)*0.5, 4); obj5->mode = DrawMode::TriangleStrip;
-    mvpMatrix.model = Mat4x4::Id;
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
     scene.addLight(spotLight);
@@ -65,7 +64,7 @@ TestRenderer::TestRenderer() :
     scene.addObject(obj4);
     scene.addObject(obj5);
     scene.addReflection(reflection);
-    look.dir = Vec3(0,-1,0) - Vec3(7,1,0);
+    look.dir = (Vec3(0,-1,0) - pos).normalize();
     lframe = getNanos();
 
     #ifdef PLATFORM_ANDROID
@@ -150,7 +149,7 @@ TestRenderer::TestRenderer() :
 void TestRenderer::change(int newWidth, int newHeight){
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth/(float)newHeight;
-    mvpMatrix.projection = Mat4x4::frustumH(67.0f * F_PI / 180.0f, as, 0.1f, 100.0f);
+    projection = Mat4x4::frustumH(67.0f * F_PI / 180.0f, as, 0.1f, 100.0f);
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
@@ -275,7 +274,7 @@ void TestRenderer::drawFrame(){
     }
     pos += navD.x * dt * Vec3::cross(dirX, up);
     pos -= navD.y * dt * dirX;
-    mvpMatrix.view = Mat4x4::look(pos, look.dir, up);
+    Mat4x4 view = Mat4x4::look(pos, look.dir, up);
     Vec3 plp = pointLight.position;
     plp += Vec3(plp.z*dt, plp.z*dt/2.0, -plp.x*dt);
     pointLight.position = plp;
@@ -283,9 +282,8 @@ void TestRenderer::drawFrame(){
     obj5_coords[1]  = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[2]  = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[3]  = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
-    //mvpMatrix.view.setLookAt(Vec3(plp.x*2.0f,1,plp.z*2.0f),Vec3(0,-1,0),up);
     glEnable(GL_DEPTH_TEST);
-    scene.draw(mvpMatrix);
+    scene.draw(projection * view);
     glDisable(GL_DEPTH_TEST);
 
     if(navPointerId != POINTER_ID_INVALID){
