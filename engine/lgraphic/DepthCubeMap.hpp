@@ -14,7 +14,6 @@ class DepthCubeMap{
         float m_far;
         std::shared_ptr<SimpleDepthShader> shader;
         DepthCubeMap(int width, int height, float far);
-        ~DepthCubeMap();
         void draw(Mat4x4 model, Vec3 position, Renderable **ptrArray, int count);
     private:
         Mat4x4 projection = Mat4x4();

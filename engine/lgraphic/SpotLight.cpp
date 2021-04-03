@@ -12,10 +12,6 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int
 
 }
 
-SpotLight::~SpotLight(){
-
-}
-
 void SpotLight::draw(Renderable **ptrArray,int count){
     mvpMatrix.model = Mat4x4::Id;
     mvpMatrix.view = Mat4x4::look(position, direction, hDirection);

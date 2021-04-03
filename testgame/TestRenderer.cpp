@@ -62,7 +62,7 @@ TestRenderer::TestRenderer() :
     scene.addObject(obj1);
     scene.addObject(obj2);
     scene.addObject(obj3);
-    //scene.addObject(obj4);
+    scene.addObject(obj4);
     scene.addObject(obj5);
     scene.addReflection(reflection);
     look.dir = Vec3(0,-1,0) - Vec3(7,1,0);

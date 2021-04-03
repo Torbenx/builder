@@ -12,10 +12,6 @@ DepthMap::DepthMap(int width, int height) :
     //framebuffer.clearColor(1, 1, 1, 1);
 }
 
-DepthMap::~DepthMap(){
-
-}
-
 void DepthMap::draw(MvpMatrix& mvpMatrix, Vec3 position, Renderable **ptrArray, int count){
     GL_VERIFY(glIsEnabled(GL_DEPTH_TEST));
     framebuffer.bind();

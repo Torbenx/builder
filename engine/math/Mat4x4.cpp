@@ -46,9 +46,9 @@ Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
     Mat4x4 re;
     float *m = re.matrix;
     dir.normalize();
-    Vec3 ex = Vec3::cross(dir,up);
+    Vec3 ex = Vec3::cross(dir, up);
     ex.normalize();
-    Vec3 ey = Vec3::cross(ex,dir); //already unit length
+    Vec3 ey = Vec3::cross(ex, dir); //already unit length
 
     m[ 0] = ex.x;
     m[ 1] = ey.x;
@@ -65,9 +65,9 @@ Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
     m[10] = -dir.z;
     m[11] = 0.0f;
 
-    m[12] = -Vec3::dot(ex,eye);
-    m[13] = -Vec3::dot(ey,eye);
-    m[14] = Vec3::dot(dir,eye);
+    m[12] = -Vec3::dot(ex, eye);
+    m[13] = -Vec3::dot(ey, eye);
+    m[14] = Vec3::dot(dir, eye);
     m[15] = 1.0f;
     return re;
 }

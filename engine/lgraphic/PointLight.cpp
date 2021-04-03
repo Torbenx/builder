@@ -6,10 +6,6 @@ PointLight::PointLight(Vec3 position,int width,int height,Vec3 color,float near,
     this->color = color;
 }
 
-PointLight::~PointLight(){
-
-}
-
 void PointLight::draw(Renderable **ptrArray, int count){
     depthMap.draw(Mat4x4::Id, position, ptrArray, count);
 }

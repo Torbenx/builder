@@ -9,7 +9,6 @@ class PointLight : public LShader::Effect{
         DepthCubeMap depthMap;
         Vec3 color;
         PointLight(Vec3 position,int width,int height,Vec3 color,float near,float far);
-        ~PointLight();
         void draw(Renderable **ptrArray, int count);
         void addTo(LShaderBuilder&);
         virtual void apply(LShader&, const  LShader::EffectData&) override;
