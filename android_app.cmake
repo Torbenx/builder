@@ -68,8 +68,8 @@ function(add_apk _TARGET_NAME)
     set(apk_file_aligned ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}_aligned.apk)
     set(apk_file_output ${ANDROID_APK_WORKING_DIR}/${_TARGET_NAME}.apk)
 
-    set(apk_modification_pol ${_TARGET_NAME}_mod_apk)
-    set_property(GLOBAL APPEND PROPERTY JOB_POOLS ${apk_modification_pol}=1)
+    set(apk_modification_pool ${_TARGET_NAME}_mod_apk)
+    set_property(GLOBAL APPEND PROPERTY JOB_POOLS ${apk_modification_pool}=1)
 
     set(depfile_dir dep)
     set(package_depfile ${depfile_dir}/package.dep)
@@ -89,11 +89,12 @@ function(add_apk _TARGET_NAME)
 
         add_custom_command(
             OUTPUT ${_depfile}
-            COMMAND ${Java_JAR_EXECUTABLE} -uf ${apk_file_name} ${_source}
+            COMMAND ${Android_AAPT_EXECUTABLE} remove ${apk_file_name} ${_source}
+            COMMAND ${Android_AAPT_EXECUTABLE} add ${apk_file_name} ${_source}
             COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/${_depfile}
             WORKING_DIRECTORY ${ANDROID_APK_WORKING_DIR}
             DEPENDS ${ANDROID_APK_WORKING_DIR}/${_source} ${package_depfile}
-            JOB_POOL ${apk_modification_pol}
+            JOB_POOL ${apk_modification_pool}
             COMMENT "Updating ${_source} in ${_TARGET_NAME}"
         )
         list(APPEND add_depfiles ${_depfile})

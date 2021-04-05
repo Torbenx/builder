@@ -87,7 +87,7 @@ void Scene::draw(Mat4x4 vp){
     doDraw(Framebuffer::DEFAULT, vp);
 }
 
-void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& mvp, bool drawReflections){
+void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& vp, bool drawReflections){
     for(SceneShader& shader : shaders){
         SceneObject *obj = shader.objects.front();
         ColorSources colors = obj->getColorSources();
@@ -139,7 +139,7 @@ void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& mvp, bool drawReflections){
         }
         shader.shader->use();
         shader.shader->applyEffects();
-        shader.shader->uniformMat4x4(shader.mvpMatrixHandle, mvp);
+        shader.shader->uniformMat4x4(shader.mvpMatrixHandle, vp);
         for(SceneObject* obj : shader.objects){
             obj->draw2(framebuffer, *shader.shader, shader.data);
         }

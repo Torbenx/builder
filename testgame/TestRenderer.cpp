@@ -38,14 +38,14 @@ TestRenderer::TestRenderer() :
             30
         ),
         ambientLight(Vec3(1, 1, 1)*1.0f),
-        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.3f),
+        reflection(Vec3(0,1,0),Vec3(0,-2,0),2048,2048,0.7f),
         look(up, isAndroid()),
         pos(7,1,0)
 {
     reflection.framebuffer.clearColor(0,0,0,1);
     Framebuffer::DEFAULT.clearColor(0,0,0,1);
-    f1 = Buffer<Vec3>::upload({ Vec3(-1,-0,-1), Vec3(1,-0,-1), Vec3(-1,-0,1), Vec3(1,-0,1) }).unique();
-    f2 = Buffer<Vec3>::upload({ Vec3(-1,3,0), Vec3(1,3,0), Vec3(-1,3,2), Vec3(1,3,2) }).unique();
+    f1 = Buffer<Vec3>::upload({ Vec3(-1,0,-1), Vec3(-1,0,1), Vec3(1,0,-1), Vec3(1,0,1) }).unique();
+    f2 = Buffer<Vec3>::upload({ Vec3(-1,3,0), Vec3(-1,3,2), Vec3(1,3,0), Vec3(1,3,2) }).unique();
     f3 = Buffer<Vec3>::upload({ Vec3(-10,-2,-10), Vec3(-10,-2,10), Vec3(10,-2,-10), Vec3(10,-2,10) }).unique();
     f4 = Buffer<Vec3>::upload({ Vec3(-10,4,-10), Vec3(-10,4,10), Vec3(10,4,-10), Vec3(10,4,10) }).unique();
     f5 = Buffer<Vec3>::wrap(obj5_coords).unique();
@@ -102,8 +102,8 @@ TestRenderer::TestRenderer() :
 
 
     ObjParser parser;
-    asset_istream file("Pawn/Pawn.obj");
-    parser.parse(file, 16000, 16000);
+    asset_istream file("KingSideB/piece.obj");
+    parser.parse(file, 100000, 100000);
     pawnVertex = Buffer<float>::upload(parser.vertex, parser.vertexCount*parser.dim).unique();
     pawnTexCoords = Buffer<float>::upload(parser.texCoords, parser.vertexCount*2).unique();
     pawnNormals = Buffer<float>::upload(parser.normals, parser.vertexCount*parser.dim).unique();
@@ -111,7 +111,7 @@ TestRenderer::TestRenderer() :
         pawnIndices = Buffer<GLuint>::upload(parser.indices, parser.n).unique();
     }
 
-    asset_istream jpegFile("Pawn/Pawn.jpg");
+    asset_istream jpegFile("KingSideB/piece.jpg");
     jpegFile.seekg(0, jpegFile.end);
     int jpegFileSize = jpegFile.tellg();
     jpegFile.seekg(0, jpegFile.beg);
@@ -277,12 +277,14 @@ void TestRenderer::drawFrame(){
     plp += Vec3(plp.z*dt, plp.z*dt/2.0, -plp.x*dt);
     pointLight.position = plp;
     obj5_coords[0]  = Vec3(plp.x - 0.3f, plp.y, plp.z - 0.3f);
-    obj5_coords[1]  = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
-    obj5_coords[2]  = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
+    obj5_coords[1]  = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
+    obj5_coords[2]  = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3]  = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
+    //glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     scene.draw(projection * view);
     glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_CULL_FACE);
 
     if(navPointerId != POINTER_ID_INVALID){
         Vec2 center(navBaseX * 2.0f / uiScene.metrics.width() - 1.0f, navBaseY * -2.0f / uiScene.metrics.height() + 1.0f);

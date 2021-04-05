@@ -52,24 +52,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ANDROID_APK_WORKING_DIR}/${lib_dir})
     set(ASSETS_OUTPUT_DIR ${ANDROID_APK_WORKING_DIR})
 
-else()
-    message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
-endif()
-
-add_subdirectory(libs)
-
-include_directories(libs/libjpeg-turbo)
-include_directories(engine)
-
-set(CMAKE_CXX_STANDARD 20)
-
-add_subdirectory(engine)
-
-add_subdirectory(builder)
-add_subdirectory(testgame)
-
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-
     #classes.dex
     set(JAVA_SOURCE_DIR engine/android/java)
     set(CMAKE_JAVA_COMPILE_FLAGS -bootclasspath ${Android_ANDROID_JAR} -target 1.8 -source 1.8)
@@ -91,17 +73,38 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     add_custom_target(classes_dex SOURCES classes.dex)
 
     #c++ standard library
-    set(cxx_lib_name c++_shared)
-    find_library(cxx_lib_source ${cxx_lib_name})
+    set(lib_cxx_name c++_shared)
+    find_library(lib_cxx_source ${lib_cxx_name} REQUIRED)
 
-    set(cxx_lib_file_name lib${cxx_lib_name}.so)
+    set(lib_cxx_file_name lib${lib_cxx_name}.so)
     add_custom_command(
-        OUTPUT  ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${cxx_lib_file_name}
-        COMMAND ${CMAKE_COMMAND} -E copy ${cxx_lib_source} ${ANDROID_APK_WORKING_DIR}/${lib_dir}
-        DEPENDS ${cxx_lib_source}
+        OUTPUT  ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${lib_cxx_file_name}
+        COMMAND ${CMAKE_COMMAND} -E copy ${lib_cxx_source} ${ANDROID_APK_WORKING_DIR}/${lib_dir}
+        DEPENDS ${lib_cxx_source}
         COMMENT "Copying c++ standard library"
     )
 
-    add_custom_target(cxx_lib SOURCES ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${cxx_lib_file_name})
+    add_custom_target(lib_cxx SOURCES ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${lib_cxx_file_name})
 
+    set(PLATFORM_ANDROID_APK_FILES
+        ${lib_dir}/libengine.so
+        ${lib_dir}/libturbojpeg.so
+        ${lib_dir}/${lib_cxx_file_name}
+        classes.dex
+    )
+
+else()
+    message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
 endif()
+
+add_subdirectory(libs)
+
+include_directories(libs/libjpeg-turbo)
+include_directories(engine)
+
+set(CMAKE_CXX_STANDARD 20)
+
+add_subdirectory(engine)
+
+add_subdirectory(builder)
+add_subdirectory(testgame)
