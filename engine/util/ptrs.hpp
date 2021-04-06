@@ -7,7 +7,10 @@ template<class T>
 class return_ptr {
 public:
     return_ptr(T* ptr)
-        : ptr(ptr) {};
+        : ptr(ptr) { }
+
+    return_ptr()
+        : ptr(nullptr) { }
 
     T&& move() {
         return std::move(*ptr);
@@ -37,11 +40,17 @@ public:
         return p;
     }
 
+    return_ptr<T>& operator=(return_ptr<T> other) {
+        reset(other.release());
+        return *this;
+    }
+
     ~return_ptr() {
         if (ptr)
             delete ptr;
     }
 
 private:
+    return_ptr(const return_ptr<T>& other);
     T* ptr;
 };

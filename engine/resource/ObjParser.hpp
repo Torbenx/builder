@@ -1,16 +1,15 @@
 #pragma once
 
+#include "GL/Buffer.hpp"
 #include <istream>
 
-class ObjParser{
-    public:
-        float *vertex = nullptr;
-        float *texCoords = nullptr;
-        float *normals = nullptr;
-        uint32_t *indices = nullptr;
-        int n, vertexCount, polyType, dim;
-        ObjParser();
-        ~ObjParser();
-        void parse(std::istream& in, int nv, int ni);
-        void freeCache();
+class ObjParser {
+public:
+    return_ptr<VertexBuffer> vertex;
+    return_ptr<VertexBuffer> texCoords;
+    return_ptr<VertexBuffer> normals;
+    return_ptr<IndexBuffer> indices;
+    int n, vertexCount, polyType, dim;
+    void parse(std::istream& in);
+    void freeCache();
 };

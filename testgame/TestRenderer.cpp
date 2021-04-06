@@ -103,16 +103,14 @@ TestRenderer::TestRenderer()
         .align();
 
     ObjParser parser;
-    asset_istream file("QueenSideB/piece.obj");
-    parser.parse(file, 100000, 100000);
-    pawnVertex = VertexBuffer::upload<Vec3>((Vec3*)parser.vertex, parser.vertexCount).unique();
-    pawnTexCoords = VertexBuffer::upload<Vec2>((Vec2*)parser.texCoords, parser.vertexCount).unique();
-    pawnNormals = VertexBuffer::upload<Vec3>((Vec3*)parser.normals, parser.vertexCount).unique();
-    if (parser.indices) {
-        pawnIndices = IndexBuffer::upload<GLuint>(parser.indices, parser.n).unique();
-    }
+    asset_istream file("PawnSideB/piece.obj");
+    parser.parse(file);
+    pawnVertex = parser.vertex.unique();
+    pawnTexCoords = parser.texCoords.unique();
+    pawnNormals = parser.normals.unique();
+    pawnIndices = parser.indices.unique();
 
-    asset_istream jpegFile("QueenSideB/piece.jpg");
+    asset_istream jpegFile("PawnSideB/piece.jpg");
     jpegFile.seekg(0, jpegFile.end);
     int jpegFileSize = jpegFile.tellg();
     jpegFile.seekg(0, jpegFile.beg);
@@ -140,7 +138,7 @@ TestRenderer::TestRenderer()
 
     refComp.texture = pawnTexture.get();
 
-    pawn = new ObjectRenderable(pawnVertex.get(), parser.indices ? pawnIndices.get() : nullptr, pawnTexCoords.get(), pawnNormals.get(), pawnTexture.get(), parser.n, Mat4x4::Id);
+    pawn = new ObjectRenderable(pawnVertex.get(), pawnIndices.get(), pawnTexCoords.get(), pawnNormals.get(), pawnTexture.get(), parser.n, Mat4x4::Id);
     scene.addObject(pawn);
 }
 

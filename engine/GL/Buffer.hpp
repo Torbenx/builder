@@ -85,6 +85,20 @@ public:
         return b;
     }
 
+    static return_ptr<Buffer<BaseType>> wrap(BaseType* data, int elementSize, int size) {
+        return new Buffer(data, elementSize, size, false);
+    }
+
+    static return_ptr<Buffer<BaseType>> adopt(BaseType* data, int elementSize, int size) {
+        return new Buffer(data, elementSize, size, true);
+    }
+
+    static return_ptr<Buffer<BaseType>> upload(BaseType* data, int elementSize, int size, WriteFrequency wf = Normal) {
+        Buffer* b = new Buffer(data, elementSize, size, false);
+        b->upload(wf);
+        return b;
+    }
+
     Buffer(Buffer<BaseType>&& other)
         : isGLBuffer(other.isGL()), m_data(other.data()), glId(other.glId), m_owns(other.m_owns), m_elementSize(other.m_elementSize), m_size(other.size()) {
         other.m_owns = false;
