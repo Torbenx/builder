@@ -7,8 +7,8 @@ class CubeMapComponent : public UiComponent{
     public:
         std::shared_ptr<SimpleCubeMapShader> shader;
         CubeMap *cubeMap;
-        Buffer<Vec2> coords;
-        Buffer<Vec3> texCoords;
+        VertexBuffer coords;
+        VertexBuffer texCoords;
         CubeMapComponent(bool createShader=true);
         void draw(Framebuffer&);
         void updateRect(ScreenMetrics&);

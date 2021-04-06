@@ -1,6 +1,6 @@
 #include "ui/CubeMapComponent.hpp"
 
-CubeMapComponent::CubeMapComponent(bool createShader) : coords(4), texCoords(4){
+CubeMapComponent::CubeMapComponent(bool createShader) : coords(VertexBuffer::alloc<Vec2>(4).move()), texCoords(VertexBuffer::alloc<Vec3>(4).move()){
     if(createShader)
         shader = Shaders::cubeMap();
 }

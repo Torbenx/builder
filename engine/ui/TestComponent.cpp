@@ -1,6 +1,6 @@
 #include "ui/TestComponent.hpp"
 
-TestComponent::TestComponent() : shader(Shaders::color()), coords(4) {}
+TestComponent::TestComponent() : shader(Shaders::color()), coords(VertexBuffer::alloc<Vec2>(4).move()) {}
 
 void TestComponent::draw(Framebuffer& framebuffer){
     shader->use();

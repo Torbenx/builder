@@ -3,3 +3,5 @@ BasedOnStyle: Webkit
 BreakBeforeBraces: Custom
 BraceWrapping:
     AfterFunction: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+SpaceAfterTemplateKeyword: false

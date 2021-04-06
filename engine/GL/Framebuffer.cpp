@@ -3,35 +3,40 @@
 
 Framebuffer Framebuffer::DEFAULT(true, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-Framebuffer *Framebuffer::currentFramebuffer = &Framebuffer::DEFAULT;
+Framebuffer* Framebuffer::currentFramebuffer = &Framebuffer::DEFAULT;
 
-//must match Texture::Type
+// must match Texture::Type
 GLenum GL_ATTACHMENTS[] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
 GLenum GL_BUFFER_BITS[] = { GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT };
 
-Framebuffer::Framebuffer(bool isDefault, GLbitfield clearMask) : isDefault(isDefault), clearMask(clearMask){
-    if(isDefault)
+Framebuffer::Framebuffer(bool isDefault, GLbitfield clearMask)
+    : isDefault(isDefault), clearMask(clearMask) {
+    if (isDefault)
         glId = 0;
     else
         glGenFramebuffers(1, &glId);
 }
 
-Framebuffer::~Framebuffer(){
+Framebuffer::~Framebuffer() {
     glDeleteFramebuffers(1, &glId);
 }
 
-void Framebuffer::bind(bool restoreAttachments){
+void Framebuffer::bind(bool restoreAttachments) {
     GL_GET_EXPECT(GL_FRAMEBUFFER_BINDING, currentFramebuffer->glId);
 #ifdef VALIDATE_GL
-    if(isCurrent()) LOGD("framebuffer %d already bound", glId);
+    if (isCurrent())
+        LOGD("framebuffer %d already bound", glId);
 #endif
 
     glBindFramebuffer(GL_FRAMEBUFFER, glId);
     currentFramebuffer = this;
-    if(restoreAttachments){
-        if(attachments[Texture::Type::Color].texture) applyAttchment(Texture::Type::Color);
-        if(attachments[Texture::Type::Depth].texture) applyAttchment(Texture::Type::Depth);
-        if(attachments[Texture::Type::Stencil].texture) applyAttchment(Texture::Type::Stencil);
+    if (restoreAttachments) {
+        if (attachments[Texture::Type::Color].texture)
+            applyAttchment(Texture::Type::Color);
+        if (attachments[Texture::Type::Depth].texture)
+            applyAttchment(Texture::Type::Depth);
+        if (attachments[Texture::Type::Stencil].texture)
+            applyAttchment(Texture::Type::Stencil);
         GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
     }
     glClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
@@ -41,69 +46,101 @@ void Framebuffer::bind(bool restoreAttachments){
     glStencilMask(sMask);
 }
 
-void Framebuffer::clear(){
+void Framebuffer::clear() {
     VALIDATE_FRAMEBUFFER_STATE
     glClear(clearMask);
 }
 
-void Framebuffer::applyAttchment(Texture::Type type){
-    if(attachments[type].texture->isRenderbuffer)
+void Framebuffer::draw(DrawMode mode, IndexBuffer& indices) {
+    VALIDATE_FRAMEBUFFER_STATE
+    indices.bind(GL_ELEMENT_ARRAY_BUFFER);
+    GLenum type;
+    switch (indices.elementSize()) {
+    case 1:
+        type = GL_UNSIGNED_BYTE;
+        break;
+    case 2:
+        type = GL_UNSIGNED_SHORT;
+        break;
+    case 4:
+        type = GL_UNSIGNED_INT;
+        break;
+    default:
+        GL_VERIFY_NOT_REACHED();
+    }
+    glDrawElements(mode, indices.size(), type, indices.data());
+}
+
+void Framebuffer::draw(DrawMode mode, int count) {
+    VALIDATE_FRAMEBUFFER_STATE
+    glDrawArrays(mode, 0, count);
+}
+
+void Framebuffer::applyAttchment(Texture::Type type) {
+    if (attachments[type].texture->isRenderbuffer)
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], GL_RENDERBUFFER, attachments[type].texture->glId);
     else
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], attachments[type].subTarget, attachments[type].texture->glId, 0);
 }
 
-void Framebuffer::attach(Texture& texture){
+void Framebuffer::attach(Texture& texture) {
     attachInteral(texture, texture.target);
 }
 
-void Framebuffer::attach(CubeMap& cubeMap, CubeMap::Face face){
+void Framebuffer::attach(CubeMap& cubeMap, CubeMap::Face face) {
     attachInteral(cubeMap, face);
 }
 
-void Framebuffer::attachInteral(Texture& texture, GLenum subTarget){
+void Framebuffer::attachInteral(Texture& texture, GLenum subTarget) {
     attachments[texture.type].texture = &texture;
     attachments[texture.type].subTarget = subTarget;
     clearMask |= GL_BUFFER_BITS[texture.type];
-    if(isCurrent()) applyAttchment(texture.type);
+    if (isCurrent())
+        applyAttchment(texture.type);
 }
 
-void Framebuffer::clearColor(float r, float g, float b, float a){
+void Framebuffer::clearColor(float r, float g, float b, float a) {
     m_clearColor.set(r, g, b, a);
-    if(isCurrent()) glClearColor(r, g, b, a);
+    if (isCurrent())
+        glClearColor(r, g, b, a);
 }
 
-void Framebuffer::clearColor(Vec4 color){
+void Framebuffer::clearColor(Vec4 color) {
     m_clearColor = color;
-    if(isCurrent()) glClearColor(color.x, color.y, color.z, color.w);
+    if (isCurrent())
+        glClearColor(color.x, color.y, color.z, color.w);
 }
 
-void Framebuffer::viewport(int width, int height){
+void Framebuffer::viewport(int width, int height) {
     viewport(0, 0, width, height);
 }
 
-void Framebuffer::viewport(int offsetX, int offsetY, int width, int height){
+void Framebuffer::viewport(int offsetX, int offsetY, int width, int height) {
     this->offsetX = offsetX;
     this->offsetY = offsetY;
     this->width = width;
     this->height = height;
-    if(isCurrent()) glViewport(offsetX, offsetY, width, height);
+    if (isCurrent())
+        glViewport(offsetX, offsetY, width, height);
 }
 
-void Framebuffer::colorMask(bool r, bool g, bool b, bool a){
+void Framebuffer::colorMask(bool r, bool g, bool b, bool a) {
     rMask = r;
     gMask = g;
     bMask = b;
     aMask = a;
-    if(isCurrent()) glColorMask(r, g, b, a);
+    if (isCurrent())
+        glColorMask(r, g, b, a);
 }
 
-void Framebuffer::depthMask(bool d){
+void Framebuffer::depthMask(bool d) {
     dMask = d;
-    if(isCurrent()) glDepthMask(d);
+    if (isCurrent())
+        glDepthMask(d);
 }
 
-void Framebuffer::stencilMask(unsigned int s){
+void Framebuffer::stencilMask(unsigned int s) {
     sMask = s;
-    if(isCurrent()) glStencilMask(s);
+    if (isCurrent())
+        glStencilMask(s);
 }

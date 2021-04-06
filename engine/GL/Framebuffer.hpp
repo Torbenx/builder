@@ -1,21 +1,14 @@
 #pragma once
 
+#include "GL/CubeMap.hpp"
 #include "GL/Texture.hpp"
 #include "math/Vec4.hpp"
-#include "GL/CubeMap.hpp"
-
-template< typename T >
-struct IndexTraits { static const GLenum glType; };
-
-template<> struct IndexTraits<GLuint> { static const GLenum glType = GL_UNSIGNED_INT; };
-template<> struct IndexTraits<GLushort> { static const GLenum glType = GL_UNSIGNED_SHORT; };
-template<> struct IndexTraits<GLubyte> { static const GLenum glType = GL_UNSIGNED_BYTE; };
 
 #define VALIDATE_FRAMEBUFFER_STATE \
-    GL_VERIFY(isCurrent()); \
+    GL_VERIFY(isCurrent());        \
     GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
 
-enum DrawMode : GLenum{
+enum DrawMode : GLenum {
     Points = GL_POINTS,
     Lines = GL_LINES,
     LineStrip = GL_LINE_STRIP,
@@ -25,29 +18,19 @@ enum DrawMode : GLenum{
     TriangleFan = GL_TRIANGLE_FAN,
 };
 
-class Framebuffer{
+class Framebuffer {
 public:
-
     static Framebuffer DEFAULT;
 
-    Framebuffer() : Framebuffer(false, 0) {}
+    Framebuffer()
+        : Framebuffer(false, 0) { }
     ~Framebuffer();
     void bind(bool restoreAttachments = true);
 
     void clear();
 
-    template< typename T >
-    void draw(DrawMode mode, Buffer<T>& indices){
-        VALIDATE_FRAMEBUFFER_STATE
-        indices.bind(GL_ELEMENT_ARRAY_BUFFER);
-        glDrawElements(mode, indices.size(), IndexTraits<T>::glType, indices.data());
-    }
-
-    void draw(DrawMode mode, int count){
-        VALIDATE_FRAMEBUFFER_STATE
-        glDrawArrays(mode, 0, count);
-    }
-
+    void draw(DrawMode mode, IndexBuffer& indices);
+    void draw(DrawMode mode, int count);
 
     void attach(Texture& a);
     void attach(CubeMap& a, CubeMap::Face);
@@ -61,10 +44,10 @@ public:
     void stencilMask(GLbitfield s);
 
 private:
-    static Framebuffer *currentFramebuffer;
+    static Framebuffer* currentFramebuffer;
 
     struct {
-        Texture *texture = nullptr;
+        Texture* texture = nullptr;
         GLenum subTarget;
     } attachments[3];
     GLuint glId;

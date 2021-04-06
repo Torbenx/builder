@@ -1,6 +1,6 @@
 #include "ui/TextureComponent.hpp"
 
-TextureComponent::TextureComponent(bool createShader) : coords(4), texCoords(4){
+TextureComponent::TextureComponent(bool createShader) : coords(VertexBuffer::alloc<Vec2>(4).move()), texCoords(VertexBuffer::alloc<Vec2>(4).move()){
     if(createShader)
         shader = Shaders::texture();
     setTexRect(Rect::bltr(0.0f, 0.0f, 1.0f, 1.0f));

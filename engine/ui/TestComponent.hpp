@@ -8,7 +8,7 @@ class TestComponent : public UiComponent{
     public:
         std::shared_ptr<SingleColorShader> shader;
         Vec4 color;
-        Buffer<Vec2> coords;
+        VertexBuffer coords;
         TestComponent();
         void draw(Framebuffer&);
         void updateRect(ScreenMetrics&);

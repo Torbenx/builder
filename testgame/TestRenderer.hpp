@@ -19,14 +19,14 @@
 
 class DebugRenderable : public Scene::Object {
 public:
-    Buffer<Vec3>* source;
-    Buffer<Vec3>* normals;
+    VertexBuffer* source;
+    VertexBuffer* normals;
     Vec3 color;
     Mat4x4 model;
     int num;
     DrawMode mode = DrawMode::Triangles;
 
-    DebugRenderable(Buffer<Vec3>* s, Buffer<Vec3>* nor, Vec3 c, int n, Mat4x4 m = Mat4x4::Id) {
+    DebugRenderable(VertexBuffer* s, VertexBuffer* nor, Vec3 c, int n, Mat4x4 m = Mat4x4::Id) {
         source = s;
         normals = nor;
         color = c;
@@ -55,15 +55,15 @@ public:
 
 class ObjectRenderable : public Scene::Object {
 public:
-    Buffer<float>* source;
-    Buffer<float>* texCoords;
-    Buffer<float>* normals;
-    Buffer<GLuint>* indices;
+    VertexBuffer* source;
+    VertexBuffer* texCoords;
+    VertexBuffer* normals;
+    IndexBuffer* indices;
     Texture* texture;
     Mat4x4 model;
     int num;
 
-    ObjectRenderable(Buffer<float>* s, Buffer<GLuint>* i, Buffer<float>* t, Buffer<float>* nor, Texture* tex, int n, Mat4x4 m = Mat4x4::Id) {
+    ObjectRenderable(VertexBuffer* s, IndexBuffer* i, VertexBuffer* t, VertexBuffer* nor, Texture* tex, int n, Mat4x4 m = Mat4x4::Id) {
         source = s;
         indices = i;
         texCoords = t;
@@ -79,7 +79,7 @@ public:
 
     void draw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform) {
         shader.uniformMat4x4(modelUniform, model);
-        shader.attribPointer(positionAttrib, 3, *source);
+        shader.attribPointer(positionAttrib, *source);
         if (indices)
             framebuffer.draw(DrawMode::Triangles, *indices);
         else
@@ -88,10 +88,10 @@ public:
 
     void draw2(Framebuffer& framebuffer, LShader& shader, const Scene::DrawData& data) {
         shader.uniformMat4x4(data.modelUniform, model);
-        shader.attribPointer(data.positionAttrib, 3, *source);
-        shader.attribPointer(data.normalAttrib, 3, *normals);
+        shader.attribPointer(data.positionAttrib, *source);
+        shader.attribPointer(data.normalAttrib, *normals);
         shader.uniformTexture(data.colorSource.texture.uniform, *texture, 10);
-        shader.attribPointer(data.colorSource.texture.positionAttrib, 2, *texCoords);
+        shader.attribPointer(data.colorSource.texture.positionAttrib, *texCoords);
         if (indices)
             framebuffer.draw(DrawMode::Triangles, *indices);
         else
@@ -103,7 +103,7 @@ class ReflectionDebugRenderable : public DebugRenderable {
 public:
     Reflection* reflection;
 
-    ReflectionDebugRenderable(Buffer<Vec3>* s, Buffer<Vec3>* nor, Vec3 c, int n, Reflection* r, Mat4x4 m = Mat4x4::Id)
+    ReflectionDebugRenderable(VertexBuffer* s, VertexBuffer* nor, Vec3 c, int n, Reflection* r, Mat4x4 m = Mat4x4::Id)
         : DebugRenderable(s, nor, c, n, m) {
         reflection = r;
     }
@@ -130,16 +130,16 @@ public:
     SpotLight spotLight;
     AmbientLight ambientLight;
     Reflection reflection;
-    std::unique_ptr<Buffer<Vec3>> f1;
-    std::unique_ptr<Buffer<Vec3>> f2;
-    std::unique_ptr<Buffer<Vec3>> f3;
-    std::unique_ptr<Buffer<Vec3>> f4;
-    std::unique_ptr<Buffer<Vec3>> f5;
-    std::unique_ptr<Buffer<Vec3>> fNormal;
-    std::unique_ptr<Buffer<float>> pawnVertex;
-    std::unique_ptr<Buffer<GLuint>> pawnIndices;
-    std::unique_ptr<Buffer<float>> pawnTexCoords;
-    std::unique_ptr<Buffer<float>> pawnNormals;
+    std::unique_ptr<VertexBuffer> f1;
+    std::unique_ptr<VertexBuffer> f2;
+    std::unique_ptr<VertexBuffer> f3;
+    std::unique_ptr<VertexBuffer> f4;
+    std::unique_ptr<VertexBuffer> f5;
+    std::unique_ptr<VertexBuffer> fNormal;
+    std::unique_ptr<VertexBuffer> pawnVertex;
+    std::unique_ptr<VertexBuffer> pawnTexCoords;
+    std::unique_ptr<VertexBuffer> pawnNormals;
+    std::unique_ptr<IndexBuffer> pawnIndices;
     std::unique_ptr<Texture> pawnTexture;
     Mat4x4 projection;
     Look3d look;

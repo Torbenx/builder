@@ -42,12 +42,12 @@ TestRenderer::TestRenderer()
     reflection.framebuffer.clearColor(0, 0, 0, 1);
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     float f1Scale = 0.5f;
-    f1 = Buffer<Vec3>::upload({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale }).unique();
-    f2 = Buffer<Vec3>::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) }).unique();
-    f3 = Buffer<Vec3>::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) }).unique();
-    f4 = Buffer<Vec3>::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) }).unique();
-    f5 = Buffer<Vec3>::wrap(obj5_coords).unique();
-    fNormal = Buffer<Vec3>::upload({ up, up, up, up }).unique();
+    f1 = VertexBuffer::upload({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale }).unique();
+    f2 = VertexBuffer::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) }).unique();
+    f3 = VertexBuffer::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) }).unique();
+    f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) }).unique();
+    f5 = VertexBuffer::wrap(obj5_coords).unique();
+    fNormal = VertexBuffer::upload({ up, up, up, up }).unique();
     obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1, 0, 0) * 0.5, 4);
     obj1->mode = DrawMode::TriangleStrip;
     obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0, 1, 0) * 0.5, 4);
@@ -105,11 +105,11 @@ TestRenderer::TestRenderer()
     ObjParser parser;
     asset_istream file("QueenSideB/piece.obj");
     parser.parse(file, 100000, 100000);
-    pawnVertex = Buffer<float>::upload(parser.vertex, parser.vertexCount * parser.dim).unique();
-    pawnTexCoords = Buffer<float>::upload(parser.texCoords, parser.vertexCount * 2).unique();
-    pawnNormals = Buffer<float>::upload(parser.normals, parser.vertexCount * parser.dim).unique();
+    pawnVertex = VertexBuffer::upload<Vec3>((Vec3*)parser.vertex, parser.vertexCount).unique();
+    pawnTexCoords = VertexBuffer::upload<Vec2>((Vec2*)parser.texCoords, parser.vertexCount).unique();
+    pawnNormals = VertexBuffer::upload<Vec3>((Vec3*)parser.normals, parser.vertexCount).unique();
     if (parser.indices) {
-        pawnIndices = Buffer<GLuint>::upload(parser.indices, parser.n).unique();
+        pawnIndices = IndexBuffer::upload<GLuint>(parser.indices, parser.n).unique();
     }
 
     asset_istream jpegFile("QueenSideB/piece.jpg");
