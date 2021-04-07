@@ -8,8 +8,7 @@ class Renderable{
         virtual void draw(
             Framebuffer& framebuffer,
             Shader& shader,
-            Shader::LocationHandle postionHandle,
-            Shader::LocationHandle modelHandle
+            Shader::LocationHandle postionHandle
         ) = 0;
         virtual ~Renderable(){}
 };

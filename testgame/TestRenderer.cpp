@@ -138,7 +138,7 @@ TestRenderer::TestRenderer()
 
     refComp.texture = pawnTexture.get();
 
-    pawn = new ObjectRenderable(pawnVertex.get(), pawnIndices.get(), pawnTexCoords.get(), pawnNormals.get(), pawnTexture.get(), parser.n, Mat4x4::Id);
+    pawn = new ObjectRenderable(pawnVertex.get(), pawnIndices.get(), pawnTexCoords.get(), pawnNormals.get(), pawnTexture.get(), parser.n);
     scene.addObject(pawn);
 }
 

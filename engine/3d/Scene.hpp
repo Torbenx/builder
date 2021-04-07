@@ -18,7 +18,6 @@ public:
     struct DrawData {
         Shader::LocationHandle positionAttrib;
         Shader::LocationHandle normalAttrib;
-        Shader::LocationHandle modelUniform;
         union {
             Shader::LocationHandle attrib;
             Shader::LocationHandle uniform;
@@ -34,22 +33,26 @@ public:
         virtual Reflection* getReflection() { return nullptr; }
         virtual void draw2(Framebuffer& framebuffer, LShader& shader, const DrawData& data) = 0;
     };
+    struct ObjectData {
+        Object* object;
+        Mat4x4 model;
+    };
     struct ShaderInstance {
         std::unique_ptr<LShader> shader;
         DrawData data;
-        Shader::LocationHandle mvpMatrixHandle;
-        std::vector<Object*> objects;
+        Shader::LocationHandle vpUniform;
+        Shader::LocationHandle modelUniform;
+        std::vector<ObjectData> objects;
     };
     void addLight(PointLight& light);
     void addLight(SpotLight& light);
     void addLight(AmbientLight& light);
     void addReflection(Reflection& ref);
-    void addObject(Object* obj);
-    void draw(Mat4x4 mvp);
+    void addObject(Object* obj, Mat4x4& model = Mat4x4::Id);
+    void draw(Mat4x4 vp);
 
 private:
     std::list<ShaderInstance> shaders;
-    std::vector<Renderable*> renderables;
     std::vector<PointLight*> pointLights;
     std::vector<SpotLight*> spotLights;
     std::vector<AmbientLight*> ambientLights;

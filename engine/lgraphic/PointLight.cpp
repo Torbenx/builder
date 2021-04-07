@@ -6,8 +6,8 @@ PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _
     this->color = color;
 }
 
-void PointLight::draw(Renderable **ptrArray, int count){
-    depthMap.draw(position, ptrArray, count);
+void PointLight::draw(void (*doDraw)(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform)){
+    depthMap.draw(position, doDraw);
 }
 
 void PointLight::addTo(LShaderBuilder& s){

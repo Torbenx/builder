@@ -16,27 +16,39 @@ void Scene::addReflection(Reflection& ref) {
     reflections.push_back(&ref);
 }
 
-void Scene::addObject(Object* obj) {
+void Scene::addObject(Object* obj, Mat4x4& model) {
     ColorSource colorSource = obj->getColorSource();
     bool hasReflection = obj->hasReflection();
-    renderables.push_back(obj);
+    ObjectData objData;
+    objData.object = obj;
+    objData.model = model;
     for (ShaderInstance& shader : shaders) {
-        Object* otherObj = shader.objects.front();
+        Object* otherObj = shader.objects.front().object;
         if (colorSource == otherObj->getColorSource() && hasReflection == otherObj->hasReflection()) {
-            shader.objects.push_back(obj);
+            shader.objects.push_back(objData);
             return;
         }
     }
     shaders.resize(shaders.size() + 1);
-    shaders.back().objects.push_back(obj);
+    shaders.back().objects.push_back(objData);
 }
 
 void Scene::draw(Mat4x4 vp) {
+    static auto thiz = this;
+    void (*doDepthDraw)(Framebuffer & framebuffer, Shader & shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform)
+        = [](Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform) {
+              for (ShaderInstance& inst : thiz->shaders) {
+                  for (ObjectData& objData : inst.objects) {
+                      shader.uniformMat4x4(modelUniform, objData.model);
+                      objData.object->draw(framebuffer, shader, positionAttrib);
+                  }
+              }
+          };
     for (PointLight* light : pointLights) {
-        light->draw(renderables.data(), renderables.size());
+        light->draw(doDepthDraw);
     }
     for (SpotLight* light : spotLights) {
-        light->draw(renderables.data(), renderables.size());
+        light->draw(doDepthDraw);
     }
     for (auto* ref : reflections) {
         ref->framebuffer.bind();
@@ -51,7 +63,7 @@ void Scene::draw(Mat4x4 vp) {
 
 void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& vp, bool drawReflections) {
     for (ShaderInstance& shader : shaders) {
-        Object* obj = shader.objects.front();
+        Object* obj = shader.objects.front().object;
         if (obj->hasReflection() && !drawReflections)
             continue;
         if (!shader.shader) {
@@ -60,9 +72,9 @@ void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& vp, bool drawReflections) {
             builder.rawPosition = "a_position";
             shader.data.normalAttrib = builder.addAttrib("vec3", "a_normal");
             builder.rawNormal = "a_normal";
-            shader.data.modelUniform = builder.addVertexUniform("mat4", "u_model");
+            shader.modelUniform = builder.addVertexUniform("mat4", "u_model");
             builder.rawToWorldMatrix = "u_model";
-            shader.mvpMatrixHandle = builder.addVertexUniform("mat4", "u_mvpMatrix");
+            shader.vpUniform = builder.addVertexUniform("mat4", "u_mvpMatrix");
             builder.worldToScreenMatrix = "u_mvpMatrix";
             switch (obj->getColorSource()) {
             case Uniform:
@@ -97,9 +109,10 @@ void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& vp, bool drawReflections) {
         }
         shader.shader->use();
         shader.shader->applyEffects();
-        shader.shader->uniformMat4x4(shader.mvpMatrixHandle, vp);
-        for (Object* obj : shader.objects) {
-            obj->draw2(framebuffer, *shader.shader, shader.data);
+        shader.shader->uniformMat4x4(shader.vpUniform, vp);
+        for (ObjectData& objData : shader.objects) {
+            shader.shader->uniformMat4x4(shader.modelUniform, objData.model);
+            objData.object->draw2(framebuffer, *shader.shader, shader.data);
         }
     }
 }

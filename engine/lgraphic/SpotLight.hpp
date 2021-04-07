@@ -8,7 +8,7 @@ public:
     DepthMap depthMap;
     SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int texHeight, Vec3 color, float near, float far);
     SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3 hDirection, int texWidth, int texHeight, Vec3 color, float near, float far);
-    void draw(Renderable **ptrArray, int count);
+    void draw(void (*doDraw)(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform));
     void addTo(LShaderBuilder&);
     virtual void apply(LShader&, const  LShader::EffectData&) override;
 private:

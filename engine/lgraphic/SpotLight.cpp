@@ -13,9 +13,9 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int
 
 }
 
-void SpotLight::draw(Renderable **ptrArray,int count){
+void SpotLight::draw(void (*doDraw)(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform)){
     Mat4x4 mat = projection * view;
-    depthMap.draw(mat, ptrArray, count);
+    depthMap.draw(mat, doDraw);
 }
 
 void SpotLight::addTo(LShaderBuilder& s){
