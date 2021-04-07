@@ -64,7 +64,8 @@ void Scene::draw(Mat4x4 vp) {
 void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& vp, bool drawReflections) {
     for (ShaderInstance& shader : shaders) {
         Object* obj = shader.objects.front().object;
-        if (obj->hasReflection() && !drawReflections)
+        Reflection* ref = obj->getReflection();
+        if (ref && !drawReflections)
             continue;
         if (!shader.shader) {
             LShaderBuilder builder;
@@ -92,10 +93,6 @@ void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& vp, bool drawReflections) {
             default:
                 LOGW("INVALID COLOR SOURCE!!!");
             }
-            Reflection* ref = obj->getReflection();
-            if (ref) {
-                ref->addTo(builder);
-            }
             for (AmbientLight* l : ambientLights) {
                 l->addTo(builder);
             }
@@ -105,10 +102,25 @@ void Scene::doDraw(Framebuffer& framebuffer, Mat4x4& vp, bool drawReflections) {
             for (PointLight* l : pointLights) {
                 l->addTo(builder);
             }
+            if (ref) {
+                ref->addTo(builder);
+            }
             shader.shader.reset(new LShader(builder));
         }
         shader.shader->use();
-        shader.shader->applyEffects();
+        int effectHandle = 0;
+        for (AmbientLight* l : ambientLights) {
+            shader.shader->bindEffect({ effectHandle++ }, *l);
+        }
+        for (SpotLight* l : spotLights) {
+            shader.shader->bindEffect({ effectHandle++ }, *l);
+        }
+        for (PointLight* l : pointLights) {
+            shader.shader->bindEffect({ effectHandle++ }, *l);
+        }
+        if (ref) {
+            shader.shader->bindEffect({ effectHandle++ }, *ref);
+        }
         shader.shader->uniformMat4x4(shader.vpUniform, vp);
         for (ObjectData& objData : shader.objects) {
             shader.shader->uniformMat4x4(shader.modelUniform, objData.model);

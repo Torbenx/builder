@@ -4,37 +4,36 @@
 
 class LShaderBuilder;
 
-class LShader : public Shader{
+class LShader : public Shader {
 public:
     static const std::string WORLD_POSITION;
     static const std::string WORLD_NORMAL;
     static const std::string SCREEN_POSITION;
     static const std::string LIGHT_INTENSITY;
 
-    struct EffectData{
+    struct EffectData {
         LocationHandle handles[5];
         int textureSlot;
     };
 
-    class Effect{
-    public:
-        virtual void apply(LShader& shader, const EffectData& data) = 0;
+    struct Effect {
+        virtual void bindTo(LShader& shader, const EffectData& data) = 0;
         virtual ~Effect() {};
     };
 
-    struct EffectAndData{
-        Effect *effect;
-        EffectData data;
+    struct EffectLocationHandle{
+        int handle;
     };
 
+    void bindEffect(EffectLocationHandle handle, Effect& effect);
+
     LShader(LShaderBuilder& builder);
-    void applyEffects();
 
 private:
-    std::vector<EffectAndData> data;
+    std::vector<EffectData> data;
 };
 
-class LShaderBuilder : public ShaderBuilder{
+class LShaderBuilder : public ShaderBuilder {
 public:
     std::string fragmentColor, fragmentDiffuseColor;
     std::string rawPosition, rawNormal;
@@ -42,13 +41,13 @@ public:
 
     LShaderBuilder();
 
-    void addEffect(LShader::Effect&, const LShader::EffectData& data);
+    LShader::EffectLocationHandle addEffect(const LShader::EffectData& data);
 
 protected:
     virtual std::string buildVertexSource() override;
     virtual std::string buildFragmentSource() override;
 
 private:
-    std::vector<LShader::EffectAndData> data;
+    std::vector<LShader::EffectData> data;
     friend LShader;
 };

@@ -18,7 +18,7 @@ void SpotLight::draw(void (*doDraw)(Framebuffer& framebuffer, Shader& shader, Sh
     depthMap.draw(mat, doDraw);
 }
 
-void SpotLight::addTo(LShaderBuilder& s){
+LShader::EffectLocationHandle SpotLight::addTo(LShaderBuilder& s){
     LShader::EffectData data;
     s.newContext();
     std::string mvpUniform = s.uniqueName("u_mvpMatrix");
@@ -38,13 +38,13 @@ void SpotLight::addTo(LShaderBuilder& s){
     s.vMain << "vec4 " << pos << " = " << mvpUniform << " * vec4(" << LShader::WORLD_POSITION << ",1.0);\n";
     s.vMain << positionVarying << " = " << pos << ".xyz / " << pos << ".w;\n";
     s.fMain << "vec3 " << direction << " = " << LShader::WORLD_POSITION << " - " << lightPosUniform << ";\n";
-    s.fMain << "float " << result << " = texture(" << textureUniform << ",(" << positionVarying << " + 1.0) / 2.0 * vec3(1.0, 1.0, 0.999));\n";
+    s.fMain << "float " << result << " = texture(" << textureUniform << ",(" << positionVarying << " + 1.0) / 2.0 * vec3(1.0, 1.0, 0.99));\n";
     s.fMain << "if(" << "dot(" << positionVarying << ".xy," << positionVarying << ".xy) <= 1.0 && " << positionVarying << ".z >= -1.0){\n";
     s.fMain << LShader::LIGHT_INTENSITY << " += " << result << " * max(0.0, -dot(" << LShader::WORLD_NORMAL << ", normalize(" << direction << "))) * " << colorUniform << " / dot(" << direction << "," << direction << ");\n}\n";
-    s.addEffect(*this, data);
+    return s.addEffect(data);
 }
 
-void SpotLight::apply(LShader& s, const LShader::EffectData& data){
+void SpotLight::bindTo(LShader& s, const LShader::EffectData& data){
     Mat4x4 mat = projection * view;
     s.uniformMat4x4(data.handles[0], mat);
     s.uniformTexture(data.handles[1], depthMap, data.textureSlot);

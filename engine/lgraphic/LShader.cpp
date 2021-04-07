@@ -6,37 +6,37 @@ const std::string LShader::WORLD_NORMAL = "v_normal";
 const std::string LShader::SCREEN_POSITION = "gl_Position";
 const std::string LShader::LIGHT_INTENSITY = "intensity";
 
-LShaderBuilder::LShaderBuilder() : ShaderBuilder(){
+LShaderBuilder::LShaderBuilder()
+    : ShaderBuilder() {
     addVarying("vec3", LShader::WORLD_POSITION);
     addVarying("vec3", LShader::WORLD_NORMAL);
 }
 
-void LShaderBuilder::addEffect(LShader::Effect& effect, const LShader::EffectData& data){
-    LShader::EffectAndData effectAndData;
-    effectAndData.effect = &effect;
-    effectAndData.data = data;
-    this->data.push_back(effectAndData);
+LShader::EffectLocationHandle LShaderBuilder::addEffect(const LShader::EffectData& data) {
+    int handle = this->data.size();
+    this->data.push_back(data);
+    return { handle };
 }
 
-std::string LShaderBuilder::buildVertexSource(){
+std::string LShaderBuilder::buildVertexSource() {
     std::ostringstream v;
     v << GLSL_VERSION_HEADER << vInit.str() << "void main(){\n";
 
     v << LShader::WORLD_POSITION << " = (";
-    if(!rawToWorldMatrix.empty()){
+    if (!rawToWorldMatrix.empty()) {
         v << rawToWorldMatrix << " * ";
     }
     v << "vec4(" << rawPosition << ", 1.0) ).xyz;\n";
 
     v << LShader::WORLD_NORMAL << " = (";
-    if(!rawToWorldMatrix.empty()){
+    if (!rawToWorldMatrix.empty()) {
         v << rawToWorldMatrix << " * ";
     }
     v << "vec4(" << rawNormal << ", 0.0) ).xyz;\n";
     v << LShader::WORLD_NORMAL << " = normalize(" << LShader::WORLD_NORMAL << ");\n";
 
     v << "gl_Position = ";
-    if(!worldToScreenMatrix.empty()){
+    if (!worldToScreenMatrix.empty()) {
         v << worldToScreenMatrix << " * ";
     }
     v << "vec4(" << LShader::WORLD_POSITION << ", 1.0);\n";
@@ -46,36 +46,34 @@ std::string LShaderBuilder::buildVertexSource(){
     return v.str();
 }
 
-std::string LShaderBuilder::buildFragmentSource(){
+std::string LShaderBuilder::buildFragmentSource() {
     std::ostringstream f;
 
-    f << GLSL_VERSION_HEADER << fInit.str() << "out vec4 gl_FragColor;\n" << "void main(){\n";
+    f << GLSL_VERSION_HEADER << fInit.str() << "out vec4 gl_FragColor;\n"
+      << "void main(){\n";
     f << "vec3 " << LShader::LIGHT_INTENSITY << " = vec3(0.0);\n";
 
     f << fMain.str() << "gl_FragColor = vec4(";
 
     f << fragmentColor;
-    if(!fragmentColor.empty())
+    if (!fragmentColor.empty())
         f << " + ";
 
     f << fragmentDiffuseColor;
-    if(!fragmentDiffuseColor.empty())
+    if (!fragmentDiffuseColor.empty())
         f << " * " << LShader::LIGHT_INTENSITY;
 
-    if(fragmentColor.empty() && fragmentDiffuseColor.empty())
+    if (fragmentColor.empty() && fragmentDiffuseColor.empty())
         f << "vec3(0.0)";
 
-    f<<", 1.0);\n}";
+    f << ", 1.0);\n}";
 
     return f.str();
 }
 
-LShader::LShader(LShaderBuilder& builder) : Shader(builder), data(builder.data) {
+LShader::LShader(LShaderBuilder& builder)
+    : Shader(builder), data(builder.data) { }
 
-}
-
-void LShader::applyEffects(){
-    for(LShader::EffectAndData& data : this->data){
-        data.effect->apply(*this, data.data);
-    }
+void LShader::bindEffect(EffectLocationHandle handle, Effect& effect) {
+    effect.bindTo(*this, data[handle.handle]);
 }
