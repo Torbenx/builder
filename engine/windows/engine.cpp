@@ -85,9 +85,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             init_text();
 
-            /*if(wglSwapIntervalEXT(0)){
+            if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
-            }*/
+            }
 
             renderer = createRenderer();
             return 0;

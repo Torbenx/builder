@@ -2,16 +2,31 @@
 #include "util/log.hpp"
 #include "util/target.hpp"
 
+const std::string Shader::FRAGMENT_COLOR = "_fragmentColor";
+
+ShaderBuilder::ShaderBuilder() {
+    if (usingGLES()) {
+        vExt << "#version 310 es\n";
+        fExt << "#version 310 es\n";
+        fInit << "precision mediump float;\n";
+        fInit << "precision lowp sampler2DShadow;\n";
+        fInit << "precision lowp samplerCubeShadow;\n";
+    } else {
+        vExt << "#version 150\n";
+        fExt << "#version 150\n";
+    }
+}
+
 std::string ShaderBuilder::buildVertexSource() {
     std::ostringstream s;
-    s << GLSL_VERSION_HEADER << vInit.str() << "void main(){\n"
+    s << vExt.str() << vInit.str() << "void main(){\n"
       << vMain.str() << "}";
     return s.str();
 }
 
 std::string ShaderBuilder::buildFragmentSource() {
     std::ostringstream s;
-    s << GLSL_VERSION_HEADER << fInit.str() << "out vec4 gl_FragColor;\n"
+    s << fExt.str() << fInit.str() << "out vec4 " << Shader::FRAGMENT_COLOR << ";\n"
       << "void main(){\n"
       << fMain.str() << "}";
     return s.str();
@@ -47,8 +62,8 @@ void ShaderBuilder::addVarying(std::string type, std::string name, std::string q
 }
 
 void ShaderBuilder::requireExtension(std::string extension) {
-    vInit << "#extension " << extension << " : require\n";
-    fInit << "#extension " << extension << " : require\n";
+    vExt << "#extension " << extension << " : require\n";
+    fExt << "#extension " << extension << " : require\n";
 }
 
 int ShaderBuilder::nextTextureSlot() {

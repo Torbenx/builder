@@ -18,10 +18,10 @@ public:
 
     struct Effect {
         virtual void bindTo(LShader& shader, const EffectData& data) = 0;
-        virtual ~Effect() {};
+        virtual ~Effect() { }
     };
 
-    struct EffectLocationHandle{
+    struct EffectLocationHandle {
         int handle;
     };
 

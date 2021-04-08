@@ -4,5 +4,6 @@ DepthMapComponent::DepthMapComponent() : TextureComponent(true){
 }
 
 void DepthMapComponent::doUniforms(){
-    //shader->uniform1f(dynamic_cast<SimpleDepthMapShader*>(shader.get())->farUniform, farDepth);
+    //currently this doesn't override the shader
+    //shader->uniform1f(static_cast<SimpleDepthMapShader*>(shader.get())->farUniform, farDepth);
 }

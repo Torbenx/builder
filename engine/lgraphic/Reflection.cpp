@@ -22,6 +22,7 @@ LShader::EffectLocationHandle Reflection::addTo(LShaderBuilder& s) {
     std::string textureUniform = s.uniqueName("u_texture");
     std::string positionVarying = s.uniqueName("v_position");
     std::string factorUniform = s.uniqueName("u_factor");
+    s.requireLinearInterpolation();
     s.addVarying("vec2", positionVarying, "noperspective ");
     data.handles[0] = s.addFragmentUniform("sampler2D", textureUniform);
     data.handles[1] = s.addFragmentUniform("float", factorUniform);

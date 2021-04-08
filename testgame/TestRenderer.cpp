@@ -294,9 +294,9 @@ void TestRenderer::drawFrame() {
         // util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    // cubeComp.draw(Framebuffer::DEFAULT);
+    //cubeComp.draw(Framebuffer::DEFAULT);
+    //refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
-    // refComp.draw(Framebuffer::DEFAULT);
 }
 
 TestRenderer::~TestRenderer() {

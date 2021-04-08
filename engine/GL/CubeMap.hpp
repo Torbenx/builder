@@ -4,13 +4,12 @@
 #include "GL/Texture.hpp"
 
 template< typename T >
-class GLenumIterator : public std::iterator<std::input_iterator_tag, T, GLenum, const T*, T>{
+class GLenumIterator{
 public:
     GLenumIterator(GLenum value) : value(value) {}
     bool operator!=(GLenumIterator<T> other){ return value != other.value; }
     T operator*() const { return (T)value; }
     GLenumIterator<T>& operator++() { ++value; return *this; }
-    GLenumIterator<T> operator++(int) { GLenumIterator<T> it = *this; value++; return it; }
 private:
     GLenum value;
 };

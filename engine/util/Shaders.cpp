@@ -9,7 +9,7 @@ void SimpleTextureShader::applySimpleTextureShader(ShaderBuilder& b, const std::
     "   v_texCoord = a_texCoord;\n"
     "   gl_Position = a_position;\n";
     b.fMain <<
-    "   gl_FragColor = texture(u_texture, v_texCoord);\n";
+    "   " << Shader::FRAGMENT_COLOR << " = texture(u_texture, v_texCoord);\n";
 }
 
 void SimpleTextShader::applySimpleTextShader(ShaderBuilder& b){
@@ -31,7 +31,7 @@ void SingleColorShader::applySingleColorShader(ShaderBuilder& b){
     positionAttrib = b.addAttrib("vec4", "a_position");
     colorUniform = b.addFragmentUniform("vec4", "u_color");
     b.vMain << "gl_Position = a_position;\n";
-    b.fMain << "gl_FragColor = u_color;\n";
+    b.fMain << "" << Shader::FRAGMENT_COLOR << " = u_color;\n";
 }
 
 void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler){
@@ -43,7 +43,7 @@ void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::
     "   v_texCoord = a_texCoord;\n"
     "   gl_Position = a_position;\n";
     b.fMain <<
-    "   gl_FragColor = texture(u_cubeMap, v_texCoord);\n";
+    "   " << Shader::FRAGMENT_COLOR << " = texture(u_cubeMap, v_texCoord);\n";
 }
 
 void SimpleDepthMapShader::applySimpleDepthMapShader(ShaderBuilder& b){
@@ -51,7 +51,7 @@ void SimpleDepthMapShader::applySimpleDepthMapShader(ShaderBuilder& b){
     farUniform = b.addFragmentUniform("float", "u_far");
     b.fMain <<
     "   vec4 bits = vec4(u_far,u_far/255.0,u_far/255.0/255.0,u_far/255.0/255.0/255.0);\n"
-    "   gl_FragColor = vec4(vec3(dot(bits,gl_FragColor)), 1.0);\n";
+    "   " << Shader::FRAGMENT_COLOR << " = vec4(vec3(dot(bits," << Shader::FRAGMENT_COLOR << ")), 1.0);\n";
 }
 
 void SimpleDepthCubeMapShader::applySimpleDepthCubeMapShader(ShaderBuilder& b){
@@ -59,5 +59,5 @@ void SimpleDepthCubeMapShader::applySimpleDepthCubeMapShader(ShaderBuilder& b){
     farUniform = b.addFragmentUniform("float", "u_far");
     b.fMain <<
     "   vec4 bits = vec4(u_far,u_far/255.0,u_far/255.0/255.0,u_far/255.0/255.0/255.0);\n"
-    "   gl_FragColor = vec4(vec3(dot(bits,gl_FragColor)), 1.0);\n";
+    "   " << Shader::FRAGMENT_COLOR << " = vec4(vec3(dot(bits," << Shader::FRAGMENT_COLOR << ")), 1.0);\n";
 }

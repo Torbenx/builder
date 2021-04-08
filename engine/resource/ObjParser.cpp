@@ -166,9 +166,9 @@ void ObjParser::parse(std::istream& in) {
                 // clang-format on
             }
         }
-        this->vertex = VertexBuffer::adopt(out_vertex, dim, vertexCount);
-        this->normals = VertexBuffer::adopt(out_normals, dim, vertexCount);
-        this->texCoords = VertexBuffer::adopt(out_texCoords, 2, vertexCount);
+        this->vertex = VertexBuffer::upload(out_vertex, dim, vertexCount);
+        this->normals = VertexBuffer::upload(out_normals, dim, vertexCount);
+        this->texCoords = VertexBuffer::upload(out_texCoords, 2, vertexCount);
         this->indices.reset(nullptr);
     } else {
         vertexCount = texCoords.size() / 2;
@@ -193,9 +193,9 @@ void ObjParser::parse(std::istream& in) {
                 // clang-format on
             }
         }
-        this->vertex = VertexBuffer::adopt(out_vertex, dim, vertexCount);
-        this->normals = VertexBuffer::adopt(out_normals, dim, vertexCount);
+        this->vertex = VertexBuffer::upload(out_vertex, dim, vertexCount);
+        this->normals = VertexBuffer::upload(out_normals, dim, vertexCount);
         this->texCoords = VertexBuffer::upload(texCoords.data(), 2, vertexCount);
-        this->indices = IndexBuffer::adopt(out_indices, n);
+        this->indices = IndexBuffer::upload(out_indices, n);
     }
 }

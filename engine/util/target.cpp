@@ -9,9 +9,9 @@ bool isAndroid(){
 }
 
 bool rawInput(){
-    return IS_WINDOWS;
+    return isWindows();
 }
 
 bool usingGLES(){
-    return IS_ANDROID;
+    return isAndroid();
 }

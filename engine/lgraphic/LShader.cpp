@@ -20,7 +20,7 @@ LShader::EffectLocationHandle LShaderBuilder::addEffect(const LShader::EffectDat
 
 std::string LShaderBuilder::buildVertexSource() {
     std::ostringstream v;
-    v << GLSL_VERSION_HEADER << vInit.str() << "void main(){\n";
+    v << vExt.str() << vInit.str() << "void main(){\n";
 
     v << LShader::WORLD_POSITION << " = (";
     if (!rawToWorldMatrix.empty()) {
@@ -49,11 +49,11 @@ std::string LShaderBuilder::buildVertexSource() {
 std::string LShaderBuilder::buildFragmentSource() {
     std::ostringstream f;
 
-    f << GLSL_VERSION_HEADER << fInit.str() << "out vec4 gl_FragColor;\n"
+    f << fExt.str() << fInit.str() << "out vec4 " << Shader::FRAGMENT_COLOR << ";\n"
       << "void main(){\n";
     f << "vec3 " << LShader::LIGHT_INTENSITY << " = vec3(0.0);\n";
 
-    f << fMain.str() << "gl_FragColor = vec4(";
+    f << fMain.str() << Shader::FRAGMENT_COLOR << " = vec4(";
 
     f << fragmentColor;
     if (!fragmentColor.empty())

@@ -5,5 +5,5 @@ DepthCubeMapComponent::DepthCubeMapComponent() : CubeMapComponent(false){
 }
 
 void DepthCubeMapComponent::doUniforms(){
-    shader->uniform1f(dynamic_cast<SimpleDepthCubeMapShader*>(shader.get())->farUniform, farDepth);
+    shader->uniform1f(static_cast<SimpleDepthCubeMapShader*>(shader.get())->farUniform, farDepth);
 }

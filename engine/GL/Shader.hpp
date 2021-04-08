@@ -10,14 +10,6 @@
 #include <string>
 #include <vector>
 
-#ifdef PLATFORM_ANDROID
-#define GLSL_VERSION_HEADER "#version 300 es\n"
-#endif
-
-#ifdef PLATFORM_WINDOWS
-#define GLSL_VERSION_HEADER "#version 150\n"
-#endif
-
 class ShaderBuilder;
 
 class Shader {
@@ -34,6 +26,8 @@ public:
             this->isUniform = isUniform;
         }
     };
+
+    static const std::string FRAGMENT_COLOR;
 
     std::vector<GLuint> locations;
 
@@ -98,8 +92,9 @@ template void Shader::attribPointer<Vec4>(LocationHandle, Vec4*);
 
 class ShaderBuilder {
 public:
-    std::ostringstream vInit, vMain, fInit, fMain;
+    std::ostringstream vExt, vInit, vMain, fExt, fInit, fMain;
 
+    ShaderBuilder();
     virtual ~ShaderBuilder() { }
     void newContext();
     std::string uniqueName(std::string name);
@@ -109,6 +104,10 @@ public:
     Shader::LocationHandle addFragmentUniform(std::string type, std::string name, std::string qualifiers = "") { return addUniform(type, name, qualifiers, false); }
     void addVarying(std::string type, std::string name, std::string qualifiers = "");
     void requireExtension(std::string extension);
+    void requireLinearInterpolation() {
+        if (usingGLES())
+            requireExtension("GL_NV_shader_noperspective_interpolation");
+    }
     int nextTextureSlot();
     void disableFragmentShader();
 
