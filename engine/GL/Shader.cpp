@@ -83,6 +83,16 @@ void Shader::initalize(ShaderBuilder& builder) {
     GL_VERIFY(!glIsProgram(glId));
     glId = glCreateProgram();
 
+    auto printSource = [](std::string source) {
+        std::istringstream stream(source);
+        const int bufSize = 256;
+        char line[bufSize];
+        int lineNumber = 1;
+        while (stream.getline(line, bufSize)) {
+            LOGW("%2d: %s", lineNumber++, line);
+        }
+    };
+
     auto compileShader = [&](bool vertex, const char* source) {
         GLuint shader = glCreateShader(vertex ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER);
         glShaderSource(shader, 1, &source, 0);
@@ -95,18 +105,11 @@ void Shader::initalize(ShaderBuilder& builder) {
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
             std::vector<char> message(length);
             glGetShaderInfoLog(shader, length, &length, message.data());
-            std::string sourceStr(source);
-            std::istringstream stream(sourceStr);
             LOGW("\n"
                  "%s Shader failed to compile:\n"
                  "--------------SOURCE--------------\n",
                 vertex ? "Vertex" : "Fragment");
-            const int bufSize = 256;
-            char line[bufSize];
-            int lineNumber = 1;
-            while (stream.getline(line, bufSize)) {
-                LOGW("%2d: %s", lineNumber++, line);
-            }
+            printSource(std::string(source));
             LOGW("--------------ERROR---------------\n%s\n", message.data());
         } else
 #endif

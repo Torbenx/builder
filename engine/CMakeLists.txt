@@ -45,12 +45,6 @@ add_library(engine ${linkage}
     "math/Vec3.cpp"
     "math/Vec4.cpp"
     "math/Rect.cpp"
-    "lgraphic/DepthCubeMap.cpp"
-    "lgraphic/DepthMap.cpp"
-    "lgraphic/LShader.cpp"
-    "lgraphic/PointLight.cpp"
-    "lgraphic/SpotLight.cpp"
-    "lgraphic/Reflection.cpp"
     "resource/ObjParser.cpp"
     "resource/asset_istream.cpp"
     "util/time.cpp"
@@ -74,6 +68,9 @@ add_library(engine ${linkage}
     "ui/UiSolver.cpp"
     "3d/Scene.cpp"
     "3d/Effect.cpp"
+    "3d/PointLight.cpp"
+    "3d/SpotLight.cpp"
+    "3d/Reflection.cpp"
     ${platform_source}
 )
 

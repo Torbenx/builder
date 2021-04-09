@@ -86,6 +86,7 @@ class EffectShaderBuilder : public ShaderBuilder {
 public:
     const AttributeList attributes;
 
+    Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
     EffectShaderBuilder(AttributeList attributes);
 
 private:
@@ -104,6 +105,11 @@ public:
     static const std::string RAW_TO_WORLD_MATRIX;
     static const std::string WORLD_TO_SCREEN_MATRIX;
 
-    EffectShader(EffectShaderBuilder builder)
-        : Shader(builder) { }
+    Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
+    EffectShader(EffectShaderBuilder& builder)
+        : Shader(builder)
+        , positionAttrib(builder.positionAttrib)
+        , normalAttrib(builder.normalAttrib)
+        , modelUniform(builder.modelUniform)
+        , viewProjectionUniform(builder.viewProjectionUniform) { }
 };

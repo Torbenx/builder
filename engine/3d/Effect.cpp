@@ -37,10 +37,10 @@ EffectShaderBuilder::EffectShaderBuilder(AttributeList attributes)
     , attributes(attributes) {
     addVarying("vec3", EffectShader::WORLD_POSITION);
     addVarying("vec3", EffectShader::WORLD_NORMAL);
-    addAttrib("vec3", EffectShader::RAW_POSITION);
-    addAttrib("vec3", EffectShader::RAW_NORMAL);
-    addVertexUniform("mat4", EffectShader::RAW_TO_WORLD_MATRIX);
-    addVertexUniform("mat4", EffectShader::WORLD_TO_SCREEN_MATRIX);
+    positionAttrib = addAttrib("vec3", EffectShader::RAW_POSITION);
+    normalAttrib = addAttrib("vec3", EffectShader::RAW_NORMAL);
+    modelUniform = addVertexUniform("mat4", EffectShader::RAW_TO_WORLD_MATRIX);
+    viewProjectionUniform = addVertexUniform("mat4", EffectShader::WORLD_TO_SCREEN_MATRIX);
 
     vMain << EffectShader::WORLD_POSITION << " = (" << EffectShader::RAW_TO_WORLD_MATRIX << " * vec4(" << EffectShader::RAW_POSITION << ", 1.0) ).xyz;\n";
     vMain << EffectShader::WORLD_NORMAL << " = (" << EffectShader::RAW_TO_WORLD_MATRIX << " * vec4(" << EffectShader::RAW_NORMAL << ", 0.0) ).xyz;\n";
@@ -62,8 +62,8 @@ std::string EffectShaderBuilder::buildFragmentSource() {
       << "void main(){\n";
     f << "vec3 " << EffectShader::LIGHT_INTENSITY << " = vec3(0.0);\n";
 
-    f << fMain.str() << Shader::FRAGMENT_COLOR << " = vec4(";
-    /*
+    /*f << fMain.str() << Shader::FRAGMENT_COLOR << " = vec4(";
+
     f << fragmentColor;
     if (!fragmentColor.empty())
         f << " + ";
@@ -77,5 +77,8 @@ std::string EffectShaderBuilder::buildFragmentSource() {
 
     f << ", 1.0);\n}";
     */
+
+    f << fMain.str() << "}";
+
     return f.str();
 }

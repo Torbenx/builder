@@ -61,11 +61,11 @@ TestRenderer::TestRenderer()
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
     scene.addLight(spotLight);
-    scene.addObject(obj1);
-    scene.addObject(obj2);
-    scene.addObject(obj3);
-    // scene.addObject(obj4);
-    scene.addObject(obj5);
+    scene.addRenderable(*obj1);
+    scene.addRenderable(*obj2);
+    scene.addRenderable(*obj3);
+    // scene.addRenderable(*obj4);
+    scene.addRenderable(*obj5);
     scene.addReflection(reflection);
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
     lframe = getNanos();
@@ -139,7 +139,9 @@ TestRenderer::TestRenderer()
     refComp.texture = pawnTexture.get();
 
     pawn = new ObjectRenderable(pawnVertex.get(), pawnIndices.get(), pawnTexCoords.get(), pawnNormals.get(), pawnTexture.get(), parser.n);
-    scene.addObject(pawn);
+    scene.addRenderable(*pawn);
+
+    scene.setup();
 }
 
 void TestRenderer::change(int newWidth, int newHeight) {

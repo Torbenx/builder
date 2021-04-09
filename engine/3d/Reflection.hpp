@@ -1,0 +1,19 @@
+#pragma once
+
+#include "GL/Framebuffer.hpp"
+#include "3d/Effect.hpp"
+
+class Reflection : public EffectInstance {
+public:
+    static inline class Effect : public ::Effect {
+        virtual EffectBindings addTo(EffectShaderBuilder&) override;
+    } EFFECT;
+    Framebuffer framebuffer;
+    Texture depthAttachment;
+    Texture texture;
+    Vec3 reflection, position;
+    float factor;
+    Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);
+    Mat4x4 getReflectionMatrix();
+    virtual void applyTo(EffectShader&, const EffectBindings&) override;
+};

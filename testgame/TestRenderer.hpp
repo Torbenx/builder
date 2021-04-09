@@ -6,7 +6,6 @@
 #include <Renderer.hpp>
 #include <cmath>
 #include <input/Look3d.hpp>
-#include <lgraphic/DepthMap.hpp>
 #include <math/Mat4x4.hpp>
 #include <math/Vec2.hpp>
 #include <math/Vec3.hpp>
@@ -17,7 +16,7 @@
 #include <ui/UiScene.hpp>
 #include <util/text.hpp>
 
-class DebugRenderable : public Scene::Object {
+class DebugRenderable : public SceneRenderable {
 public:
     VertexBuffer* source;
     VertexBuffer* normals;
@@ -32,24 +31,27 @@ public:
         num = n;
     }
 
-    Scene::ColorSource getColorSource() {
-        return Scene::ColorSource::Uniform;
-    }
-
-    void draw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib) {
+    void depthDraw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib) {
         shader.attribPointer(positionAttrib, *source);
         framebuffer.draw(mode, num);
     }
 
-    void draw2(Framebuffer& framebuffer, LShader& shader, const Scene::DrawData& data) {
-        shader.uniformVec3(data.colorSource.uniform, color);
-        shader.attribPointer(data.positionAttrib, *source);
-        shader.attribPointer(data.normalAttrib, *normals);
+    std::vector<EffectBindings> addEffects(EffectShaderBuilder& builder) {
+        EffectBindings data;
+        data.handles[0] = builder.addFragmentUniform("vec3", "u_color");
+        builder.fMain << Shader::FRAGMENT_COLOR << " = vec4(u_color * " << EffectShader::LIGHT_INTENSITY << ", 1.0);\n";
+        return { data };
+    }
+
+    void draw(Framebuffer& framebuffer, EffectShader& shader, std::vector<EffectBindings>& data) {
+        shader.uniformVec3(data[0].handles[0], color);
+        shader.attribPointer(shader.positionAttrib, *source);
+        shader.attribPointer(shader.normalAttrib, *normals);
         framebuffer.draw(mode, num);
     }
 };
 
-class ObjectRenderable : public Scene::Object {
+class ObjectRenderable : public SceneRenderable {
 public:
     VertexBuffer* source;
     VertexBuffer* texCoords;
@@ -67,11 +69,12 @@ public:
         num = n;
     }
 
-    Scene::ColorSource getColorSource() {
-        return Scene::ColorSource::Texture;
+    std::vector<EffectBindings> addEffects(EffectShaderBuilder& builder) {
+        EffectBindings data;
+        return { data };
     }
 
-    void draw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib) {
+    void depthDraw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib) {
         shader.attribPointer(positionAttrib, *source);
         if (indices)
             framebuffer.draw(DrawMode::Triangles, *indices);
@@ -79,15 +82,15 @@ public:
             framebuffer.draw(DrawMode::Triangles, num);
     }
 
-    void draw2(Framebuffer& framebuffer, LShader& shader, const Scene::DrawData& data) {
-        shader.attribPointer(data.positionAttrib, *source);
-        shader.attribPointer(data.normalAttrib, *normals);
-        shader.uniformTexture(data.colorSource.texture.uniform, *texture, 10);
-        shader.attribPointer(data.colorSource.texture.positionAttrib, *texCoords);
+    void draw(Framebuffer& framebuffer, EffectShader& shader, std::vector<EffectBindings>& data) {
+        /*shader.attribPointer(shader.positionAttrib, *source);
+        shader.attribPointer(shader.normalAttrib, *normals);
+        shader.attribPointer(data[0].handles[0], *texCoords);
+        shader.uniformTexture(data[0].handles[1], *texture, data[0].textureSlot);
         if (indices)
             framebuffer.draw(DrawMode::Triangles, *indices);
         else
-            framebuffer.draw(DrawMode::Triangles, num);
+            framebuffer.draw(DrawMode::Triangles, num);*/
     }
 };
 
@@ -98,10 +101,6 @@ public:
     ReflectionDebugRenderable(VertexBuffer* s, VertexBuffer* nor, Vec3 c, int n, Reflection* r)
         : DebugRenderable(s, nor, c, n) {
         reflection = r;
-    }
-
-    Reflection* getReflection() {
-        return reflection;
     }
 };
 

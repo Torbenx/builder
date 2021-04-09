@@ -1,7 +1,8 @@
-#include "lgraphic/Reflection.hpp"
+#include "3d/Reflection.hpp"
 
 Reflection::Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor)
-    : texture(Texture::color(width, height, Texture::Format::RGBA8888).move())
+    : EffectInstance(&EFFECT)
+    , texture(Texture::color(width, height, Texture::Format::RGBA8888).move())
     , depthAttachment(Texture::depth(width, height, Texture::DepthBits::D16, true).move())
     , reflection(reflection)
     , position(position)
@@ -16,8 +17,8 @@ Mat4x4 Reflection::getReflectionMatrix() {
     return Mat4x4::reflection(reflection, position);
 }
 
-LShader::EffectLocationHandle Reflection::addTo(LShaderBuilder& s) {
-    LShader::EffectData data;
+EffectBindings Reflection::Effect::addTo(EffectShaderBuilder& s) {
+    EffectBindings data;
     s.newContext();
     std::string textureUniform = s.uniqueName("u_texture");
     std::string positionVarying = s.uniqueName("v_position");
@@ -28,13 +29,13 @@ LShader::EffectLocationHandle Reflection::addTo(LShaderBuilder& s) {
     data.handles[1] = s.addFragmentUniform("float", factorUniform);
     data.textureSlot = s.nextTextureSlot();
     std::string color = s.uniqueName("color");
-    s.vMain << positionVarying << " = (" << LShader::SCREEN_POSITION << ".xy / " << LShader::SCREEN_POSITION << ".w + 1.0)/2.0;\n";
+    s.vMain << positionVarying << " = (" << EffectShader::SCREEN_POSITION << ".xy / " << EffectShader::SCREEN_POSITION << ".w + 1.0)/2.0;\n";
     s.fMain << "vec3 " << color << " = " << factorUniform << " * texture(" << textureUniform << "," << positionVarying << ").rgb;\n";
-    s.fragmentColor = color;
-    return s.addEffect(data);
+    //s.fragmentColor = color;
+    return data;
 }
 
-void Reflection::bindTo(LShader& s, const LShader::EffectData& data) {
+void Reflection::applyTo(EffectShader& s, const EffectBindings& data) {
     s.uniformTexture(data.handles[0], texture, data.textureSlot);
     s.uniform1f(data.handles[1], factor);
 }

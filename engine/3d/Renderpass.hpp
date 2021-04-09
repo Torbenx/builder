@@ -19,7 +19,7 @@ struct DepthRenderpass {
 };
 
 struct Renderable {
-    virtual void draw(Framebuffer&, EffectShader&, EffectLocationHandle* locations) = 0;
+    virtual void draw(Framebuffer&, EffectShader&, std::vector<EffectBindings>&) = 0;
     virtual ~Renderable() { }
 };
 
