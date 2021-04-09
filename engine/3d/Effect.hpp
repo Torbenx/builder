@@ -55,7 +55,7 @@ private:
 
 // Effects should be singletons
 struct Effect {
-    virtual EffectLocationHandle addTo(EffectShaderBuilder&, const AttributeList&) = 0;
+    virtual EffectBindings addTo(EffectShaderBuilder&) = 0;
     virtual ~Effect() { }
 };
 
@@ -84,26 +84,26 @@ struct EffectInstance {
 
 class EffectShaderBuilder : public ShaderBuilder {
 public:
-    EffectLocationHandle addEffect(EffectBindings bindings) {
-        int handle = effectBindings.size();
-        effectBindings.push_back(bindings);
-        return { handle };
-    }
+    const AttributeList attributes;
+
+    EffectShaderBuilder(AttributeList attributes);
 
 private:
-    std::vector<EffectBindings> effectBindings;
-    friend EffectShader;
+    virtual std::string buildVertexSource() override;
+    virtual std::string buildFragmentSource() override;
 };
 
 class EffectShader : public Shader {
 public:
+    static const std::string WORLD_POSITION;
+    static const std::string WORLD_NORMAL;
+    static const std::string SCREEN_POSITION;
+    static const std::string LIGHT_INTENSITY;
+    static const std::string RAW_POSITION;
+    static const std::string RAW_NORMAL;
+    static const std::string RAW_TO_WORLD_MATRIX;
+    static const std::string WORLD_TO_SCREEN_MATRIX;
+
     EffectShader(EffectShaderBuilder builder)
-        : Shader(builder), effectBindings(builder.effectBindings) { }
-
-    void applyEffect(EffectLocationHandle location, EffectInstance& effect) {
-        effect.applyTo(*this, effectBindings[location.handle]);
-    }
-
-private:
-    std::vector<EffectBindings> effectBindings;
+        : Shader(builder) { }
 };

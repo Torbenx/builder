@@ -19,7 +19,7 @@ struct DepthRenderpass {
 };
 
 struct Renderable {
-    virtual void draw(Framebuffer&, EffectShader&, const MaterialBindings&) = 0;
+    virtual void draw(Framebuffer&, EffectShader&, EffectLocationHandle* locations) = 0;
     virtual ~Renderable() { }
 };
 
@@ -28,18 +28,18 @@ struct Lightpass {
         Renderable* renderable;
         Mat4x4 modelMatrix;
     };
-    struct EffectBinding {
-        EffectLocationHandle handle;
+    struct EffectAndBindings {
         EffectInstance* effect;
+        EffectBindings bindings;
     };
-    std::vector<EffectBinding> effects;
+    std::vector<EffectAndBindings> effects;
     std::vector<Entry> entries;
 };
 
 struct Shaderpass {
     EffectShader* shader;
     std::vector<Lightpass> passes;
-    MaterialBindings materialBindings;
+    std::vector<EffectBindings> materialBindings;
 };
 
 struct Renderpass {

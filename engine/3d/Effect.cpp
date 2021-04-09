@@ -22,3 +22,60 @@ void EffectList::add(Effect* effect) {
         entries.insert(it, { effect, 1 });
     }
 }
+
+const std::string EffectShader::WORLD_POSITION = "v_worldPos";
+const std::string EffectShader::WORLD_NORMAL = "v_normal";
+const std::string EffectShader::SCREEN_POSITION = "gl_Position";
+const std::string EffectShader::LIGHT_INTENSITY = "intensity";
+const std::string EffectShader::RAW_POSITION = "a_position";
+const std::string EffectShader::RAW_NORMAL = "a_normal";
+const std::string EffectShader::RAW_TO_WORLD_MATRIX = "u_model";
+const std::string EffectShader::WORLD_TO_SCREEN_MATRIX = "u_viewProjection";
+
+EffectShaderBuilder::EffectShaderBuilder(AttributeList attributes)
+    : ShaderBuilder()
+    , attributes(attributes) {
+    addVarying("vec3", EffectShader::WORLD_POSITION);
+    addVarying("vec3", EffectShader::WORLD_NORMAL);
+    addAttrib("vec3", EffectShader::RAW_POSITION);
+    addAttrib("vec3", EffectShader::RAW_NORMAL);
+    addVertexUniform("mat4", EffectShader::RAW_TO_WORLD_MATRIX);
+    addVertexUniform("mat4", EffectShader::WORLD_TO_SCREEN_MATRIX);
+
+    vMain << EffectShader::WORLD_POSITION << " = (" << EffectShader::RAW_TO_WORLD_MATRIX << " * vec4(" << EffectShader::RAW_POSITION << ", 1.0) ).xyz;\n";
+    vMain << EffectShader::WORLD_NORMAL << " = (" << EffectShader::RAW_TO_WORLD_MATRIX << " * vec4(" << EffectShader::RAW_NORMAL << ", 0.0) ).xyz;\n";
+    vMain << EffectShader::WORLD_NORMAL << " = normalize(" << EffectShader::WORLD_NORMAL << ");\n";
+    vMain << "gl_Position = " << EffectShader::WORLD_TO_SCREEN_MATRIX << " * vec4(" << EffectShader::WORLD_POSITION << ", 1.0);\n";
+}
+
+std::string EffectShaderBuilder::buildVertexSource() {
+    std::ostringstream v;
+    v << vExt.str() << vInit.str() << "void main(){\n"
+      << vMain.str() << "}";
+    return v.str();
+}
+
+std::string EffectShaderBuilder::buildFragmentSource() {
+    std::ostringstream f;
+
+    f << fExt.str() << fInit.str() << "out vec4 " << Shader::FRAGMENT_COLOR << ";\n"
+      << "void main(){\n";
+    f << "vec3 " << EffectShader::LIGHT_INTENSITY << " = vec3(0.0);\n";
+
+    f << fMain.str() << Shader::FRAGMENT_COLOR << " = vec4(";
+    /*
+    f << fragmentColor;
+    if (!fragmentColor.empty())
+        f << " + ";
+
+    f << fragmentDiffuseColor;
+    if (!fragmentDiffuseColor.empty())
+        f << " * " << EffectShader::LIGHT_INTENSITY;
+
+    if (fragmentColor.empty() && fragmentDiffuseColor.empty())
+        f << "vec3(0.0)";
+
+    f << ", 1.0);\n}";
+    */
+    return f.str();
+}
