@@ -28,8 +28,8 @@ LShader::EffectLocationHandle Reflection::addTo(LShaderBuilder& s) {
     data.handles[1] = s.addFragmentUniform("float", factorUniform);
     data.textureSlot = s.nextTextureSlot();
     std::string color = s.uniqueName("color");
-    s.vMain << positionVarying << " = " << LShader::SCREEN_POSITION << ".xy / " << LShader::SCREEN_POSITION << ".w;\n";
-    s.fMain << "vec3 " << color << " = " << factorUniform << " * texture(" << textureUniform << ",(" << positionVarying << "+1.0)/2.0).rgb;\n";
+    s.vMain << positionVarying << " = (" << LShader::SCREEN_POSITION << ".xy / " << LShader::SCREEN_POSITION << ".w + 1.0)/2.0;\n";
+    s.fMain << "vec3 " << color << " = " << factorUniform << " * texture(" << textureUniform << "," << positionVarying << ").rgb;\n";
     s.fragmentColor = color;
     return s.addEffect(data);
 }

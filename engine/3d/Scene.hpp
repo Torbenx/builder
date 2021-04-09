@@ -9,12 +9,6 @@
 #include <memory>
 #include <vector>
 
-/*
- * struct RenderPass{ vector<ObjectData> }
- * lights have setupFramebuffers() returning "iterable"
- * store list of Effects sorted by some unique identifier
- */
-
 class Scene {
 public:
     enum ColorSource {

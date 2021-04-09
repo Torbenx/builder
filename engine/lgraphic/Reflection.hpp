@@ -14,4 +14,6 @@ public:
     Mat4x4 getReflectionMatrix();
     static LShader::EffectLocationHandle addTo(LShaderBuilder& s);
     virtual void bindTo(LShader&, const LShader::EffectData&) override;
+    virtual std::string effectName() override { return "Reflection"; };
+    virtual std::size_t hash() override { return std::hash<std::string>{}(Reflection::effectName()); }
 };

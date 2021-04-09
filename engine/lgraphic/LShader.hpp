@@ -18,6 +18,8 @@ public:
 
     struct Effect {
         virtual void bindTo(LShader& shader, const EffectData& data) = 0;
+        virtual std::size_t hash() = 0;
+        virtual std::string effectName() = 0;
         virtual ~Effect() { }
     };
 

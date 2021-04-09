@@ -93,18 +93,26 @@ void Shader::initalize(ShaderBuilder& builder) {
         if (success == GL_FALSE) {
             GLint length = 0;
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-            std::vector<GLchar> message(length);
+            std::vector<char> message(length);
             glGetShaderInfoLog(shader, length, &length, message.data());
+            std::string sourceStr(source);
+            std::istringstream stream(sourceStr);
             LOGW("\n"
-                 "--------------------\n"
                  "%s Shader failed to compile:\n"
-                 "-------SOURCE-------\n%s\n"
-                 "-------ERROR--------\n%s\n",
-                vertex ? "Vertex" : "Fragment", source, message.data());
+                 "--------------SOURCE--------------\n",
+                vertex ? "Vertex" : "Fragment");
+            const int bufSize = 256;
+            char line[bufSize];
+            int lineNumber = 1;
+            while (stream.getline(line, bufSize)) {
+                LOGW("%2d: %s", lineNumber++, line);
+            }
+            LOGW("--------------ERROR---------------\n%s\n", message.data());
         } else
 #endif
+        {
             glAttachShader(glId, shader);
-
+        }
         glDeleteShader(shader);
     };
 

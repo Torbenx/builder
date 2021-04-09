@@ -11,6 +11,8 @@ public:
     void draw(void (*doDraw)(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib, Shader::LocationHandle modelUniform));
     static LShader::EffectLocationHandle addTo(LShaderBuilder&);
     virtual void bindTo(LShader&, const LShader::EffectData&) override;
+    virtual std::string effectName() override { return "SpotLight"; };
+    virtual std::size_t hash() override { return std::hash<std::string>{}(SpotLight::effectName()); }
 
 private:
     Mat4x4 projection, view;

@@ -73,6 +73,7 @@ add_library(engine ${linkage}
     "ui/UiSceneComponent.cpp"
     "ui/UiSolver.cpp"
     "3d/Scene.cpp"
+    "3d/Effect.cpp"
     ${platform_source}
 )
 

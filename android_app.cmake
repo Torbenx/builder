@@ -74,11 +74,14 @@ function(add_apk _TARGET_NAME)
     set(depfile_dir dep)
     set(package_depfile ${depfile_dir}/package.dep)
 
-    set(package_cmd ${Android_AAPT_EXECUTABLE} package -f -M ${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file})
+    set(package_source_dependencies ${_add_apk_SOURCES})
+    list(TRANSFORM package_source_dependencies PREPEND ${ANDROID_APK_WORKING_DIR}/)
     add_custom_command(
         OUTPUT ${package_depfile}
-        COMMAND ${package_cmd}
-        COMMAND ${CMAKE_COMMAND} -E touch ${package_depfile}
+        COMMAND ${Android_AAPT_EXECUTABLE} package -f -M ${_add_apk_MANIFEST} -I ${Android_ANDROID_JAR} -F ${apk_file_name}
+        COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/${package_depfile}
+        WORKING_DIRECTORY ${ANDROID_APK_WORKING_DIR}
+        DEPENDS ${_add_apk_MANIFEST}
         BYPRODUCTS ${apk_file}
         COMMENT "Packaging ${_TARGET_NAME}"
     )
@@ -89,8 +92,7 @@ function(add_apk _TARGET_NAME)
 
         add_custom_command(
             OUTPUT ${_depfile}
-            COMMAND ${Android_AAPT_EXECUTABLE} remove ${apk_file_name} ${_source}
-            COMMAND ${Android_AAPT_EXECUTABLE} add ${apk_file_name} ${_source}
+            COMMAND zip -q ${apk_file_name} ${_source}
             COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/${_depfile}
             WORKING_DIRECTORY ${ANDROID_APK_WORKING_DIR}
             DEPENDS ${ANDROID_APK_WORKING_DIR}/${_source} ${package_depfile}
@@ -103,7 +105,7 @@ function(add_apk _TARGET_NAME)
     add_custom_command(
         OUTPUT ${apk_file_aligned}
         COMMAND ${Android_ZIPALIGN_EXECUTABLE} -f -p 4 ${apk_file} ${apk_file_aligned}
-        DEPENDS ${package_depfile} ${add_depfiles} ${apk_file}
+        DEPENDS ${add_depfiles} ${package_depfile}
         COMMENT "Aligning ${_TARGET_NAME}"
     )
 

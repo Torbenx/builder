@@ -22,4 +22,7 @@ public:
     virtual void bindTo(LShader& s, const LShader::EffectData& data) override {
         s.uniformVec3(data.handles[0], color);
     }
+
+    virtual std::string effectName() override { return "AmbientLight"; };
+    virtual std::size_t hash() override { return std::hash<std::string>{}(AmbientLight::effectName()); }
 };
