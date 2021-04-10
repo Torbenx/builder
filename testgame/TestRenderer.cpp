@@ -1,4 +1,5 @@
 #include "TestRenderer.hpp"
+#include "events/ExecutionContext.hpp"
 #include <Renderer.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
@@ -39,6 +40,14 @@ TestRenderer::TestRenderer()
     , reflection(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f)
     , look(up, isAndroid())
     , pos(7, 1, 0) {
+
+    int i = 0;
+    ExecutionContext::bootstrap([&](ExecutionContext* boot) {
+        LOGD("i=%d", i++);
+        ExecutionContext me;
+        me.yieldTo(boot);
+    });
+
     reflection.framebuffer.clearColor(0, 0, 0, 1);
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     float f1Scale = 0.5f;
@@ -274,7 +283,7 @@ void TestRenderer::drawFrame() {
     pos -= navD.y * dt * dirX;
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
     Vec3 plp = pointLight.position;
-    plp += Vec3(plp.z * dt, plp.z * dt / 2.0, -plp.x * dt);
+    // plp += Vec3(plp.z * dt, plp.z * dt / 2.0, -plp.x * dt);
     pointLight.position = plp;
     obj5_coords[0] = Vec3(plp.x - 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
@@ -296,8 +305,8 @@ void TestRenderer::drawFrame() {
         // util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    //cubeComp.draw(Framebuffer::DEFAULT);
-    //refComp.draw(Framebuffer::DEFAULT);
+    // cubeComp.draw(Framebuffer::DEFAULT);
+    // refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
 }
 

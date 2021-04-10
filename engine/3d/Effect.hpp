@@ -50,7 +50,7 @@ public:
     bool operator!=(AttributeList other) const { return attributes != other.attributes; }
 
 private:
-    uint64_t attributes;
+    uint64_t attributes = 0;
 };
 
 // Effects should be singletons
@@ -63,7 +63,7 @@ class EffectList {
 public:
     AttributeList attributes;
     bool operator==(const EffectList&) const;
-    void add(Effect*);
+    void add(Effect*, int count=1);
 
 private:
     struct Entry {

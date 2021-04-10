@@ -23,20 +23,26 @@ void Scene::addRenderable(SceneRenderable& renderable, Mat4x4& model) {
 void Scene::setup() {
     for (SpotLight* l : spotLights) {
         DepthRenderpass pass;
+        pass.framebuffer = std::make_unique<Framebuffer>();
+        pass.framebuffer->attach(l->depthMap);
+        pass.framebuffer->viewport(2048, 2048);
         pass.viewProjectionMatrix = l->viewProjectionMatrix();
-        pass.entries.resize(renderables.size());
+        pass.entries.reserve(renderables.size());
         for (RenderableEntry& entry : renderables)
             pass.entries.push_back({ entry.renderable, entry.model });
-        depthPasses.push_back(pass);
+        depthPasses.push_back(std::move(pass));
     }
     for (PointLight* l : pointLights) {
         for (auto face : CubeMap::Faces) {
             DepthRenderpass pass;
+            pass.framebuffer = std::make_unique<Framebuffer>();
+            pass.framebuffer->attach(l->depthMap, face);
+            pass.framebuffer->viewport(1024, 1024);
             pass.viewProjectionMatrix = l->viewProjectionMatrix(face);
-            pass.entries.resize(renderables.size());
+            pass.entries.reserve(renderables.size());
             for (RenderableEntry& entry : renderables)
                 pass.entries.push_back({ entry.renderable, entry.model });
-            depthPasses.push_back(pass);
+            depthPasses.push_back(std::move(pass));
         }
     }
     for (RenderableEntry& entry : renderables) {
@@ -62,6 +68,18 @@ void Scene::setup() {
 }
 
 void Scene::draw(Mat4x4 vp) {
+    depthShader->use();
+    for(DepthRenderpass& pass : depthPasses){
+        pass.framebuffer->bind();
+        pass.framebuffer->clear();
+        depthShader->uniformMat4x4(depthShader->mvpUniform, pass.viewProjectionMatrix);
+        for(auto& entry : pass.entries) {
+            depthShader->uniformMat4x4(depthShader->modelUniform, entry.modelMatrix);
+            entry.renderable->depthDraw(*pass.framebuffer, *depthShader, depthShader->positionAttrib);
+        }
+    }
+
+    Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
     renderpass.viewProjectionMatrix = vp;
     for (Shaderpass& shaderpass : renderpass.passes) {

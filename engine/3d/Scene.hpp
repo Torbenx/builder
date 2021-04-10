@@ -3,8 +3,9 @@
 #include "3d/AmbientLight.hpp"
 #include "3d/PointLight.hpp"
 #include "3d/Reflection.hpp"
-#include "3d/SpotLight.hpp"
 #include "3d/Renderpass.hpp"
+#include "3d/SpotLight.hpp"
+#include "util/Shaders.hpp"
 #include <list>
 #include <memory>
 #include <vector>
@@ -28,6 +29,7 @@ private:
         SceneRenderable* renderable;
         Mat4x4 model;
     };
+    std::shared_ptr<SimpleDepthShader> depthShader = Shaders::depth();
     std::vector<RenderableEntry> renderables;
     std::vector<DepthRenderpass> depthPasses;
     Renderpass renderpass;

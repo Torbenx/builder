@@ -14,12 +14,12 @@ bool EffectList::operator==(const EffectList& other) const {
     return true;
 }
 
-void EffectList::add(Effect* effect) {
+void EffectList::add(Effect* effect, int count) {
     auto it = std::lower_bound(entries.begin(), entries.end(), effect);
     if (it->effect == effect) {
-        it->multiplicity += 1;
+        it->multiplicity += count;
     } else {
-        entries.insert(it, { effect, 1 });
+        entries.insert(it, { effect, count });
     }
 }
 

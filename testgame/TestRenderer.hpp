@@ -70,8 +70,8 @@ public:
     }
 
     std::vector<EffectBindings> addEffects(EffectShaderBuilder& builder) {
-        EffectBindings data;
-        return { data };
+        //EffectBindings data;
+        return {};
     }
 
     void depthDraw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib) {

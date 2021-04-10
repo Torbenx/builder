@@ -34,6 +34,8 @@ if(ENGINE_LINK_STATIC)
     set(linkage STATIC)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
+
 add_library(engine ${linkage}
     "GL/CubeMap.cpp"
     "GL/Framebuffer.cpp"
@@ -71,6 +73,7 @@ add_library(engine ${linkage}
     "3d/PointLight.cpp"
     "3d/SpotLight.cpp"
     "3d/Reflection.cpp"
+    "events/Scheduler.cpp"
     ${platform_source}
 )
 

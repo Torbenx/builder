@@ -14,6 +14,7 @@ struct DepthRenderpass {
         DepthRenderable* renderable;
         Mat4x4 modelMatrix;
     };
+    std::unique_ptr<Framebuffer> framebuffer;
     Mat4x4 viewProjectionMatrix;
     std::vector<Entry> entries;
 };
