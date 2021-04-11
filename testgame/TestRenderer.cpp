@@ -41,13 +41,6 @@ TestRenderer::TestRenderer()
     , look(up, isAndroid())
     , pos(7, 1, 0) {
 
-    int i = 0;
-    ExecutionContext::bootstrap([&](ExecutionContext* boot) {
-        LOGD("i=%d", i++);
-        ExecutionContext me;
-        me.yieldTo(boot);
-    });
-
     reflection.framebuffer.clearColor(0, 0, 0, 1);
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     float f1Scale = 0.5f;

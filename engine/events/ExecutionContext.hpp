@@ -9,13 +9,11 @@ public:
     void yieldTo(ExecutionContext* context);
 
     template<typename Callback>
-    static void bootstrap(Callback callback) {
-        ExecutionContext boot;
-        boot.yieldTo(&boot);
+    void bootstrap(Callback callback) {
+        yieldTo(this);
         asm volatile("sub $0x100, %rsp;");
-        callback(&boot);
-        LOGD("ExecutionContext bootstrap should never return!");
-        while (true) { }
+        callback();
+        asm volatile("add $0x100, %rsp;");
     }
 
 private:
