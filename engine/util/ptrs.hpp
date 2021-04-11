@@ -3,6 +3,7 @@
 #include "util/log.hpp"
 #include <memory>
 
+/*
 template<class T>
 class return_ptr {
 public:
@@ -54,3 +55,4 @@ private:
     return_ptr(const return_ptr<T>& other);
     T* ptr;
 };
+*/

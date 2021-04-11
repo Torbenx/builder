@@ -6,7 +6,7 @@
 
 class CubeMapComponent : public UiComponent {
 public:
-    std::shared_ptr<SimpleCubeMapShader> shader;
+    Resource<SimpleCubeMapShader> shader;
     CubeMap* cubeMap;
     Resource<VertexBuffer> coords;
     Resource<VertexBuffer> texCoords;

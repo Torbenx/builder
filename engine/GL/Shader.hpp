@@ -29,65 +29,51 @@ public:
 
     static const std::string FRAGMENT_COLOR;
 
+    Shader() { }
     Shader(ShaderBuilder& builder) { initalize(builder); }
-    Shader(Shader&&);
-    virtual ~Shader();
 
     void initalize(ShaderBuilder& builder);
-    void use();
+    void use() const;
+    bool isValid() const;
+    void release();
 
-    GLint getUniform(LocationHandle handle);
-    GLuint getAttrib(LocationHandle handle);
-    GLuint getAndEnableAttrib(LocationHandle handle);
+    GLint getUniform(LocationHandle handle) const;
+    GLuint getAttrib(LocationHandle handle) const;
+    GLuint getAndEnableAttrib(LocationHandle handle) const;
 
-    void uniform1f(LocationHandle uniform, float u);
-    void uniform1i(LocationHandle uniform, int u);
-    void uniform2f(LocationHandle uniform, float u1, float u2);
-    void uniform2f(LocationHandle uniform, float* u);
-    void uniform2i(LocationHandle uniform, int u1, int u2);
-    void uniform2i(LocationHandle uniform, int* u);
-    void uniform3f(LocationHandle uniform, float u1, float u2, float u3);
-    void uniform3f(LocationHandle uniform, float* u);
-    void uniform3i(LocationHandle uniform, int u1, int u2, int u3);
-    void uniform3i(LocationHandle uniform, int* u);
-    void uniform4f(LocationHandle uniform, float u1, float u2, float u3, float u4);
-    void uniform4f(LocationHandle uniform, float* u);
-    void uniform4i(LocationHandle uniform, int u1, int u2, int u3, int u4);
-    void uniform4i(LocationHandle uniform, int* u);
-    void uniformMatrix2f(LocationHandle uniform, float* u);
-    void uniformMatrix3f(LocationHandle uniform, float* u);
-    void uniformMatrix4f(LocationHandle uniform, float* u);
-    void uniformVec2(LocationHandle uniform, Vec2 u);
-    void uniformVec3(LocationHandle uniform, Vec3 u);
-    void uniformVec4(LocationHandle uniform, Vec4 u);
-    void uniformMat4x4(LocationHandle uniform, Mat4x4& u);
-    void uniformTexture(LocationHandle uniform, Texture& u, GLuint slot);
-    void uniformCubeMap(LocationHandle uniform, CubeMap& u, GLuint slot);
+    void uniform1f(LocationHandle uniform, float u) const;
+    void uniform1i(LocationHandle uniform, int u) const;
+    void uniform2f(LocationHandle uniform, float u1, float u2) const;
+    void uniform2f(LocationHandle uniform, float* u) const;
+    void uniform2i(LocationHandle uniform, int u1, int u2) const;
+    void uniform2i(LocationHandle uniform, int* u) const;
+    void uniform3f(LocationHandle uniform, float u1, float u2, float u3) const;
+    void uniform3f(LocationHandle uniform, float* u) const;
+    void uniform3i(LocationHandle uniform, int u1, int u2, int u3) const;
+    void uniform3i(LocationHandle uniform, int* u) const;
+    void uniform4f(LocationHandle uniform, float u1, float u2, float u3, float u4) const;
+    void uniform4f(LocationHandle uniform, float* u) const;
+    void uniform4i(LocationHandle uniform, int u1, int u2, int u3, int u4) const;
+    void uniform4i(LocationHandle uniform, int* u) const;
+    void uniformMatrix2f(LocationHandle uniform, float* u) const;
+    void uniformMatrix3f(LocationHandle uniform, float* u) const;
+    void uniformMatrix4f(LocationHandle uniform, float* u) const;
+    void uniformVec2(LocationHandle uniform, Vec2 u) const;
+    void uniformVec3(LocationHandle uniform, Vec3 u) const;
+    void uniformVec4(LocationHandle uniform, Vec4 u) const;
+    void uniformMat4x4(LocationHandle uniform, Mat4x4& u) const;
+    void uniformTexture(LocationHandle uniform, Texture& u, GLuint slot) const;
+    void uniformCubeMap(LocationHandle uniform, CubeMap& u, GLuint slot) const;
 
-    void attribPointer(LocationHandle attrib, int size, void* a);
-    void attribPointer(LocationHandle attrib, int size, int stride, void* a);
-    void attribPointer(LocationHandle attrib, const VertexBuffer& a);
-    void attribPointer(LocationHandle attrib, int stride, const VertexBuffer& a);
-
-    template<typename T>
-    void attribPointer(LocationHandle attrib, T* a) {
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glVertexAttribPointer(getAndEnableAttrib(attrib), VectorTraits<T>::length, GL_FLOAT, GL_FALSE, 0, a);
-    }
-
-protected:
-    Shader() { }
+    void attribPointer(LocationHandle attrib, int size, void* a) const;
+    void attribPointer(LocationHandle attrib, int size, int stride, void* a) const;
+    void attribPointer(LocationHandle attrib, const VertexBuffer& a) const;
+    void attribPointer(LocationHandle attrib, int stride, const VertexBuffer& a) const;
 
 private:
-    Shader(const Shader& other);
-    GLuint glId = -1;
+    GLuint glId = 0;
     std::vector<GLuint> locations;
 };
-
-template void Shader::attribPointer<float>(LocationHandle, float*);
-template void Shader::attribPointer<Vec2>(LocationHandle, Vec2*);
-template void Shader::attribPointer<Vec3>(LocationHandle, Vec3*);
-template void Shader::attribPointer<Vec4>(LocationHandle, Vec4*);
 
 class ShaderBuilder {
 public:

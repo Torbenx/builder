@@ -6,8 +6,8 @@
 
 class TextureComponent : public UiComponent {
 public:
-    std::shared_ptr<SimpleTextureShader> shader;
-    Texture* texture;
+    Resource<SimpleTextureShader> shader;
+    Texture* texture = nullptr;
     Resource<VertexBuffer> coords;
     Resource<VertexBuffer> texCoords;
     TextureComponent(bool createShader = true);

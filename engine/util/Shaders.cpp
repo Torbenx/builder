@@ -45,19 +45,3 @@ void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::
     b.fMain <<
     "   " << Shader::FRAGMENT_COLOR << " = texture(u_cubeMap, v_texCoord);\n";
 }
-
-void SimpleDepthMapShader::applySimpleDepthMapShader(ShaderBuilder& b){
-    applySimpleTextureShader(b, "sampler2D");
-    farUniform = b.addFragmentUniform("float", "u_far");
-    b.fMain <<
-    "   vec4 bits = vec4(u_far,u_far/255.0,u_far/255.0/255.0,u_far/255.0/255.0/255.0);\n"
-    "   " << Shader::FRAGMENT_COLOR << " = vec4(vec3(dot(bits," << Shader::FRAGMENT_COLOR << ")), 1.0);\n";
-}
-
-void SimpleDepthCubeMapShader::applySimpleDepthCubeMapShader(ShaderBuilder& b){
-    applySimpleCubeMapShader(b, "samplerCube");
-    farUniform = b.addFragmentUniform("float", "u_far");
-    b.fMain <<
-    "   vec4 bits = vec4(u_far,u_far/255.0,u_far/255.0/255.0,u_far/255.0/255.0/255.0);\n"
-    "   " << Shader::FRAGMENT_COLOR << " = vec4(vec3(dot(bits," << Shader::FRAGMENT_COLOR << ")), 1.0);\n";
-}

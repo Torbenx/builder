@@ -156,15 +156,10 @@ void TestRenderer::change(int newWidth, int newHeight) {
     textComp.updateContent(metrics);
     uiScene.metrics = metrics;
     uiScene.build();
+    uiScene.applySolution(textComp);
 }
 
 void TestRenderer::pointer(PointerEvent event) {
-    /*std::stringstream ss;
-    ss << event.x << " / " << event.y;
-    textComp.text = ss.str();
-    textComp.updateContent();
-    uiScene.build();*/
-
     if (!rawInput()) {
         if (event.event == POINTER_EVENT_DOWN && navPointerId == POINTER_ID_INVALID) {
             navPointerId = event.pointerId;
@@ -237,6 +232,7 @@ void TestRenderer::drawFrame() {
         textComp.text = ss.str();
         textComp.updateContent(uiScene.metrics);
         uiScene.build();
+        uiScene.applySolution(textComp);
 
         lsecond = now;
         frameCounter = 0;

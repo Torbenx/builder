@@ -31,7 +31,7 @@ public:
         num = n;
     }
 
-    void depthDraw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib) {
+    void depthDraw(Framebuffer& framebuffer, const Shader& shader, Shader::LocationHandle positionAttrib) {
         shader.attribPointer(positionAttrib, *source);
         framebuffer.draw(mode, num);
     }
@@ -43,7 +43,7 @@ public:
         return { data };
     }
 
-    void draw(Framebuffer& framebuffer, EffectShader& shader, std::vector<EffectBindings>& data) {
+    void draw(Framebuffer& framebuffer, const EffectShader& shader, std::vector<EffectBindings>& data) {
         shader.uniformVec3(data[0].handles[0], color);
         shader.attribPointer(shader.positionAttrib, *source);
         shader.attribPointer(shader.normalAttrib, *normals);
@@ -74,7 +74,7 @@ public:
         return {};
     }
 
-    void depthDraw(Framebuffer& framebuffer, Shader& shader, Shader::LocationHandle positionAttrib) {
+    void depthDraw(Framebuffer& framebuffer, const Shader& shader, Shader::LocationHandle positionAttrib) {
         shader.attribPointer(positionAttrib, *source);
         if (indices)
             framebuffer.draw(DrawMode::Triangles, *indices);
@@ -82,7 +82,7 @@ public:
             framebuffer.draw(DrawMode::Triangles, num);
     }
 
-    void draw(Framebuffer& framebuffer, EffectShader& shader, std::vector<EffectBindings>& data) {
+    void draw(Framebuffer& framebuffer, const EffectShader& shader, std::vector<EffectBindings>& data) {
         /*shader.attribPointer(shader.positionAttrib, *source);
         shader.attribPointer(shader.normalAttrib, *normals);
         shader.attribPointer(data[0].handles[0], *texCoords);

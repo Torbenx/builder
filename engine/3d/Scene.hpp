@@ -29,7 +29,7 @@ private:
         SceneRenderable* renderable;
         Mat4x4 model;
     };
-    std::shared_ptr<SimpleDepthShader> depthShader = Shaders::depth();
+    Resource<SimpleDepthShader> depthShader = Shaders::depth();
     std::vector<RenderableEntry> renderables;
     std::vector<DepthRenderpass> depthPasses;
     Renderpass renderpass;
@@ -103,7 +103,7 @@ private:
         SceneRenderable* renderable;
         Mat4x4 model;
     };
-    std::shared_ptr<SimpleDepthShader> depthShader = Shaders::depth();
+    Resource<SimpleDepthShader> depthShader = Shaders::depth();
     std::vector<RenderableEntry> renderables;
     std::vector<DepthRenderpass> depthPasses;
     Renderpass renderpass;

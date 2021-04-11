@@ -7,7 +7,7 @@
 
 class TestComponent : public UiComponent {
 public:
-    std::shared_ptr<SingleColorShader> shader;
+    Resource<SingleColorShader> shader;
     Vec4 color;
     Resource<VertexBuffer> coords;
     TestComponent();

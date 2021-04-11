@@ -5,7 +5,7 @@
 #include "GL/Shader.hpp"
 
 struct DepthRenderable {
-    virtual void depthDraw(Framebuffer&, Shader&, Shader::LocationHandle positionAttrib) = 0;
+    virtual void depthDraw(Framebuffer&, const Shader&, Shader::LocationHandle positionAttrib) = 0;
     virtual ~DepthRenderable() { }
 };
 
@@ -20,7 +20,7 @@ struct DepthRenderpass {
 };
 
 struct Renderable {
-    virtual void draw(Framebuffer&, EffectShader&, std::vector<EffectBindings>&) = 0;
+    virtual void draw(Framebuffer&, const EffectShader&, std::vector<EffectBindings>&) = 0;
     virtual ~Renderable() { }
 };
 
