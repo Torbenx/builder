@@ -156,7 +156,6 @@ void TestRenderer::change(int newWidth, int newHeight) {
     textComp.updateContent(metrics);
     uiScene.metrics = metrics;
     uiScene.build();
-    uiScene.applySolution(textComp);
 }
 
 void TestRenderer::pointer(PointerEvent event) {
@@ -232,7 +231,6 @@ void TestRenderer::drawFrame() {
         textComp.text = ss.str();
         textComp.updateContent(uiScene.metrics);
         uiScene.build();
-        uiScene.applySolution(textComp);
 
         lsecond = now;
         frameCounter = 0;
