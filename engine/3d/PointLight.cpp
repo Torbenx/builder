@@ -2,7 +2,7 @@
 #include <cmath>
 
 PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _near, float _far)
-    : EffectInstance(&EFFECT), m_near(_near), m_far(_far), position(position), color(color), depthMap(CubeMap::depth(width, height, Texture::DepthBits::D16).move()) { }
+    : EffectInstance(&EFFECT), m_near(_near), m_far(_far), position(position), color(color), depthMap(CubeMap::depth(width, height, Texture::DepthBits::D16)) { }
 
 EffectBindings PointLight::Effect::addTo(EffectShaderBuilder& s) {
     EffectBindings data;

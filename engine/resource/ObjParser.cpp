@@ -169,7 +169,7 @@ void ObjParser::parse(std::istream& in) {
         this->vertex = VertexBuffer::upload(out_vertex, dim, vertexCount);
         this->normals = VertexBuffer::upload(out_normals, dim, vertexCount);
         this->texCoords = VertexBuffer::upload(out_texCoords, 2, vertexCount);
-        this->indices.reset(nullptr);
+        this->indices.clear();
     } else {
         vertexCount = texCoords.size() / 2;
         GLuint* out_indices = new GLuint[n];

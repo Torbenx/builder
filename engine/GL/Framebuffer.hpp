@@ -29,11 +29,11 @@ public:
 
     void clear();
 
-    void draw(DrawMode mode, IndexBuffer& indices);
+    void draw(DrawMode mode, const IndexBuffer& indices);
     void draw(DrawMode mode, int count);
 
-    void attach(Texture& a);
-    void attach(CubeMap& a, CubeMap::Face);
+    void attach(const Texture& a);
+    void attach(const CubeMap& a, CubeMap::Face);
 
     void clearColor(float r, float g, float b, float a);
     void clearColor(Vec4 color);
@@ -47,7 +47,7 @@ private:
     static Framebuffer* currentFramebuffer;
 
     struct {
-        Texture* texture = nullptr;
+        Texture texture;
         GLenum subTarget;
     } attachments[3];
     GLuint glId;
@@ -61,7 +61,7 @@ private:
     Framebuffer(bool isDefault, GLbitfield clearMask);
     Framebuffer(const Framebuffer& other);
 
-    void attachInteral(Texture& texture, GLenum subTarget);
+    void attachInteral(const Texture& texture, GLenum subTarget);
     void applyAttchment(Texture::Type type);
     bool isCurrent() { return this == currentFramebuffer; }
 };

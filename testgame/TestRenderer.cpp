@@ -1,5 +1,4 @@
 #include "TestRenderer.hpp"
-#include "events/ExecutionContext.hpp"
 #include <Renderer.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
@@ -44,21 +43,21 @@ TestRenderer::TestRenderer()
     reflection.framebuffer.clearColor(0, 0, 0, 1);
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     float f1Scale = 0.5f;
-    f1 = VertexBuffer::upload({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale }).unique();
-    f2 = VertexBuffer::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) }).unique();
-    f3 = VertexBuffer::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) }).unique();
-    f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) }).unique();
-    f5 = VertexBuffer::wrap(obj5_coords).unique();
-    fNormal = VertexBuffer::upload({ up, up, up, up }).unique();
-    obj1 = new DebugRenderable(f1.get(), fNormal.get(), Vec3(1, 0, 0) * 0.5, 4);
+    f1 = VertexBuffer::upload({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale });
+    f2 = VertexBuffer::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
+    f3 = VertexBuffer::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
+    f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
+    f5.setEternal(VertexBuffer::wrap(obj5_coords));
+    fNormal = VertexBuffer::upload({ up, up, up, up });
+    obj1 = new DebugRenderable(&f1.value, &fNormal.value, Vec3(1, 0, 0) * 0.5, 4);
     obj1->mode = DrawMode::TriangleStrip;
-    obj2 = new DebugRenderable(f2.get(), fNormal.get(), Vec3(0, 1, 0) * 0.5, 4);
+    obj2 = new DebugRenderable(&f2.value, &fNormal.value, Vec3(0, 1, 0) * 0.5, 4);
     obj2->mode = DrawMode::TriangleStrip;
-    obj3 = new ReflectionDebugRenderable(f3.get(), fNormal.get(), Vec3(1, 1, 1) * 0.1, 4, &reflection);
+    obj3 = new ReflectionDebugRenderable(&f3.value, &fNormal.value, Vec3(1, 1, 1) * 0.1, 4, &reflection);
     obj3->mode = DrawMode::TriangleStrip;
-    obj4 = new DebugRenderable(f4.get(), fNormal.get(), Vec3(1, 1, 0) * 0.5, 4);
+    obj4 = new DebugRenderable(&f4.value, &fNormal.value, Vec3(1, 1, 0) * 0.5, 4);
     obj4->mode = DrawMode::TriangleStrip;
-    obj5 = new DebugRenderable(f5.get(), fNormal.get(), Vec3(0, 0, 1) * 0.5, 4);
+    obj5 = new DebugRenderable(&f5.value, &fNormal.value, Vec3(0, 0, 1) * 0.5, 4);
     obj5->mode = DrawMode::TriangleStrip;
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
@@ -107,10 +106,10 @@ TestRenderer::TestRenderer()
     ObjParser parser;
     asset_istream file("PawnSideB/piece.obj");
     parser.parse(file);
-    pawnVertex = parser.vertex.unique();
-    pawnTexCoords = parser.texCoords.unique();
-    pawnNormals = parser.normals.unique();
-    pawnIndices = parser.indices.unique();
+    pawnVertex = parser.vertex;
+    pawnTexCoords = parser.texCoords;
+    pawnNormals = parser.normals;
+    pawnIndices = parser.indices;
 
     asset_istream jpegFile("PawnSideB/piece.jpg");
     jpegFile.seekg(0, jpegFile.end);
@@ -136,11 +135,11 @@ TestRenderer::TestRenderer()
     tjInstance = tjInitDecompress();
     tjDecompress2(tjInstance, jpegFileBuf, jpegFileSize, imgBuf, width, 0, height, pixelFormat, 0);
 
-    pawnTexture = Texture::color(imgBuf, width, height, Texture::Format::RGBA8888).unique();
+    pawnTexture = Texture::color(imgBuf, width, height, Texture::Format::RGBA8888);
 
-    refComp.texture = pawnTexture.get();
+    //refComp.texture = &pawnTexture.value;
 
-    pawn = new ObjectRenderable(pawnVertex.get(), pawnIndices.get(), pawnTexCoords.get(), pawnNormals.get(), pawnTexture.get(), parser.n);
+    pawn = new ObjectRenderable(&pawnVertex.value, &pawnIndices.value, &pawnTexCoords.value, &pawnNormals.value, &pawnTexture.value, parser.n);
     scene.addRenderable(*pawn);
 
     scene.setup();

@@ -1,67 +1,69 @@
 #pragma once
 
-#include "GL/glwrapper.hpp"
 #include "GL/Buffer.hpp"
 #include "GL/forward.hpp"
+#include "GL/glwrapper.hpp"
 #include "util/ptrs.hpp"
 
-class Texture{
+class Texture {
 public:
-    enum Type{
-        Color = 0, Depth = 1, Stencil = 2,
+    enum Type {
+        Color = 0,
+        Depth = 1,
+        Stencil = 2,
     };
 
-    enum Format{
+    enum Format {
         RGBA8888,
-        Count = RGBA8888+1
+        Count = RGBA8888 + 1
     };
     static GLint glFormatOf(Format);
     static GLenum glBaseFormatOf(Format);
     static GLenum glTypeOf(Format);
 
-    enum DepthBits : GLint{
+    enum DepthBits : GLint {
         D16 = GL_DEPTH_COMPONENT16,
         D24 = GL_DEPTH_COMPONENT24,
     };
 
-    enum WrappingMode : GLint{
+    enum WrappingMode : GLint {
         Clamp = GL_CLAMP_TO_EDGE,
         Repeat = GL_REPEAT,
         MirroredRepeat = GL_MIRRORED_REPEAT,
         ClampBorder = GL_CLAMP_TO_BORDER,
     };
 
-    enum Filter : GLint{
+    enum Filter : GLint {
         Linear = GL_LINEAR,
         Nearest = GL_NEAREST,
     };
 
-    static return_ptr<Texture> depth(int width, int height, DepthBits bits, bool renderingOnly=false);
-    static return_ptr<Texture> stencil(int width, int height);
-    static return_ptr<Texture> color(void *data, int width, int height, Format format, Format targetFormat);
-    static return_ptr<Texture> color(void *data, int width, int height, Format format);
-    static return_ptr<Texture> color(int width, int height, Format format, bool renderingOnly=false);
+    static Texture depth(int width, int height, DepthBits bits, bool renderingOnly = false);
+    static Texture stencil(int width, int height);
+    static Texture color(void* data, int width, int height, Format format, Format targetFormat);
+    static Texture color(void* data, int width, int height, Format format);
+    static Texture color(int width, int height, Format format, bool renderingOnly = false);
 
-    Texture(Texture&&);
-    virtual ~Texture();
+    Texture()
+        : glId(0) { }
+    Texture(const Texture&);
+
     void bind();
+    void wrappingMode(WrappingMode xMode, WrappingMode yMode); // default value is WrappingMode::Repeat
+    void magnifyFilter(Filter); // default value is Filter::Linear
+    void minifyFilter(Filter); // default value is Filter::Linear (GL defaults this to GL_NEAREST_MIPMAP_LINEAR so we have to override for non mipmaps)
+    void borderColor(Vec4 color); // default value is Vec4(0,0,0,0)
+    operator bool() { return glId != 0; }
 
-    void wrappingMode(WrappingMode xMode, WrappingMode yMode); //default value is WrappingMode::Repeat
-    void magnifyFilter(Filter); //default value is Filter::Linear
-    void minifyFilter(Filter); //default value is Filter::Linear (GL default this to GL_NEAREST_MIPMAP_LINEAR so we have to override for non mipmaps)
-    void borderColor(Vec4 color); //default value is Vec4(0,0,0,0)
-
-    //void subTexture(GLvoid *data, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum type);
+    // void subTexture(GLvoid *data, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum type);
+    void release();
 
 protected:
-    Texture(Type type, bool isRenderbuffer, GLenum target=GL_TEXTURE_2D, GLenum binding=GL_TEXTURE_BINDING_2D);
+    Texture(Type type, bool isRenderbuffer, GLenum target = GL_TEXTURE_2D, GLenum binding = GL_TEXTURE_BINDING_2D);
     GLuint glId;
     GLenum target;
     GLenum binding;
     Type type;
     bool isRenderbuffer;
     friend Framebuffer;
-
-private:
-    Texture(const Texture& other);
 };

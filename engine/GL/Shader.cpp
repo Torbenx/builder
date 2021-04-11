@@ -262,11 +262,11 @@ void Shader::attribPointer(Shader::LocationHandle attrib, int size, int stride, 
     glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib, VertexBuffer& a) {
+void Shader::attribPointer(Shader::LocationHandle attrib, const VertexBuffer& a) {
     attribPointer(attrib, 0, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib, int stride, VertexBuffer& a) {
+void Shader::attribPointer(Shader::LocationHandle attrib, int stride, const VertexBuffer& a) {
     a.bind(GL_ARRAY_BUFFER);
     glVertexAttribPointer(getAndEnableAttrib(attrib), a.elementSize(), GL_FLOAT, GL_FALSE, stride, a.data());
 }

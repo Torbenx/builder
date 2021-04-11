@@ -51,7 +51,7 @@ void Framebuffer::clear() {
     glClear(clearMask);
 }
 
-void Framebuffer::draw(DrawMode mode, IndexBuffer& indices) {
+void Framebuffer::draw(DrawMode mode, const IndexBuffer& indices) {
     VALIDATE_FRAMEBUFFER_STATE
     indices.bind(GL_ELEMENT_ARRAY_BUFFER);
     GLenum type;
@@ -77,22 +77,22 @@ void Framebuffer::draw(DrawMode mode, int count) {
 }
 
 void Framebuffer::applyAttchment(Texture::Type type) {
-    if (attachments[type].texture->isRenderbuffer)
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], GL_RENDERBUFFER, attachments[type].texture->glId);
+    if (attachments[type].texture.isRenderbuffer)
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], GL_RENDERBUFFER, attachments[type].texture.glId);
     else
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], attachments[type].subTarget, attachments[type].texture->glId, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_ATTACHMENTS[type], attachments[type].subTarget, attachments[type].texture.glId, 0);
 }
 
-void Framebuffer::attach(Texture& texture) {
+void Framebuffer::attach(const Texture& texture) {
     attachInteral(texture, texture.target);
 }
 
-void Framebuffer::attach(CubeMap& cubeMap, CubeMap::Face face) {
+void Framebuffer::attach(const CubeMap& cubeMap, CubeMap::Face face) {
     attachInteral(cubeMap, face);
 }
 
-void Framebuffer::attachInteral(Texture& texture, GLenum subTarget) {
-    attachments[texture.type].texture = &texture;
+void Framebuffer::attachInteral(const Texture& texture, GLenum subTarget) {
+    attachments[texture.type].texture = texture;
     attachments[texture.type].subTarget = subTarget;
     clearMask |= GL_BUFFER_BITS[texture.type];
     if (isCurrent())

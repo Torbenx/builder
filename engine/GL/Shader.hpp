@@ -29,8 +29,6 @@ public:
 
     static const std::string FRAGMENT_COLOR;
 
-    std::vector<GLuint> locations;
-
     Shader(ShaderBuilder& builder) { initalize(builder); }
     Shader(Shader&&);
     virtual ~Shader();
@@ -68,8 +66,8 @@ public:
 
     void attribPointer(LocationHandle attrib, int size, void* a);
     void attribPointer(LocationHandle attrib, int size, int stride, void* a);
-    void attribPointer(LocationHandle attrib, VertexBuffer& a);
-    void attribPointer(LocationHandle attrib, int stride, Buffer<float>& a);
+    void attribPointer(LocationHandle attrib, const VertexBuffer& a);
+    void attribPointer(LocationHandle attrib, int stride, const VertexBuffer& a);
 
     template<typename T>
     void attribPointer(LocationHandle attrib, T* a) {
@@ -83,6 +81,7 @@ protected:
 private:
     Shader(const Shader& other);
     GLuint glId = -1;
+    std::vector<GLuint> locations;
 };
 
 template void Shader::attribPointer<float>(LocationHandle, float*);

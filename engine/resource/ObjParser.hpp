@@ -1,14 +1,15 @@
 #pragma once
 
 #include "GL/Buffer.hpp"
+#include "resource/Resource.hpp"
 #include <istream>
 
 class ObjParser {
 public:
-    return_ptr<VertexBuffer> vertex;
-    return_ptr<VertexBuffer> texCoords;
-    return_ptr<VertexBuffer> normals;
-    return_ptr<IndexBuffer> indices;
+    Resource<VertexBuffer> vertex;
+    Resource<VertexBuffer> texCoords;
+    Resource<VertexBuffer> normals;
+    Resource<IndexBuffer> indices;
     int n, vertexCount, polyType, dim;
     void parse(std::istream& in);
     void freeCache();

@@ -18,13 +18,13 @@
 
 class DebugRenderable : public SceneRenderable {
 public:
-    VertexBuffer* source;
-    VertexBuffer* normals;
+    const VertexBuffer* source;
+    const VertexBuffer* normals;
     Vec3 color;
     int num;
     DrawMode mode = DrawMode::Triangles;
 
-    DebugRenderable(VertexBuffer* s, VertexBuffer* nor, Vec3 c, int n, Mat4x4 m = Mat4x4::Id) {
+    DebugRenderable(const VertexBuffer* s, const VertexBuffer* nor, Vec3 c, int n, Mat4x4 m = Mat4x4::Id) {
         source = s;
         normals = nor;
         color = c;
@@ -53,14 +53,14 @@ public:
 
 class ObjectRenderable : public SceneRenderable {
 public:
-    VertexBuffer* source;
-    VertexBuffer* texCoords;
-    VertexBuffer* normals;
-    IndexBuffer* indices;
-    Texture* texture;
+    const VertexBuffer* source;
+    const VertexBuffer* texCoords;
+    const VertexBuffer* normals;
+    const IndexBuffer* indices;
+    const Texture* texture;
     int num;
 
-    ObjectRenderable(VertexBuffer* s, IndexBuffer* i, VertexBuffer* t, VertexBuffer* nor, Texture* tex, int n) {
+    ObjectRenderable(const VertexBuffer* s, const IndexBuffer* i, const VertexBuffer* t, const VertexBuffer* nor, const Texture* tex, int n) {
         source = s;
         indices = i;
         texCoords = t;
@@ -98,7 +98,7 @@ class ReflectionDebugRenderable : public DebugRenderable {
 public:
     Reflection* reflection;
 
-    ReflectionDebugRenderable(VertexBuffer* s, VertexBuffer* nor, Vec3 c, int n, Reflection* r)
+    ReflectionDebugRenderable(const VertexBuffer* s, const VertexBuffer* nor, Vec3 c, int n, Reflection* r)
         : DebugRenderable(s, nor, c, n) {
         reflection = r;
     }
@@ -121,17 +121,17 @@ public:
     SpotLight spotLight;
     AmbientLight ambientLight;
     Reflection reflection;
-    std::unique_ptr<VertexBuffer> f1;
-    std::unique_ptr<VertexBuffer> f2;
-    std::unique_ptr<VertexBuffer> f3;
-    std::unique_ptr<VertexBuffer> f4;
-    std::unique_ptr<VertexBuffer> f5;
-    std::unique_ptr<VertexBuffer> fNormal;
-    std::unique_ptr<VertexBuffer> pawnVertex;
-    std::unique_ptr<VertexBuffer> pawnTexCoords;
-    std::unique_ptr<VertexBuffer> pawnNormals;
-    std::unique_ptr<IndexBuffer> pawnIndices;
-    std::unique_ptr<Texture> pawnTexture;
+    Resource<VertexBuffer> f1;
+    Resource<VertexBuffer> f2;
+    Resource<VertexBuffer> f3;
+    Resource<VertexBuffer> f4;
+    Resource<VertexBuffer> f5;
+    Resource<VertexBuffer> fNormal;
+    Resource<VertexBuffer> pawnVertex;
+    Resource<VertexBuffer> pawnTexCoords;
+    Resource<VertexBuffer> pawnNormals;
+    Resource<IndexBuffer> pawnIndices;
+    Resource<Texture> pawnTexture;
     Mat4x4 projection;
     Look3d look;
     uint32_t w = -1, a = -1, s = -1, d = -1, fullscreen = -1, exitKey = -1, upKey = -1, downKey = -1;

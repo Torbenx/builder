@@ -73,7 +73,7 @@ add_library(engine ${linkage}
     "3d/PointLight.cpp"
     "3d/SpotLight.cpp"
     "3d/Reflection.cpp"
-    "events/Scheduler.cpp"
+    #"events/ExecutionContext.cpp"
     ${platform_source}
 )
 
