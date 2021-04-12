@@ -31,11 +31,11 @@ void Framebuffer::bind(bool restoreAttachments) {
     glBindFramebuffer(GL_FRAMEBUFFER, glId);
     currentFramebuffer = this;
     if (restoreAttachments) {
-        if (attachments[Texture::Type::Color].texture)
+        if (attachments[Texture::Type::Color].texture.isValid())
             applyAttchment(Texture::Type::Color);
-        if (attachments[Texture::Type::Depth].texture)
+        if (attachments[Texture::Type::Depth].texture.isValid())
             applyAttchment(Texture::Type::Depth);
-        if (attachments[Texture::Type::Stencil].texture)
+        if (attachments[Texture::Type::Stencil].texture.isValid())
             applyAttchment(Texture::Type::Stencil);
         GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
     }

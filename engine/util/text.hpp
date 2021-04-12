@@ -2,6 +2,7 @@
 
 #include "GL/Texture.hpp"
 #include "math/Vec4.hpp"
+#include "util/target.hpp"
 #include <string>
 
 #ifdef PLATFORM_ANDROID

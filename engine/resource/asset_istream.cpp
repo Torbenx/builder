@@ -1,8 +1,6 @@
 #include "resource/asset_istream.hpp"
 #include <fstream>
 
-#ifdef PLATFORM_WINDOWS
-
 class assetbuf : public std::filebuf{
     public:
         assetbuf(std::string file);
@@ -19,5 +17,3 @@ asset_istream::asset_istream(std::string file) : std::istream(new assetbuf(file)
 asset_istream::~asset_istream(){
     delete rdbuf();
 }
-
-#endif

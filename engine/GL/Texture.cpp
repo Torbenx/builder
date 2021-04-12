@@ -92,31 +92,31 @@ void Texture::release() {
     }
 }
 
-void Texture::bind() {
+void Texture::bind() const {
     GL_VERIFY(!isRenderbuffer);
     glBindTexture(target, glId);
 }
 
-void Texture::magnifyFilter(Texture::Filter filter) {
+void Texture::magnifyFilter(Texture::Filter filter) const {
     GL_VERIFY(!isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameteri(binding, GL_TEXTURE_MAG_FILTER, filter);
 }
 
-void Texture::minifyFilter(Texture::Filter filter) {
+void Texture::minifyFilter(Texture::Filter filter) const {
     GL_VERIFY(!isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter);
 }
 
-void Texture::wrappingMode(Texture::WrappingMode xMode, Texture::WrappingMode yMode) {
+void Texture::wrappingMode(Texture::WrappingMode xMode, Texture::WrappingMode yMode) const {
     GL_VERIFY(!isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameteri(target, GL_TEXTURE_WRAP_S, xMode);
     glTexParameteri(target, GL_TEXTURE_WRAP_T, yMode);
 }
 
-void Texture::borderColor(Vec4 color) {
+void Texture::borderColor(Vec4 color) const {
     GL_VERIFY(!isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, &color.x);

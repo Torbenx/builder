@@ -1,21 +1,21 @@
 #include "util/time.hpp"
+#include "util/target.hpp"
 
 #ifdef PLATFORM_ANDROID
 
 #include <time.h>
 
-uint64_t getNanos(){
+uint64_t getNanos() {
     timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * NANOS_PER_SECOND + (uint64_t)ts.tv_nsec;
 }
 
-uint64_t getEpochSeconds(){
+uint64_t getEpochSeconds() {
     return time(nullptr);
 }
 
-#endif //PLATFORM_ANDROID
-
+#endif // PLATFORM_ANDROID
 
 #ifdef PLATFORM_WINDOWS
 
@@ -24,22 +24,22 @@ uint64_t getEpochSeconds(){
 uint64_t performenceFrequency;
 #define EPOCH_TICKS 0x019DB1DED53E8000
 
-void init_time(){
+void init_time() {
     LARGE_INTEGER t;
     QueryPerformanceFrequency(&t);
     performenceFrequency = t.QuadPart;
 }
 
-uint64_t getNanos(){
+uint64_t getNanos() {
     LARGE_INTEGER t;
     QueryPerformanceCounter(&t);
     return t.QuadPart * NANOS_PER_SECOND / performenceFrequency;
 }
 
-uint64_t getEpochSeconds(){
+uint64_t getEpochSeconds() {
     FILETIME t;
     GetSystemTimeAsFileTime(&t);
     return (((uint64_t)t.dwHighDateTime << 32) + (uint64_t)t.dwLowDateTime - EPOCH_TICKS) * 100 / NANOS_PER_SECOND;
 }
 
-#endif //PLATFORM_WINDOWS
+#endif // PLATFORM_WINDOWS

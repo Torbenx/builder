@@ -25,7 +25,6 @@ endfunction()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
-    add_definitions(-DPLATFORM_WINDOWS)
     set(PLATFORM_MAIN_SOURCE ${CMAKE_SOURCE_DIR}/engine/windows/main.cpp)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -41,7 +40,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     include(android_app.cmake)
     include(UseJava)
 
-    add_definitions(-DPLATFORM_ANDROID)
     set(PLATFORM_MAIN_SOURCE ../engine/android/main.cpp)
 
     set(lib_dir lib/${ANDROID_ABI}) #library output directory relative from ANDROID_APK_WORKING_DIR

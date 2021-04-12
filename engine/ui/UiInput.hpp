@@ -2,10 +2,11 @@
 
 #include "input/Pointer.hpp"
 #include "ui/TypedPoint.hpp"
+#include "util/target.hpp"
 
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS)
 #define POINTER_EVENT_POINT_TYPE TYPED_POINT_TOP_LOW_PIXELS
-#elif PLATFORM_ANDROID
+#elif defined(PLATFORM_ANDROID)
 #define POINTER_EVENT_POINT_TYPE TYPED_POINT_TOP_LOW_PIXELS
 #endif
 

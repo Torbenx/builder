@@ -182,7 +182,7 @@ void Shader::uniform2f(Shader::LocationHandle uniform, float u1, float u2) const
     glUniform2f(getUniform(uniform), u1, u2);
 }
 
-void Shader::uniform2f(Shader::LocationHandle uniform, float* u) const {
+void Shader::uniform2f(Shader::LocationHandle uniform, const float* u) const {
     glUniform2fv(getUniform(uniform), 1, u);
 }
 
@@ -190,7 +190,7 @@ void Shader::uniform2i(Shader::LocationHandle uniform, int u1, int u2) const {
     glUniform2i(getUniform(uniform), u1, u2);
 }
 
-void Shader::uniform2i(Shader::LocationHandle uniform, int* u) const {
+void Shader::uniform2i(Shader::LocationHandle uniform, const int* u) const {
     glUniform2iv(getUniform(uniform), 1, u);
 }
 
@@ -198,7 +198,7 @@ void Shader::uniform3f(Shader::LocationHandle uniform, float u1, float u2, float
     glUniform3f(getUniform(uniform), u1, u2, u3);
 }
 
-void Shader::uniform3f(Shader::LocationHandle uniform, float* u) const {
+void Shader::uniform3f(Shader::LocationHandle uniform, const float* u) const {
     glUniform3fv(getUniform(uniform), 1, u);
 }
 
@@ -206,7 +206,7 @@ void Shader::uniform3i(Shader::LocationHandle uniform, int u1, int u2, int u3) c
     glUniform3i(getUniform(uniform), u1, u2, u3);
 }
 
-void Shader::uniform3i(Shader::LocationHandle uniform, int* u) const {
+void Shader::uniform3i(Shader::LocationHandle uniform, const int* u) const {
     glUniform3iv(getUniform(uniform), 1, u);
 }
 
@@ -214,7 +214,7 @@ void Shader::uniform4f(Shader::LocationHandle uniform, float u1, float u2, float
     glUniform4f(getUniform(uniform), u1, u2, u3, u4);
 }
 
-void Shader::uniform4f(Shader::LocationHandle uniform, float* u) const {
+void Shader::uniform4f(Shader::LocationHandle uniform, const float* u) const {
     glUniform4fv(getUniform(uniform), 1, u);
 }
 
@@ -222,19 +222,19 @@ void Shader::uniform4i(Shader::LocationHandle uniform, int u1, int u2, int u3, i
     glUniform4i(getUniform(uniform), u1, u2, u3, u4);
 }
 
-void Shader::uniform4i(Shader::LocationHandle uniform, int* u) const {
+void Shader::uniform4i(Shader::LocationHandle uniform, const int* u) const {
     glUniform4iv(getUniform(uniform), 1, u);
 }
 
-void Shader::uniformMatrix2f(Shader::LocationHandle uniform, float* u) const {
+void Shader::uniformMatrix2f(Shader::LocationHandle uniform, const float* u) const {
     glUniformMatrix2fv(getUniform(uniform), 1, GL_FALSE, u);
 }
 
-void Shader::uniformMatrix3f(Shader::LocationHandle uniform, float* u) const {
+void Shader::uniformMatrix3f(Shader::LocationHandle uniform, const float* u) const {
     glUniformMatrix3fv(getUniform(uniform), 1, GL_FALSE, u);
 }
 
-void Shader::uniformMatrix4f(Shader::LocationHandle uniform, float* u) const {
+void Shader::uniformMatrix4f(Shader::LocationHandle uniform, const float* u) const {
     glUniformMatrix4fv(getUniform(uniform), 1, GL_FALSE, u);
 }
 
@@ -250,15 +250,15 @@ void Shader::uniformVec4(Shader::LocationHandle uniform, Vec4 u) const {
     uniform4f(uniform, u.x, u.y, u.z, u.w);
 }
 
-void Shader::uniformMat4x4(Shader::LocationHandle uniform, Mat4x4& u) const {
+void Shader::uniformMat4x4(Shader::LocationHandle uniform, const Mat4x4& u) const {
     uniformMatrix4f(uniform, u.matrix);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib, int size, void* a) const {
+void Shader::attribPointer(Shader::LocationHandle attrib, int size, const void* a) const {
     attribPointer(attrib, size, 0, a);
 }
 
-void Shader::attribPointer(Shader::LocationHandle attrib, int size, int stride, void* a) const {
+void Shader::attribPointer(Shader::LocationHandle attrib, int size, int stride, const void* a) const {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a);
 }
@@ -272,13 +272,13 @@ void Shader::attribPointer(Shader::LocationHandle attrib, int stride, const Vert
     glVertexAttribPointer(getAndEnableAttrib(attrib), a.elementSize(), GL_FLOAT, GL_FALSE, stride, a.data());
 }
 
-void Shader::uniformTexture(Shader::LocationHandle uniform, Texture& u, GLuint slot) const {
+void Shader::uniformTexture(Shader::LocationHandle uniform, const Texture& u, GLuint slot) const {
     glActiveTexture(GL_TEXTURE0 + slot);
     u.bind();
     uniform1i(uniform, slot);
 }
 
-void Shader::uniformCubeMap(Shader::LocationHandle uniform, CubeMap& u, GLuint slot) const {
+void Shader::uniformCubeMap(Shader::LocationHandle uniform, const CubeMap& u, GLuint slot) const {
     glActiveTexture(GL_TEXTURE0 + slot);
     u.bind();
     uniform1i(uniform, slot);

@@ -7,7 +7,7 @@
 class TextureComponent : public UiComponent {
 public:
     Resource<SimpleTextureShader> shader;
-    Texture* texture = nullptr;
+    const Texture* texture = nullptr;
     Resource<VertexBuffer> coords;
     Resource<VertexBuffer> texCoords;
     TextureComponent(bool createShader = true);

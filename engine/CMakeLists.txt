@@ -9,6 +9,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         "windows/Renderer.cpp"
         "windows/text.cpp"
         "windows/keycodes.cpp"
+        "resource/asset_istream.cpp"
     )
     set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite)
 
@@ -48,9 +49,7 @@ add_library(engine ${linkage}
     "math/Vec4.cpp"
     "math/Rect.cpp"
     "resource/ObjParser.cpp"
-    "resource/asset_istream.cpp"
     "util/time.cpp"
-    "util/target.cpp"
     "util/Shaders.cpp"
     #"util/draw_util.cpp"
     "input/Pointer.cpp"

@@ -137,7 +137,7 @@ TestRenderer::TestRenderer()
 
     pawnTexture = Texture::color(imgBuf, width, height, Texture::Format::RGBA8888);
 
-    //refComp.texture = &pawnTexture.value;
+    refComp.texture = &pawnTexture.value;
 
     pawn = new ObjectRenderable(&pawnVertex.value, &pawnIndices.value, &pawnTexCoords.value, &pawnNormals.value, &pawnTexture.value, parser.n);
     scene.addRenderable(*pawn);

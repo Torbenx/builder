@@ -48,12 +48,12 @@ public:
         : glId(0) { }
     Texture(const Texture&);
 
-    void bind();
-    void wrappingMode(WrappingMode xMode, WrappingMode yMode); // default value is WrappingMode::Repeat
-    void magnifyFilter(Filter); // default value is Filter::Linear
-    void minifyFilter(Filter); // default value is Filter::Linear (GL defaults this to GL_NEAREST_MIPMAP_LINEAR so we have to override for non mipmaps)
-    void borderColor(Vec4 color); // default value is Vec4(0,0,0,0)
-    operator bool() { return glId != 0; }
+    void bind() const;
+    void wrappingMode(WrappingMode xMode, WrappingMode yMode) const; // default value is WrappingMode::Repeat
+    void magnifyFilter(Filter) const; // default value is Filter::Linear
+    void minifyFilter(Filter) const; // default value is Filter::Linear (GL defaults this to GL_NEAREST_MIPMAP_LINEAR so we have to override for non mipmaps)
+    void borderColor(Vec4 color) const; // default value is Vec4(0,0,0,0)
+    bool isValid() const { return glId != 0; }
 
     // void subTexture(GLvoid *data, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum type);
     void release();

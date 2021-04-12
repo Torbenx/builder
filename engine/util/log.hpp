@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "util/target.hpp"
+
 #define VALIDATE_GL
 #define VALIDATE_MATH
 #define VALIDATE_MATH_MARGIN 0.00001f

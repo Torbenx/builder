@@ -1,3 +1,6 @@
+#pragma once
+#include "util/target.hpp"
+
 #ifdef PLATFORM_WINDOWS
 #include "windows/glwrapper.hpp"
 #endif
