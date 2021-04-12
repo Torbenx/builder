@@ -72,9 +72,9 @@ add_library(engine ${linkage}
     "3d/PointLight.cpp"
     "3d/SpotLight.cpp"
     "3d/Reflection.cpp"
-    #"events/ExecutionContext.cpp"
+    "events/ExecutionContext.cpp"
     ${platform_source}
 )
 
-set_target_properties(engine PROPERTIES UNITY_BUILD ON)
+#set_target_properties(engine PROPERTIES UNITY_BUILD ON)
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg)

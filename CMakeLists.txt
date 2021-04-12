@@ -84,12 +84,15 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     add_custom_target(lib_cxx SOURCES ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${lib_cxx_file_name})
 
+
     set(PLATFORM_ANDROID_APK_FILES
         ${lib_dir}/libengine.so
         ${lib_dir}/libturbojpeg.so
         ${lib_dir}/${lib_cxx_file_name}
+        ${lib_dir}/libclang_rt.asan-aarch64-android.so
         classes.dex
     )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 
 else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")

@@ -1,5 +1,6 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
+#include <events/ExecutionContext.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
@@ -185,6 +186,25 @@ void TestRenderer::pointer(PointerEvent event) {
         }
     }
     trackPointerEvent(event);
+
+    void** stack = new void*[4096];
+
+    struct {
+        ExecutionContext boot;
+        int i = 0;
+    } stru;
+    stru.boot.bootstrap([](void* data) {
+        int& i = *(int*)(((char*)data)+sizeof(ExecutionContext));
+        LOGD("i=%d", i++);
+
+        if (i > 100)
+            while (true) { }
+
+        ExecutionContext me;
+        me.yieldTo((ExecutionContext*)data);
+    },
+        stack + 4096, &stru);
+    delete[] stack;
 }
 
 void TestRenderer::rawPointer(int dx, int dy) {

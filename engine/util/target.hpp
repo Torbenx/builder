@@ -8,6 +8,14 @@
 #define PLATFORM_ANDROID 1
 #endif
 
+#ifdef __x86_64__
+#define ARCHITECTURE_X86_64
+#endif
+
+#ifdef __aarch64__
+#define ARCHITECTURE_ARM_64
+#endif
+
 constexpr bool isWindows() {
 #ifdef PLATFORM_WINDOWS
     return true;
