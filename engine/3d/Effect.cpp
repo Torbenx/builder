@@ -31,6 +31,7 @@ const std::string EffectShader::RAW_POSITION = "a_position";
 const std::string EffectShader::RAW_NORMAL = "a_normal";
 const std::string EffectShader::RAW_TO_WORLD_MATRIX = "u_model";
 const std::string EffectShader::WORLD_TO_SCREEN_MATRIX = "u_viewProjection";
+const std::string EffectShader::FRAGMENT_DIFFUSE_COLOR = "diffuseColor";
 
 EffectShaderBuilder::EffectShaderBuilder(AttributeList attributes)
     : ShaderBuilder()
@@ -61,8 +62,10 @@ std::string EffectShaderBuilder::buildFragmentSource() {
     f << fExt.str() << fInit.str() << "out vec4 " << Shader::FRAGMENT_COLOR << ";\n"
       << "void main(){\n";
     f << "vec3 " << EffectShader::LIGHT_INTENSITY << " = vec3(0.0);\n";
+    f << "vec3 " << EffectShader::FRAGMENT_DIFFUSE_COLOR << " = vec3(0.0);\n";
     f << Shader::FRAGMENT_COLOR << " = vec4(0.0, 0.0, 0.0, 1.0);\n";
-    f << fMain.str() << "}";
+    f << fMain.str();
+    f << Shader::FRAGMENT_COLOR << " += vec4(" << EffectShader::FRAGMENT_DIFFUSE_COLOR << " * " << EffectShader::LIGHT_INTENSITY << ", 0.0);\n}";
 
     return f.str();
 }

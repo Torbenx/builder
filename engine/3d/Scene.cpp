@@ -1,92 +1,88 @@
 #include "3d/Scene.hpp"
+#include "util/time.hpp"
 
-void Scene::addLight(PointLight& light) {
-    pointLights.push_back(&light);
-}
-
-void Scene::addLight(SpotLight& light) {
-    spotLights.push_back(&light);
-}
-
-void Scene::addLight(AmbientLight& light) {
-    ambientLights.push_back(&light);
-}
-
-void Scene::addReflection(Reflection& ref) {
-    reflections.push_back(&ref);
+void Scene::addEffect(EffectInstance* effect) {
+    globalEffects.push_back(effect);
 }
 
 void Scene::addObject(const Object& object, const std::vector<EffectInstance*>& effects) {
+    for (DepthRenderpass& pass : depthPasses) {
+        pass.entries.push_back({ static_cast<int>(objects.size()), object.modelMatrix });
+    }
     objects.push_back({ object, effects });
 }
 
+void Scene::addDepthRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProjectionMatrix) {
+    DepthRenderpass pass;
+    pass.framebuffer = framebuffer;
+    pass.viewProjectionMatrix = viewProjectionMatrix;
+    pass.entries.reserve(objects.size());
+    for (int i = 0; i < objects.size(); i++)
+        pass.entries.push_back({ i, objects[i].object.modelMatrix });
+    depthPasses.push_back(std::move(pass));
+}
+
 void Scene::setup() {
-    for (SpotLight* l : spotLights) {
-        DepthRenderpass pass;
-        pass.framebuffer = std::make_unique<Framebuffer>();
-        pass.framebuffer->attach(l->depthMap);
-        pass.framebuffer->viewport(2048, 2048);
-        pass.viewProjectionMatrix = l->viewProjectionMatrix();
-        pass.entries.reserve(objects.size());
-        for (int i = 0; i < objects.size(); i++)
-            pass.entries.push_back({ i, objects[i].object.modelMatrix });
-        depthPasses.push_back(std::move(pass));
-    }
-    for (PointLight* l : pointLights) {
-        for (auto face : CubeMap::Faces) {
-            DepthRenderpass pass;
-            pass.framebuffer = std::make_unique<Framebuffer>();
-            pass.framebuffer->attach(l->depthMap, face);
-            pass.framebuffer->viewport(1024, 1024);
-            pass.viewProjectionMatrix = l->viewProjectionMatrix(face);
-            pass.entries.reserve(objects.size());
-            for (int i = 0; i < objects.size(); i++)
-                pass.entries.push_back({ i, objects[i].object.modelMatrix });
-            depthPasses.push_back(std::move(pass));
-        }
-    }
     for (int i = 0; i < objects.size(); i++) {
-        AttributeList attributes;
-        EffectShaderBuilder builder(attributes);
         Shaderpass::Entry entry;
         entry.objectId = i;
         entry.modelMatrix = objects[i].object.modelMatrix;
-        for (SpotLight* l : spotLights) {
-            entry.effects.push_back({ l, l->effect->addTo(builder) });
+        std::vector<EffectInstance*> effects;
+        effects.reserve(globalEffects.size() * objects[i].effects.size());
+        effects.insert(effects.end(), globalEffects.begin(), globalEffects.end());
+        effects.insert(effects.end(), objects[i].effects.begin(), objects[i].effects.end());
+        std::sort(effects.begin(), effects.end());
+        ptrdiff_t hash = 0;
+        for (EffectInstance* instance : effects) {
+            hash ^= ((ptrdiff_t)instance->effect) >> 3;
         }
-        for (PointLight* l : pointLights) {
-            entry.effects.push_back({ l, l->effect->addTo(builder) });
+        LOGD("hash: %llx", hash);
+        ShaderEntry& shader = shaders[hash];
+        Shaderpass *shaderpass;
+
+        if (!shader.shader) {
+            AttributeList attributes;
+            EffectShaderBuilder builder(attributes);
+            for (EffectInstance* effect : effects) {
+                shader.bindings.push_back(effect->effect->addTo(builder));
+            }
+            shader.shader = new EffectShader(builder);
+            shader.index = renderpass.passes.size();
+            shaderpass = &renderpass.passes.emplace_back();
+            shaderpass->shader = shader.shader;
+        } else {
+            shaderpass = &renderpass.passes[shader.index];
         }
-        for (AmbientLight* l : ambientLights) {
-            entry.effects.push_back({ l, l->effect->addTo(builder) });
+
+        for (int i=0;i<effects.size();i++) {
+            entry.effects.push_back({ effects[i], shader.bindings[i] });
         }
-        for (EffectInstance* effect : objects[i].effects) {
-            entry.effects.push_back({ effect, effect->effect->addTo(builder) });
-        }
-        Shaderpass shaderpass;
-        shaderpass.entries.push_back(entry);
-        shaderpass.shader = new EffectShader(builder);
-        renderpass.passes.push_back(shaderpass);
+        shaderpass->entries.push_back(entry);
     }
 }
 
 void Scene::draw(Mat4x4 vp) {
-    depthShader->use();
-    for (DepthRenderpass& pass : depthPasses) {
-        pass.framebuffer->bind();
-        pass.framebuffer->clear();
-        depthShader->uniformMat4x4(depthShader->mvpUniform, pass.viewProjectionMatrix);
-        for (auto& entry : pass.entries) {
-            depthShader->uniformMat4x4(depthShader->modelUniform, entry.modelMatrix);
-            Object& object = objects[entry.objectId].object;
-            depthShader->attribPointer(depthShader->positionAttrib, object.vertices);
-            pass.framebuffer->draw(object.drawMode, object.indices);
+    static bool first = true;
+    if(first){
+        first = false;
+        depthShader->use();
+        for (DepthRenderpass& pass : depthPasses) {
+            pass.framebuffer->bind();
+            pass.framebuffer->clear();
+            depthShader->uniformMat4x4(depthShader->mvpUniform, pass.viewProjectionMatrix);
+            for (auto& entry : pass.entries) {
+                depthShader->uniformMat4x4(depthShader->modelUniform, entry.modelMatrix);
+                Object& object = objects[entry.objectId].object;
+                depthShader->attribPointer(depthShader->positionAttrib, object.vertices);
+                pass.framebuffer->draw(object.drawMode, object.indices);
+            }
         }
     }
 
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
     renderpass.viewProjectionMatrix = vp;
+    uint64_t start = getNanos();
     for (Shaderpass& shaderpass : renderpass.passes) {
         shaderpass.shader->use();
         shaderpass.shader->uniformMat4x4(shaderpass.shader->viewProjectionUniform, renderpass.viewProjectionMatrix);
@@ -101,4 +97,6 @@ void Scene::draw(Mat4x4 vp) {
             Framebuffer::DEFAULT.draw(object.drawMode, object.indices);
         }
     }
+    uint64_t end = getNanos();
+    //LOGD("draw took %f us", (end - start) / 1000.0);
 }

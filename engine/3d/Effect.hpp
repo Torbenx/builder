@@ -5,10 +5,6 @@
 class EffectShaderBuilder;
 class EffectShader;
 
-struct EffectLocationHandle {
-    int handle;
-};
-
 struct EffectBindings {
     Shader::LocationHandle handles[5];
     int textureSlot;
@@ -104,6 +100,7 @@ public:
     static const std::string RAW_NORMAL;
     static const std::string RAW_TO_WORLD_MATRIX;
     static const std::string WORLD_TO_SCREEN_MATRIX;
+    static const std::string FRAGMENT_DIFFUSE_COLOR;
 
     Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
     EffectShader(EffectShaderBuilder& builder)

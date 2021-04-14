@@ -1,6 +1,10 @@
 #pragma once
 
+#include <3d/CommonEffects.hpp>
+#include <3d/PointLight.hpp>
+#include <3d/Reflection.hpp>
 #include <3d/Scene.hpp>
+#include <3d/SpotLight.hpp>
 #include <GL/Shader.hpp>
 #include <GL/glwrapper.hpp>
 #include <Renderer.hpp>
@@ -16,102 +20,8 @@
 #include <ui/UiScene.hpp>
 #include <util/text.hpp>
 
-/*class DebugRenderable : public SceneRenderable {
-public:
-    const VertexBuffer* source;
-    const VertexBuffer* normals;
-    Vec3 color;
-    int num;
-    DrawMode mode = DrawMode::Triangles;
-
-    DebugRenderable(const VertexBuffer* s, const VertexBuffer* nor, Vec3 c, int n, Mat4x4 m = Mat4x4::Id) {
-        source = s;
-        normals = nor;
-        color = c;
-        num = n;
-    }
-
-    void depthDraw(Framebuffer& framebuffer, const Shader& shader, Shader::LocationHandle positionAttrib) {
-        shader.attribPointer(positionAttrib, *source);
-        framebuffer.draw(mode, num);
-    }
-
-    std::vector<EffectBindings> addEffects(EffectShaderBuilder& builder) {
-        EffectBindings data;
-        data.handles[0] = builder.addFragmentUniform("vec3", "u_color");
-        builder.fMain << Shader::FRAGMENT_COLOR << " = vec4(u_color * " << EffectShader::LIGHT_INTENSITY << ", 1.0);\n";
-        return { data };
-    }
-
-    void draw(Framebuffer& framebuffer, const EffectShader& shader, std::vector<EffectBindings>& data) {
-        shader.uniformVec3(data[0].handles[0], color);
-        shader.attribPointer(shader.positionAttrib, *source);
-        shader.attribPointer(shader.normalAttrib, *normals);
-        framebuffer.draw(mode, num);
-    }
-};
-
-class ObjectRenderable : public SceneRenderable {
-public:
-    const VertexBuffer* source;
-    const VertexBuffer* texCoords;
-    const VertexBuffer* normals;
-    const IndexBuffer* indices;
-    const Texture* texture;
-    int num;
-
-    ObjectRenderable(const VertexBuffer* s, const IndexBuffer* i, const VertexBuffer* t, const VertexBuffer* nor, const Texture* tex, int n) {
-        source = s;
-        indices = i;
-        texCoords = t;
-        normals = nor;
-        texture = tex;
-        num = n;
-    }
-
-    std::vector<EffectBindings> addEffects(EffectShaderBuilder& builder) {
-        //EffectBindings data;
-        return {};
-    }
-
-    void depthDraw(Framebuffer& framebuffer, const Shader& shader, Shader::LocationHandle positionAttrib) {
-        shader.attribPointer(positionAttrib, *source);
-        if (indices)
-            framebuffer.draw(DrawMode::Triangles, *indices);
-        else
-            framebuffer.draw(DrawMode::Triangles, num);
-    }
-
-    void draw(Framebuffer& framebuffer, const EffectShader& shader, std::vector<EffectBindings>& data) {
-        shader.attribPointer(shader.positionAttrib, *source);
-        shader.attribPointer(shader.normalAttrib, *normals);
-        shader.attribPointer(data[0].handles[0], *texCoords);
-        shader.uniformTexture(data[0].handles[1], *texture, data[0].textureSlot);
-        if (indices)
-            framebuffer.draw(DrawMode::Triangles, *indices);
-        else
-            framebuffer.draw(DrawMode::Triangles, num);
-    }
-};
-
-class ReflectionDebugRenderable : public DebugRenderable {
-public:
-    Reflection* reflection;
-
-    ReflectionDebugRenderable(const VertexBuffer* s, const VertexBuffer* nor, Vec3 c, int n, Reflection* r)
-        : DebugRenderable(s, nor, c, n) {
-        reflection = r;
-    }
-};*/
-
 class TestRenderer : public Renderer {
 public:
-    /*DebugRenderable* obj1;
-    DebugRenderable* obj2;
-    ReflectionDebugRenderable* obj3;
-    DebugRenderable* obj4;
-    DebugRenderable* obj5;
-    ObjectRenderable* pawn;*/
     uint64_t lframe;
     uint64_t lsecond;
     int frameCounter = 0;

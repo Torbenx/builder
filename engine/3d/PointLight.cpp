@@ -2,7 +2,21 @@
 #include <cmath>
 
 PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _near, float _far)
-    : EffectInstance(&EFFECT), m_near(_near), m_far(_far), position(position), color(color), depthMap(CubeMap::depth(width, height, Texture::DepthBits::D16)) { }
+    : EffectInstance(&EFFECT)
+    , m_near(_near)
+    , m_far(_far)
+    , position(position)
+    , color(color)
+    , depthMap(CubeMap::depth(width, height, Texture::DepthBits::D16))
+    , width(width)
+    , height(height) {
+
+    for (int i = 0; i < 6; i++) {
+        framebuffers[i].bind();
+        framebuffers[i].attach(depthMap, CubeMap::Faces[i]);
+        framebuffers[i].viewport(width, height);
+    }
+}
 
 EffectBindings PointLight::Effect::addTo(EffectShaderBuilder& s) {
     EffectBindings data;
@@ -21,7 +35,7 @@ EffectBindings PointLight::Effect::addTo(EffectShaderBuilder& s) {
     std::string direction = s.uniqueName("direction");
     s.fMain << "vec3 " << direction << " = " << EffectShader::WORLD_POSITION << " - " << lightPosUniform << ";\n";
     s.fMain << "float " << depth << " = " << factors << ".x - " << factors << ".y / max(abs(" << direction << ".x), max(abs(" << direction << ".y), abs(" << direction << ".z)));\n";
-    s.fMain << "float " << result << " = texture(" << textureUniform << ",vec4(" << direction << ", (" << depth << "+1.0)/2.0*0.99));\n";
+    s.fMain << "float " << result << " = texture(" << textureUniform << ",vec4(" << direction << ", (" << depth << "+1.0)/2.0 - 0.01));\n";
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << result << " * abs(dot(" << EffectShader::WORLD_NORMAL << ", normalize(" << direction << "))) * " << colorUniform << " / dot(" << direction << "," << direction << ");\n";
     return data;
 }
@@ -33,27 +47,31 @@ void PointLight::applyTo(EffectShader& s, const EffectBindings& data) {
     s.uniformVec2(data.handles[3], Vec2((m_near + m_far) / (m_far - m_near), 2.0f * m_near * m_far / (m_far - m_near)));
 }
 
-Mat4x4 PointLight::viewProjectionMatrix(CubeMap::Face face) {
-    Mat4x4 view;
-    switch (face) {
-    case CubeMap::PosX:
-        view = Mat4x4::look(position, Vec3(+1, 0, 0), Vec3(0, -1, 0));
-        break;
-    case CubeMap::NegX:
-        view = Mat4x4::look(position, Vec3(-1, 0, 0), Vec3(0, -1, 0));
-        break;
-    case CubeMap::PosY:
-        view = Mat4x4::look(position, Vec3(0, +1, 0), Vec3(0, 0, +1));
-        break;
-    case CubeMap::NegY:
-        view = Mat4x4::look(position, Vec3(0, -1, 0), Vec3(0, 0, -1));
-        break;
-    case CubeMap::PosZ:
-        view = Mat4x4::look(position, Vec3(0, 0, +1), Vec3(0, -1, 0));
-        break;
-    case CubeMap::NegZ:
-        view = Mat4x4::look(position, Vec3(0, 0, -1), Vec3(0, -1, 0));
-        break;
+void PointLight::addTo(Scene& scene) {
+    Mat4x4 projection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
+    for (int i = 0; i < 6; i++) {
+        Mat4x4 view;
+        switch (CubeMap::Faces[i]) {
+        case CubeMap::PosX:
+            view = Mat4x4::look(position, Vec3(+1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegX:
+            view = Mat4x4::look(position, Vec3(-1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::PosY:
+            view = Mat4x4::look(position, Vec3(0, +1, 0), Vec3(0, 0, +1));
+            break;
+        case CubeMap::NegY:
+            view = Mat4x4::look(position, Vec3(0, -1, 0), Vec3(0, 0, -1));
+            break;
+        case CubeMap::PosZ:
+            view = Mat4x4::look(position, Vec3(0, 0, +1), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegZ:
+            view = Mat4x4::look(position, Vec3(0, 0, -1), Vec3(0, -1, 0));
+            break;
+        }
+        scene.addDepthRenderpass(&framebuffers[i], projection * view);
     }
-    return Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far) * view;
+    scene.addEffect(this);
 }

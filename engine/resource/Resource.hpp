@@ -150,6 +150,10 @@ public:
         return value;
     }
 
+    operator const T() {
+        return value;
+    }
+
     void setEternal(const T& new_value) {
         clear();
         const_cast<T&>(value) = new_value;

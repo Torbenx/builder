@@ -50,25 +50,14 @@ TestRenderer::TestRenderer()
     f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
     f5.setEternal(VertexBuffer::wrap(obj5_coords));
     fNormal = VertexBuffer::upload({ up, up, up, up });
-    /*obj1 = new DebugRenderable(&f1.value, &fNormal.value, Vec3(1, 0, 0) * 0.5, 4);
-    obj1->mode = DrawMode::TriangleStrip;
-    obj2 = new DebugRenderable(&f2.value, &fNormal.value, Vec3(0, 1, 0) * 0.5, 4);
-    obj2->mode = DrawMode::TriangleStrip;
-    obj3 = new ReflectionDebugRenderable(&f3.value, &fNormal.value, Vec3(1, 1, 1) * 0.1, 4, &reflection);
-    obj3->mode = DrawMode::TriangleStrip;
-    obj4 = new DebugRenderable(&f4.value, &fNormal.value, Vec3(1, 1, 0) * 0.5, 4);
-    obj4->mode = DrawMode::TriangleStrip;
-    obj5 = new DebugRenderable(&f5.value, &fNormal.value, Vec3(0, 0, 1) * 0.5, 4);
-    obj5->mode = DrawMode::TriangleStrip;*/
-    scene.addLight(ambientLight);
-    scene.addLight(pointLight);
-    scene.addLight(spotLight);
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 0, 0) * 0.5f) });
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 1, 0) * 0.5f) });
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 1, 1) * 0.1f) });
-    //scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 0, 1) * 0.5f) });
-    scene.addReflection(reflection);
+    scene.addEffect(&ambientLight);
+    pointLight.addTo(scene);
+    spotLight.addTo(scene);
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 0, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 1, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4) }, { { new UniformColor(Vec3(1, 1, 1) * 0.1f), &reflection } });
+    // scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 0, 1) * 0.5f) });
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
     lframe = getNanos();
 
@@ -91,8 +80,8 @@ TestRenderer::TestRenderer()
     textComp.noBreaks = true;
 
     cubeComp.farDepth = 1.0f;
-    cubeComp.texture = &spotLight.depthMap;
-    refComp.texture = &reflection.texture;
+    cubeComp.texture = &spotLight.depthMap.value;
+    refComp.texture = &reflection.texture.value;
 
     uiScene.layout(&textComp)
         .alignTop()
@@ -140,9 +129,9 @@ TestRenderer::TestRenderer()
 
     refComp.texture = &pawnTexture.value;
 
-    scene.addObject({ Mat4x4::Id, DrawMode::Triangles, pawnVertex.value, pawnNormals.value, pawnIndices.value }, { new TextureColor(pawnTexture.value, pawnTexCoords.value) });
-    //pawn = new ObjectRenderable(&pawnVertex.value, &pawnIndices.value, &pawnTexCoords.value, &pawnNormals.value, &pawnTexture.value, parser.n);
-    //scene.addRenderable(*pawn);
+    Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(-16, -11, 0));
+    TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
+    scene.addObject({ base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices }, { textureEffect });
 
     scene.setup();
 }

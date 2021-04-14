@@ -14,7 +14,7 @@ EffectBindings UniformColor::Effect::addTo(EffectShaderBuilder& s) {
     s.newContext();
     std::string colorUniform = s.uniqueName("u_color");
     data.handles[0] = s.addFragmentUniform("vec3", colorUniform);
-    s.fMain << Shader::FRAGMENT_COLOR << " += vec4(" << colorUniform << " * " << EffectShader::LIGHT_INTENSITY << ", 0.0);\n";
+    s.fMain << EffectShader::FRAGMENT_DIFFUSE_COLOR << " += " << colorUniform << ";\n";
     return data;
 }
 
@@ -29,6 +29,6 @@ EffectBindings TextureColor::Effect::addTo(EffectShaderBuilder& s) {
     data.textureSlot = s.nextTextureSlot();
     s.addVarying("vec2", texPositionVarying);
     s.vMain << texPositionVarying << " = " << texPositionAttrib << ";\n";
-    s.fMain << Shader::FRAGMENT_COLOR << " += vec4(texture(" << textureUniform << ", " << texPositionVarying << ").rgb * " << EffectShader::LIGHT_INTENSITY << ", 0.0);\n";
+    s.fMain << EffectShader::FRAGMENT_DIFFUSE_COLOR << " += texture(" << textureUniform << ", " << texPositionVarying << ").rgb;\n";
     return data;
 }

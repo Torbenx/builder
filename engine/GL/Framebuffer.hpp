@@ -25,7 +25,7 @@ public:
     Framebuffer()
         : Framebuffer(false, 0) { }
     ~Framebuffer();
-    void bind(bool restoreAttachments = true);
+    void bind();
 
     void clear();
 
@@ -46,10 +46,6 @@ public:
 private:
     static Framebuffer* currentFramebuffer;
 
-    struct {
-        Texture texture;
-        GLenum subTarget;
-    } attachments[3];
     GLuint glId;
     Vec4 m_clearColor;
     bool isDefault;
@@ -62,6 +58,5 @@ private:
     Framebuffer(const Framebuffer& other);
 
     void attachInteral(const Texture& texture, GLenum subTarget);
-    void applyAttchment(Texture::Type type);
     bool isCurrent() { return this == currentFramebuffer; }
 };

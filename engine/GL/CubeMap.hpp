@@ -36,6 +36,7 @@ public:
     static inline struct {
         GLenumIterator<Face> begin() { return GLenumIterator<Face>(GL_TEXTURE_CUBE_MAP_POSITIVE_X); }
         GLenumIterator<Face> end() { return GLenumIterator<Face>(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z + 1); }
+        Face operator[](int i) { return (Face)(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i); }
     } Faces;
 
     CubeMap()
@@ -48,6 +49,7 @@ public:
     using Texture::magnifyFilter;
     using Texture::minifyFilter;
     using Texture::wrappingMode;
+    using Texture::release;
 
 private:
     CubeMap(Texture::Type type)

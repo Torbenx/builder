@@ -8,6 +8,7 @@ Reflection::Reflection(Vec3 reflection, Vec3 position, int width, int height, fl
     , position(position)
     , factor(factor) {
 
+    framebuffer.bind();
     framebuffer.attach(texture);
     framebuffer.attach(depthAttachment);
     framebuffer.viewport(width, height);
@@ -30,8 +31,7 @@ EffectBindings Reflection::Effect::addTo(EffectShaderBuilder& s) {
     data.textureSlot = s.nextTextureSlot();
     std::string color = s.uniqueName("color");
     s.vMain << positionVarying << " = (" << EffectShader::SCREEN_POSITION << ".xy / " << EffectShader::SCREEN_POSITION << ".w + 1.0)/2.0;\n";
-    s.fMain << "vec3 " << color << " = " << factorUniform << " * texture(" << textureUniform << "," << positionVarying << ").rgb;\n";
-    //s.fragmentColor = color;
+    s.fMain << Shader::FRAGMENT_COLOR << " += vec4(" << factorUniform << " * texture(" << textureUniform << "," << positionVarying << ").rgb, 0.0);\n";
     return data;
 }
 

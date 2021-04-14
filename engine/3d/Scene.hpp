@@ -1,13 +1,9 @@
 #pragma once
 
-#include "3d/CommonEffects.hpp"
-#include "3d/PointLight.hpp"
-#include "3d/Reflection.hpp"
-#include "3d/Renderpass.hpp"
-#include "3d/SpotLight.hpp"
+#include "3d/Effect.hpp"
+#include "GL/Framebuffer.hpp"
 #include "util/Shaders.hpp"
-#include <list>
-#include <memory>
+#include <unordered_map>
 #include <vector>
 
 class Scene {
@@ -25,7 +21,7 @@ public:
             int objectId;
             Mat4x4 modelMatrix;
         };
-        std::unique_ptr<Framebuffer> framebuffer;
+        Framebuffer* framebuffer;
         Mat4x4 viewProjectionMatrix;
         std::vector<Entry> entries;
     };
@@ -49,11 +45,9 @@ public:
         std::vector<Shaderpass> passes;
     };
 
-    void addLight(PointLight& light);
-    void addLight(SpotLight& light);
-    void addLight(AmbientLight& light);
-    void addReflection(Reflection& ref);
+    void addEffect(EffectInstance*);
     void addObject(const Object& object, const std::vector<EffectInstance*>& effects);
+    void addDepthRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProjectionMatrix);
     void setup();
     void draw(Mat4x4 vp);
 
@@ -62,12 +56,15 @@ private:
         Object object;
         std::vector<EffectInstance*> effects;
     };
+    struct ShaderEntry {
+        int index;
+        EffectShader* shader = nullptr;
+        std::vector<EffectBindings> bindings;
+    };
     Resource<SimpleDepthShader> depthShader = Shaders::depth();
     std::vector<ObjectEntry> objects;
     std::vector<DepthRenderpass> depthPasses;
     Renderpass renderpass;
-    std::vector<PointLight*> pointLights;
-    std::vector<SpotLight*> spotLights;
-    std::vector<AmbientLight*> ambientLights;
-    std::vector<Reflection*> reflections;
+    std::vector<EffectInstance*> globalEffects;
+    std::unordered_map<ptrdiff_t, ShaderEntry> shaders;
 };
