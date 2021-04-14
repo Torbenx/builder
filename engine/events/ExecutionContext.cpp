@@ -54,29 +54,3 @@ void __attribute__((noinline)) ExecutionContext::bootstrap_interal(void (*callba
     // LOGE("callbacks passed to bootstrap() should never return!!!");
     // while (true) { }
 }
-
-/*extern "C" void scheduler_schedule() {
-    while (true) {
-        if (tasks.empty()) {
-            LOGD("exiting...");
-            while (true) { }
-        }
-        Task* task = tasks.front();
-        tasks.pop_front();
-        if (!task->stack_pointer) {
-            const int stackSize = 4096;
-            task->stack = new void*[stackSize];
-            task->stack_pointer = task->stack + stackSize / 2;
-            asm volatile("mov %[stack_pointer], %%rsp;"
-                         : "+r"(task), [stack_pointer] "+r"(task->stack_pointer)::);
-            task->run();
-        } else {
-            asm volatile(
-                "mov %[stack_pointer], %%rsp;"
-                "jmp scheduler_task_continue;"
-                : [stack_pointer] "+r"(task->stack_pointer)
-                :
-                :);
-        }
-    }
-}*/

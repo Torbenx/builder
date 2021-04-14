@@ -50,7 +50,7 @@ TestRenderer::TestRenderer()
     f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
     f5.setEternal(VertexBuffer::wrap(obj5_coords));
     fNormal = VertexBuffer::upload({ up, up, up, up });
-    obj1 = new DebugRenderable(&f1.value, &fNormal.value, Vec3(1, 0, 0) * 0.5, 4);
+    /*obj1 = new DebugRenderable(&f1.value, &fNormal.value, Vec3(1, 0, 0) * 0.5, 4);
     obj1->mode = DrawMode::TriangleStrip;
     obj2 = new DebugRenderable(&f2.value, &fNormal.value, Vec3(0, 1, 0) * 0.5, 4);
     obj2->mode = DrawMode::TriangleStrip;
@@ -59,15 +59,15 @@ TestRenderer::TestRenderer()
     obj4 = new DebugRenderable(&f4.value, &fNormal.value, Vec3(1, 1, 0) * 0.5, 4);
     obj4->mode = DrawMode::TriangleStrip;
     obj5 = new DebugRenderable(&f5.value, &fNormal.value, Vec3(0, 0, 1) * 0.5, 4);
-    obj5->mode = DrawMode::TriangleStrip;
+    obj5->mode = DrawMode::TriangleStrip;*/
     scene.addLight(ambientLight);
     scene.addLight(pointLight);
     scene.addLight(spotLight);
-    scene.addRenderable(*obj1);
-    scene.addRenderable(*obj2);
-    scene.addRenderable(*obj3);
-    // scene.addRenderable(*obj4);
-    scene.addRenderable(*obj5);
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 0, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 1, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 1, 1) * 0.1f) });
+    //scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 0, 1) * 0.5f) });
     scene.addReflection(reflection);
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
     lframe = getNanos();
@@ -140,8 +140,9 @@ TestRenderer::TestRenderer()
 
     refComp.texture = &pawnTexture.value;
 
-    pawn = new ObjectRenderable(&pawnVertex.value, &pawnIndices.value, &pawnTexCoords.value, &pawnNormals.value, &pawnTexture.value, parser.n);
-    scene.addRenderable(*pawn);
+    scene.addObject({ Mat4x4::Id, DrawMode::Triangles, pawnVertex.value, pawnNormals.value, pawnIndices.value }, { new TextureColor(pawnTexture.value, pawnTexCoords.value) });
+    //pawn = new ObjectRenderable(&pawnVertex.value, &pawnIndices.value, &pawnTexCoords.value, &pawnNormals.value, &pawnTexture.value, parser.n);
+    //scene.addRenderable(*pawn);
 
     scene.setup();
 }
@@ -187,7 +188,7 @@ void TestRenderer::pointer(PointerEvent event) {
     }
     trackPointerEvent(event);
 
-    void** stack = new void*[4096];
+    /*void** stack = new void*[4096];
 
     struct {
         ExecutionContext boot;
@@ -204,7 +205,7 @@ void TestRenderer::pointer(PointerEvent event) {
         me.yieldTo((ExecutionContext*)data);
     },
         stack + 4096, &stru);
-    delete[] stack;
+    delete[] stack;*/
 }
 
 void TestRenderer::rawPointer(int dx, int dy) {
@@ -317,10 +318,10 @@ void TestRenderer::drawFrame() {
 }
 
 TestRenderer::~TestRenderer() {
-    delete obj1;
+    /*delete obj1;
     delete obj2;
     delete obj3;
     delete obj4;
     delete obj5;
-    delete pawn;
+    delete pawn;*/
 }

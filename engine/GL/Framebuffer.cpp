@@ -53,22 +53,26 @@ void Framebuffer::clear() {
 
 void Framebuffer::draw(DrawMode mode, const IndexBuffer& indices) {
     VALIDATE_FRAMEBUFFER_STATE
-    indices.bind(GL_ELEMENT_ARRAY_BUFFER);
-    GLenum type;
-    switch (indices.elementSize()) {
-    case 1:
-        type = GL_UNSIGNED_BYTE;
-        break;
-    case 2:
-        type = GL_UNSIGNED_SHORT;
-        break;
-    case 4:
-        type = GL_UNSIGNED_INT;
-        break;
-    default:
-        GL_VERIFY_NOT_REACHED();
+    if (indices.hasData()) {
+        indices.bind(GL_ELEMENT_ARRAY_BUFFER);
+        GLenum type;
+        switch (indices.elementSize()) {
+        case 1:
+            type = GL_UNSIGNED_BYTE;
+            break;
+        case 2:
+            type = GL_UNSIGNED_SHORT;
+            break;
+        case 4:
+            type = GL_UNSIGNED_INT;
+            break;
+        default:
+            GL_VERIFY_NOT_REACHED();
+        }
+        glDrawElements(mode, indices.size(), type, indices.data());
+    } else {
+        glDrawArrays(mode, 0, indices.size());
     }
-    glDrawElements(mode, indices.size(), type, indices.data());
 }
 
 void Framebuffer::draw(DrawMode mode, int count) {

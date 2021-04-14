@@ -95,11 +95,15 @@ public:
         return out;
     }
 
+    static Buffer<BaseType> withoutData(int size) {
+        return Buffer<BaseType>(nullptr, 0, size);
+    }
+
     Buffer()
         : glId(0), m_data(nullptr), m_elementSize(0), m_size(0) { }
 
     void release() {
-        GL_VERIFY(isValid());
+        GL_VERIFY(hasData());
         if (isGL())
             glDeleteBuffers(1, &glId);
         else
@@ -107,12 +111,11 @@ public:
     }
 
     void view(int offset, int size) {
-        GL_VERIFY(isValid());
         m_data += offset * m_elementSize;
         m_size = size;
     }
 
-    bool isValid() const { return m_size > 0; }
+    bool hasData() const { return m_elementSize > 0; }
 
     bool isGL() const { return glId != 0; }
 
@@ -149,7 +152,7 @@ public:
     }
 
     void update(const BaseType* data, int offset, int size) const {
-        GL_VERIFY(isValid());
+        GL_VERIFY(hasData());
         if (isGL()) {
             bind(GL_ARRAY_BUFFER);
             glBufferSubData(GL_ARRAY_BUFFER, (GLintptr)(this->data() + offset), size * sizeof(BaseType), data);

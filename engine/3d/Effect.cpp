@@ -61,23 +61,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
     f << fExt.str() << fInit.str() << "out vec4 " << Shader::FRAGMENT_COLOR << ";\n"
       << "void main(){\n";
     f << "vec3 " << EffectShader::LIGHT_INTENSITY << " = vec3(0.0);\n";
-
-    /*f << fMain.str() << Shader::FRAGMENT_COLOR << " = vec4(";
-
-    f << fragmentColor;
-    if (!fragmentColor.empty())
-        f << " + ";
-
-    f << fragmentDiffuseColor;
-    if (!fragmentDiffuseColor.empty())
-        f << " * " << EffectShader::LIGHT_INTENSITY;
-
-    if (fragmentColor.empty() && fragmentDiffuseColor.empty())
-        f << "vec3(0.0)";
-
-    f << ", 1.0);\n}";
-    */
-
+    f << Shader::FRAGMENT_COLOR << " = vec4(0.0, 0.0, 0.0, 1.0);\n";
     f << fMain.str() << "}";
 
     return f.str();

@@ -16,7 +16,7 @@
 #include <ui/UiScene.hpp>
 #include <util/text.hpp>
 
-class DebugRenderable : public SceneRenderable {
+/*class DebugRenderable : public SceneRenderable {
 public:
     const VertexBuffer* source;
     const VertexBuffer* normals;
@@ -83,14 +83,14 @@ public:
     }
 
     void draw(Framebuffer& framebuffer, const EffectShader& shader, std::vector<EffectBindings>& data) {
-        /*shader.attribPointer(shader.positionAttrib, *source);
+        shader.attribPointer(shader.positionAttrib, *source);
         shader.attribPointer(shader.normalAttrib, *normals);
         shader.attribPointer(data[0].handles[0], *texCoords);
         shader.uniformTexture(data[0].handles[1], *texture, data[0].textureSlot);
         if (indices)
             framebuffer.draw(DrawMode::Triangles, *indices);
         else
-            framebuffer.draw(DrawMode::Triangles, num);*/
+            framebuffer.draw(DrawMode::Triangles, num);
     }
 };
 
@@ -102,16 +102,16 @@ public:
         : DebugRenderable(s, nor, c, n) {
         reflection = r;
     }
-};
+};*/
 
 class TestRenderer : public Renderer {
 public:
-    DebugRenderable* obj1;
+    /*DebugRenderable* obj1;
     DebugRenderable* obj2;
     ReflectionDebugRenderable* obj3;
     DebugRenderable* obj4;
     DebugRenderable* obj5;
-    ObjectRenderable* pawn;
+    ObjectRenderable* pawn;*/
     uint64_t lframe;
     uint64_t lsecond;
     int frameCounter = 0;
