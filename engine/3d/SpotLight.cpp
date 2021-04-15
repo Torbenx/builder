@@ -45,7 +45,7 @@ EffectBindings SpotLight::Effect::addTo(EffectShaderBuilder& s) {
     s.vMain << "vec4 " << pos << " = " << mvpUniform << " * vec4(" << EffectShader::WORLD_POSITION << ",1.0);\n";
     s.vMain << positionVarying << " = " << pos << ".xyz / " << pos << ".w;\n";
     s.fMain << "vec3 " << direction << " = " << EffectShader::WORLD_POSITION << " - " << lightPosUniform << ";\n";
-    s.fMain << "float " << result << " = texture(" << textureUniform << ",(" << positionVarying << " + 1.0) / 2.0 * vec3(1.0, 1.0, 0.99));\n";
+    s.fMain << "float " << result << " = texture(" << textureUniform << ",(" << positionVarying << " + 1.0) / 2.0 - vec3(0.0, 0.0, 0.001));\n";
     s.fMain << "if("
             << "dot(" << positionVarying << ".xy," << positionVarying << ".xy) <= 1.0 && " << positionVarying << ".z >= -1.0){\n";
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << result << " * max(0.0, -dot(" << EffectShader::WORLD_NORMAL << ", normalize(" << direction << "))) * " << colorUniform << " / dot(" << direction << "," << direction << ");\n}\n";

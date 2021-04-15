@@ -18,6 +18,10 @@ Mat4x4 Reflection::getReflectionMatrix() {
     return Mat4x4::reflection(reflection, position);
 }
 
+void Reflection::addTo(Scene& scene) {
+    scene.addRenderpass(&framebuffer, Mat4x4::Id);
+}
+
 EffectBindings Reflection::Effect::addTo(EffectShaderBuilder& s) {
     EffectBindings data;
     s.newContext();

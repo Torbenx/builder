@@ -76,18 +76,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             };
             HGLRC hglrc = wglCreateContextAttribsARB(hdc, NULL, context_attribs);
             wglMakeCurrent(hdc, hglrc);
-            //glDebugMessageCallbackARB((GLDEBUGPROCARB)gl_debug_callback, nullptr);
-            //glEnable(GL_DEBUG_OUTPUT);
-            //glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+            glDebugMessageCallbackARB((GLDEBUGPROCARB)gl_debug_callback, nullptr);
+            glEnable(GL_DEBUG_OUTPUT);
+            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
             ID3D11DeviceContext *dxContext;
             D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             init_text();
 
-            if(wglSwapIntervalEXT(0)){
+            /*if(wglSwapIntervalEXT(0)){
                 LOGD("disabled vsync");
-            }
+            }*/
 
             renderer = createRenderer();
             return 0;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GL/Framebuffer.hpp"
-#include "3d/Effect.hpp"
+#include "3d/Scene.hpp"
 #include "resource/Resource.hpp"
 
 class Reflection : public EffectInstance {
@@ -16,5 +16,6 @@ public:
     float factor;
     Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);
     Mat4x4 getReflectionMatrix();
+    void addTo(Scene&);
     virtual void applyTo(EffectShader&, const EffectBindings&) override;
 };
