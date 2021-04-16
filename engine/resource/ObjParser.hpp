@@ -12,5 +12,4 @@ public:
     Resource<IndexBuffer> indices;
     int n, vertexCount, polyType, dim;
     void parse(std::istream& in);
-    void freeCache();
 };

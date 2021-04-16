@@ -19,7 +19,7 @@ public:
     struct DepthRenderpass {
         struct Entry {
             int objectId;
-            Mat4x4 modelMatrix;
+            Mat4x4 modelViewProjectionMatrix;
         };
         Framebuffer* framebuffer;
         Mat4x4 viewProjectionMatrix;

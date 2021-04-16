@@ -22,8 +22,7 @@ void SimpleTextShader::applySimpleTextShader(ShaderBuilder& b){
 void SimpleDepthShader::applySimpleDepthShader(ShaderBuilder& b){
     positionAttrib = b.addAttrib("vec4", "a_position");
     mvpUniform = b.addVertexUniform("mat4", "u_mvpMatrix");
-    modelUniform = b.addVertexUniform("mat4", "u_modelMatrix");
-    b.vMain <<"    gl_Position = u_mvpMatrix * u_modelMatrix * a_position;\n";
+    b.vMain <<"    gl_Position = u_mvpMatrix * a_position;\n";
     b.disableFragmentShader();
 }
 

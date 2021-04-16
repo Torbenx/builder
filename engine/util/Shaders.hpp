@@ -15,7 +15,7 @@ struct SimpleTextShader : public SimpleTextureShader {
 };
 
 struct SimpleDepthShader : public Shader {
-    LocationHandle positionAttrib, mvpUniform, modelUniform;
+    LocationHandle positionAttrib, mvpUniform;
     void applySimpleDepthShader(ShaderBuilder& b);
 };
 

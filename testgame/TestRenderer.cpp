@@ -4,10 +4,10 @@
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
+#include <resource/JpegDecoder.hpp>
 #include <resource/ObjParser.hpp>
 #include <resource/asset_istream.hpp>
 #include <string>
-#include <turbojpeg.h>
 #include <util/draw_util.hpp>
 #include <util/fullscreen.hpp>
 #include <util/log.hpp>
@@ -100,44 +100,26 @@ TestRenderer::TestRenderer()
         .align();
 
     ObjParser parser;
-    asset_istream file("PawnSideB/piece.obj");
+    asset_istream file("QueenSideB/piece.obj");
     parser.parse(file);
     pawnVertex = parser.vertex;
     pawnTexCoords = parser.texCoords;
     pawnNormals = parser.normals;
     pawnIndices = parser.indices;
 
-    asset_istream jpegFile("PawnSideB/piece.jpg");
-    jpegFile.seekg(0, jpegFile.end);
-    int jpegFileSize = jpegFile.tellg();
-    jpegFile.seekg(0, jpegFile.beg);
-    if (jpegFileSize <= 0) {
-        LOGE("failed: %d", jpegFileSize);
-    }
-    unsigned char* jpegFileBuf = new unsigned char[jpegFileSize];
-    jpegFile.read((char*)jpegFileBuf, jpegFileSize);
-
-    tjhandle tjInstance = tjInitDecompress();
-
-    int width, height, subsamp, colorspace;
-    if (tjDecompressHeader3(tjInstance, jpegFileBuf, jpegFileSize, &width, &height, &subsamp, &colorspace) < 0) {
-        LOGE("FAIL");
-    }
-    LOGD("size: %d x %d", width, height);
-    int pixelFormat = TJPF_RGBX;
-    int pixelSize = tjPixelSize[pixelFormat];
-    LOGD("pixelSize: %d", pixelSize);
-    unsigned char* imgBuf = new unsigned char[width * height * pixelSize];
-    tjInstance = tjInitDecompress();
-    tjDecompress2(tjInstance, jpegFileBuf, jpegFileSize, imgBuf, width, 0, height, pixelFormat, 0);
-
-    pawnTexture = Texture::color(imgBuf, width, height, Texture::Format::RGBA8888);
+    asset_istream jpegFile("QueenSideB/piece.jpg");
+    JpegDecoder decoder;
+    decoder.decode(jpegFile);
+    pawnTexture = decoder.texture;
 
     refComp.texture = &pawnTexture.value;
 
-    Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(-16, -11, 0));
+    Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
-    scene.addObject({ base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices }, { textureEffect });
+
+    for (int i = -5; i <= 5; i++) {
+        scene.addObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices }, { textureEffect });
+    }
 }
 
 void TestRenderer::change(int newWidth, int newHeight) {
@@ -238,7 +220,7 @@ void TestRenderer::rawKey(uint32_t keycode, bool down) {
 void TestRenderer::drawFrame() {
     uint64_t now = getNanos();
     if (now - lsecond >= NANOS_PER_SECOND) {
-        // LOGD("FPS: %d", frameCounter);
+        LOGD("FPS: %d", frameCounter);
 
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
@@ -310,7 +292,7 @@ void TestRenderer::drawFrame() {
 
     // cubeComp.draw(Framebuffer::DEFAULT);
     // refComp.draw(Framebuffer::DEFAULT);
-    textComp.draw(Framebuffer::DEFAULT);
+    // textComp.draw(Framebuffer::DEFAULT);
 }
 
 TestRenderer::~TestRenderer() {

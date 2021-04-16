@@ -49,6 +49,7 @@ add_library(engine ${linkage}
     "math/Vec4.cpp"
     "math/Rect.cpp"
     "resource/ObjParser.cpp"
+    "resource/JpegDecoder.cpp"
     "util/time.cpp"
     "util/Shaders.cpp"
     #"util/draw_util.cpp"

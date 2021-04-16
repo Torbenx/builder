@@ -15,7 +15,7 @@ void Scene::addObject(const Object& object, const std::vector<EffectInstance*>& 
     int objectId = objects.size();
     objects.push_back({ object, effects });
     for (DepthRenderpass& pass : depthPasses) {
-        pass.entries.push_back({ objectId, object.modelMatrix });
+        pass.entries.push_back({ objectId, pass.viewProjectionMatrix * object.modelMatrix });
     }
     for (int i = 0; i < renderpassCount; i++) {
         addObjectToRenderpass(i, objectId);
@@ -28,7 +28,7 @@ void Scene::addDepthRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProje
     pass.viewProjectionMatrix = viewProjectionMatrix;
     pass.entries.reserve(objects.size());
     for (int i = 0; i < objects.size(); i++)
-        pass.entries.push_back({ i, objects[i].object.modelMatrix });
+        pass.entries.push_back({ i, pass.viewProjectionMatrix * objects[i].object.modelMatrix });
     depthPasses.push_back(std::move(pass));
 }
 
@@ -85,13 +85,13 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
 }
 
 void Scene::draw() {
+    uint64_t start = getNanos();
     depthShader->use();
     for (DepthRenderpass& pass : depthPasses) {
         pass.framebuffer->bind();
         pass.framebuffer->clear();
-        depthShader->uniformMat4x4(depthShader->mvpUniform, pass.viewProjectionMatrix);
         for (auto& entry : pass.entries) {
-            depthShader->uniformMat4x4(depthShader->modelUniform, entry.modelMatrix);
+            depthShader->uniformMat4x4(depthShader->mvpUniform, entry.modelViewProjectionMatrix);
             Object& object = objects[entry.objectId].object;
             depthShader->attribPointer(depthShader->positionAttrib, object.vertices);
             pass.framebuffer->draw(object.drawMode, object.indices);
@@ -102,7 +102,6 @@ void Scene::draw() {
         Renderpass& renderpass = renderpasses[i];
         renderpass.framebuffer->bind();
         renderpass.framebuffer->clear();
-        uint64_t start = getNanos();
         for (Shaderpass& shaderpass : renderpass.passes) {
             shaderpass.shader->use();
             shaderpass.shader->uniformMat4x4(shaderpass.shader->viewProjectionUniform, renderpass.viewProjectionMatrix);
@@ -119,5 +118,5 @@ void Scene::draw() {
         }
     }
     uint64_t end = getNanos();
-    // LOGD("draw took %f us", (end - start) / 1000.0);
+    //LOGD("draw took %f us", (end - start) / 1000.0);
 }
