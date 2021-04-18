@@ -53,16 +53,16 @@ TestRenderer::TestRenderer()
     fNormal = VertexBuffer::upload({ up, up, up, up });
 
     scene.addEffect(&ambientLight);
-    pointLight.addTo(scene);
     spotLight.addTo(scene);
+    pointLight.addTo(scene);
 
     scene.addRenderpass(&Framebuffer::DEFAULT, Mat4x4::Id);
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4) }, { { new UniformColor(Vec3(1, 1, 1) * 0.1f), &reflection } });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { { new UniformColor(Vec3(1, 1, 1) * 0.1f), &reflection } });
     reflection.addTo(scene);
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 0, 0) * 0.5f) });
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 1, 0) * 0.5f) });
-    // scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4.value, fNormal.value, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4) }, { new UniformColor(Vec3(0, 0, 1) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 0, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(0, 1, 0) * 0.5f) });
+    // scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4.value, fNormal.value, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
+    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(0, 0, 1) * 0.5f) });
 
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
     lframe = getNanos();
@@ -118,7 +118,7 @@ TestRenderer::TestRenderer()
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
     for (int i = -5; i <= 5; i++) {
-        scene.addObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices }, { textureEffect });
+        scene.addObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox }, { textureEffect });
     }
 }
 
@@ -292,7 +292,7 @@ void TestRenderer::drawFrame() {
 
     // cubeComp.draw(Framebuffer::DEFAULT);
     // refComp.draw(Framebuffer::DEFAULT);
-    // textComp.draw(Framebuffer::DEFAULT);
+    textComp.draw(Framebuffer::DEFAULT);
 }
 
 TestRenderer::~TestRenderer() {

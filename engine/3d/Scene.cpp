@@ -2,7 +2,7 @@
 #include "util/time.hpp"
 
 Scene::~Scene() {
-    for(auto pair : shaders) {
+    for (auto pair : shaders) {
         pair.second.shader->release();
     }
 }
@@ -85,14 +85,29 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
 }
 
 void Scene::draw() {
+    auto isVisable = [](const Mat4x4& mvp, const Object& object) {
+        Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
+        Vec4 px = mvp * Vec4(object.boundingBox.right, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
+        Vec4 py = mvp * Vec4(object.boundingBox.left, object.boundingBox.top, object.boundingBox.front, 1.0f);
+        Vec4 pz = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.back, 1.0f);
+        base.clampToW();
+        px.clampToW();
+        py.clampToW();
+        pz.clampToW();
+        float volume = Vec3::dot((px - base).xyz(), Vec3::cross((py - base).xyz(), (pz - base).xyz()));
+        return fabs(volume) > 0.0001f || std::isnan(volume);
+    };
+
     uint64_t start = getNanos();
     depthShader->use();
     for (DepthRenderpass& pass : depthPasses) {
         pass.framebuffer->bind();
         pass.framebuffer->clear();
         for (auto& entry : pass.entries) {
-            depthShader->uniformMat4x4(depthShader->mvpUniform, entry.modelViewProjectionMatrix);
             Object& object = objects[entry.objectId].object;
+            if (!isVisable(entry.modelViewProjectionMatrix, object))
+                continue;
+            depthShader->uniformMat4x4(depthShader->mvpUniform, entry.modelViewProjectionMatrix);
             depthShader->attribPointer(depthShader->positionAttrib, object.vertices);
             pass.framebuffer->draw(object.drawMode, object.indices);
         }
@@ -102,15 +117,20 @@ void Scene::draw() {
         Renderpass& renderpass = renderpasses[i];
         renderpass.framebuffer->bind();
         renderpass.framebuffer->clear();
+        int rendererObjects = 0;
         for (Shaderpass& shaderpass : renderpass.passes) {
             shaderpass.shader->use();
             shaderpass.shader->uniformMat4x4(shaderpass.shader->viewProjectionUniform, renderpass.viewProjectionMatrix);
             for (Shaderpass::Entry& entry : shaderpass.entries) {
+                Object& object = objects[entry.objectId].object;
+
+                if (!isVisable(renderpass.viewProjectionMatrix * entry.modelMatrix, object))
+                    continue;
+
                 for (auto& effect : entry.effects) {
                     effect.effect->applyTo(*shaderpass.shader, effect.bindings);
                 }
                 shaderpass.shader->uniformMat4x4(shaderpass.shader->modelUniform, entry.modelMatrix);
-                Object& object = objects[entry.objectId].object;
                 shaderpass.shader->attribPointer(shaderpass.shader->positionAttrib, object.vertices);
                 shaderpass.shader->attribPointer(shaderpass.shader->normalAttrib, object.normals);
                 renderpass.framebuffer->draw(object.drawMode, object.indices);
@@ -118,5 +138,5 @@ void Scene::draw() {
         }
     }
     uint64_t end = getNanos();
-    //LOGD("draw took %f us", (end - start) / 1000.0);
+    // LOGD("draw took %f us", (end - start) / 1000.0);
 }

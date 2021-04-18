@@ -22,6 +22,7 @@ class Vec4{
         void fract();
         float length();
         void normalize();
+        void clampToW();
         Vec3 xyz();
         Vec4 operator+=(Vec4 right);
         Vec4 operator+=(float right);

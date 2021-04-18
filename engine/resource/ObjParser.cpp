@@ -18,6 +18,7 @@ void ObjParser::parse(std::istream& in) {
     const int bufsize = 256;
     char buf[bufsize];
     polyType = -1;
+    boundingBox = { HUGE_VALF, -HUGE_VALF, HUGE_VALF, -HUGE_VALF, HUGE_VALF, -HUGE_VALF };
     dim = -1;
     while (in.getline(buf, bufsize)) {
         if (in.fail()) {
@@ -27,6 +28,7 @@ void ObjParser::parse(std::istream& in) {
             if (buf[1] == ' ') {
                 int r = 0;
                 char* line = buf + 2;
+                Vec3 v;
                 for (;;) {
                     char* end;
                     float f = std::strtof(line, &end);
@@ -38,8 +40,15 @@ void ObjParser::parse(std::istream& in) {
                         LOGW("dimension to high");
                         break;
                     }
+                    if (r == 1)
+                        v.x = f;
+                    if(r == 2)
+                        v.y = f;
+                    if(r == 3)
+                        v.z = f;
                     vertex.push_back(f);
                 }
+                boundingBox.enlargeToInclude(v);
                 if (r != dim) {
                     if (dim == -1) {
                         dim = r;
@@ -135,6 +144,7 @@ void ObjParser::parse(std::istream& in) {
             }
         }
     }
+    boundingBox.debug();
     LOGD("vertex: %d, index: %d tex: %d normal: %d", vertex.size() / dim, index.size() / polyType, texCoords.size() / 2, normals.size() / dim);
     int ni = index.size() / polyType;
     int tri = polyType - 2;

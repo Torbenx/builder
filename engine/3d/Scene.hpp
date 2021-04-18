@@ -3,6 +3,7 @@
 #include "3d/Effect.hpp"
 #include "GL/Framebuffer.hpp"
 #include "util/Shaders.hpp"
+#include "math/Box.hpp"
 #include <unordered_map>
 #include <vector>
 
@@ -14,6 +15,7 @@ public:
         VertexBuffer vertices;
         VertexBuffer normals;
         IndexBuffer indices;
+        Box boundingBox;
     };
 
     struct DepthRenderpass {
