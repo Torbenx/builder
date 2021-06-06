@@ -80,9 +80,9 @@ void Vec4::normalize() {
 }
 
 void Vec4::clampToW() {
-    x = std::clamp(x, -w, w);
-    y = std::clamp(y, -w, w);
-    z = std::clamp(z, -w, w);
+    x = std::clamp(x, -std::abs(w), std::abs(w));
+    y = std::clamp(y, -std::abs(w), std::abs(w));
+    z = std::clamp(z, -std::abs(w), std::abs(w));
 }
 
 Vec3 Vec4::xyz() {

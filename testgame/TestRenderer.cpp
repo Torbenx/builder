@@ -1,6 +1,7 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <events/ExecutionContext.hpp>
+#include <events/Task.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
@@ -135,6 +136,16 @@ void TestRenderer::change(int newWidth, int newHeight) {
     uiScene.build();
 }
 
+class MyTask : public Task {
+public:
+    Task* main;
+    void run() {
+        Task::schedulingQueue.pushBack(main);
+        yield();
+        Task::schedulingQueue.pushBack(main);
+    }
+};
+
 void TestRenderer::pointer(PointerEvent event) {
     if (!rawInput()) {
         if (event.event == POINTER_EVENT_DOWN && navPointerId == POINTER_ID_INVALID) {
@@ -163,24 +174,13 @@ void TestRenderer::pointer(PointerEvent event) {
     }
     trackPointerEvent(event);
 
-    /*void** stack = new void*[4096];
-
-    struct {
-        ExecutionContext boot;
-        int i = 0;
-    } stru;
-    stru.boot.bootstrap([](void* data) {
-        int& i = *(int*)(((char*)data)+sizeof(ExecutionContext));
-        LOGD("i=%d", i++);
-
-        if (i > 100)
-            while (true) { }
-
-        ExecutionContext me;
-        me.yieldTo((ExecutionContext*)data);
-    },
-        stack + 4096, &stru);
-    delete[] stack;*/
+    static Task me;
+    MyTask task;
+    task.main = &me;
+    Task::schedulingQueue.pushBack(&task);
+    me.yield();
+    Task::schedulingQueue.pushBack(&task);
+    me.yield();
 }
 
 void TestRenderer::rawPointer(int dx, int dy) {

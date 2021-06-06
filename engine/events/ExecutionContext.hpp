@@ -18,6 +18,9 @@ public:
         bool should_exit = false;
         bootstrap_interal(callback, stack_pointer, data, &should_exit);
     }
+    bool isValid() {
+        return stackPtr != nullptr;
+    }
 
 private:
     void* stackPtr = nullptr;
