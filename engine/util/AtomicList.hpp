@@ -27,6 +27,12 @@ public:
         oldTail->store(l->head.load(std::memory_order_relaxed)->load(std::memory_order_acquire), std::memory_order_release);
     }
 
+    void clear() {
+        initial.store(nullptr, std::memory_order_relaxed);
+        tail.store(&initial);
+        head.store(&initial);
+    }
+
 private:
     std::atomic<T*> initial;
     std::atomic<std::atomic<T*>*> head;

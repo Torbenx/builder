@@ -2,17 +2,20 @@
 
 #include "events/ExecutionContext.hpp"
 #include "util/AtomicList.hpp"
+#include "util/log.hpp"
+#include "util/time.hpp"
 #include <atomic>
+#include <thread>
 
 class Stack {
 public:
     Stack() {
-        size = 4096;
+        size = 2048;
         baseAddr = new void*[size];
     }
 
     ~Stack() {
-        delete baseAddr;
+        delete[] baseAddr;
     }
 
     void* origin() {
@@ -40,10 +43,49 @@ public:
 
     virtual ~Task() { }
     virtual void run() { }
-    void yield();
+    static void yieldWith(ExecutionContext& executionContext);
+    void yield() { yieldWith(executionContext); }
 };
 
-void Task::yield() {
+class ShutdownTask;
+
+class Scheduler {
+private:
+    static inline std::unordered_map<std::thread::id, ExecutionContext*> entryPoints; //lock this
+    friend class ShutdownTask;
+
+public:
+    void enter() {
+        std::thread::id myThread = std::this_thread::get_id();
+        std::hash<std::thread::id> hasher;
+        ExecutionContext executionContext;
+        entryPoints[myThread] = &executionContext;
+        LOGD("scheduling started on thread 0x%llx", hasher(myThread));
+        size_t start = getNanos();
+        Task::yieldWith(executionContext);
+        size_t end = getNanos();
+        LOGD("scheduling ended after %u us on thread 0x%llx", (end - start) / 1000, hasher(myThread));
+    }
+};
+
+class ShutdownTask : public Task {
+public:
+    virtual void run() override {
+        std::thread::id myThread = std::this_thread::get_id();
+        ExecutionContext me;
+        me.yieldTo(Scheduler::entryPoints[myThread]);
+    }
+};
+
+class SchedulerThead : public Scheduler, public std::thread {
+public:
+    SchedulerThead()
+        : std::thread([&]() {
+            enter();
+        }) { }
+};
+
+void Task::yieldWith(ExecutionContext& executionContext) {
     Task* nextTask = schedulingQueue.popFront();
     if (nextTask->executionContext.isValid()) {
         executionContext.yieldTo(&(nextTask->executionContext));

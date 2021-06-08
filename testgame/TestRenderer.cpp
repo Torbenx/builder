@@ -9,6 +9,7 @@
 #include <resource/ObjParser.hpp>
 #include <resource/asset_istream.hpp>
 #include <string>
+#include <thread>
 #include <util/draw_util.hpp>
 #include <util/fullscreen.hpp>
 #include <util/log.hpp>
@@ -136,13 +137,17 @@ void TestRenderer::change(int newWidth, int newHeight) {
     uiScene.build();
 }
 
+std::atomic<size_t> testCounter = 0;
+
 class MyTask : public Task {
 public:
-    Task* main;
+    Task* sched;
     void run() {
-        Task::schedulingQueue.pushBack(main);
-        yield();
-        Task::schedulingQueue.pushBack(main);
+        while (true) {
+            size_t counter = testCounter.fetch_add(1, std::memory_order_relaxed);
+            Task::schedulingQueue.pushBack(sched);
+            yield();
+        }
     }
 };
 
@@ -174,13 +179,41 @@ void TestRenderer::pointer(PointerEvent event) {
     }
     trackPointerEvent(event);
 
-    static Task me;
-    MyTask task;
-    task.main = &me;
-    Task::schedulingQueue.pushBack(&task);
-    me.yield();
-    Task::schedulingQueue.pushBack(&task);
-    me.yield();
+    do {
+        static Scheduler me;
+        const size_t targetCounter = 100000;
+        const size_t taskCount = targetCounter;
+        const size_t extraThreadCount = 0;
+        testCounter = 0;
+        MyTask* tasks = new MyTask[taskCount];
+        Task::schedulingQueue.clear();
+
+        for (size_t i = 0; i < taskCount; i++) {
+            tasks[i].sched = &tasks[(taskCount + i - 1) % taskCount];
+            Task::schedulingQueue.pushBack(&tasks[i]);
+        }
+
+        ShutdownTask shutdownTasks[extraThreadCount + 1];
+        for(size_t i = 0; i < extraThreadCount + 1; i++) {
+            Task::schedulingQueue.pushBack(&shutdownTasks[i]);
+        }
+        SchedulerThead threads[extraThreadCount];
+
+        size_t start = getNanos();
+        me.enter();
+        size_t end = getNanos();
+
+        for (int i = 0; i < extraThreadCount; i++) {
+            threads[i].join();
+        }
+
+        delete[] tasks;
+        static size_t testCount = 0;
+        testCount++;
+        static size_t testTotal = 0;
+        testTotal += (end - start) / 1000;
+        LOGD("counter: %u, time: %u us, avg: %f", testCounter.load(std::memory_order_relaxed), (end - start) / 1000, testTotal / (float)testCount);
+    } while (false);
 }
 
 void TestRenderer::rawPointer(int dx, int dy) {

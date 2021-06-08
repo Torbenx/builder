@@ -35,7 +35,7 @@ if(ENGINE_LINK_STATIC)
     set(linkage STATIC)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer -O2")
 
 add_library(engine ${linkage}
     "GL/CubeMap.cpp"
@@ -79,5 +79,7 @@ add_library(engine ${linkage}
     ${platform_source}
 )
 
+find_package(Threads)
+
 set_target_properties(engine PROPERTIES UNITY_BUILD ON)
-target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg)
+target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT})
