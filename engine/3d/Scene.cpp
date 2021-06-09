@@ -1,5 +1,7 @@
 #include "3d/Scene.hpp"
-#include "util/time.hpp"
+#include "math/LUDecomposition.hpp"
+#include "util/LogTimer.hpp"
+#include <unordered_set>
 
 Scene::~Scene() {
     for (auto pair : shaders) {
@@ -49,12 +51,20 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
     effects.reserve(globalEffects.size() * objects[objectId].effects.size());
     effects.insert(effects.end(), globalEffects.begin(), globalEffects.end());
     effects.insert(effects.end(), objects[objectId].effects.begin(), objects[objectId].effects.end());
-    std::sort(effects.begin(), effects.end());
+    std::sort(effects.begin(), effects.end(), [](EffectInstance* first, EffectInstance* second) {
+        return first->effect < second->effect;
+    });
     ptrdiff_t hash = 0;
     for (EffectInstance* instance : effects) {
         hash ^= ((ptrdiff_t)instance->effect) >> 3;
     }
-    // LOGD("hash: %llx", hash);
+
+    /*LOGD("hash: %llx", hash);
+    for (EffectInstance* instance : effects) {
+        LOGD("0x%p: 0x%p", instance, instance->effect);
+    }
+    LOGD("");*/
+
     ShaderEntry& shader = shaders[hash];
     if (!shader.shader) {
         AttributeList attributes;
@@ -84,7 +94,65 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
     shaderpass->entries.push_back(entry);
 }
 
+struct BasicZeroTester {
+    bool operator()(float f) {
+        return std::abs(f) < 0.00001f;
+    }
+};
+
 void Scene::draw() {
+    /*for (int i = 0; i < renderpassCount; i++) {
+        Renderpass& renderpass = renderpasses[i];
+        for (Shaderpass& shaderpass : renderpass.passes) {
+            std::unordered_set<EffectInstance*> set;
+            for (auto& entry : shaderpass.entries) {
+                for (auto& e : entry.effects) {
+                    set.insert(e.effect);
+                }
+            }
+            LOGD("enties=%u, instances=%u, depth=%u", shaderpass.entries.size(), set.size(), shaderpass.entries[0].effects.size());
+            if (set.size() == 6 && shaderpass.entries.size() == 3) {
+                bool matrix[3 * 6];
+                auto it = set.begin();
+                for (int i = 0; i < 6; i++, it++) {
+                    for (int j = 0; j < 3; j++) {
+                        bool found = false;
+                        for (auto& e : shaderpass.entries[j].effects) {
+                            if (e.effect == *it) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        matrix[i * 3 + j] = found;
+                    }
+                    LOGD("%u %u %u", matrix[i * 3 + 0], matrix[i * 3 + 1], matrix[i * 3 + 2]);
+                }
+            }
+        }
+    }*/
+
+    int size = 20;
+    SparseMatrix<float, int, BasicZeroTester> matrix;
+    matrix.columns.resize(size);
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            matrix.columns[i].addTo(j, sin(i*j+1));
+        }
+    }
+    //matrix.debug();
+    LUPDecomposition<float, int, BasicZeroTester> lu;
+    {
+        LogTimer timer;
+        lu.decompose(std::move(matrix));
+    }
+    //lu.u.debug();
+    //lu.l.debug();
+    {
+        LogTimer timer;
+        matrix = SparseMatrix<float, int, BasicZeroTester>::multiply(lu.l, lu.u);
+    }
+    //matrix.debug();
+
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
         Vec4 px = mvp * Vec4(object.boundingBox.right, object.boundingBox.bottom, object.boundingBox.front, 1.0f);

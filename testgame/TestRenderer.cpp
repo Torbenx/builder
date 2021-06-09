@@ -181,7 +181,7 @@ void TestRenderer::pointer(PointerEvent event) {
 
     do {
         static Scheduler me;
-        const size_t targetCounter = 100000;
+        const size_t targetCounter = 100;
         const size_t taskCount = targetCounter;
         const size_t extraThreadCount = 0;
         testCounter = 0;
@@ -190,11 +190,12 @@ void TestRenderer::pointer(PointerEvent event) {
 
         for (size_t i = 0; i < taskCount; i++) {
             tasks[i].sched = &tasks[(taskCount + i - 1) % taskCount];
-            Task::schedulingQueue.pushBack(&tasks[i]);
+            if (i != 0)
+                Task::schedulingQueue.pushBack(&tasks[i]);
         }
 
-        ShutdownTask shutdownTasks[extraThreadCount + 1];
-        for(size_t i = 0; i < extraThreadCount + 1; i++) {
+        ShutdownTask* shutdownTasks = new ShutdownTask[extraThreadCount + 1];
+        for (size_t i = 0; i < extraThreadCount + 1; i++) {
             Task::schedulingQueue.pushBack(&shutdownTasks[i]);
         }
         SchedulerThead threads[extraThreadCount];

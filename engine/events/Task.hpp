@@ -72,6 +72,7 @@ class ShutdownTask : public Task {
 public:
     virtual void run() override {
         std::thread::id myThread = std::this_thread::get_id();
+        std::hash<std::thread::id> hasher;
         ExecutionContext me;
         me.yieldTo(Scheduler::entryPoints[myThread]);
     }
