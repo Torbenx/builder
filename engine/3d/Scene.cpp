@@ -96,7 +96,7 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
 
 struct BasicZeroTester {
     bool operator()(float f) {
-        return std::abs(f) < 0.00001f;
+        return std::abs(f) < 0.0005f;
     }
 };
 
@@ -131,27 +131,54 @@ void Scene::draw() {
         }
     }*/
 
-    int size = 20;
+    int width = 40;
+    int height = 40;
     SparseMatrix<float, int, BasicZeroTester> matrix;
-    matrix.columns.resize(size);
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
-            matrix.columns[i].addTo(j, sin(i*j+1));
+    matrix.setEmpty(width);
+    for (int j = 0; j < height; j++) {
+        for (int i = 0; i < width; i++) {
+            if ((i + j) % 10 == 0)
+                matrix.columns[i].addTo(j, sin(i * j + 1));
         }
     }
-    //matrix.debug();
+    matrix.debug();
     LUPDecomposition<float, int, BasicZeroTester> lu;
     {
         LogTimer timer;
         lu.decompose(std::move(matrix));
     }
-    //lu.u.debug();
-    //lu.l.debug();
+
+    /*LOGD("u: %u x %u", lu.u.columns.size(), lu.u.rowCount());
+    lu.u.debug();
+    LOGD("l: %u x %u", lu.l.columns.size(), lu.l.rowCount());
+    lu.l.debug();*/
+
+    SparseMatrix<float, int, BasicZeroTester>::Column col;
+    for (int i = 0; i < height; i++) {
+        col.addTo(i, i / (float)height);
+    }
+    col.addTo(0, 1.0f);
+    {
+        LogTimer timer;
+        lu.replaceColumn(20, std::move(col));
+    }
+
+    /*LOGD("u: %u x %u", lu.u.columns.size(), lu.u.rowCount());
+    lu.u.debug();
+    LOGD("l: %u x %u", lu.l.columns.size(), lu.l.rowCount());
+    lu.l.debug();*/
+
     {
         LogTimer timer;
         matrix = SparseMatrix<float, int, BasicZeroTester>::multiply(lu.l, lu.u);
+        matrix.add(lu.u, 1);
     }
-    //matrix.debug();
+    SparseMatrix<float, int, BasicZeroTester> out;
+    out.columns.resize(width);
+    for (int i = 0; i < width; i++) {
+        std::swap(out.columns[i], matrix.columns[lu.p[i]]);
+    }
+    out.debug();
 
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);

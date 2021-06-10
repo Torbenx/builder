@@ -32,8 +32,15 @@ public:
         Entry& back() { return entries.back(); }
 
         iterator addTo(size_type index, T value) {
+            ZeroTester tester;
+            if (tester(value))
+                return getEntry(index);
             iterator it = getAndConstructEntry(index);
             it->value += value;
+            if (tester(it->value)) {
+                entries.erase(it);
+                return end();
+            }
             return it;
         }
 
@@ -52,6 +59,37 @@ public:
 
         iterator find(size_type index) {
             return std::lower_bound(entries.begin(), entries.end(), index);
+        }
+
+        void add(Column& other, T factor, size_type offset = 0, size_type otherOffset = 0) {
+            ZeroTester tester;
+            for (; otherOffset < other.entries.size(); otherOffset++) {
+                auto entry = other.entries[otherOffset];
+                entry.value *= factor;
+                while (offset < entries.size() && entries[offset].index < entry.index) {
+                    offset++;
+                }
+                if (offset >= entries.size()) {
+                    break;
+                }
+                if (entries[offset].index == entry.index) {
+                    entries[offset].value += entry.value;
+                    if (tester(entries[offset].value)) {
+                        entries.erase(entries.begin() + offset);
+                    } else {
+                        offset++;
+                    }
+                } else {
+                    entries.insert(entries.begin() + offset, entry);
+                    offset++;
+                }
+            }
+            entries.reserve(entries.size() + other.entries.size() - otherOffset);
+            for (; otherOffset < other.entries.size(); otherOffset++) {
+                auto entry = other.entries[otherOffset];
+                entry.value *= factor;
+                entries.push_back(entry);
+            }
         }
     };
 
@@ -80,47 +118,24 @@ public:
     }
 
     static Matrix multiply(Matrix& l, Matrix& r) {
-        ZeroTester tester;
-        size_type lColumnCount = l.columns.size();
-        std::vector<typename Column::iterator> columnIters;
-        columnIters.reserve(lColumnCount);
-        uint64_t mask = 0;
-        for (size_type i = 0; i < lColumnCount; i++) {
-            columnIters.push_back(l.columns[i].entries.begin());
-            if ((!l.columns[i].entries.empty()) && l.columns[i].entries[0].index == 0)
-                mask |= 1 << i;
-        }
-        size_type lRowCount = l.rowCount();
-        size_type rColumnCount = r.columns.size();
+        size_type columnCount = r.columns.size();
         Matrix out;
-        out.setEmpty(rColumnCount);
+        out.setEmpty(columnCount);
 
-        for (size_type row = 0; row < lRowCount; row++) {
-            for (size_type column = 0; column < rColumnCount; column++) {
-                T sum = 0;
-                for (Entry entry : r.columns[column].entries) {
-                    if (entry.index >= lColumnCount)
-                        break;
-                    if (mask & (1 << entry.index))
-                        sum += entry.value * columnIters[entry.index]->value;
-                }
-                if (!tester(sum)) {
-                    out.columns[column].entries.push_back(Entry(sum, row));
-                }
-            }
-            mask = 0;
-            for (size_type i = 0; i < lColumnCount; i++) {
-                auto& it = columnIters[i];
-                if (it != l.columns[i].entries.end()) {
-                    if (it->index == row)
-                        if (++it == l.columns[i].entries.end())
-                            continue;
-                    if (it->index == row + 1)
-                        mask |= 1 << i;
-                }
+        for (size_type i = 0; i < columnCount; i++) {
+            for (Entry entry : r.columns[i].entries) {
+                out.columns[i].add(l.columns[entry.index], entry.value);
             }
         }
+
         return out;
+    }
+
+    void add(Matrix& other, T factor) {
+        size_type columnCount = std::min(columns.size(), other.columns.size());
+        for (size_type i = 0; i < columnCount; i++) {
+            columns[i].add(other.columns[i], factor);
+        }
     }
 
     T* asMatrix() { return asMatrix(rowCount()); }
