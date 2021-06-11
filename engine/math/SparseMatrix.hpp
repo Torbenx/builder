@@ -15,10 +15,10 @@ public:
         T value;
         size_type index;
 
-        bool operator<(Entry other) {
+        bool operator<(Entry other) const {
             return index < other.index;
         }
-        bool operator<(size_type index) {
+        bool operator<(size_type index) const {
             return this->index < index;
         }
     };
@@ -26,69 +26,151 @@ public:
     class Column {
     public:
         using iterator = typename std::vector<Entry>::iterator;
-        std::vector<Entry> entries;
 
-        iterator end() { return entries.end(); }
-        Entry& back() { return entries.back(); }
+        uint64_t mask = 0;
 
-        iterator addTo(size_type index, T value) {
+        void addByIndex(size_type index, T value) {
             ZeroTester tester;
             if (tester(value))
-                return getEntry(index);
-            iterator it = getAndConstructEntry(index);
-            it->value += value;
-            if (tester(it->value)) {
-                entries.erase(it);
-                return end();
+                return;
+            size_type offset = getAndConstructByIndex(index);
+            at(offset).value += value;
+            if (tester(at(offset).value)) {
+                erase(offset);
             }
-            return it;
         }
 
-        iterator getEntry(size_type index) {
-            iterator it = find(index);
-            return (it == end() || it->index != index) ? end() : it;
-        }
-
-        iterator getAndConstructEntry(size_type index) {
-            iterator it = find(index);
-            if (it == end() || it->index != index) {
-                return entries.insert(it, { 0, index });
+        size_type getAndConstructByIndex(size_type index) {
+            size_type offset = findByIndex(index);
+            if (offset >= size() || at(offset).index != index) {
+                insert(offset, Entry(0, index));
             }
-            return it;
+            return offset;
         }
 
-        iterator find(size_type index) {
-            return std::lower_bound(entries.begin(), entries.end(), index);
+        size_type findByIndex(size_type index) {
+            return std::lower_bound(entries.begin(), entries.end(), index) - entries.begin();
+        }
+
+        Entry& operator[](size_type offset) {
+            return entries[offset];
+        }
+
+        size_type size() { return entries.size(); }
+
+        Entry& back() { return entries.back(); }
+
+        void insert(size_type offset, Entry entry) {
+            mask |= (uint64_t)1 << entry.index;
+            insert_internal(offset, entry);
+        }
+
+        void insert_internal(size_type offset, Entry entry) {
+            entries.insert(entries.begin() + offset, entry);
+        }
+
+        void pushBack(Entry entry) {
+            entries.push_back(entry);
+            mask |= (uint64_t)1 << entry.index;
+        }
+
+        void erase(size_type offset) {
+            mask &= ~((uint64_t)1 << at(offset).index);
+            erase_internal(offset);
+        }
+
+        void erase_internal(size_type offset) {
+            entries.erase(entries.begin() + offset);
+        }
+
+        void eraseAfter(size_type offset) {
+            mask &= ((uint64_t)1 << (at(offset).index + 1)) - 1;
+            entries.erase(entries.begin() + offset + 1, entries.end());
+        }
+
+        bool empty() { return entries.empty(); }
+
+        void clear() {
+            mask = 0;
+            entries.clear();
+        }
+
+        iterator begin() { return entries.begin(); }
+
+        iterator end() { return entries.end(); }
+
+        void reserveForAdd(uint64_t addMask) {
+            reserve(size() + std::popcount(addMask & ~mask));
+        }
+
+        void reserve(size_type size) {
+            entries.reserve(size);
         }
 
         void add(Column& other, T factor, size_type offset = 0, size_type otherOffset = 0) {
+            reserveForAdd(other.mask);
+            mask |= other.mask;
+            add_internal(other, factor, offset, otherOffset);
+        }
+
+        void add_internal(Column& other, T factor, size_type offset = 0, size_type otherOffset = 0) {
             ZeroTester tester;
-            for (; otherOffset < other.entries.size(); otherOffset++) {
-                auto entry = other.entries[otherOffset];
+            for (; otherOffset < other.size(); otherOffset++) {
+                auto entry = other[otherOffset];
                 entry.value *= factor;
-                while (offset < entries.size() && entries[offset].index < entry.index) {
+                while (offset < size() && at(offset).index < entry.index) {
                     offset++;
                 }
-                if (offset >= entries.size()) {
+                if (offset >= size()) {
                     break;
                 }
-                if (entries[offset].index == entry.index) {
-                    entries[offset].value += entry.value;
-                    if (tester(entries[offset].value)) {
-                        entries.erase(entries.begin() + offset);
+                if (at(offset).index == entry.index) {
+                    at(offset).value += entry.value;
+                    if (tester(at(offset).value)) {
+                        erase_internal(offset);
                     } else {
                         offset++;
                     }
                 } else {
-                    entries.insert(entries.begin() + offset, entry);
+                    insert_internal(offset, entry);
                     offset++;
                 }
             }
-            entries.reserve(entries.size() + other.entries.size() - otherOffset);
-            for (; otherOffset < other.entries.size(); otherOffset++) {
-                auto entry = other.entries[otherOffset];
+            // entries.reserve(size() + other.size() - otherOffset);
+            for (; otherOffset < other.size(); otherOffset++) {
+                auto entry = other[otherOffset];
                 entry.value *= factor;
-                entries.push_back(entry);
+                pushBack(entry);
+            }
+        }
+
+    private:
+        std::vector<Entry> entries;
+
+        Entry& at(size_type offset) {
+            return entries[offset];
+        }
+
+        void validateMask(const char* where) {
+            uint64_t m = 0;
+            for (Entry entry : *this) {
+                m |= (uint64_t)1 << entry.index;
+            }
+            if (m != mask) {
+                LOGD("validateMask failed in %s (is %llx shoud be %llx)", where, mask, m);
+            }
+        }
+
+        void validateOrder(const char* where) {
+            if (empty())
+                return;
+            size_type prev = at(0).index;
+            for (size_type i = 1; i < size(); i++) {
+                if (prev >= at(i).index) {
+                    LOGD("validate order failed in %s", where);
+                    return;
+                }
+                prev = at(i).index;
             }
         }
     };
@@ -98,7 +180,7 @@ public:
     size_type rowCount() {
         size_type lastIndex = 0;
         for (Column& column : columns) {
-            if (!column.entries.empty())
+            if (!column.empty())
                 lastIndex = std::max(lastIndex, column.back().index);
         }
         return lastIndex + 1;
@@ -108,7 +190,7 @@ public:
         columns.clear();
         columns.resize(size);
         for (size_type i = 0; i < size; i++) {
-            columns[i].entries.push_back(Entry(1, i));
+            columns[i].pushBack(Entry(1, i));
         }
     }
 
@@ -123,8 +205,14 @@ public:
         out.setEmpty(columnCount);
 
         for (size_type i = 0; i < columnCount; i++) {
-            for (Entry entry : r.columns[i].entries) {
-                out.columns[i].add(l.columns[entry.index], entry.value);
+            uint64_t mask = 0;
+            for (Entry entry : r.columns[i]) {
+                mask |= l.columns[entry.index].mask;
+            }
+            out.columns[i].reserveForAdd(mask);
+            out.columns[i].mask = mask;
+            for (Entry entry : r.columns[i]) {
+                out.columns[i].add_internal(l.columns[entry.index], entry.value);
             }
         }
 
@@ -145,7 +233,7 @@ public:
         T* m = new T[rowCount * columnCount];
         memset(m, 0, rowCount * columnCount * sizeof(T));
         for (size_type column = 0; column < columnCount; column++) {
-            for (auto entry : columns[column].entries) {
+            for (Entry entry : columns[column]) {
                 if (entry.index < rowCount)
                     m[column * rowCount + entry.index] = entry.value;
             }

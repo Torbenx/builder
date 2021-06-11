@@ -131,16 +131,17 @@ void Scene::draw() {
         }
     }*/
 
-    int width = 40;
-    int height = 40;
+    int width = 64;
+    int height = 2;
     SparseMatrix<float, int, BasicZeroTester> matrix;
     matrix.setEmpty(width);
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
-            if ((i + j) % 10 == 0)
-                matrix.columns[i].addTo(j, sin(i * j + 1));
+            if ((i + j) % 5 == 0)
+                matrix.columns[i].addByIndex(j, 1.0f+0.0f*sin(i * j + 1));
         }
     }
+    LOGD("");
     matrix.debug();
     LUPDecomposition<float, int, BasicZeroTester> lu;
     {
@@ -148,25 +149,15 @@ void Scene::draw() {
         lu.decompose(std::move(matrix));
     }
 
-    /*LOGD("u: %u x %u", lu.u.columns.size(), lu.u.rowCount());
-    lu.u.debug();
-    LOGD("l: %u x %u", lu.l.columns.size(), lu.l.rowCount());
-    lu.l.debug();*/
-
     SparseMatrix<float, int, BasicZeroTester>::Column col;
     for (int i = 0; i < height; i++) {
-        col.addTo(i, i / (float)height);
+        col.addByIndex(i, i / (float)height);
     }
-    col.addTo(0, 1.0f);
+    col.addByIndex(0, 1.0f);
     {
         LogTimer timer;
-        lu.replaceColumn(20, std::move(col));
+        lu.replaceColumn(10, std::move(col));
     }
-
-    /*LOGD("u: %u x %u", lu.u.columns.size(), lu.u.rowCount());
-    lu.u.debug();
-    LOGD("l: %u x %u", lu.l.columns.size(), lu.l.rowCount());
-    lu.l.debug();*/
 
     {
         LogTimer timer;
@@ -190,7 +181,7 @@ void Scene::draw() {
         py.clampToW();
         pz.clampToW();
         float volume = Vec3::dot((px - base).xyz(), Vec3::cross((py - base).xyz(), (pz - base).xyz()));
-        return fabs(volume) > 0.0001f || std::isnan(volume);
+        return std::abs(volume) > 0.0001f || std::isnan(volume);
     };
 
     uint64_t start = getNanos();

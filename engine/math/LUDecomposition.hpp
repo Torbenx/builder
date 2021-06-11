@@ -50,45 +50,41 @@ public:
     size_type rowCount = 0;
 
     void inverseL(typename Matrix::Column& col) {
-        for (size_type i = 0; i < col.entries.size(); i++) {
+        for (size_type i = 0; i < col.size(); i++) {
             // col[i] -= col[row] * l[row,i] ; i > row
-            col.add(l.columns[col.entries[i].index], -col.entries[i].value, i + 1);
+            col.add(l.columns[col[i].index], -col[i].value, i + 1);
         }
     }
 
     void replaceColumn(size_type column, typename Matrix::Column&& col) {
-        //LogTimer timer;
         column = p[column];
 
         // update rowCount
-        if (!col.entries.empty()) {
-            size_type lastIndex = col.entries.back().index;
+        if (!col.empty()) {
+            size_type lastIndex = col.back().index;
             if (lastIndex >= rowCount) {
                 rowCount = lastIndex + 1;
                 l.columns.resize(rowCount);
             }
         }
         inverseL(col);
-        //timer();
 
         std::swap(col, u.columns[column]);
-        if (!col.entries.empty()) {
-            size_type oldLastIndex = col.entries.back().index;
+        if (!col.empty()) {
+            size_type oldLastIndex = col.back().index;
             auto it = std::lower_bound(zeroRows.begin(), zeroRows.end(), oldLastIndex);
             if (oldLastIndex - column == std::distance(zeroRows.begin(), it)) {
                 zeroRows.erase(it, zeroRows.end());
                 Matrix oldL(std::move(l));
                 l.setEmpty(rowCount);
-                //timer();
                 decompose(oldLastIndex, column);
-                //timer();
                 Matrix temp = Matrix::multiply(oldL, l);
                 temp.add(oldL, 1);
                 temp.add(l, 1);
-                l = std::move(temp);
+                std::swap(l, temp);
             }
         }
-        col.entries.clear();
+        col.clear();
     }
 
     void decompose(Matrix&& m) {
@@ -109,7 +105,7 @@ private:
         std::vector<size_type> columnOffsets;
         columnOffsets.resize(columnCount);
         for (size_type i = startColumn; i < columnCount; i++) {
-            while (columnOffsets[i] < u.columns[i].entries.size() && u.columns[i].entries[columnOffsets[i]].index < startRow) {
+            while (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index < startRow) {
                 columnOffsets[i]++;
             }
         }
@@ -121,10 +117,10 @@ private:
             size_type pivot = columnCount;
             size_type bestScore = std::numeric_limits<size_type>::max();
             for (size_type i = column; i < columnCount; i++) {
-                if (columnOffsets[i] < u.columns[i].entries.size() && u.columns[i].entries[columnOffsets[i]].index == row) {
-                    size_type entryCount = u.columns[i].entries.size() - columnOffsets[i] - 1;
+                if (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index == row) {
+                    size_type entryCount = u.columns[i].size() - columnOffsets[i] - 1;
                     size_type score = 0;
-                    for (typename Matrix::Entry entry : u.columns[i].entries) {
+                    for (typename Matrix::Entry entry : u.columns[i]) {
                         score += rowCount - entry.index;
                     }
                     if (score <= bestScore) {
@@ -147,31 +143,30 @@ private:
 
             auto& pivotCol = u.columns[column];
             size_type diagOffset = columnOffsets[column];
-            T invDiag = 1 / pivotCol.entries[diagOffset].value;
+            T invDiag = 1 / pivotCol[diagOffset].value;
 
             // l[row,i] = u[column,i] / u[column,row] ; i > row
-            size_type entryCount = pivotCol.entries.size() - (diagOffset + 1);
+            size_type entryCount = pivotCol.size() - (diagOffset + 1);
             typename Matrix::Column& pivotFactors = l.columns[row];
-            pivotFactors.entries.reserve(entryCount);
+            pivotFactors.reserve(entryCount);
             for (size_type i = 0; i < entryCount; i++) {
-                typename Matrix::Entry entry = pivotCol.entries[i + diagOffset + 1];
+                typename Matrix::Entry entry = pivotCol[i + diagOffset + 1];
                 entry.value *= invDiag;
-                pivotFactors.entries.push_back(entry);
+                pivotFactors.pushBack(entry);
             }
             // u[column,i] = 0 ; i > row
-            pivotCol.entries.erase(pivotCol.entries.begin() + columnOffsets[column] + 1, pivotCol.entries.end());
+            pivotCol.eraseAfter(columnOffsets[column]);
 
             // u[i,j] -= u[i,row]*u[column,i]/u[column,row] ; i > column, j > row
             for (size_type i = column + 1; i < columnCount; i++) {
                 auto& col = u.columns[i];
                 size_type offset = columnOffsets[i];
 
-                if (offset == col.entries.size() || col.entries[offset].index > row) {
+                if (offset == col.size() || col[offset].index > row) {
                     // fast path, do nothing
                     continue;
                 }
-                T top = col.entries[offset].value;
-                col.add(pivotFactors, -col.entries[offset].value*invDiag, offset);
+                col.add(pivotFactors, -col[offset].value*invDiag, offset);
                 columnOffsets[i]++;
             }
 

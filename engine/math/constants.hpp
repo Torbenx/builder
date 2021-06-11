@@ -6,7 +6,7 @@
 
 template<typename T>
 struct VectorTraits {
-    static const int length;
+    static const int length = 0;
     static T construct(float f[length]);
 };
 

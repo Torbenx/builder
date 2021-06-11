@@ -7,15 +7,23 @@ class LogTimer {
 public:
     uint64_t start;
     std::vector<uint64_t> laps;
-    LogTimer() { start = getNanos(); }
-    void operator()() { laps.push_back(getNanos()); }
+
+        LogTimer() { start = getNanos(); }
+
+    __attribute__((noinline)) void operator()() {
+        laps.push_back(getNanos());
+    }
+
     ~LogTimer() {
         (*this)();
         uint64_t prev = start;
+        int i = 0;
         for (uint64_t t : laps) {
-            std::cout << (t - prev) / 1000.0 << ", ";
+            // std::cout << (t - prev) / 1000.0 << ", ";
+            LOGD("%u: %f us,", i++, (t - prev) / 1000.0);
             prev = t;
         }
-        std::cout << "us\n";
+        LOGD("----------------------");
+        // std::cout << "us\n";
     }
 };
