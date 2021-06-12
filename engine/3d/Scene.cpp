@@ -1,5 +1,6 @@
 #include "3d/Scene.hpp"
-#include "math/LUDecomposition.hpp"
+#include "math/solver/LUDecomposition.hpp"
+#include "math/solver/SparseOps.hpp"
 #include "util/LogTimer.hpp"
 #include <unordered_set>
 
@@ -96,7 +97,7 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
 
 struct BasicZeroTester {
     bool operator()(float f) {
-        return std::abs(f) < 0.0005f;
+        return std::abs(f) < 0.00000000000005f;
     }
 };
 
@@ -131,45 +132,54 @@ void Scene::draw() {
         }
     }*/
 
-    int width = 64;
-    int height = 2;
-    SparseMatrix<float, int, BasicZeroTester> matrix;
+    LOGD("");
+    int width = 20;
+    int height = 20;
+    SparseMatrix<float, uint32_t, BasicZeroTester> matrix;
     matrix.setEmpty(width);
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
-            if ((i + j) % 5 == 0)
-                matrix.columns[i].addByIndex(j, 1.0f+0.0f*sin(i * j + 1));
+            if ((i + j + 3) % 5 == 0)
+                matrix.columns[i].addByIndex(j, sin(i * j + 1));
         }
     }
-    LOGD("");
-    matrix.debug();
-    LUPDecomposition<float, int, BasicZeroTester> lu;
-    {
-        LogTimer timer;
-        lu.decompose(std::move(matrix));
-    }
 
-    SparseMatrix<float, int, BasicZeroTester>::Column col;
-    for (int i = 0; i < height; i++) {
-        col.addByIndex(i, i / (float)height);
-    }
+    SparseMatrix<float, uint32_t, BasicZeroTester>::Column col;
     col.addByIndex(0, 1.0f);
-    {
-        LogTimer timer;
-        lu.replaceColumn(10, std::move(col));
-    }
 
+    DenseVector<float, uint32_t> vector(height);
+    vector[3] = 1.0f;
+
+    matrix.debug();
     {
         LogTimer timer;
-        matrix = SparseMatrix<float, int, BasicZeroTester>::multiply(lu.l, lu.u);
-        matrix.add(lu.u, 1);
+        LUPDecomposition<float, uint32_t, BasicZeroTester> lu;
+        lu.decompose(std::move(matrix));
+        timer();
+        // lu.u.debug();
+
+        lu.replaceColumn(0, std::move(col));
+        timer();
+        // lu.u.debug();
+
+        lu.inverseTranspose(vector);
+        // vector.debug();
+        timer();
+
+        lu.u.leftMultiplyAccumulateBy(lu.l);
+        timer();
+        matrix.columns.resize(width);
+        for (int i = 0; i < width; i++) {
+            std::swap(matrix.columns[i], lu.u.columns[lu.p[i]]);
+        }
+
+        timer();
+        vector = SparseOps::multiply(vector, matrix);
     }
-    SparseMatrix<float, int, BasicZeroTester> out;
-    out.columns.resize(width);
-    for (int i = 0; i < width; i++) {
-        std::swap(out.columns[i], matrix.columns[lu.p[i]]);
-    }
-    out.debug();
+    vector.debug();
+    matrix.debug();
+
+
 
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
