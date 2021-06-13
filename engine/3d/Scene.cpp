@@ -1,6 +1,5 @@
 #include "3d/Scene.hpp"
-#include "math/solver/LUDecomposition.hpp"
-#include "math/solver/SparseOps.hpp"
+#include "math/solver/LinearProgramming.hpp"
 #include "util/LogTimer.hpp"
 #include <unordered_set>
 
@@ -97,7 +96,7 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
 
 struct BasicZeroTester {
     bool operator()(float f) {
-        return std::abs(f) < 0.00000000000005f;
+        return std::abs(f) < 0.0005f;
     }
 };
 
@@ -132,7 +131,7 @@ void Scene::draw() {
         }
     }*/
 
-    LOGD("");
+    /*LOGD("");
     int width = 20;
     int height = 20;
     SparseMatrix<float, uint32_t, BasicZeroTester> matrix;
@@ -148,21 +147,23 @@ void Scene::draw() {
     col.addByIndex(0, 1.0f);
 
     DenseVector<float, uint32_t> vector(height);
+    DenseVector<float, uint32_t> vector2(height);
     vector[3] = 1.0f;
 
     matrix.debug();
     {
         LogTimer timer;
         LUPDecomposition<float, uint32_t, BasicZeroTester> lu;
-        lu.decompose(std::move(matrix));
+        lu.u = std::move(matrix);
+        lu.decompose();
         timer();
         // lu.u.debug();
 
-        lu.replaceColumn(0, std::move(col));
+        lu.replaceColumn(0, col);
         timer();
         // lu.u.debug();
 
-        lu.inverseTranspose(vector);
+        lu.inverseTranspose(vector2, vector);
         // vector.debug();
         timer();
 
@@ -174,12 +175,31 @@ void Scene::draw() {
         }
 
         timer();
-        vector = SparseOps::multiply(vector, matrix);
+        SparseOps::multiply(vector, vector2, matrix);
     }
     vector.debug();
-    matrix.debug();
+    matrix.debug();*/
 
-
+    LinearProgramming<BasicZeroTester> lp;
+    lp.basis.setIdentity(3);
+    lp.extra.setEmpty(3);
+    lp.basisObjective.resize(3);
+    lp.extraObjective.resize(3);
+    lp.basisBound.resize(3);
+    lp.extraBound.resize(3);
+    lp.solution.resize(3);
+    for (uint32_t i = 0; i < 3; i++) {
+        // lp.basis.columns[i].addByIndex((i + 1) % 3, 1.0f);
+        for (uint32_t j = 0; j < 3; j++) {
+            lp.extra.columns[j].addByIndex(i, 1.0f);
+            lp.extraBound[j] = 6.0f;
+        }
+        lp.basisObjective[i] = 1.0f;
+        lp.extraObjective[i] = 1.0f;
+        lp.basisBound[i] = 6.0f;
+        lp.solution[i] = 3.0f;
+    }
+    lp.doStuff();
 
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);

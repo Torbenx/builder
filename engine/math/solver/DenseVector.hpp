@@ -15,8 +15,8 @@ public:
         : data(size) { }
 
     void add(Vector& other, T factor) {
-        size_type size = std::min(size(), other.size());
-        for (size_type i = 0; i < size; i++) {
+        size_type s = std::min(size(), other.size());
+        for (size_type i = 0; i < s; i++) {
             at(i) += factor * other[i];
         }
     }
@@ -36,6 +36,8 @@ public:
     size_type size() { return data.size(); }
 
     T& operator[](size_type index) { return data[index]; }
+
+    void resize(size_type newSize) { data.resize(newSize); }
 
     void debug() {
         for (size_type i = 0; i < size(); i++) {

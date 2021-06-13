@@ -89,15 +89,16 @@ public:
         entries.reserve(size);
     }
 
-    void add(Vector& other, T factor, size_type offset = 0, size_type otherOffset = 0) {
+    void add(Vector& other, T factor, size_type offset = 0, size_type otherOffset = 0, size_type otherEnd = std::numeric_limits<size_type>::max()) {
         reserveForAdd(other.mask);
         mask |= other.mask;
-        add_internal(other, factor, offset, otherOffset);
+        add_internal(other, factor, offset, otherOffset, otherEnd);
     }
 
-    void add_internal(Vector& other, T factor, size_type offset = 0, size_type otherOffset = 0) {
+    void add_internal(Vector& other, T factor, size_type offset = 0, size_type otherOffset = 0, size_type otherEnd = std::numeric_limits<size_type>::max()) {
         ZeroTester tester;
-        for (; otherOffset < other.size(); otherOffset++) {
+        otherEnd = std::min(otherEnd, other.size());
+        for (; otherOffset < otherEnd; otherOffset++) {
             auto entry = other[otherOffset];
             entry.value *= factor;
             while (offset < size() && at(offset).index < entry.index) {
@@ -118,7 +119,7 @@ public:
                 offset++;
             }
         }
-        for (; otherOffset < other.size(); otherOffset++) {
+        for (; otherOffset < otherEnd; otherOffset++) {
             auto entry = other[otherOffset];
             entry.value *= factor;
             pushBack(entry);

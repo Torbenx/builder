@@ -34,6 +34,13 @@ public:
         }
     }
 
+    void inverseU(SparseVector<T, size_type, ZeroTester>& vector) {
+        for (size_type i = vector.size() - 1; i != -1; i--) {
+            vector[i].value /= u.columns[vector[i].index].back().value;
+            vector.add(u.columns[i], -vector[i].value, 0, 0, u.columns[i].size() - 1);
+        }
+    }
+
     void inverseTransposeL(DenseVector<T, size_type>& vector) {
         size_type size = std::min((size_type)l.columns.size(), vector.size());
         for (size_type i = size - 1; i != -1; i--) {
@@ -58,18 +65,39 @@ public:
         std::swap(temp, vector);
     }
 
-    void inverseTranspose(DenseVector<T, size_type>& vector) {
-        DenseVector<T, size_type> temp(vector.size());
-        for (size_type i = 0; i < vector.size(); i++) {
-            temp[p[i]] = vector[i];
+    void inverseUnsorted(SparseVector<T, size_type, ZeroTester>& vector) {
+        inverseL(vector);
+        inverseU(vector);
+        for(auto& entry : vector) {
+            entry.index = p[entry.index];
         }
-        std::swap(temp, vector);
-        inverseTransposeU(vector);
-        inverseTransposeL(vector);
     }
 
-    void replaceColumn(size_type column, typename Matrix::Column&& col) {
+    void inverseTranspose(DenseVector<T, size_type>& out, DenseVector<T, size_type>& in) {
+        for (size_type i = 0; i < in.size(); i++) {
+            out[p[i]] = in[i];
+        }
+        inverseTransposeU(out);
+        inverseTransposeL(out);
+    }
+
+    void replaceColumn(size_type column, typename Matrix::Column& in) {
         column = p[column];
+
+        typename Matrix::Column& col = u.columns[column];
+        size_type decomposeRow2 = rowCount;
+        size_type decomposeColumn2;
+        typename std::vector<size_type>::iterator it2;
+        if (!col.empty()) {
+            decomposeRow2 = col.back().index;
+            decomposeColumn2 = column;
+            it2 = std::lower_bound(zeroRows.begin(), zeroRows.end(), decomposeRow2);
+            if (decomposeRow2 - decomposeColumn2 != std::distance(zeroRows.begin(), it2)) {
+                decomposeRow2 = rowCount;
+            }
+        }
+
+        col = in;
 
         if (!col.empty()) {
             size_type lastIndex = col.back().index;
@@ -97,20 +125,6 @@ public:
             }
         }
 
-        size_type decomposeRow2 = rowCount;
-        size_type decomposeColumn2;
-        typename std::vector<size_type>::iterator it2;
-        if (!u.columns[column].empty()) {
-            decomposeRow2 = u.columns[column].back().index;
-            decomposeColumn2 = column;
-            it2 = std::lower_bound(zeroRows.begin(), zeroRows.end(), decomposeRow2);
-            if (decomposeRow2 - decomposeColumn2 != std::distance(zeroRows.begin(), it2)) {
-                decomposeRow2 = rowCount;
-            }
-        }
-
-        std::swap(col, u.columns[column]);
-
         if (decomposeRow2 < decomposeRow1) {
             decomposeRow1 = decomposeRow2;
             decomposeColumn1 = decomposeColumn2;
@@ -127,14 +141,10 @@ public:
         decompose(decomposeRow1, decomposeColumn1);
         l.leftMultiplyAccumulateBy(oldL);
         l.add(oldL, 1);
-
-        col.clear();
     }
 
-    void decompose(Matrix&& m) {
-        u.columns.clear();
-        std::swap(u, m);
-
+    // u holds the matrix to decompose
+    void decompose() {
         rowCount = u.rowCount();
         p.setIdentity(u.columns.size());
         zeroRows.clear();
