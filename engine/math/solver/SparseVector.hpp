@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/solver/SparseEntry.hpp"
+#include <iostream>
 
 template<typename T, typename size_type, class ZeroTester>
 class SparseVector {
@@ -77,6 +78,8 @@ public:
         entries.clear();
     }
 
+    void sort() { std::sort(entries.begin(), entries.end()); }
+
     iterator begin() { return entries.begin(); }
 
     iterator end() { return entries.end(); }
@@ -124,6 +127,13 @@ public:
             entry.value *= factor;
             pushBack(entry);
         }
+    }
+
+    void debug() {
+        for (auto entry : *this) {
+            std::cout << "{" << entry.index << ", " << entry.value << "}, ";
+        }
+        std::cout << "\n\n";
     }
 
 private:

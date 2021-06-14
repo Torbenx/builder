@@ -99,10 +99,11 @@ public:
         size_type columnCount = columns.size();
         T* mat = asMatrix(rowCount);
         for (size_type i = 0; i < rowCount; i++) {
-            for (size_type j = 0; j < columnCount; j++) {
-                std::cout << mat[i + j * rowCount] << ", ";
+            std::cout << "{" << mat[i];
+            for (size_type j = 1; j < columnCount; j++) {
+                std::cout << ", " << mat[i + j * rowCount];
             }
-            std::cout << "\n";
+            std::cout << "},\n";
         }
         std::cout << "\n";
         delete mat;

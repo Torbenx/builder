@@ -16,7 +16,7 @@ public:
     void inverseL(typename Matrix::Column& col) {
         for (size_type i = 0; i < col.size(); i++) {
             // col[i] -= col[row] * l[row,i] ; i > row
-            col.add(l.columns[col[i].index], -col[i].value, i + 1);
+            col.add(l.columns[col[i].index], -col[i].value);
         }
     }
 
@@ -37,7 +37,9 @@ public:
     void inverseU(SparseVector<T, size_type, ZeroTester>& vector) {
         for (size_type i = vector.size() - 1; i != -1; i--) {
             vector[i].value /= u.columns[vector[i].index].back().value;
-            vector.add(u.columns[i], -vector[i].value, 0, 0, u.columns[i].size() - 1);
+            size_type oldSize = vector.size();
+            vector.add(u.columns[vector[i].index], -vector[i].value, 0, 0, u.columns[vector[i].index].size() - 1);
+            i += vector.size() - oldSize;
         }
     }
 
@@ -69,7 +71,7 @@ public:
         inverseL(vector);
         inverseU(vector);
         for(auto& entry : vector) {
-            entry.index = p[entry.index];
+            entry.index = p.inverse(entry.index);
         }
     }
 

@@ -37,6 +37,16 @@ public:
         return map.size();
     }
 
+    void expandBy(size_type increase) {
+        size_type oldSize = size();
+        map.resize(oldSize + increase);
+        inv.resize(oldSize + increase);
+        for (size_type i = oldSize; i < oldSize + increase; i++) {
+            map[i] = i;
+            inv[i] = i;
+        }
+    }
+
 private:
     std::vector<size_type> map, inv;
 };

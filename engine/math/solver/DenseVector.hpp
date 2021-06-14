@@ -3,6 +3,7 @@
 #include "math/solver/SparseMatrix.hpp"
 #include <iostream>
 #include <memory>
+#include <string.h>
 
 template<typename T, typename size_type>
 class DenseVector {
@@ -38,6 +39,10 @@ public:
     T& operator[](size_type index) { return data[index]; }
 
     void resize(size_type newSize) { data.resize(newSize); }
+
+    void setEmpty() {
+        memset(data.data(), 0, size() * sizeof(T));
+    }
 
     void debug() {
         for (size_type i = 0; i < size(); i++) {

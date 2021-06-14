@@ -182,24 +182,34 @@ void Scene::draw() {
 
     LinearProgramming<BasicZeroTester> lp;
     lp.basis.setIdentity(3);
-    lp.extra.setEmpty(3);
+    lp.extra.setEmpty(6);
     lp.basisObjective.resize(3);
-    lp.extraObjective.resize(3);
-    lp.basisBound.resize(3);
-    lp.extraBound.resize(3);
+    lp.extraObjective.resize(6);
+    lp.bound.resize(3);
     lp.solution.resize(3);
+    lp.n = 4;
+    lp.numConstraints = 3;
+    uint32_t constraints[] = {
+        0, 1, 2, 6,
+        0, 1, 2, 7,
+        0, 1, 2, 8,
+    };
+    lp.constraints = constraints;
     for (uint32_t i = 0; i < 3; i++) {
         // lp.basis.columns[i].addByIndex((i + 1) % 3, 1.0f);
         for (uint32_t j = 0; j < 3; j++) {
             lp.extra.columns[j].addByIndex(i, 1.0f);
-            lp.extraBound[j] = 6.0f;
         }
+        lp.extra.columns[i+3].addByIndex(i, -1.0f);
         lp.basisObjective[i] = 1.0f;
         lp.extraObjective[i] = 1.0f;
-        lp.basisBound[i] = 6.0f;
-        lp.solution[i] = 3.0f;
+        lp.bound[i] = 6.0f;
+        lp.solution[i] = 6.0f;
     }
-    lp.doStuff();
+    {
+        LogTimer timer;
+        lp.doStuff();
+    }
 
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);

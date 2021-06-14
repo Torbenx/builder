@@ -15,7 +15,7 @@ struct SparseOps {
 
     template<typename T, typename size_type, class ZeroTester>
     static void multiply(DenseVector<T, size_type>& out, DenseVector<T, size_type>& vector, SparseMatrix<T, size_type, ZeroTester>& matrix) {
-        size_type size = std::min(vector.size(), (size_type)matrix.columns.size());
+        size_type size = std::min(out.size(), (size_type)matrix.columns.size());
         for (size_type i = 0; i < size; i++) {
             out[i] = SparseOps::dot(vector, matrix.columns[i]);
         }
@@ -29,6 +29,16 @@ struct SparseOps {
             if (v2[i].index >= v1.size())
                 break;
             sum += v1[v2[i].index] * v2[i].value;
+        }
+        return sum;
+    }
+
+    template<typename T, typename size_type>
+    static T dot(DenseVector<T, size_type>& v1, DenseVector<T, size_type>& v2) {
+        size_type end = std::min(v1.size(), v2.size());
+        T sum = 0;
+        for (size_type i = 0; i < end; i++) {
+            sum += v1[i] * v2[i];
         }
         return sum;
     }
