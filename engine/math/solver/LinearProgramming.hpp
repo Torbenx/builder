@@ -15,12 +15,26 @@ public:
     uint32_t* constraints;
 
     void doStuff() {
+        relaxed();
+        DenseVector<float, uint32_t> sol(numVariables);
+        for (uint32_t i = 0; i < numVariables; i++) {
+            uint32_t j = permutation[i];
+            if (j >= extraSize) {
+                sol[i] = std::ceil(solution[j - extraSize]);
+            } else {
+                sol[i] = 0.0f;
+            }
+        }
+        sol.debug();
+    }
+
+    void relaxed() {
         basisSize = numConstraints;
         extraSize = numVariables;
         permutation.setIdentity(extraSize + basisSize);
 
         basis.setEmpty(basisSize);
-        float f = (float)(((n - 1) * n) >> 1);
+        float f = 0.5f * (n - 1) * n;
         bound.resize(basisSize);
         negativeObjective.resize(basisSize);
         solution.resize(basisSize);
@@ -170,7 +184,9 @@ public:
             permutation.swap(extraSize + leavingIndex, enteringIndex);
             std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
             std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
-            basisLU.replaceColumn(leavingIndex, basis.columns[leavingIndex]);
+            uint32_t luIndex = basisLU.p[leavingIndex];
+            basisLU.u.columns[luIndex] = basis.columns[leavingIndex];
+            basisLU.replaceColumn(luIndex);
             // basisLU.u = basis;
             // basisLU.decompose();
 

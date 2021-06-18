@@ -131,55 +131,6 @@ void Scene::draw() {
         }
     }*/
 
-    /*LOGD("");
-    int width = 20;
-    int height = 20;
-    SparseMatrix<float, uint32_t, BasicZeroTester> matrix;
-    matrix.setEmpty(width);
-    for (int j = 0; j < height; j++) {
-        for (int i = 0; i < width; i++) {
-            if ((i + j + 3) % 5 == 0)
-                matrix.columns[i].addByIndex(j, sin(i * j + 1));
-        }
-    }
-
-    SparseMatrix<float, uint32_t, BasicZeroTester>::Column col;
-    col.addByIndex(0, 1.0f);
-
-    DenseVector<float, uint32_t> vector(height);
-    DenseVector<float, uint32_t> vector2(height);
-    vector[3] = 1.0f;
-
-    matrix.debug();
-    {
-        LogTimer timer;
-        LUPDecomposition<float, uint32_t, BasicZeroTester> lu;
-        lu.u = std::move(matrix);
-        lu.decompose();
-        timer();
-        // lu.u.debug();
-
-        lu.replaceColumn(0, col);
-        timer();
-        // lu.u.debug();
-
-        lu.inverseTranspose(vector2, vector);
-        // vector.debug();
-        timer();
-
-        lu.u.leftMultiplyAccumulateBy(lu.l);
-        timer();
-        matrix.columns.resize(width);
-        for (int i = 0; i < width; i++) {
-            std::swap(matrix.columns[i], lu.u.columns[lu.p[i]]);
-        }
-
-        timer();
-        SparseOps::multiply(vector, vector2, matrix);
-    }
-    vector.debug();
-    matrix.debug();*/
-
     LinearProgramming<BasicZeroTester> lp;
     lp.n = 4;
     lp.numConstraints = 3;

@@ -10,8 +10,7 @@ public:
     using Matrix = SparseMatrix<T, size_type, ZeroTester>;
     Matrix l, u;
     Permutation<size_type> p;
-    std::vector<size_type> zeroRows;
-    size_type rowCount = 0;
+    bool isInvertible = false;
 
     void inverseL(typename Matrix::Column& col) {
         for (size_type i = 0; i < col.size(); i++) {
@@ -83,101 +82,45 @@ public:
         inverseTransposeL(out);
     }
 
-    void replaceColumn(size_type column, typename Matrix::Column& in) {
-        column = p[column];
-
-        typename Matrix::Column& col = u.columns[column];
-        size_type decomposeRow2 = rowCount;
-        size_type decomposeColumn2;
-        typename std::vector<size_type>::iterator it2;
-        if (!col.empty()) {
-            decomposeRow2 = col.back().index;
-            decomposeColumn2 = column;
-            it2 = std::lower_bound(zeroRows.begin(), zeroRows.end(), decomposeRow2);
-            if (decomposeRow2 - decomposeColumn2 != std::distance(zeroRows.begin(), it2)) {
-                decomposeRow2 = rowCount;
-            }
-        }
-
-        col = in;
-
-        if (!col.empty()) {
-            size_type lastIndex = col.back().index;
-            // update rowCount
-            if (lastIndex >= rowCount) {
-                rowCount = lastIndex + 1;
-                l.columns.resize(rowCount);
-            }
-            inverseL(col);
-        }
-
-        size_type decomposeRow1 = rowCount;
-        size_type decomposeColumn1;
-        typename std::vector<size_type>::iterator it1;
-        for (size_type i = 0, j = 0; i < col.size() && j < zeroRows.size();) {
-            if (zeroRows[j] < col[i].index) {
-                j++;
-            } else if (zeroRows[j] > col[i].index) {
-                i++;
-            } else {
-                decomposeRow1 = zeroRows[j];
-                decomposeColumn1 = decomposeRow1 - j;
-                it1 = zeroRows.begin() + j;
-                break;
-            }
-        }
-
-        if (decomposeRow2 < decomposeRow1) {
-            decomposeRow1 = decomposeRow2;
-            decomposeColumn1 = decomposeColumn2;
-            it1 = it2;
-        }
-
-        if (decomposeRow1 == rowCount) {
-            return;
-        }
-
-        zeroRows.erase(it1, zeroRows.end());
+    void replaceColumn(size_type column) {
+        inverseL(u.columns[column]);
         Matrix oldL(std::move(l));
-        l.setEmpty(rowCount);
-        decompose(decomposeRow1, decomposeColumn1);
+        l.setEmpty(u.columns.size());
+        decompose(column);
         l.leftMultiplyAccumulateBy(oldL);
         l.add(oldL, 1);
     }
 
     // u holds the matrix to decompose
     void decompose() {
-        rowCount = u.rowCount();
-        p.setIdentity(u.columns.size());
-        zeroRows.clear();
-        l.setEmpty(rowCount);
-        decompose(0, 0);
+        size_type columnCount = u.columns.size();
+        p.setIdentity(columnCount);
+        l.setEmpty(columnCount);
+        decompose(0);
     }
 
 private:
-    void decompose(size_type startRow, size_type startColumn) {
+    void decompose(size_type startRow) {
         ZeroTester tester;
         size_type columnCount = u.columns.size();
         std::vector<size_type> columnOffsets;
         columnOffsets.resize(columnCount);
-        for (size_type i = startColumn; i < columnCount; i++) {
+        for (size_type i = startRow; i < columnCount; i++) {
             while (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index < startRow) {
                 columnOffsets[i]++;
             }
         }
 
-        size_type row = startRow;
-        size_type column = startColumn;
-        while (row < rowCount && column < columnCount) {
+        for (size_type row = startRow; row < columnCount; row++) {
             // select pivot
             size_type pivot = columnCount;
             size_type bestScore = std::numeric_limits<size_type>::max();
-            for (size_type i = column; i < columnCount; i++) {
+            for (size_type i = row; i < columnCount; i++) {
                 if (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index == row) {
                     size_type entryCount = u.columns[i].size() - columnOffsets[i] - 1;
                     size_type score = 0;
                     for (typename Matrix::Entry entry : u.columns[i]) {
-                        score += rowCount - entry.index;
+                        score += columnCount - entry.index;
                     }
                     if (score <= bestScore) {
                         bestScore = score;
@@ -195,19 +138,17 @@ private:
                 }
             }*/
             if (pivot == columnCount) {
-                // row - column = # of entries in zeroRows less then row
-                zeroRows.push_back(row);
-                row++;
-                continue;
+                isInvertible = false;
+                break;
             }
-            if (pivot != column) {
-                p.swap(pivot, column);
-                std::swap(u.columns[pivot], u.columns[column]);
-                std::swap(columnOffsets[pivot], columnOffsets[column]);
+            if (pivot != row) {
+                p.swap(pivot, row);
+                std::swap(u.columns[pivot], u.columns[row]);
+                std::swap(columnOffsets[pivot], columnOffsets[row]);
             }
 
-            auto& pivotCol = u.columns[column];
-            size_type diagOffset = columnOffsets[column];
+            auto& pivotCol = u.columns[row];
+            size_type diagOffset = columnOffsets[row];
             T invDiag = 1 / pivotCol[diagOffset].value;
 
             // l[row,i] = u[column,i] / u[column,row] ; i > row
@@ -220,10 +161,10 @@ private:
                 pivotFactors.pushBack(entry);
             }
             // u[column,i] = 0 ; i > row
-            pivotCol.eraseAfter(columnOffsets[column]);
+            pivotCol.eraseAfter(diagOffset);
 
             // u[i,j] -= u[i,row]*u[column,i]/u[column,row] ; i > column, j > row
-            for (size_type i = column + 1; i < columnCount; i++) {
+            for (size_type i = row + 1; i < columnCount; i++) {
                 auto& col = u.columns[i];
                 size_type offset = columnOffsets[i];
 
@@ -234,11 +175,6 @@ private:
                 col.add(pivotFactors, -col[offset].value * invDiag, offset);
                 columnOffsets[i]++;
             }
-
-            row++;
-            column++;
         }
-        rowCount = row;
-        l.columns.resize(rowCount);
     }
 };
