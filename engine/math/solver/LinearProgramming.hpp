@@ -10,38 +10,63 @@ public:
     Matrix basis, extra;
     Permutation<uint32_t> permutation;
     DenseVector<float, uint32_t> solution, dual, multipliers, bound, basisObjective, extraObjective, negativeObjective;
-    uint32_t basisSize, extraSize, n, numConstraints;
-    bool removingNegatives = false;
+    uint32_t basisSize, extraSize, n, numConstraints, numVariables;
+    bool removingNegatives;
     uint32_t* constraints;
 
     void doStuff() {
-        basisSize = basis.columns.size();
-        extraSize = extra.columns.size();
+        basisSize = numConstraints;
+        extraSize = numVariables;
         permutation.setIdentity(extraSize + basisSize);
+
+        basis.setEmpty(basisSize);
+        float f = (float)(((n - 1) * n) >> 1);
+        bound.resize(basisSize);
+        negativeObjective.resize(basisSize);
+        solution.resize(basisSize);
+        basisObjective.resize(basisSize);
+        for (uint32_t i = 0; i < basisSize; i++) {
+            basis.columns[i].pushBack({ -1.0f, i });
+            bound[i] = f;
+            negativeObjective[i] = -1.0f;
+            solution[i] = -f;
+        }
+        removingNegatives = true;
         basisLU.u = basis;
         basisLU.decompose();
+
+        extra.setEmpty(extraSize);
+        extraObjective.resize(extraSize);
+        for (uint32_t i = 0; i < numConstraints; i++) {
+            for (uint32_t j = 0; j < n; j++) {
+                extra.columns[constraints[i * n + j]].pushBack({ 1.0f, i });
+            }
+        }
+        for (uint32_t i = 0; i < extraSize; i++) {
+            extraObjective[i] = 1.0f;
+        }
+
         dual.resize(basisSize);
         multipliers.resize(extraSize);
-        negativeObjective.resize(basisSize);
 
         while (true) {
-            //LOGD("basis:");
-            //basis.debug();
-            //basisObjective.debug();
-            //LOGD("extra:");
-            //extra.debug();
-            //extraObjective.debug();
+            LOGD("basis:");
+            basis.debug();
+            basisObjective.debug();
+            LOGD("extra:");
+            extra.debug();
+            extraObjective.debug();
 
             // calculate multipliers
             basisLU.inverseTranspose(dual, removingNegatives ? negativeObjective : basisObjective);
-            //LOGD("dual:");
-            //dual.debug();
+            // LOGD("dual:");
+            // dual.debug();
             SparseOps::multiply(multipliers, dual, extra);
             if (!removingNegatives) {
                 multipliers.add(extraObjective, -1.0f);
             }
-            //LOGD("multipliers:");
-            //multipliers.debug();
+            LOGD("multipliers:");
+            multipliers.debug();
 
             // pick enteringIndex
             uint32_t enteringIndex = extraSize;
@@ -69,18 +94,19 @@ public:
                             return a.second < b.second;
                         });
                     uint32_t lastFailure = n;
+                    float sum = 0.0f;
                     for (uint32_t j = 0; j < n; j++) {
-                        //std::cout << "{" << entries[j].first << ", " << entries[j].second << "}\n";
-                        if (entries[j].second - j < 0.0f)
+                        // std::cout << "{" << entries[j].first << ", " << entries[j].second << "}\n";
+                        sum += entries[j].second;
+                        if (sum - (j * (j + 1) >> 1) < 0.0f) {
                             lastFailure = j;
+                        }
                     }
                     if (lastFailure == n)
                         continue;
 
                     basisSize++;
-                    float sum = 0.0f;
                     for (uint32_t k = 0; k <= lastFailure; k++) {
-                        sum += k;
                         if (entries[k].first < extraSize) {
                             extra.columns[entries[k].first].pushBack({ 1.0f, basisSize - 1 });
                         } else {
@@ -88,9 +114,9 @@ public:
                         }
                     }
                     bound.resize(basisSize);
-                    bound[basisSize - 1] = sum;
+                    bound[basisSize - 1] = (lastFailure * (lastFailure + 1)) >> 1;
                     solution.resize(basisSize);
-                    solution[basisSize - 1] = -sum;
+                    solution[basisSize - 1] = -(float)((lastFailure * (lastFailure + 1)) >> 1);
                     basis.columns.emplace_back().pushBack({ -1.0f, basisSize - 1 });
                     dual.resize(basisSize);
                     basisObjective.resize(basisSize);
@@ -101,25 +127,26 @@ public:
                     negativeObjective[basisSize - 1] = -1.0f;
                     removingNegatives = true;
                     allGood = false;
+                    // break;
                 }
                 if (allGood) {
-                    //LOGD("done");
+                    // LOGD("done");
                     break;
                 }
                 continue;
             }
-            //LOGD("enteringIndex=%u", enteringIndex);
+            // LOGD("enteringIndex=%u", enteringIndex);
 
             // pick leavingIndex
             typename Matrix::Column delta = extra.columns[enteringIndex];
-            //LOGD("entering:");
-            //delta.debug();
-            // basisLU.l.debug();
-            // basisLU.u.debug();
+            // LOGD("entering:");
+            // delta.debug();
+            //  basisLU.l.debug();
+            //  basisLU.u.debug();
             basisLU.inverseUnsorted(delta);
             delta.sort();
-            //LOGD("delta:");
-            //delta.debug();
+            // LOGD("delta:");
+            // delta.debug();
 
             uint32_t leavingIndex = basisSize;
             float min = std::numeric_limits<float>::infinity();
@@ -136,27 +163,34 @@ public:
                 LOGD("unbound");
                 return;
             }
-            //LOGD("min=%f", min);
-            //LOGD("leavingIndex=%u", leavingIndex);
+            // LOGD("min=%f", min);
+            // LOGD("leavingIndex=%u", leavingIndex);
 
             // swap
             permutation.swap(extraSize + leavingIndex, enteringIndex);
             std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
             std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
             basisLU.replaceColumn(leavingIndex, basis.columns[leavingIndex]);
-            //basisLU.u = basis;
-            //basisLU.decompose();
+            // basisLU.u = basis;
+            // basisLU.decompose();
 
             solution.add(delta, -min);
             solution[leavingIndex] = min;
-            //LOGD("solution (replaced):");
-            //solution.debug();
+            LOGD("solution (replaced):");
+            solution.debug();
 
-            //LOGD("score=%f", SparseOps::dot(basisObjective, solution));
+            LOGD("score=%f", SparseOps::dot(basisObjective, solution));
             if (removingNegatives) {
-                if (SparseOps::dot(negativeObjective, solution) <= 0.0f) {
+                bool allPositive = true;
+                for (uint32_t i = 0; i < basisSize; i++) {
+                    if (solution[i] >= 0.0f) {
+                        negativeObjective[i] = 0.0f;
+                    } else {
+                        allPositive = false;
+                    }
+                }
+                if (allPositive) {
                     removingNegatives = false;
-                    negativeObjective.setEmpty();
                 }
             }
         }
