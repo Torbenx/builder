@@ -118,7 +118,6 @@ public:
             entry.index = p[entry.index];
         }
         vector.sort();
-        vector.debug();
         inverseTransposeU(vector);
         inverseTransposeL(vector);
     }

@@ -133,20 +133,20 @@ void Scene::draw() {
 
     LinearProgramming<BasicZeroTester> lp;
 
-    /*lp.n = 4;
-    lp.numConstraints = 200;
+    lp.n = 4;
+    lp.numConstraints = 16;
     lp.numVariables = lp.n * lp.numConstraints;
     lp.constraints = new uint32_t[lp.numVariables];
     for (uint32_t i = 0; i < lp.numVariables; i++) {
         lp.constraints[i] = i;
-    }*/
+    }
 
     /*uint32_t constraints[] = {
         0, 3, 4, 5,
         1, 3, 4, 5,
         2, 3, 4, 5
     };*/
-    uint32_t constraints[] = {
+    /*uint32_t constraints[] = {
         1, 2, 3, 4,
         0, 2, 3, 4,
         0, 1, 3, 4,
@@ -157,7 +157,7 @@ void Scene::draw() {
     lp.n = 4;
     lp.numConstraints = 6;
     lp.numVariables = 12;
-    lp.constraints = constraints;
+    lp.constraints = constraints;*/
     {
         LogTimer timer;
         lp.doStuff();

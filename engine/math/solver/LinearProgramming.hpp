@@ -21,7 +21,7 @@ public:
         for (uint32_t i = 0; i < numVariables; i++) {
             uint32_t j = permutation[i];
             if (j >= extraSize) {
-                sol[i] = std::ceil(solution[j - extraSize]);
+                sol[i] = solution[j - extraSize];
             } else {
                 sol[i] = 0.0f;
             }
@@ -40,11 +40,13 @@ public:
         negativeObjective.resize(basisSize);
         solution.resize(basisSize);
         basisObjective.resize(basisSize);
+        dual.resize(basisSize);
         for (uint32_t i = 0; i < basisSize; i++) {
             basis.columns[i].pushBack({ -1.0f, i });
             bound[i] = f;
             negativeObjective[i] = -1.0f;
             solution[i] = -f;
+            dual[i] = 1.0f;
         }
         removingNegatives = true;
         basisLU.u = basis;
@@ -61,7 +63,6 @@ public:
             extraObjective[i] = 1.0f;
         }
 
-        dual.resize(basisSize);
         multipliers.resize(extraSize);
 
         while (true) {
@@ -78,20 +79,13 @@ public:
             LogTimer timer;
             timer.disarm();
             // calculate multipliers
-            LOGD("removingNegatives=%u",removingNegatives);
-            LOGD("dual (before):");
-            dual.debug();
-            basisLU.inverseTranspose(dual, removingNegatives ? negativeObjective : basisObjective);
-            LOGD("dual (after):");
-            dual.debug();
-
             SparseOps::multiply(multipliers, dual, extra);
             if (!removingNegatives) {
                 multipliers.add(extraObjective, -1.0f);
             }
             // LOGD("multipliers:");
             // multipliers.debug();
-            timer();
+
             // pick enteringIndex
             uint32_t enteringIndex = extraSize;
             float max = 0.0f;
@@ -135,31 +129,17 @@ public:
                 return;
             }
 
-            // update multipliers
-            delta2.clear();
-            delta2.pushBack({ max / deltaValue, leavingIndex });
-            basisLU.inverseTranspose(delta2);
-            dual.add(delta2, -1.0f);
-
-            // swap
-            permutation.swap(extraSize + leavingIndex, enteringIndex);
-            std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
-            std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
-            uint32_t luIndex = basisLU.p[leavingIndex];
-            timer();
-            basisLU.u.columns[luIndex] = basis.columns[leavingIndex];
-            basisLU.replaceColumn(luIndex);
-            // basisLU.u = basis;
-            // basisLU.decompose();
-            timer();
-
             solution.add(delta, -min);
             solution[leavingIndex] = min;
-
+            // update multipliers
+            bool needsFullMultiplierRecompute = false;
             if (removingNegatives) {
                 bool allPositive = true;
                 for (uint32_t i = 0; i < basisSize; i++) {
                     if (solution[i] >= 0.0f) {
+                        if (negativeObjective[i] != 0.0f && i != leavingIndex) {
+                            needsFullMultiplierRecompute = true;
+                        }
                         negativeObjective[i] = 0.0f;
                     } else {
                         allPositive = false;
@@ -167,10 +147,33 @@ public:
                 }
                 if (allPositive) {
                     removingNegatives = false;
-                    basisLU.inverseTranspose(dual, basisObjective);
-                } else {
-                    basisLU.inverseTranspose(dual, negativeObjective);
+                    needsFullMultiplierRecompute = true;
                 }
+            }
+            if (!needsFullMultiplierRecompute) {
+                delta2.clear();
+                delta2.pushBack({ max / deltaValue, leavingIndex });
+                timer();
+                basisLU.inverseTranspose(delta2);
+                timer();
+                dual.add(delta2, -1.0f);
+            }
+
+            // swap
+            permutation.swap(extraSize + leavingIndex, enteringIndex);
+            std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
+            std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
+
+            timer();
+            uint32_t luIndex = basisLU.p[leavingIndex];
+            basisLU.u.columns[luIndex] = basis.columns[leavingIndex];
+            basisLU.replaceColumn(luIndex);
+            // basisLU.u = basis;
+            // basisLU.decompose();
+            timer();
+
+            if (needsFullMultiplierRecompute) {
+                basisLU.inverseTranspose(dual, removingNegatives ? negativeObjective : basisObjective);
             }
         }
     }
