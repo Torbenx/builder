@@ -12,24 +12,16 @@ public:
     Permutation<size_type> p;
     bool isInvertible = false;
 
-    void inverseL(typename Matrix::Column& col) {
-        for (size_type i = 0; i < col.size(); i++) {
+    void inverseL(SparseVector<T, size_type, ZeroTester>& vector) {
+        for (size_type i = 0; i < vector.size(); i++) {
             // col[i] -= col[row] * l[row,i] ; i > row
-            col.add(l.columns[col[i].index], -col[i].value);
+            vector.add(l.columns[vector[i].index], -vector[i].value);
         }
     }
 
     void inverseL(DenseVector<T, size_type>& vector) {
         for (size_type i = 0; i < vector.size(); i++) {
             vector.add(l.columns[i], -vector[i]);
-        }
-    }
-
-    void inverseU(DenseVector<T, size_type>& vector) {
-        size_type size = std::min((size_type)u.columns.size(), vector.size());
-        for (size_type i = size - 1; i != -1; i--) {
-            vector[i] /= u.columns[i].back().value;
-            vector.add(u.columns[i], -vector[i], 0, u.columns[i].size() - 1);
         }
     }
 
@@ -42,10 +34,48 @@ public:
         }
     }
 
+    void inverseU(DenseVector<T, size_type>& vector) {
+        size_type size = std::min((size_type)u.columns.size(), vector.size());
+        for (size_type i = size - 1; i != -1; i--) {
+            vector[i] /= u.columns[i].back().value;
+            vector.add(u.columns[i], -vector[i], 0, u.columns[i].size() - 1);
+        }
+    }
+
+    void inverseTransposeL(SparseVector<T, size_type, ZeroTester>& vector) {
+        ZeroTester tester;
+        size_type offset = vector.size() - 1;
+        for (size_type i = l.columns.size() - 1; i != -1; i--) {
+            T dot = SparseOps::dot(l.columns[i], vector);
+            if (offset != -1 && vector[offset].index == i) {
+                vector[offset].value -= dot;
+                offset--;
+            } else if (!tester(dot)) {
+                vector.insert(offset + 1, { -dot, i });
+            }
+        }
+    }
+
     void inverseTransposeL(DenseVector<T, size_type>& vector) {
         size_type size = std::min((size_type)l.columns.size(), vector.size());
         for (size_type i = size - 1; i != -1; i--) {
             vector[i] -= SparseOps::dot(vector, l.columns[i]);
+        }
+    }
+
+    void inverseTransposeU(SparseVector<T, size_type, ZeroTester>& vector) {
+        ZeroTester tester;
+        size_type offset = 0;
+        for (size_type i = 0; i < u.columns.size(); i++) {
+            T dot = SparseOps::dot(u.columns[i], vector, (size_type)0, (size_type)0, u.columns[i].size() - 1);
+            if (offset < vector.size() && vector[offset].index == i) {
+                vector[offset].value -= dot;
+                vector[offset].value /= u.columns[i].back().value;
+                offset++;
+            } else if (!tester(dot)) {
+                vector.insert(offset, { -dot / u.columns[i].back().value, i });
+                offset++;
+            }
         }
     }
 
@@ -66,12 +96,13 @@ public:
         std::swap(temp, vector);
     }
 
-    void inverseUnsorted(SparseVector<T, size_type, ZeroTester>& vector) {
+    void inverse(SparseVector<T, size_type, ZeroTester>& vector) {
         inverseL(vector);
         inverseU(vector);
         for (auto& entry : vector) {
             entry.index = p.inverse(entry.index);
         }
+        vector.sort();
     }
 
     void inverseTranspose(DenseVector<T, size_type>& out, DenseVector<T, size_type>& in) {
@@ -82,13 +113,26 @@ public:
         inverseTransposeL(out);
     }
 
+    void inverseTranspose(SparseVector<T, size_type, ZeroTester>& vector) {
+        for (auto& entry : vector) {
+            entry.index = p[entry.index];
+        }
+        vector.sort();
+        vector.debug();
+        inverseTransposeU(vector);
+        inverseTransposeL(vector);
+    }
+
     void replaceColumn(size_type column) {
         inverseL(u.columns[column]);
-        Matrix oldL(std::move(l));
-        l.setEmpty(u.columns.size());
-        decompose(column);
-        l.leftMultiplyAccumulateBy(oldL);
-        l.add(oldL, 1);
+        decompose(column, [&](size_type row, typename Matrix::Column& pivotCol, size_type offset, T factor) {
+            size_type entryCount = pivotCol.size() - offset;
+            for (size_type i = 0; i < entryCount; i++) {
+                typename Matrix::Entry entry = pivotCol[offset + i];
+                l.columns[row].add(l.columns[entry.index], entry.value * factor);
+            }
+            l.columns[row].add(pivotCol, factor, 0, offset);
+        });
     }
 
     // u holds the matrix to decompose
@@ -97,11 +141,22 @@ public:
         p.setIdentity(columnCount);
         l.setEmpty(columnCount);
         isInvertible = true;
-        decompose(0);
+        decompose(0, [&](size_type row, typename Matrix::Column& pivotCol, size_type offset, T factor) {
+            // l[row,i] = u[column,i] / u[column,row] ; i > row
+            size_type entryCount = pivotCol.size() - offset;
+            typename Matrix::Column& pivotFactors = l.columns[row];
+            pivotFactors.reserve(entryCount);
+            for (size_type i = 0; i < entryCount; i++) {
+                typename Matrix::Entry entry = pivotCol[offset + i];
+                entry.value *= factor;
+                pivotFactors.pushBack(entry);
+            }
+        });
     }
 
 private:
-    void decompose(size_type startRow) {
+    template<typename F>
+    void decompose(size_type startRow, F lambda) {
         ZeroTester tester;
         size_type columnCount = u.columns.size();
         std::vector<size_type> columnOffsets;
@@ -154,17 +209,7 @@ private:
             size_type diagOffset = columnOffsets[row];
             T invDiag = 1 / pivotCol[diagOffset].value;
 
-            // l[row,i] = u[column,i] / u[column,row] ; i > row
-            size_type entryCount = pivotCol.size() - (diagOffset + 1);
-            typename Matrix::Column& pivotFactors = l.columns[row];
-            pivotFactors.reserve(entryCount);
-            for (size_type i = 0; i < entryCount; i++) {
-                typename Matrix::Entry entry = pivotCol[i + diagOffset + 1];
-                entry.value *= invDiag;
-                pivotFactors.pushBack(entry);
-            }
-            // u[column,i] = 0 ; i > row
-            pivotCol.eraseAfter(diagOffset);
+            lambda(row, pivotCol, diagOffset + 1, invDiag);
 
             // u[i,j] -= u[i,row]*u[column,i]/u[column,row] ; i > column, j > row
             for (size_type i = row + 1; i < columnCount; i++) {
@@ -175,9 +220,12 @@ private:
                     // fast path, do nothing
                     continue;
                 }
-                col.add(pivotFactors, -col[offset].value, offset);
+                col.add(pivotCol, -col[offset].value * invDiag, offset, diagOffset + 1);
                 columnOffsets[i]++;
             }
+
+            // u[column,i] = 0 ; i > row
+            pivotCol.eraseAfter(diagOffset);
         }
     }
 };

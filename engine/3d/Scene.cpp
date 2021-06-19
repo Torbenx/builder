@@ -132,9 +132,15 @@ void Scene::draw() {
     }*/
 
     LinearProgramming<BasicZeroTester> lp;
-    lp.n = 4;
-    lp.numConstraints = 6;
-    lp.numVariables = 12;
+
+    /*lp.n = 4;
+    lp.numConstraints = 200;
+    lp.numVariables = lp.n * lp.numConstraints;
+    lp.constraints = new uint32_t[lp.numVariables];
+    for (uint32_t i = 0; i < lp.numVariables; i++) {
+        lp.constraints[i] = i;
+    }*/
+
     /*uint32_t constraints[] = {
         0, 3, 4, 5,
         1, 3, 4, 5,
@@ -148,14 +154,9 @@ void Scene::draw() {
         2, 3, 5, 7,
         2, 9, 10, 11,
     };
-    /*uint32_t constraints[] = {
-        0, 1, 2, 3,
-        4, 5, 6, 7,
-        8, 9, 10, 11,
-        12, 13, 14, 15,
-        16, 17, 18, 19,
-        20, 21, 22, 23
-    };*/
+    lp.n = 4;
+    lp.numConstraints = 6;
+    lp.numVariables = 12;
     lp.constraints = constraints;
     {
         LogTimer timer;

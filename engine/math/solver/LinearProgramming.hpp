@@ -13,6 +13,7 @@ public:
     uint32_t basisSize, extraSize, n, numConstraints, numVariables;
     bool removingNegatives;
     uint32_t* constraints;
+    SparseVector<float, uint32_t, ZeroTester> delta, delta2;
 
     void doStuff() {
         relaxed();
@@ -74,16 +75,23 @@ public:
             solution.debug();
             LOGD("score=%f", SparseOps::dot(basisObjective, solution));
             LOGD("");*/
-
+            LogTimer timer;
+            timer.disarm();
             // calculate multipliers
+            LOGD("removingNegatives=%u",removingNegatives);
+            LOGD("dual (before):");
+            dual.debug();
             basisLU.inverseTranspose(dual, removingNegatives ? negativeObjective : basisObjective);
+            LOGD("dual (after):");
+            dual.debug();
+
             SparseOps::multiply(multipliers, dual, extra);
             if (!removingNegatives) {
                 multipliers.add(extraObjective, -1.0f);
             }
             // LOGD("multipliers:");
             // multipliers.debug();
-
+            timer();
             // pick enteringIndex
             uint32_t enteringIndex = extraSize;
             float max = 0.0f;
@@ -104,20 +112,21 @@ public:
                 }
                 continue;
             }
-
+            timer();
             // pick leavingIndex
-            typename Matrix::Column delta = extra.columns[enteringIndex];
-            basisLU.inverseUnsorted(delta);
-            delta.sort();
+            delta = extra.columns[enteringIndex];
+            basisLU.inverse(delta);
 
             uint32_t leavingIndex = basisSize;
             float min = std::numeric_limits<float>::infinity();
+            float deltaValue;
             for (auto entry : delta) {
                 float f = solution[entry.index] / entry.value;
                 if (f > 0.0f || (solution[entry.index] == 0 && entry.value > 0.0f)) {
                     if (f < min) {
                         min = f;
                         leavingIndex = entry.index;
+                        deltaValue = entry.value;
                     }
                 }
             }
@@ -126,15 +135,23 @@ public:
                 return;
             }
 
+            // update multipliers
+            delta2.clear();
+            delta2.pushBack({ max / deltaValue, leavingIndex });
+            basisLU.inverseTranspose(delta2);
+            dual.add(delta2, -1.0f);
+
             // swap
             permutation.swap(extraSize + leavingIndex, enteringIndex);
             std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
             std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
             uint32_t luIndex = basisLU.p[leavingIndex];
+            timer();
             basisLU.u.columns[luIndex] = basis.columns[leavingIndex];
             basisLU.replaceColumn(luIndex);
-            //basisLU.u = basis;
-            //basisLU.decompose();
+            // basisLU.u = basis;
+            // basisLU.decompose();
+            timer();
 
             solution.add(delta, -min);
             solution[leavingIndex] = min;
@@ -150,6 +167,9 @@ public:
                 }
                 if (allPositive) {
                     removingNegatives = false;
+                    basisLU.inverseTranspose(dual, basisObjective);
+                } else {
+                    basisLU.inverseTranspose(dual, negativeObjective);
                 }
             }
         }
@@ -201,10 +221,11 @@ public:
             negativeObjective[basisSize - 1] = -1.0f;
             removingNegatives = true;
             allGood = false;
-            break;
+            // break;
         }
         basisLU.u = basis;
         basisLU.decompose();
+        basisLU.inverseTranspose(dual, negativeObjective);
         return allGood;
     }
 };

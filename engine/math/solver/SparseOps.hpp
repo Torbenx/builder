@@ -22,6 +22,36 @@ struct SparseOps {
     }
 
     template<typename T, typename size_type, class ZeroTester>
+    static T dot(SparseVector<T, size_type, ZeroTester>& v1, SparseVector<T, size_type, ZeroTester>& v2, size_type offset1 = 0, size_type offset2 = 0, size_type end1 = std::numeric_limits<size_type>::max(), size_type end2 = std::numeric_limits<size_type>::max()) {
+        end1 = std::min(end1, v1.size());
+        end2 = std::min(end2, v2.size());
+        if (offset1 >= end1 || offset2 >= end2)
+            return 0;
+        T sum = 0;
+        while (true) {
+            if (v1[offset1].index == v2[offset2].index) {
+                sum += v1[offset1].value * v2[offset2].value;
+                offset1++;
+                offset2++;
+                if (offset1 >= end1 || offset2 >= end2) {
+                    break;
+                }
+            } else if (v1[offset1].index > v2[offset2].index) {
+                offset2++;
+                if (offset2 >= end2) {
+                    break;
+                }
+            } else {
+                offset1++;
+                if (offset1 >= end1) {
+                    break;
+                }
+            }
+        }
+        return sum;
+    }
+
+    template<typename T, typename size_type, class ZeroTester>
     static T dot(DenseVector<T, size_type>& v1, SparseVector<T, size_type, ZeroTester>& v2, size_type offset = 0, size_type end = std::numeric_limits<size_type>::max()) {
         end = std::min(end, v2.size());
         T sum = 0;
@@ -61,6 +91,19 @@ struct SparseOps {
             }
         }
 
+        return out;
+    }
+
+    template<typename T, typename size_type, class ZeroTester>
+    static SparseVector<T, size_type, ZeroTester> multiply(SparseVector<T, size_type, ZeroTester>& l, SparseMatrix<T, size_type, ZeroTester>& r) {
+        ZeroTester tester;
+        SparseVector<T, size_type, ZeroTester> out;
+        for (size_type i = 0; i < r.columns.size(); i++) {
+            T dot = SparseOps::dot(l, r.columns[i]);
+            if (!tester(dot)) {
+                out.pushBack({ dot, i });
+            }
+        }
         return out;
     }
 };

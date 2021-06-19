@@ -8,13 +8,19 @@ public:
     uint64_t start;
     std::vector<uint64_t> laps;
 
-        LogTimer() { start = getNanos(); }
+    LogTimer() { start = getNanos(); }
 
-    __attribute__((noinline)) void operator()() {
+    void operator()() {
         laps.push_back(getNanos());
     }
 
+    void disarm() {
+        start = 0;
+    }
+
     ~LogTimer() {
+        if (start == 0)
+            return;
         (*this)();
         uint64_t prev = start;
         int i = 0;
