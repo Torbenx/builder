@@ -69,7 +69,7 @@ public:
     void inverseUnsorted(SparseVector<T, size_type, ZeroTester>& vector) {
         inverseL(vector);
         inverseU(vector);
-        for(auto& entry : vector) {
+        for (auto& entry : vector) {
             entry.index = p.inverse(entry.index);
         }
     }
@@ -96,6 +96,7 @@ public:
         size_type columnCount = u.columns.size();
         p.setIdentity(columnCount);
         l.setEmpty(columnCount);
+        isInvertible = true;
         decompose(0);
     }
 
@@ -129,7 +130,7 @@ private:
                 }
             }
             /*T max = 0;
-            for (size_type i = column; i < columnCount; i++) {
+            for (size_type i = row; i < columnCount; i++) {
                 if (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index == row) {
                     if (std::abs(u.columns[i][columnOffsets[i]].value) > max) {
                         pivot = i;
@@ -139,6 +140,8 @@ private:
             }*/
             if (pivot == columnCount) {
                 isInvertible = false;
+                // LOGD("not invertible:");
+                // u.debug();
                 break;
             }
             if (pivot != row) {
@@ -172,7 +175,7 @@ private:
                     // fast path, do nothing
                     continue;
                 }
-                col.add(pivotFactors, -col[offset].value * invDiag, offset);
+                col.add(pivotFactors, -col[offset].value, offset);
                 columnOffsets[i]++;
             }
         }

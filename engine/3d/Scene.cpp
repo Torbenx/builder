@@ -133,8 +133,8 @@ void Scene::draw() {
 
     LinearProgramming<BasicZeroTester> lp;
     lp.n = 4;
-    lp.numConstraints = 3;
-    lp.numVariables = 5;
+    lp.numConstraints = 6;
+    lp.numVariables = 12;
     /*uint32_t constraints[] = {
         0, 3, 4, 5,
         1, 3, 4, 5,
@@ -143,8 +143,19 @@ void Scene::draw() {
     uint32_t constraints[] = {
         1, 2, 3, 4,
         0, 2, 3, 4,
-        0, 1, 3, 4
+        0, 1, 3, 4,
+        1, 5, 6, 8,
+        2, 3, 5, 7,
+        2, 9, 10, 11,
     };
+    /*uint32_t constraints[] = {
+        0, 1, 2, 3,
+        4, 5, 6, 7,
+        8, 9, 10, 11,
+        12, 13, 14, 15,
+        16, 17, 18, 19,
+        20, 21, 22, 23
+    };*/
     lp.constraints = constraints;
     {
         LogTimer timer;
@@ -164,7 +175,6 @@ void Scene::draw() {
         return std::abs(volume) > 0.0001f || std::isnan(volume);
     };
 
-    uint64_t start = getNanos();
     depthShader->use();
     for (DepthRenderpass& pass : depthPasses) {
         pass.framebuffer->bind();
@@ -203,6 +213,4 @@ void Scene::draw() {
             }
         }
     }
-    uint64_t end = getNanos();
-    // LOGD("draw took %f us", (end - start) / 1000.0);
 }
