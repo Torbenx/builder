@@ -134,11 +134,11 @@ void Scene::draw() {
     LinearProgramming<BasicZeroTester> lp;
 
     lp.n = 4;
-    lp.numConstraints = 4;
+    lp.numConstraints = 5;
     lp.numVariables = lp.n * lp.numConstraints;
     lp.constraints = new uint32_t[lp.numVariables];
     for (uint32_t i = 0; i < lp.numVariables; i++) {
-        lp.constraints[i] = i;
+        lp.constraints[i] = (i + lp.numVariables / 2) % lp.numVariables;
     }
 
     /*uint32_t constraints[] = {
@@ -163,6 +163,7 @@ void Scene::draw() {
         lp.doStuff();
     }
 
+    LogTimer timer;
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
         Vec4 px = mvp * Vec4(object.boundingBox.right, object.boundingBox.bottom, object.boundingBox.front, 1.0f);

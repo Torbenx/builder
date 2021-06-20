@@ -15,6 +15,7 @@ public:
 
     void doStuff() {
         relaxed();
+        //dual.debug();
     }
 
     void relaxed() {
@@ -30,7 +31,7 @@ public:
             basis.columns[i].pushBack({ 1.0f, i });
             bound[i] = 1.0f;
             solution[i] = 1.0f;
-            dual[i] = 1.0f;
+            dual[i] = 0.0f;
         }
         basisLU.u = basis;
         basisLU.decompose();
@@ -49,7 +50,7 @@ public:
         multipliers.resize(extraSize);
 
         while (true) {
-            LOGD("basis:");
+            /*LOGD("basis:");
             basis.debug();
             basisObjective.debug();
             LOGD("extra:");
@@ -58,16 +59,19 @@ public:
             LOGD("solution:");
             solution.debug();
             LOGD("score=%f", SparseOps::dot(basisObjective, solution));
-            LOGD("");
+            LOGD("");*/
             LogTimer timer;
             timer.disarm();
             // calculate multipliers
-            basisLU.inverseTranspose(dual, basisObjective);
+            /*LOGD("dual (before):");
             dual.debug();
+            basisLU.inverseTranspose(dual, basisObjective);
+            LOGD("dual (after):");
+            dual.debug();*/
             SparseOps::multiply(multipliers, dual, extra);
             multipliers.add(extraObjective, -1.0f);
-            LOGD("multipliers:");
-            multipliers.debug();
+            //LOGD("multipliers:");
+            //multipliers.debug();
 
             // pick enteringIndex
             uint32_t enteringIndex = extraSize;
@@ -88,8 +92,6 @@ public:
             timer();
             // pick leavingIndex
             delta = extra.columns[enteringIndex];
-            LOGD("entering:");
-            delta.debug();
             basisLU.inverse(delta);
 
             uint32_t leavingIndex = basisSize;
@@ -112,32 +114,25 @@ public:
 
             solution.add(delta, -min);
             solution[leavingIndex] = min;
+
             // update multipliers
-            bool needsFullMultiplierRecompute = false;
-            if (!needsFullMultiplierRecompute) {
-                delta2.clear();
-                delta2.pushBack({ max / deltaValue, leavingIndex });
-                timer();
-                basisLU.inverseTranspose(delta2);
-                timer();
-                dual.add(delta2, -1.0f);
-            }
+            delta2.clear();
+            delta2.pushBack({ -max / deltaValue, leavingIndex });
+            timer();
+            basisLU.inverseTranspose(delta2);
+            timer();
+            dual.add(delta2, -1.0f);
 
             // swap
             std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
             std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
 
-            timer();
             uint32_t luIndex = basisLU.p[leavingIndex];
             basisLU.u.columns[luIndex] = basis.columns[leavingIndex];
+            timer();
             basisLU.replaceColumn(luIndex);
             // basisLU.u = basis;
             // basisLU.decompose();
-            timer();
-
-            if (needsFullMultiplierRecompute) {
-                basisLU.inverseTranspose(dual, basisObjective);
-            }
         }
     }
 
@@ -171,7 +166,6 @@ public:
             for (uint32_t k = 0; k <= lastFailure; k++) {
                 col.pushBack({ 1.0f, entries[k].first });
             }
-            col.debug();
             multipliers.resize(extraSize);
             extraObjective.resize(extraSize);
             extraObjective[extraSize - 1] = 0.5f * lastFailure * (lastFailure + 1);

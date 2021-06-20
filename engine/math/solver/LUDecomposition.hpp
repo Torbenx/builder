@@ -11,6 +11,7 @@ public:
     Matrix l, u;
     Permutation<size_type> p;
     bool isInvertible = false;
+    std::vector<bool> dirtyColumns;
 
     void inverseL(SparseVector<T, size_type, ZeroTester>& vector) {
         for (size_type i = 0; i < vector.size(); i++) {
@@ -124,6 +125,7 @@ public:
 
     void replaceColumn(size_type column) {
         inverseL(u.columns[column]);
+        dirtyColumns[column] = true;
         decompose(column, [&](size_type row, typename Matrix::Column& pivotCol, size_type offset, T factor) {
             size_type entryCount = pivotCol.size() - offset;
             for (size_type i = 0; i < entryCount; i++) {
@@ -140,6 +142,9 @@ public:
         p.setIdentity(columnCount);
         l.setEmpty(columnCount);
         isInvertible = true;
+        dirtyColumns.clear();
+        dirtyColumns.resize(columnCount);
+        dirtyColumns.flip();
         decompose(0, [&](size_type row, typename Matrix::Column& pivotCol, size_type offset, T factor) {
             // l[row,i] = u[column,i] / u[column,row] ; i > row
             size_type entryCount = pivotCol.size() - offset;
@@ -160,17 +165,19 @@ private:
         size_type columnCount = u.columns.size();
         std::vector<size_type> columnOffsets;
         columnOffsets.resize(columnCount);
-        for (size_type i = startRow; i < columnCount; i++) {
-            while (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index < startRow) {
-                columnOffsets[i]++;
-            }
-        }
 
         for (size_type row = startRow; row < columnCount; row++) {
+            if (!dirtyColumns[row]) {
+                continue;
+            }
+
             // select pivot
             size_type pivot = columnCount;
             size_type bestScore = std::numeric_limits<size_type>::max();
             for (size_type i = row; i < columnCount; i++) {
+                while (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index < row) {
+                    columnOffsets[i]++;
+                }
                 if (columnOffsets[i] < u.columns[i].size() && u.columns[i][columnOffsets[i]].index == row) {
                     size_type entryCount = u.columns[i].size() - columnOffsets[i] - 1;
                     size_type score = 0;
@@ -202,10 +209,12 @@ private:
                 p.swap(pivot, row);
                 std::swap(u.columns[pivot], u.columns[row]);
                 std::swap(columnOffsets[pivot], columnOffsets[row]);
+                std::swap(dirtyColumns[pivot], dirtyColumns[row]);
             }
+            dirtyColumns[row] = false;
 
-            auto& pivotCol = u.columns[row];
             size_type diagOffset = columnOffsets[row];
+            auto& pivotCol = u.columns[row];
             T invDiag = 1 / pivotCol[diagOffset].value;
 
             lambda(row, pivotCol, diagOffset + 1, invDiag);
@@ -216,10 +225,12 @@ private:
                 size_type offset = columnOffsets[i];
 
                 if (offset == col.size() || col[offset].index > row) {
-                    // fast path, do nothing
                     continue;
                 }
-                col.add(pivotCol, -col[offset].value * invDiag, offset, diagOffset + 1);
+                if (diagOffset + 1 < pivotCol.size()) {
+                    col.add(pivotCol, -col[offset].value * invDiag, 0, diagOffset + 1);
+                    dirtyColumns[i] = true;
+                }
                 columnOffsets[i]++;
             }
 
