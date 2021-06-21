@@ -95,15 +95,22 @@ struct SparseOps {
     }
 
     template<typename T, typename size_type, class ZeroTester>
-    static SparseVector<T, size_type, ZeroTester> multiply(SparseVector<T, size_type, ZeroTester>& l, SparseMatrix<T, size_type, ZeroTester>& r) {
+    static void multiply(SparseVector<T, size_type, ZeroTester>& out, SparseVector<T, size_type, ZeroTester>& l, SparseMatrix<T, size_type, ZeroTester>& r) {
         ZeroTester tester;
-        SparseVector<T, size_type, ZeroTester> out;
+        out.clear();
         for (size_type i = 0; i < r.columns.size(); i++) {
             T dot = SparseOps::dot(l, r.columns[i]);
             if (!tester(dot)) {
                 out.pushBack({ dot, i });
             }
         }
-        return out;
+    }
+
+    template<typename T, typename size_type, class ZeroTester>
+    static void multiplyAccumulate(DenseVector<T, size_type>& out, SparseVector<T, size_type, ZeroTester>& l, SparseMatrix<T, size_type, ZeroTester>& r) {
+        ZeroTester tester;
+        for (size_type i = 0; i < r.columns.size(); i++) {
+            out[i] += SparseOps::dot(l, r.columns[i]);
+        }
     }
 };

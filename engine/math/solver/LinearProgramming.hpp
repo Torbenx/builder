@@ -11,7 +11,8 @@ public:
     DenseVector<float, uint32_t> solution, dual, multipliers, bound, basisObjective, extraObjective;
     uint32_t basisSize, extraSize, n, numConstraints, numVariables;
     uint32_t* constraints;
-    SparseVector<float, uint32_t, ZeroTester> delta, delta2;
+    SparseVector<float, uint32_t, ZeroTester> delta, deltaDual, deltaMultipliers;
+    std::vector<bool> dirtyMultipliers;
 
     void doStuff() {
         relaxed();
@@ -38,6 +39,9 @@ public:
 
         extra.setEmpty(extraSize);
         extraObjective.resize(extraSize);
+        multipliers.resize(extraSize);
+        dirtyMultipliers.resize(extraSize);
+        dirtyMultipliers.flip();
         for (uint32_t i = 0; i < numConstraints; i++) {
             for (uint32_t j = 0; j < n; j++) {
                 extra.columns[i].pushBack({ 1.0f, constraints[i * n + j] });
@@ -45,9 +49,9 @@ public:
         }
         for (uint32_t i = 0; i < extraSize; i++) {
             extraObjective[i] = 0.5f * (n - 1) * n;
+            multipliers[i] = -0.5f * (n - 1) * n;
         }
 
-        multipliers.resize(extraSize);
 
         while (true) {
             /*LOGD("basis:");
@@ -63,23 +67,24 @@ public:
             LogTimer timer;
             timer.disarm();
             // calculate multipliers
-            /*LOGD("dual (before):");
+            /*LOGD("dual:");
             dual.debug();
             basisLU.inverseTranspose(dual, basisObjective);
-            LOGD("dual (after):");
-            dual.debug();*/
+            dual.debug();
+            LOGD("multipliers:");
+            multipliers.debug();
             SparseOps::multiply(multipliers, dual, extra);
             multipliers.add(extraObjective, -1.0f);
-            //LOGD("multipliers:");
-            //multipliers.debug();
+            multipliers.debug();*/
 
             // pick enteringIndex
             uint32_t enteringIndex = extraSize;
             float max = 0.0f;
             for (uint32_t i = 0; i < extraSize; i++) {
-                if (-multipliers[i] > max) {
+                if (dirtyMultipliers[i]) {
                     max = -multipliers[i];
                     enteringIndex = i;
+                    break;
                 }
             }
             if (enteringIndex == extraSize) {
@@ -115,17 +120,23 @@ public:
             solution.add(delta, -min);
             solution[leavingIndex] = min;
 
-            // update multipliers
-            delta2.clear();
-            delta2.pushBack({ -max / deltaValue, leavingIndex });
-            timer();
-            basisLU.inverseTranspose(delta2);
-            timer();
-            dual.add(delta2, -1.0f);
-
             // swap
             std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
             std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
+
+            // update multipliers
+            deltaDual.clear();
+            deltaDual.pushBack({ max / deltaValue, leavingIndex });
+            timer();
+            basisLU.inverseTranspose(deltaDual);
+            timer();
+            dual.add(deltaDual, 1.0f);
+            SparseOps::multiply(deltaMultipliers, deltaDual, extra);
+            multipliers[enteringIndex] = 0.0f;
+            multipliers.add(deltaMultipliers, 1.0f);
+            for (auto entry : deltaMultipliers) {
+                dirtyMultipliers[entry.index] = multipliers[entry.index] < 0.0f;
+            }
 
             uint32_t luIndex = basisLU.p[leavingIndex];
             basisLU.u.columns[luIndex] = basis.columns[leavingIndex];
@@ -163,10 +174,15 @@ public:
             extraSize++;
             typename Matrix::Column& col = extra.columns.emplace_back();
             col.reserve(lastFailure);
+            float multiplier = -0.5f * lastFailure * (lastFailure + 1);
             for (uint32_t k = 0; k <= lastFailure; k++) {
                 col.pushBack({ 1.0f, entries[k].first });
+                multiplier += dual[entries[k].first];
             }
             multipliers.resize(extraSize);
+            multipliers[extraSize - 1] = multiplier;
+            dirtyMultipliers.resize(extraSize);
+            dirtyMultipliers[extraSize - 1] = multiplier < 0.0f;
             extraObjective.resize(extraSize);
             extraObjective[extraSize - 1] = 0.5f * lastFailure * (lastFailure + 1);
             allGood = false;
