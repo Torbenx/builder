@@ -10,7 +10,7 @@ class SparseMatrix {
 public:
     using Matrix = SparseMatrix<T, size_type, ZeroTester>;
     using Column = SparseVector<T, size_type, ZeroTester>;
-    using Entry = Column::Entry;
+    using Entry = typename Column::Entry;
 
     std::vector<Column> columns;
 

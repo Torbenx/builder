@@ -15,11 +15,11 @@
 #include <stdio.h>
 #include <cmath>
 
-#define LOGV(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
-#define LOGD(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
-#define LOGI(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
-#define LOGW(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
-#define LOGE(msg, ...) {printf(msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGV(msg, ...) {fprintf(stdout, msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGD(msg, ...) {fprintf(stdout, msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGI(msg, ...) {fprintf(stdout, msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGW(msg, ...) {fprintf(stdout, msg"\n", ##__VA_ARGS__); fflush(stdout);}
+#define LOGE(msg, ...) {fprintf(stdout, msg"\n", ##__VA_ARGS__); fflush(stdout);}
 
 #endif
 
@@ -49,9 +49,13 @@
 #endif
 
 #ifdef VALIDATE_MATH
+#define MATH_VERIFY(cond, ...) { if(!(cond)) LOGW("MATH_VERIFY failed %s:%d: %s(): " #cond "; " __VA_ARGS__, __FILE__, __LINE__, __func__); }
 #define MATH_EXPECT(lhs, rhs, ...) { float l = (lhs); float r = (rhs); if(fabs(l - r) > VALIDATE_MATH_MARGIN) LOGW("MATH_EXPECT failed: %s:%d: %s(): " #lhs " {%f} == " #rhs " {%f}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r); }
 #define MATH_EXPECT_NORMALIZED(v, ...) { float len = v.length(); if(fabs(len - 1.0f) > VALIDATE_MATH_MARGIN) LOGW("MATH_EXPECT_NORMALIZED failed: %s:%d: %s(): " #v " {%f}; " __VA_ARGS__, __FILE__, __LINE__, __func__, len); }
+#define MATH_VARIFY_NOT_REACHED(...) MATH_VERIFY(false, __VA_ARGS__)
 #else
+#define MATH_VARIFY(cond, ...)
+#define MATH_VARIFY_NOT_REACHED(...)
 #define MATH_EXPECT(lhs, rhs, ...)
 #define MATH_EXPECT_NORMALIZED(v, ...)
 #endif

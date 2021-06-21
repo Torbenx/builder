@@ -5,6 +5,7 @@
 #include "input/keycodes.hpp"
 #include "windows/fullscreen.hpp"
 #include "windows/engine.hpp"
+#include "windows/redirect.hpp"
 #include <Windows.h>
 #include <stdio.h>
 #include <ctime>
@@ -253,6 +254,7 @@ void Renderer::exit(){
 
 int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
     createRenderer = r;
+    redirectToConsole();
     init_time();
     init_textureFormats();
 

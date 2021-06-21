@@ -31,6 +31,14 @@ public:
         return offset;
     }
 
+    T getValueByIndex(size_type index) {
+        size_type offset = findByIndex(index);
+        if (offset >= size() || at(offset).index != index) {
+            return 0;
+        }
+        return at(offset).value;
+    }
+
     size_type findByIndex(size_type index) {
         return std::lower_bound(entries.begin(), entries.end(), index) - entries.begin();
     }

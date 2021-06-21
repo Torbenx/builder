@@ -8,7 +8,7 @@ public:
     using Matrix = SparseMatrix<float, uint32_t, ZeroTester>;
     LUPDecomposition<float, uint32_t, ZeroTester> basisLU;
     Matrix basis, extra;
-    DenseVector<float, uint32_t> solution, dual, multipliers, bound, basisObjective, extraObjective;
+    DenseVector<float, uint32_t> solution, multipliers, bound, basisObjective, extraObjective;
     uint32_t basisSize, extraSize, n, numConstraints, numVariables;
     uint32_t* constraints;
     SparseVector<float, uint32_t, ZeroTester> delta, deltaDual, deltaMultipliers;
@@ -16,7 +16,7 @@ public:
 
     void doStuff() {
         relaxed();
-        //dual.debug();
+        // dual.debug();
     }
 
     void relaxed() {
@@ -27,12 +27,10 @@ public:
         bound.resize(basisSize);
         solution.resize(basisSize);
         basisObjective.resize(basisSize);
-        dual.resize(basisSize);
         for (uint32_t i = 0; i < basisSize; i++) {
             basis.columns[i].pushBack({ 1.0f, i });
             bound[i] = 1.0f;
             solution[i] = 1.0f;
-            dual[i] = 0.0f;
         }
         basisLU.u = basis;
         basisLU.decompose();
@@ -130,7 +128,7 @@ public:
             timer();
             basisLU.inverseTranspose(deltaDual);
             timer();
-            dual.add(deltaDual, 1.0f);
+            //dual.add(deltaDual, 1.0f);
             SparseOps::multiply(deltaMultipliers, deltaDual, extra);
             multipliers[enteringIndex] = 0.0f;
             multipliers.add(deltaMultipliers, 1.0f);
@@ -147,7 +145,11 @@ public:
         }
     }
 
+    DenseVector<float, uint32_t> dual;
     bool generateConstrains() {
+        dual.resize(basisSize);
+        basisLU.inverseTranspose(dual, basisObjective);
+
         std::pair<uint32_t, float> entries[n];
         bool allGood = true;
         for (uint32_t i = 0; i < numConstraints; i++) {
@@ -174,15 +176,13 @@ public:
             extraSize++;
             typename Matrix::Column& col = extra.columns.emplace_back();
             col.reserve(lastFailure);
-            float multiplier = -0.5f * lastFailure * (lastFailure + 1);
             for (uint32_t k = 0; k <= lastFailure; k++) {
                 col.pushBack({ 1.0f, entries[k].first });
-                multiplier += dual[entries[k].first];
             }
             multipliers.resize(extraSize);
-            multipliers[extraSize - 1] = multiplier;
+            multipliers[extraSize - 1] = SparseOps::dot(dual, col) - 0.5f * lastFailure * (lastFailure + 1);
             dirtyMultipliers.resize(extraSize);
-            dirtyMultipliers[extraSize - 1] = multiplier < 0.0f;
+            dirtyMultipliers[extraSize - 1] = multipliers[extraSize - 1] < 0.0f;
             extraObjective.resize(extraSize);
             extraObjective[extraSize - 1] = 0.5f * lastFailure * (lastFailure + 1);
             allGood = false;
