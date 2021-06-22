@@ -40,13 +40,11 @@ public:
         size_type columnCount = columns.size();
         Column temp;
         for (size_type i = 0; i < columnCount; i++) {
-            uint64_t mask = 0;
-            for (Entry entry : columns[i]) {
-                mask |= l.columns[entry.index].mask;
-            }
             temp.clear();
-            temp.reserveForAdd(mask);
-            temp.mask |= mask;
+            for (Entry entry : columns[i]) {
+                temp.mask |= l.columns[entry.index].mask;
+            }
+            temp.reserve();
             for (Entry entry : columns[i]) {
                 temp.add_internal(l.columns[entry.index], entry.value);
             }
@@ -58,13 +56,11 @@ public:
         size_type columnCount = columns.size();
         Column temp;
         for (size_type i = 0; i < columnCount; i++) {
-            uint64_t mask = 0;
-            for (Entry entry : columns[i]) {
-                mask |= l.columns[entry.index].mask;
-            }
             temp = columns[i];
-            temp.reserveForAdd(mask);
-            temp.mask |= mask;
+            for (Entry entry : columns[i]) {
+                temp.mask |= l.columns[entry.index].mask;
+            }
+            temp.reserve();
             for (Entry entry : columns[i]) {
                 temp.add_internal(l.columns[entry.index], entry.value);
             }

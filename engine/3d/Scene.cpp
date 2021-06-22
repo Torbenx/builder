@@ -98,6 +98,10 @@ struct BasicZeroTester {
     bool operator()(float f) {
         return std::abs(f) < 0.0005f;
     }
+
+    bool is_positive(float f) {
+        return f > 0.0005f;
+    }
 };
 
 void Scene::draw() {
@@ -133,12 +137,18 @@ void Scene::draw() {
 
     LinearProgramming<BasicZeroTester> lp;
 
-    lp.n = 4;
+    uint32_t k = 4;
+    lp.n = k;
     lp.numConstraints = 200;
-    lp.numVariables = lp.n * lp.numConstraints;
-    lp.constraints = new uint32_t[lp.numVariables];
-    for (uint32_t i = 0; i < lp.numVariables; i++) {
-        lp.constraints[i] = i;
+    lp.numVariables = k * lp.numConstraints + lp.n - k;
+    lp.constraints = new uint32_t[lp.n * lp.numVariables];
+    for (uint32_t i = 0; i < lp.numConstraints; i++) {
+        for (uint32_t j = 0; j < lp.n; j++) {
+            if(j < k)
+                lp.constraints[i * lp.n + j] = i * k + j;
+            else
+                lp.constraints[i * lp.n + j] = lp.numVariables - lp.n + j;
+        }
     }
 
     /*uint32_t constraints[] = {
@@ -162,6 +172,7 @@ void Scene::draw() {
         LogTimer timer;
         lp.doStuff();
     }
+    //lp.dual.debug();
 
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/solver/SparseEntry.hpp"
+#include "util/BitSet.hpp"
 #include <iostream>
 
 template<typename T, typename size_type, class ZeroTester>
@@ -10,7 +11,7 @@ public:
     using Vector = SparseVector<T, size_type, ZeroTester>;
     using iterator = typename std::vector<Entry>::iterator;
 
-    uint64_t mask = 0;
+    BitSet mask;
 
     void addByIndex(size_type index, T value) {
         ZeroTester tester;
@@ -52,7 +53,7 @@ public:
     Entry& back() { return entries.back(); }
 
     void insert(size_type offset, Entry entry) {
-        mask |= (uint64_t)1 << entry.index;
+        mask.setBit(entry.index);
         insert_internal(offset, entry);
     }
 
@@ -61,12 +62,12 @@ public:
     }
 
     void pushBack(Entry entry) {
+        mask.setBit(entry.index);
         entries.push_back(entry);
-        mask |= (uint64_t)1 << entry.index;
     }
 
     void erase(size_type offset) {
-        mask &= ~((uint64_t)1 << at(offset).index);
+        mask.clearBit(at(offset).index);
         erase_internal(offset);
     }
 
@@ -75,34 +76,38 @@ public:
     }
 
     void eraseAfter(size_type offset) {
-        mask &= ((uint64_t)1 << (at(offset).index + 1)) - 1;
+        mask.clearAfter(offset);
         entries.erase(entries.begin() + offset + 1, entries.end());
     }
 
     bool empty() { return entries.empty(); }
 
     void clear() {
-        mask = 0;
+        mask.clear();
         entries.clear();
     }
 
-    void sort() { std::sort(entries.begin(), entries.end()); }
+    void sort() {
+        std::sort(begin(), end());
+        mask.clear();
+        for (auto entry : *this) {
+            mask.setBit(entry.index);
+        }
+    }
 
     iterator begin() { return entries.begin(); }
 
     iterator end() { return entries.end(); }
 
-    void reserveForAdd(uint64_t addMask) {
-        reserve(size() + std::popcount(addMask & ~mask));
-    }
-
     void reserve(size_type size) {
         entries.reserve(size);
     }
 
+    void reserve() { reserve(mask.popcount()); }
+
     void add(Vector& other, T factor, size_type offset = 0, size_type otherOffset = 0, size_type otherEnd = std::numeric_limits<size_type>::max()) {
-        reserveForAdd(other.mask);
         mask |= other.mask;
+        reserve();
         add_internal(other, factor, offset, otherOffset, otherEnd);
     }
 

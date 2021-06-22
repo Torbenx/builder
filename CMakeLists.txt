@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
 project(engine)
 
+set(CMAKE_BUILD_TYPE release)
+
 function(add_assets _TARGET)
     cmake_parse_arguments(
         _add_assets

@@ -201,15 +201,15 @@ private:
             }*/
             if (pivot == columnCount) {
                 isInvertible = false;
-                // LOGD("not invertible:");
-                // u.debug();
+                LOGD("not invertible!");
+                u.debug();
                 break;
             }
             if (pivot != row) {
                 p.swap(pivot, row);
                 std::swap(u.columns[pivot], u.columns[row]);
                 std::swap(columnOffsets[pivot], columnOffsets[row]);
-                std::swap(dirtyColumns[pivot], dirtyColumns[row]);
+                dirtyColumns[pivot] = true;
             }
             dirtyColumns[row] = false;
 

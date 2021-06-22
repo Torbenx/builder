@@ -25,7 +25,7 @@ struct SparseOps {
     static T dot(SparseVector<T, size_type, ZeroTester>& v1, SparseVector<T, size_type, ZeroTester>& v2, size_type offset1 = 0, size_type offset2 = 0, size_type end1 = std::numeric_limits<size_type>::max(), size_type end2 = std::numeric_limits<size_type>::max()) {
         end1 = std::min(end1, v1.size());
         end2 = std::min(end2, v2.size());
-        if (offset1 >= end1 || offset2 >= end2)
+        if (offset1 >= end1 || offset2 >= end2 /*|| !BitSet::shareAny(v1.mask, v2.mask)*/)
             return 0;
         T sum = 0;
         while (true) {
