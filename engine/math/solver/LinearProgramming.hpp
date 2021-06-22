@@ -11,8 +11,8 @@ public:
     DenseVector<float, uint32_t> solution, multipliers, bound, basisObjective, extraObjective;
     uint32_t basisSize, extraSize, n, numConstraints, numVariables;
     uint32_t* constraints;
-    SparseVector<float, uint32_t, ZeroTester> delta, deltaDual, deltaMultipliers;
-    std::vector<bool> dirtyMultipliers;
+    SparseVector<float, uint32_t, ZeroTester> delta, delta2, deltaDual, deltaMultipliers;
+    BitSet dirtyMultipliers;
 
     void doStuff() {
         relaxed();
@@ -20,6 +20,8 @@ public:
     }
 
     void relaxed() {
+        ZeroTester tester;
+
         basisSize = numVariables;
         extraSize = numConstraints;
 
@@ -38,8 +40,7 @@ public:
         extra.setEmpty(extraSize);
         extraObjective.resize(extraSize);
         multipliers.resize(extraSize);
-        dirtyMultipliers.resize(extraSize);
-        dirtyMultipliers.flip();
+        dirtyMultipliers.setUpTo(extraSize);
         for (uint32_t i = 0; i < numConstraints; i++) {
             for (uint32_t j = 0; j < n; j++) {
                 extra.columns[i].pushBack({ 1.0f, constraints[i * n + j] });
@@ -70,18 +71,8 @@ public:
             LOGD("");*/
             LogTimer timer;
             timer.disarm();
-            ZeroTester tester;
-
             // pick enteringIndex
-            uint32_t enteringIndex = extraSize;
-            float max = 0.0f;
-            for (uint32_t i = 0; i < extraSize; i++) {
-                if (dirtyMultipliers[i]) {
-                    max = -multipliers[i];
-                    enteringIndex = i;
-                    break;
-                }
-            }
+            uint32_t enteringIndex = dirtyMultipliers.firstSetBit(extraSize);
             if (enteringIndex == extraSize) {
                 if (generateConstrains()) {
                     // LOGD("done");
@@ -92,7 +83,9 @@ public:
             timer();
             // pick leavingIndex
             delta = extra.columns[enteringIndex];
-            basisLU.inverse(delta);
+            basisLU.inverseL(delta);
+            delta2 = delta;
+            basisLU.inverse_internal(delta);
 
             uint32_t leavingIndex = basisSize;
             float min = std::numeric_limits<float>::infinity();
@@ -121,23 +114,23 @@ public:
 
             // update multipliers
             deltaDual.clear();
-            deltaDual.pushBack({ max / deltaValue, leavingIndex });
+            deltaDual.pushBack({ -multipliers[enteringIndex] / deltaValue, leavingIndex });
             timer();
             basisLU.inverseTranspose(deltaDual);
             timer();
             //dual.add(deltaDual, 1.0f);
             SparseOps::multiply(deltaMultipliers, deltaDual, extra);
             multipliers[enteringIndex] = 0.0f;
-            dirtyMultipliers[enteringIndex] = false;
+            dirtyMultipliers.clearBit(enteringIndex);
             multipliers.add(deltaMultipliers, 1.0f);
             for (auto entry : deltaMultipliers) {
-                dirtyMultipliers[entry.index] = tester.is_positive(-multipliers[entry.index]);
+                dirtyMultipliers.setBitTo(entry.index, tester.is_positive(-multipliers[entry.index]));
             }
 
             timer();
             uint32_t luIndex = basisLU.p[leavingIndex];
-            basisLU.u.columns[luIndex] = basis.columns[leavingIndex];
-            basisLU.replaceColumn(luIndex);
+            std::swap(basisLU.u.columns[luIndex], delta2);
+            basisLU.replaceColumn_internal(luIndex);
             // basisLU.u = basis;
             // basisLU.decompose();
         }
@@ -183,8 +176,7 @@ public:
             col.sort();
             multipliers.resize(extraSize);
             multipliers[extraSize - 1] = SparseOps::dot(dual, col) - 0.5f * lastFailure * (lastFailure + 1);
-            dirtyMultipliers.resize(extraSize);
-            dirtyMultipliers[extraSize - 1] = tester.is_positive(-multipliers[extraSize - 1]);
+            dirtyMultipliers.setBitTo(extraSize - 1, tester.is_positive(-multipliers[extraSize - 1]));
             extraObjective.resize(extraSize);
             extraObjective[extraSize - 1] = 0.5f * lastFailure * (lastFailure + 1);
             allGood = false;

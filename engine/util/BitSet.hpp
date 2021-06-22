@@ -78,6 +78,23 @@ public:
             m_data[i] &= ~mask;
     }
 
+    void setBitTo(size_t i, bool set) {
+        if (set)
+            setBit(i);
+        else
+            clearBit(i);
+    }
+
+    size_t firstSetBit(size_t failure) {
+        for (size_t i = 0; i < m_size; i++) {
+            int k = std::countr_zero(m_data[i]);
+            if (k != std::numeric_limits<T>::digits) {
+                return (i << BitTraits<T>::logDigits) + k;
+            }
+        }
+        return failure;
+    }
+
     BitSetBase& operator|=(const BitSetBase<T>& other) {
         size_t size = other.m_size;
         if (size > m_size) {
@@ -119,6 +136,20 @@ public:
             return;
         m_data[i] &= mask - 1;
         std::memset(m_data + i + 1, 0, (m_size - i - 1) * sizeof(T));
+    }
+
+    void setUpTo(size_t i) {
+        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        i >>= BitTraits<T>::logDigits;
+        if (i >= m_size) {
+            delete[] m_data;
+            m_data = new T[i + 1];
+            m_size = i + 1;
+        }
+        for (size_t j = 0; j < i; j++) {
+            m_data[j] = (T)-1;
+        }
+        m_data[i] = mask - 1;
     }
 
     void clear() {

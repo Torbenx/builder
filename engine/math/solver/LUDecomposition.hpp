@@ -99,6 +99,10 @@ public:
 
     void inverse(SparseVector<T, size_type, ZeroTester>& vector) {
         inverseL(vector);
+        inverse_internal(vector);
+    }
+
+    void inverse_internal(SparseVector<T, size_type, ZeroTester>& vector) {
         inverseU(vector);
         for (auto& entry : vector) {
             entry.index = p.inverse(entry.index);
@@ -125,6 +129,10 @@ public:
 
     void replaceColumn(size_type column) {
         inverseL(u.columns[column]);
+        replaceColumn_internal(column);
+    }
+
+    void replaceColumn_internal(size_type column) {
         dirtyColumns[column] = true;
         decompose(column, [&](size_type row, typename Matrix::Column& pivotCol, size_type offset, T factor) {
             size_type entryCount = pivotCol.size() - offset;

@@ -138,7 +138,7 @@ void Scene::draw() {
     LinearProgramming<BasicZeroTester> lp;
 
     uint32_t k = 4;
-    lp.n = k;
+    lp.n = 4;
     lp.numConstraints = 200;
     lp.numVariables = k * lp.numConstraints + lp.n - k;
     lp.constraints = new uint32_t[lp.n * lp.numVariables];
