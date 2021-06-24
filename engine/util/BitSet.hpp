@@ -85,8 +85,9 @@ public:
             clearBit(i);
     }
 
-    size_t firstSetBit(size_t failure) {
-        for (size_t i = 0; i < m_size; i++) {
+    size_t nextSetBit(size_t i, size_t failure) {
+        i >>= BitTraits<T>::logDigits;
+        for (; i < m_size; i++) {
             int k = std::countr_zero(m_data[i]);
             if (k != std::numeric_limits<T>::digits) {
                 return (i << BitTraits<T>::logDigits) + k;
@@ -138,7 +139,15 @@ public:
         std::memset(m_data + i + 1, 0, (m_size - i - 1) * sizeof(T));
     }
 
-    void setUpTo(size_t i) {
+    void reserve(size_t size) {
+        size >>= BitTraits<T>::logDigits;
+        size++;
+        if (m_size < size) {
+            growAndClear(size);
+        }
+    }
+
+    void setBitsUpTo(size_t i) {
         T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
         i >>= BitTraits<T>::logDigits;
         if (i >= m_size) {

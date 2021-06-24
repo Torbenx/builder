@@ -55,21 +55,6 @@ struct Effect {
     virtual ~Effect() { }
 };
 
-class EffectList {
-public:
-    AttributeList attributes;
-    bool operator==(const EffectList&) const;
-    void add(Effect*, int count=1);
-
-private:
-    struct Entry {
-        Effect* effect;
-        int multiplicity;
-        bool operator<(Effect* effect) const { return this->effect < effect; }
-    };
-    std::vector<Entry> entries;
-};
-
 struct EffectInstance {
     Effect* effect;
     EffectInstance(Effect* effect)

@@ -10,6 +10,8 @@
 #include <resource/asset_istream.hpp>
 #include <string>
 #include <thread>
+#include <util/IdAllocator.hpp>
+#include <util/LogTimer.hpp>
 #include <util/draw_util.hpp>
 #include <util/fullscreen.hpp>
 #include <util/log.hpp>
@@ -124,6 +126,39 @@ TestRenderer::TestRenderer()
     }
 }
 
+template<size_t N>
+void performTest() {
+    IdAllocator<uint32_t, N> a;
+    size_t base = 10;
+    size_t aa = 0;
+    size_t A = 1 << aa, B = 1 << (base - aa);
+    uint32_t p[1 << base];
+    size_t mask = (1 << base) - 1;
+    for (size_t i = 0; i < (1 << base); i++) {
+        p[i] = a.allocateId();
+    }
+    for (size_t i = 0; i < 50; i++) {
+        std::swap(p[std::rand() & mask], p[std::rand() & mask]);
+    }
+    size_t maxBucketCount = 0;
+    {
+        LogTimer timer;
+        //for (size_t j = 0; j < A; j++) {
+            for (size_t i = 0; i < B; i++) {
+                a.freeId(p[0 * B + i]);
+                if (a.bucketCount() > maxBucketCount) {
+                    maxBucketCount = a.bucketCount();
+                }
+            }
+            /*for (size_t i = 0; i < B; i++) {
+                a.allocateId();
+            }
+        }*/
+    }
+    //a.debug();
+    LOGD("max bucket count: %llu, bucketSize: %llu, peak capacity: %llu", maxBucketCount, N, (maxBucketCount - 1) * N);
+}
+
 void TestRenderer::change(int newWidth, int newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth / (float)newHeight;
@@ -135,6 +170,31 @@ void TestRenderer::change(int newWidth, int newHeight) {
     textComp.updateContent(metrics);
     uiScene.metrics = metrics;
     uiScene.build();
+
+    performTest<2>();
+    performTest<3>();
+    performTest<4>();
+    performTest<5>();
+    performTest<6>();
+    performTest<7>();
+    performTest<8>();
+    performTest<10>();
+    performTest<12>();
+    performTest<14>();
+    performTest<16>();
+    performTest<20>();
+    performTest<24>();
+    performTest<28>();
+    performTest<32>();
+    performTest<64>();
+    performTest<72>();
+    performTest<80>();
+    performTest<88>();
+    performTest<96>();
+    performTest<104>();
+    performTest<112>();
+    performTest<120>();
+    performTest<128>();
 }
 
 std::atomic<size_t> testCounter = 0;

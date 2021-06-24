@@ -11,7 +11,7 @@ public:
     Matrix l, u;
     Permutation<size_type> p;
     bool isInvertible = false;
-    std::vector<bool> dirtyColumns;
+    BitSet dirtyColumns;
 
     void inverseL(SparseVector<T, size_type, ZeroTester>& vector) {
         for (size_type i = 0; i < vector.size(); i++) {
@@ -127,13 +127,22 @@ public:
         inverseTransposeL(vector);
     }
 
+    void setIdentity(size_type size) {
+        u.setIdentity(size);
+        l.setEmpty(size);
+        p.setIdentity(size);
+        isInvertible = true;
+        dirtyColumns.clear();
+        dirtyColumns.reserve(size);
+    }
+
     void replaceColumn(size_type column) {
         inverseL(u.columns[column]);
         replaceColumn_internal(column);
     }
 
     void replaceColumn_internal(size_type column) {
-        dirtyColumns[column] = true;
+        dirtyColumns.setBit(column);
         decompose(column, [&](size_type row, typename Matrix::Column& pivotCol, size_type offset, T factor) {
             size_type entryCount = pivotCol.size() - offset;
             for (size_type i = 0; i < entryCount; i++) {
@@ -151,8 +160,7 @@ public:
         l.setEmpty(columnCount);
         isInvertible = true;
         dirtyColumns.clear();
-        dirtyColumns.resize(columnCount);
-        dirtyColumns.flip();
+        dirtyColumns.setBitsUpTo(columnCount);
         decompose(0, [&](size_type row, typename Matrix::Column& pivotCol, size_type offset, T factor) {
             // l[row,i] = u[column,i] / u[column,row] ; i > row
             size_type entryCount = pivotCol.size() - offset;
@@ -174,10 +182,7 @@ private:
         std::vector<size_type> columnOffsets;
         columnOffsets.resize(columnCount);
 
-        for (size_type row = startRow; row < columnCount; row++) {
-            if (!dirtyColumns[row]) {
-                continue;
-            }
+        for (size_type row = startRow; row < columnCount; row = dirtyColumns.nextSetBit(row, columnCount)) {
 
             // select pivot
             size_type pivot = columnCount;
@@ -217,9 +222,9 @@ private:
                 p.swap(pivot, row);
                 std::swap(u.columns[pivot], u.columns[row]);
                 std::swap(columnOffsets[pivot], columnOffsets[row]);
-                dirtyColumns[pivot] = true;
+                dirtyColumns.setBit(pivot);
             }
-            dirtyColumns[row] = false;
+            dirtyColumns.clearBit(row);
 
             size_type diagOffset = columnOffsets[row];
             auto& pivotCol = u.columns[row];
@@ -237,7 +242,7 @@ private:
                 }
                 if (diagOffset + 1 < pivotCol.size()) {
                     col.add(pivotCol, -col[offset].value * invDiag, 0, diagOffset + 1);
-                    dirtyColumns[i] = true;
+                    dirtyColumns.setBit(i);
                 }
                 columnOffsets[i]++;
             }

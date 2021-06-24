@@ -169,9 +169,10 @@ void Scene::draw() {
     lp.numVariables = 12;
     lp.constraints = constraints;*/
     {
-        LogTimer timer;
-        lp.doStuff();
+        //LogTimer timer;
+        //lp.doStuff();
     }
+    //lp.basis.debug();
     //lp.dual.debug();
 
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {

@@ -34,13 +34,12 @@ public:
             bound[i] = 1.0f;
             solution[i] = 1.0f;
         }
-        basisLU.u = basis;
-        basisLU.decompose();
+        basisLU.setIdentity(basisSize);
 
         extra.setEmpty(extraSize);
         extraObjective.resize(extraSize);
         multipliers.resize(extraSize);
-        dirtyMultipliers.setUpTo(extraSize);
+        dirtyMultipliers.setBitsUpTo(extraSize);
         for (uint32_t i = 0; i < numConstraints; i++) {
             for (uint32_t j = 0; j < n; j++) {
                 extra.columns[i].pushBack({ 1.0f, constraints[i * n + j] });
@@ -72,7 +71,7 @@ public:
             LogTimer timer;
             timer.disarm();
             // pick enteringIndex
-            uint32_t enteringIndex = dirtyMultipliers.firstSetBit(extraSize);
+            uint32_t enteringIndex = dirtyMultipliers.nextSetBit(0, extraSize);
             if (enteringIndex == extraSize) {
                 if (generateConstrains()) {
                     // LOGD("done");
@@ -80,7 +79,6 @@ public:
                 }
                 continue;
             }
-            timer();
             // pick leavingIndex
             delta = extra.columns[enteringIndex];
             basisLU.inverseL(delta);
@@ -112,12 +110,11 @@ public:
             std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
             std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
 
+            timer();
             // update multipliers
             deltaDual.clear();
             deltaDual.pushBack({ -multipliers[enteringIndex] / deltaValue, leavingIndex });
-            timer();
             basisLU.inverseTranspose(deltaDual);
-            timer();
             //dual.add(deltaDual, 1.0f);
             SparseOps::multiply(deltaMultipliers, deltaDual, extra);
             multipliers[enteringIndex] = 0.0f;
