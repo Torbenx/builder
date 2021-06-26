@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-template<typename T, typename size_type, class ZeroTester>
+template<typename T, typename size_type, class ZeroTester = BasicZeroTester>
 class SparseMatrix {
 public:
     using Matrix = SparseMatrix<T, size_type, ZeroTester>;

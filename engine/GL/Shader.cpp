@@ -79,7 +79,7 @@ void ShaderBuilder::disableFragmentShader() {
     fragmentShaderDisabled = true;
 }
 
-void Shader::initalize(ShaderBuilder& builder) {
+void Shader::initialize(ShaderBuilder& builder) {
     GL_VERIFY(!glIsProgram(glId));
     glId = glCreateProgram();
     LOGD("initalize glId=%d", glId);

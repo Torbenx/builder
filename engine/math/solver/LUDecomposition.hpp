@@ -133,7 +133,7 @@ public:
         p.setIdentity(size);
         isInvertible = true;
         dirtyColumns.clear();
-        dirtyColumns.reserve(size);
+        //dirtyColumns.reserve(size);
     }
 
     void replaceColumn(size_type column) {
@@ -151,6 +151,13 @@ public:
             }
             l.columns[row].add(pivotCol, factor, 0, offset);
         });
+    }
+
+    void identityExpandByOne() {
+        size_type oldColumnCount = u.columns.size();
+        u.columns.emplace_back().pushBack({ 1.0f, oldColumnCount });
+        p.expandBy(1);
+        l.columns.emplace_back();
     }
 
     // u holds the matrix to decompose

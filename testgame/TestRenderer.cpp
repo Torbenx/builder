@@ -137,7 +137,7 @@ void performTest() {
     for (size_t i = 0; i < (1 << base); i++) {
         p[i] = a.allocateId();
     }
-    for (size_t i = 0; i < 50; i++) {
+    for (size_t i = 0; i < 30; i++) {
         std::swap(p[std::rand() & mask], p[std::rand() & mask]);
     }
     size_t maxBucketCount = 0;
@@ -159,6 +159,14 @@ void performTest() {
     LOGD("max bucket count: %llu, bucketSize: %llu, peak capacity: %llu", maxBucketCount, N, (maxBucketCount - 1) * N);
 }
 
+/*#include <arm_neon.h>
+uint64_t test2(float* in1, float* in2) {
+    float32x4_t a = vld1q_f32(in1);
+    float32x4_t b = vld1q_f32(in2);
+    uint32x4_t cmp = vcageq_f32(a, b);
+    return vget_lane_u64((uint64x1_t)vmovn_u32(cmp), 0);
+}*/
+
 void TestRenderer::change(int newWidth, int newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth / (float)newHeight;
@@ -171,30 +179,9 @@ void TestRenderer::change(int newWidth, int newHeight) {
     uiScene.metrics = metrics;
     uiScene.build();
 
-    performTest<2>();
-    performTest<3>();
-    performTest<4>();
-    performTest<5>();
-    performTest<6>();
-    performTest<7>();
-    performTest<8>();
-    performTest<10>();
-    performTest<12>();
-    performTest<14>();
-    performTest<16>();
-    performTest<20>();
-    performTest<24>();
-    performTest<28>();
-    performTest<32>();
-    performTest<64>();
-    performTest<72>();
-    performTest<80>();
-    performTest<88>();
-    performTest<96>();
-    performTest<104>();
-    performTest<112>();
-    performTest<120>();
-    performTest<128>();
+    /*float a[] = {1, 2, 3, 4};
+    float b[] = {2, 1, 4, 1};
+    LOGD("test2: 0x%llx", test2(a, b));*/
 }
 
 std::atomic<size_t> testCounter = 0;

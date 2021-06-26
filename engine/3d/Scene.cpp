@@ -4,8 +4,8 @@
 #include <unordered_set>
 
 Scene::~Scene() {
-    for (auto pair : shaders) {
-        pair.second.shader->release();
+    for (auto pair : shaderIds) {
+        shaderEntries[pair.second].shader.release();
     }
 }
 
@@ -44,19 +44,17 @@ int Scene::addRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProjectionM
 
 void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
     Renderpass& renderpass = renderpasses[renderpassIndex];
-    Shaderpass::Entry entry;
-    entry.objectId = objectId;
-    entry.modelMatrix = objects[objectId].object.modelMatrix;
+
     std::vector<EffectInstance*> effects;
-    effects.reserve(globalEffects.size() * objects[objectId].effects.size());
+    effects.reserve(globalEffects.size() + objects[objectId].effects.size());
     effects.insert(effects.end(), globalEffects.begin(), globalEffects.end());
     effects.insert(effects.end(), objects[objectId].effects.begin(), objects[objectId].effects.end());
     std::sort(effects.begin(), effects.end(), [](EffectInstance* first, EffectInstance* second) {
         return first->effect < second->effect;
     });
-    ptrdiff_t hash = 0;
+    uintptr_t hash = 0;
     for (EffectInstance* instance : effects) {
-        hash ^= ((ptrdiff_t)instance->effect) >> 3;
+        hash ^= ((uintptr_t)instance->effect) >> 3;
     }
 
     /*LOGD("hash: %llx", hash);
@@ -65,79 +63,46 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
     }
     LOGD("");*/
 
-    ShaderEntry& shader = shaders[hash];
-    if (!shader.shader) {
+    auto it = shaderIds.find(hash);
+    int shaderId;
+    if (it == shaderIds.end()) {
+        shaderId = shaderIdAllocator.allocateId();
+        shaderIds.insert({ hash, shaderId });
+        if (shaderId == shaderEntries.size()) {
+            shaderEntries.resize(shaderId + 1);
+        }
+        ShaderEntry& shader = shaderEntries[shaderId];
         AttributeList attributes;
         EffectShaderBuilder builder(attributes);
         for (EffectInstance* effect : effects) {
             shader.bindings.push_back(effect->effect->addTo(builder));
         }
-        shader.shader = new EffectShader(builder);
+        shader.shader.initialize(builder);
         for (int i = 0; i < MAX_RENDERPASSES; i++) {
             shader.indices[i] = -1;
         }
+    } else {
+        shaderId = it->second;
     }
+
+    ShaderEntry& shader = shaderEntries[shaderId];
     Shaderpass* shaderpass;
     int shaderpassIndex = shader.indices[renderpassIndex];
     if (shaderpassIndex == -1) {
         shaderpassIndex = renderpass.passes.size();
         shader.indices[renderpassIndex] = shaderpassIndex;
-        shaderpass = &renderpass.passes.emplace_back();
-        shaderpass->shader = shader.shader;
+        shaderpass = &renderpass.passes.emplace_back(shaderId, shader.bindings.size());
     } else {
         shaderpass = &renderpass.passes[shaderpassIndex];
     }
 
-    for (int i = 0; i < effects.size(); i++) {
-        entry.effects.push_back({ effects[i], shader.bindings[i] });
-    }
-    shaderpass->entries.push_back(entry);
+    shaderpass->addEntry(objectId, effects);
 }
 
-struct BasicZeroTester {
-    bool operator()(float f) {
-        return std::abs(f) < 0.0005f;
-    }
-
-    bool is_positive(float f) {
-        return f > 0.0005f;
-    }
-};
-
 void Scene::draw() {
-    /*for (int i = 0; i < renderpassCount; i++) {
-        Renderpass& renderpass = renderpasses[i];
-        for (Shaderpass& shaderpass : renderpass.passes) {
-            std::unordered_set<EffectInstance*> set;
-            for (auto& entry : shaderpass.entries) {
-                for (auto& e : entry.effects) {
-                    set.insert(e.effect);
-                }
-            }
-            LOGD("enties=%u, instances=%u, depth=%u", shaderpass.entries.size(), set.size(), shaderpass.entries[0].effects.size());
-            if (set.size() == 6 && shaderpass.entries.size() == 3) {
-                bool matrix[3 * 6];
-                auto it = set.begin();
-                for (int i = 0; i < 6; i++, it++) {
-                    for (int j = 0; j < 3; j++) {
-                        bool found = false;
-                        for (auto& e : shaderpass.entries[j].effects) {
-                            if (e.effect == *it) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        matrix[i * 3 + j] = found;
-                    }
-                    LOGD("%u %u %u", matrix[i * 3 + 0], matrix[i * 3 + 1], matrix[i * 3 + 2]);
-                }
-            }
-        }
-    }*/
+    //LinearProgramming<BasicZeroTester> lp;
 
-    LinearProgramming<BasicZeroTester> lp;
-
-    uint32_t k = 4;
+    /*uint32_t k = 4;
     lp.n = 4;
     lp.numConstraints = 200;
     lp.numVariables = k * lp.numConstraints + lp.n - k;
@@ -149,7 +114,7 @@ void Scene::draw() {
             else
                 lp.constraints[i * lp.n + j] = lp.numVariables - lp.n + j;
         }
-    }
+    }*/
 
     /*uint32_t constraints[] = {
         0, 3, 4, 5,
@@ -168,10 +133,10 @@ void Scene::draw() {
     lp.numConstraints = 6;
     lp.numVariables = 12;
     lp.constraints = constraints;*/
-    {
-        //LogTimer timer;
-        //lp.doStuff();
-    }
+    /*{
+        LogTimer timer;
+        lp.doStuff();
+    }*/
     //lp.basis.debug();
     //lp.dual.debug();
 
@@ -208,22 +173,7 @@ void Scene::draw() {
         renderpass.framebuffer->clear();
         int rendererObjects = 0;
         for (Shaderpass& shaderpass : renderpass.passes) {
-            shaderpass.shader->use();
-            shaderpass.shader->uniformMat4x4(shaderpass.shader->viewProjectionUniform, renderpass.viewProjectionMatrix);
-            for (Shaderpass::Entry& entry : shaderpass.entries) {
-                Object& object = objects[entry.objectId].object;
-
-                if (!isVisable(renderpass.viewProjectionMatrix * entry.modelMatrix, object))
-                    continue;
-
-                for (auto& effect : entry.effects) {
-                    effect.effect->applyTo(*shaderpass.shader, effect.bindings);
-                }
-                shaderpass.shader->uniformMat4x4(shaderpass.shader->modelUniform, entry.modelMatrix);
-                shaderpass.shader->attribPointer(shaderpass.shader->positionAttrib, object.vertices);
-                shaderpass.shader->attribPointer(shaderpass.shader->normalAttrib, object.normals);
-                renderpass.framebuffer->draw(object.drawMode, object.indices);
-            }
+            shaderpass.draw(*this, renderpass);
         }
     }
 }

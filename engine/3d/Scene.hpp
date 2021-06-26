@@ -1,9 +1,10 @@
 #pragma once
 
 #include "3d/Effect.hpp"
+#include "3d/Shaderpass.hpp"
 #include "GL/Framebuffer.hpp"
-#include "util/Shaders.hpp"
 #include "math/Box.hpp"
+#include "util/Shaders.hpp"
 #include <unordered_map>
 #include <vector>
 
@@ -28,27 +29,7 @@ public:
         std::vector<Entry> entries;
     };
 
-    struct Shaderpass {
-        struct EffectAndBindings {
-            EffectInstance* effect;
-            EffectBindings bindings;
-        };
-        struct Entry {
-            int objectId;
-            std::vector<EffectAndBindings> effects;
-            Mat4x4 modelMatrix;
-        };
-        EffectShader* shader;
-        std::vector<Entry> entries;
-    };
-
-    struct Renderpass {
-        Framebuffer* framebuffer;
-        Mat4x4 viewProjectionMatrix;
-        std::vector<Shaderpass> passes;
-    };
-
-    static const int MAX_RENDERPASSES = 5;
+    static constexpr int MAX_RENDERPASSES = 5;
 
     ~Scene();
     void addEffect(EffectInstance*);
@@ -59,15 +40,14 @@ public:
     void updateViewProjectionMatrix(int renderpassIndex, const Mat4x4& viewProjectionMatrix) { renderpasses[renderpassIndex].viewProjectionMatrix = viewProjectionMatrix; }
     void draw();
 
-private:
     struct ObjectEntry {
         Object object;
         std::vector<EffectInstance*> effects;
     };
     struct ShaderEntry {
-        int indices[MAX_RENDERPASSES];
-        EffectShader* shader = nullptr;
+        EffectShader shader;
         std::vector<EffectBindings> bindings;
+        int indices[MAX_RENDERPASSES];
     };
     Resource<SimpleDepthShader> depthShader = Shaders::depth();
     std::vector<ObjectEntry> objects;
@@ -75,5 +55,7 @@ private:
     Renderpass renderpasses[MAX_RENDERPASSES];
     int renderpassCount = 0;
     std::vector<EffectInstance*> globalEffects;
-    std::unordered_map<ptrdiff_t, ShaderEntry> shaders;
+    std::unordered_map<uintptr_t, int> shaderIds;
+    std::vector<ShaderEntry> shaderEntries;
+    IdAllocator<int> shaderIdAllocator;
 };

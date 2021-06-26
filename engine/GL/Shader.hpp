@@ -30,9 +30,9 @@ public:
     static const std::string FRAGMENT_COLOR;
 
     Shader() { }
-    Shader(ShaderBuilder& builder) { initalize(builder); }
+    Shader(ShaderBuilder& builder) { initialize(builder); }
 
-    void initalize(ShaderBuilder& builder);
+    void initialize(ShaderBuilder& builder);
     void use() const;
     bool isValid() const;
     void release();

@@ -4,7 +4,17 @@
 #include "util/BitSet.hpp"
 #include <iostream>
 
-template<typename T, typename size_type, class ZeroTester>
+struct BasicZeroTester {
+    bool operator()(float f) {
+        return std::abs(f) < 0.0005f;
+    }
+
+    bool is_positive(float f) {
+        return f > 0.0005f;
+    }
+};
+
+template<typename T, typename size_type, class ZeroTester = BasicZeroTester>
 class SparseVector {
 public:
     using Entry = SparseEntry<T, size_type>;

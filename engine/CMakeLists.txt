@@ -75,6 +75,7 @@ add_library(engine ${linkage}
     "3d/SpotLight.cpp"
     "3d/Reflection.cpp"
     "3d/CommonEffects.cpp"
+    "3d/Shaderpass.cpp"
     "events/ExecutionContext.cpp"
     ${platform_source}
 )

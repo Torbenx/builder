@@ -1,8 +1,9 @@
 #pragma once
 
 #include <set>
+#include <iostream>
 
-template<typename T, size_t N>
+template<typename T, size_t N = 20>
 class IdAllocator {
 public:
     IdAllocator(T min = 0, T max = std::numeric_limits<T>::max()) {
@@ -25,8 +26,6 @@ public:
     }
 
     void freeId(T id) {
-        //debug();
-        //LOGD("inserting %u", id);
         auto it = buckets.lower_bound(id);
         // it should never be end()
         if (it->blub(id)) {

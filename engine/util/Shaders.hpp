@@ -37,7 +37,7 @@ struct SimpleCubeMapShader : public Shader {
             ShaderBuilder b;                      \
             type s = type();                      \
             s.apply##type(b);                     \
-            s.initalize(b);                       \
+            s.initialize(b);                       \
             Resource<type> r(s);                  \
             w_##name = r.weak();                  \
             return r;                             \

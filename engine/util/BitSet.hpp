@@ -17,6 +17,9 @@ struct BitTraits<uint32_t> { static constexpr int logDigits = 5; };
 template<>
 struct BitTraits<uint64_t> { static constexpr int logDigits = 6; };
 
+//#define BITSET_MASK(i) (T)1 << ((~i) & (std::numeric_limits<T>::digits - 1))
+#define BITSET_MASK(i) ((T)1 << (std::numeric_limits<T>::digits - 1)) >> (i & (std::numeric_limits<T>::digits - 1));
+
 template<typename T>
 class BitSetBase {
 public:
@@ -40,31 +43,31 @@ public:
     }
 
     bool getUnchecked(size_t i) const {
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         return (m_data[i] & mask) != 0;
     }
 
     void setBitUnchecked(size_t i) {
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         m_data[i] |= mask;
     }
 
     void clearBitUnchecked(size_t i) {
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         m_data[i] &= ~mask;
     }
 
     bool get(size_t i) const {
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         return i < m_size && (m_data[i] & mask) != 0;
     }
 
     void setBit(size_t i) {
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         if (i >= m_size)
             growAndClear(i + 1);
@@ -72,7 +75,7 @@ public:
     }
 
     void clearBit(size_t i) {
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         if (i < m_size)
             m_data[i] &= ~mask;
@@ -88,7 +91,7 @@ public:
     size_t nextSetBit(size_t i, size_t failure) {
         i >>= BitTraits<T>::logDigits;
         for (; i < m_size; i++) {
-            int k = std::countr_zero(m_data[i]);
+            int k = std::countl_zero(m_data[i]);
             if (k != std::numeric_limits<T>::digits) {
                 return (i << BitTraits<T>::logDigits) + k;
             }
@@ -131,11 +134,11 @@ public:
 
     void clearAfter(size_t i) {
         i++;
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         if (i >= m_size)
             return;
-        m_data[i] &= mask - 1;
+        m_data[i] &= 1 + ~mask;
         std::memset(m_data + i + 1, 0, (m_size - i - 1) * sizeof(T));
     }
 
@@ -148,7 +151,7 @@ public:
     }
 
     void setBitsUpTo(size_t i) {
-        T mask = (T)1 << (i & (std::numeric_limits<T>::digits - 1));
+        T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         if (i >= m_size) {
             delete[] m_data;
@@ -158,7 +161,7 @@ public:
         for (size_t j = 0; j < i; j++) {
             m_data[j] = (T)-1;
         }
-        m_data[i] = mask - 1;
+        m_data[i] |= 1 + ~mask;
     }
 
     void clear() {

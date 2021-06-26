@@ -2,54 +2,66 @@
 
 #include "math/solver/LUDecomposition.hpp"
 
-template<class ZeroTester>
+template<class ZeroTester = BasicZeroTester>
 class LinearProgramming {
 public:
     using Matrix = SparseMatrix<float, uint32_t, ZeroTester>;
     LUPDecomposition<float, uint32_t, ZeroTester> basisLU;
     Matrix basis, extra;
-    DenseVector<float, uint32_t> solution, multipliers, bound, basisObjective, extraObjective;
-    uint32_t basisSize, extraSize, n, numConstraints, numVariables;
-    uint32_t* constraints;
+    DenseVector<float, uint32_t> solution, multipliers, bound, basisObjective, extraObjective, dual;
+    uint32_t basisSize = 0, extraSize = 0, n, numConstraints = 0;
+    std::vector<uint32_t> constraints, output;
     SparseVector<float, uint32_t, ZeroTester> delta, delta2, deltaDual, deltaMultipliers;
     BitSet dirtyMultipliers;
 
-    void doStuff() {
+    LinearProgramming(uint32_t n)
+        : n(n) { }
+
+    void addVariable() {
+        basisSize++;
+        basis.columns.emplace_back().pushBack({ 1.0f, basisSize - 1 });
+        bound.resize(basisSize);
+        bound[basisSize - 1] = 1.0f;
+        solution.resize(basisSize);
+        solution[basisSize - 1] = 1.0f;
+        basisLU.identityExpandByOne();
+        basisObjective.resize(basisSize);
+        output.resize(basisSize);
+    }
+
+    void addConstraint(uint32_t* constraint) {
+        size_t offset = constraints.size();
+        constraints.resize(offset + n);
+        numConstraints++;
+        std::memcpy(&constraints[offset], constraint, n * sizeof(uint32_t));
+        addConstraint_internal(constraint, n);
+    }
+
+    void addConstraint_internal(uint32_t* constraint, uint32_t m) {
+        ZeroTester tester;
+        extraSize++;
+        typename Matrix::Column& col = extra.columns.emplace_back();
+        col.reserve(m);
+        for (uint32_t k = 0; k < m; k++) {
+            col.pushBack({ 1.0f, constraint[k] });
+        }
+        col.sort();
+        multipliers.resize(extraSize);
+        multipliers[extraSize - 1] = SparseOps::dot(dual, col) - 0.5f * m * (m - 1);
+        dirtyMultipliers.setBitTo(extraSize - 1, tester.is_positive(-multipliers[extraSize - 1]));
+        extraObjective.resize(extraSize);
+        extraObjective[extraSize - 1] = 0.5f * m * (m - 1);
+    }
+
+    void solve() {
         relaxed();
-        // dual.debug();
+        for (uint32_t i = 0; i < basisSize; i++) {
+            output[i] = std::ceil(dual[i]);
+        }
     }
 
     void relaxed() {
         ZeroTester tester;
-
-        basisSize = numVariables;
-        extraSize = numConstraints;
-
-        basis.setEmpty(basisSize);
-        bound.resize(basisSize);
-        solution.resize(basisSize);
-        basisObjective.resize(basisSize);
-        for (uint32_t i = 0; i < basisSize; i++) {
-            basis.columns[i].pushBack({ 1.0f, i });
-            bound[i] = 1.0f;
-            solution[i] = 1.0f;
-        }
-        basisLU.setIdentity(basisSize);
-
-        extra.setEmpty(extraSize);
-        extraObjective.resize(extraSize);
-        multipliers.resize(extraSize);
-        dirtyMultipliers.setBitsUpTo(extraSize);
-        for (uint32_t i = 0; i < numConstraints; i++) {
-            for (uint32_t j = 0; j < n; j++) {
-                extra.columns[i].pushBack({ 1.0f, constraints[i * n + j] });
-            }
-        }
-        for (uint32_t i = 0; i < extraSize; i++) {
-            extraObjective[i] = 0.5f * (n - 1) * n;
-            multipliers[i] = -0.5f * (n - 1) * n;
-        }
-
 
         while (true) {
             /*LOGD("basis:");
@@ -68,8 +80,7 @@ public:
             multipliers.debug();
             LOGD("score=%f", SparseOps::dot(basisObjective, solution));
             LOGD("");*/
-            LogTimer timer;
-            timer.disarm();
+
             // pick enteringIndex
             uint32_t enteringIndex = dirtyMultipliers.nextSetBit(0, extraSize);
             if (enteringIndex == extraSize) {
@@ -79,6 +90,7 @@ public:
                 }
                 continue;
             }
+
             // pick leavingIndex
             delta = extra.columns[enteringIndex];
             basisLU.inverseL(delta);
@@ -110,7 +122,6 @@ public:
             std::swap(basisObjective[leavingIndex], extraObjective[enteringIndex]);
             std::swap(basis.columns[leavingIndex], extra.columns[enteringIndex]);
 
-            timer();
             // update multipliers
             deltaDual.clear();
             deltaDual.pushBack({ -multipliers[enteringIndex] / deltaValue, leavingIndex });
@@ -124,7 +135,6 @@ public:
                 dirtyMultipliers.setBitTo(entry.index, tester.is_positive(-multipliers[entry.index]));
             }
 
-            timer();
             uint32_t luIndex = basisLU.p[leavingIndex];
             std::swap(basisLU.u.columns[luIndex], delta2);
             basisLU.replaceColumn_internal(luIndex);
@@ -133,7 +143,6 @@ public:
         }
     }
 
-    DenseVector<float, uint32_t> dual;
     bool generateConstrains() {
         ZeroTester tester;
         dual.resize(basisSize);
@@ -164,18 +173,12 @@ public:
             if (lastFailure == n)
                 continue;
 
-            extraSize++;
-            typename Matrix::Column& col = extra.columns.emplace_back();
-            col.reserve(lastFailure);
-            for (uint32_t k = 0; k <= lastFailure; k++) {
-                col.pushBack({ 1.0f, entries[k].first });
+            uint32_t constraint[lastFailure + 1];
+            for (uint32_t j = 0; j <= lastFailure; j++) {
+                constraint[j] = entries[j].first;
             }
-            col.sort();
-            multipliers.resize(extraSize);
-            multipliers[extraSize - 1] = SparseOps::dot(dual, col) - 0.5f * lastFailure * (lastFailure + 1);
-            dirtyMultipliers.setBitTo(extraSize - 1, tester.is_positive(-multipliers[extraSize - 1]));
-            extraObjective.resize(extraSize);
-            extraObjective[extraSize - 1] = 0.5f * lastFailure * (lastFailure + 1);
+            addConstraint_internal(constraint, lastFailure + 1);
+
             allGood = false;
             // break;
         }

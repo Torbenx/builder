@@ -88,10 +88,18 @@ public:
     static const std::string FRAGMENT_DIFFUSE_COLOR;
 
     Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
-    EffectShader(EffectShaderBuilder& builder)
-        : Shader(builder)
-        , positionAttrib(builder.positionAttrib)
-        , normalAttrib(builder.normalAttrib)
-        , modelUniform(builder.modelUniform)
-        , viewProjectionUniform(builder.viewProjectionUniform) { }
+    EffectShader() { }
+    EffectShader(EffectShaderBuilder& builder) { initialize(builder); }
+
+    void initialize(EffectShaderBuilder& builder) {
+        Shader::initialize(builder);
+        positionAttrib = builder.positionAttrib;
+        normalAttrib = builder.normalAttrib;
+        modelUniform = builder.modelUniform;
+        viewProjectionUniform = builder.viewProjectionUniform;
+        LOGD("{%u, %u, %u, %u}", positionAttrib, normalAttrib, modelUniform, viewProjectionUniform);
+    }
+
+private:
+    using Shader::initialize;
 };
