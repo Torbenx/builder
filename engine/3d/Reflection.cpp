@@ -22,24 +22,22 @@ void Reflection::addTo(Scene& scene) {
     scene.addRenderpass(&framebuffer, Mat4x4::Id);
 }
 
-EffectBindings Reflection::Effect::addTo(EffectShaderBuilder& s) {
-    EffectBindings data;
-    s.newContext();
+void Reflection::Effect::addTo(EffectShaderBuilder& s) {
+    s.beginEffect();
     std::string textureUniform = s.uniqueName("u_texture");
     std::string positionVarying = s.uniqueName("v_position");
     std::string factorUniform = s.uniqueName("u_factor");
     s.requireLinearInterpolation();
+    s.addFragmentUniform("sampler2D", textureUniform);
+    s.nextTextureSlot();
+    s.addFragmentUniform("float", factorUniform);
     s.addVarying("vec2", positionVarying, "noperspective ");
-    data.handles[0] = s.addFragmentUniform("sampler2D", textureUniform);
-    data.handles[1] = s.addFragmentUniform("float", factorUniform);
-    data.textureSlot = s.nextTextureSlot();
     std::string color = s.uniqueName("color");
     s.vMain << positionVarying << " = (" << EffectShader::SCREEN_POSITION << ".xy / " << EffectShader::SCREEN_POSITION << ".w + 1.0)/2.0;\n";
     s.fMain << Shader::FRAGMENT_COLOR << " += vec4(" << factorUniform << " * texture(" << textureUniform << "," << positionVarying << ").rgb, 0.0);\n";
-    return data;
 }
 
-void Reflection::applyTo(EffectShader& s, const EffectBindings& data) {
-    s.uniformTexture(data.handles[0], texture, data.textureSlot);
-    s.uniform1f(data.handles[1], factor);
+void Reflection::applyTo(OrderedShader s) {
+    s.uniformTexture(texture);
+    s.uniform1f(factor);
 }

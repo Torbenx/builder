@@ -6,7 +6,7 @@
 class PointLight : public EffectInstance {
 public:
     static inline struct Effect : public ::Effect {
-        virtual EffectBindings addTo(EffectShaderBuilder&) override;
+        virtual void addTo(EffectShaderBuilder&) override;
     } EFFECT;
     Resource<CubeMap> depthMap;
     Framebuffer framebuffers[6];
@@ -15,6 +15,6 @@ public:
     float m_near, m_far;
     int width, height;
     PointLight(Vec3 position, int width, int height, Vec3 color, float near, float far);
-    virtual void applyTo(EffectShader&, const EffectBindings&) override;
+    virtual void applyTo(OrderedShader) override;
     void addTo(Scene& scene);
 };

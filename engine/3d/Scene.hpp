@@ -46,7 +46,6 @@ public:
     };
     struct ShaderEntry {
         EffectShader shader;
-        std::vector<EffectBindings> bindings;
         int indices[MAX_RENDERPASSES];
     };
     Resource<SimpleDepthShader> depthShader = Shaders::depth();

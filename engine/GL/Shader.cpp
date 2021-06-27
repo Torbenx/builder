@@ -43,13 +43,13 @@ std::string ShaderBuilder::uniqueName(std::string name) {
 }
 
 Shader::LocationHandle ShaderBuilder::addAttrib(std::string type, std::string name, std::string qualifiers) {
-    vInit << "layout(location=" << attribCount << ") " << qualifiers << "in " << type << " " << name << ";\n";
-    return { attribCount++ };
+    vInit << "layout(location=" << state.attribIndex << ") " << qualifiers << "in " << type << " " << name << ";\n";
+    return { state.attribIndex++ };
 }
 
 Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string name, std::string qualifiers, bool vertex) {
-    (vertex ? vInit : fInit) << "layout(location=" << uniformCount << ") " << qualifiers << "uniform " << type << " " << name << ";\n";
-    return { uniformCount++ };
+    (vertex ? vInit : fInit) << "layout(location=" << state.uniformIndex << ") " << qualifiers << "uniform " << type << " " << name << ";\n";
+    return { state.uniformIndex++ };
 }
 
 void ShaderBuilder::addVarying(std::string type, std::string name, std::string qualifiers) {
@@ -66,9 +66,9 @@ int ShaderBuilder::nextTextureSlot() {
 #ifdef VALIDATE_GL
     GLint maxTextures;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
-    GL_VERIFY(textureSlot < maxTextures);
+    GL_VERIFY(state.textureSlot < maxTextures);
 #endif
-    return textureSlot++;
+    return state.textureSlot++;
 }
 
 void ShaderBuilder::disableFragmentShader() {
@@ -269,4 +269,8 @@ void Shader::uniformCubeMap(Shader::LocationHandle uniform, const CubeMap& u, GL
     glActiveTexture(GL_TEXTURE0 + slot);
     u.bind();
     uniform1i(uniform, slot);
+}
+
+OrderedShader Shader::ordered(OrderedShaderState state) {
+    return OrderedShader(*this, state);
 }

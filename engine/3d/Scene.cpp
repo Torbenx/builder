@@ -75,7 +75,7 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
         AttributeList attributes;
         EffectShaderBuilder builder(attributes);
         for (EffectInstance* effect : effects) {
-            shader.bindings.push_back(effect->effect->addTo(builder));
+            effect->effect->addTo(builder);
         }
         shader.shader.initialize(builder);
         for (int i = 0; i < MAX_RENDERPASSES; i++) {
@@ -91,7 +91,7 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
     if (shaderpassIndex == -1) {
         shaderpassIndex = renderpass.passes.size();
         shader.indices[renderpassIndex] = shaderpassIndex;
-        shaderpass = &renderpass.passes.emplace_back(shaderId, shader.bindings.size());
+        shaderpass = &renderpass.passes.emplace_back(shaderId, shader.shader.slots.size());
     } else {
         shaderpass = &renderpass.passes[shaderpassIndex];
     }

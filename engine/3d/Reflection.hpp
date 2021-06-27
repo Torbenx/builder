@@ -7,7 +7,7 @@
 class Reflection : public EffectInstance {
 public:
     static inline class Effect : public ::Effect {
-        virtual EffectBindings addTo(EffectShaderBuilder&) override;
+        virtual void addTo(EffectShaderBuilder&) override;
     } EFFECT;
     Framebuffer framebuffer;
     Resource<Texture> depthAttachment;
@@ -17,5 +17,5 @@ public:
     Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);
     Mat4x4 getReflectionMatrix();
     void addTo(Scene&);
-    virtual void applyTo(EffectShader&, const EffectBindings&) override;
+    virtual void applyTo(OrderedShader) override;
 };

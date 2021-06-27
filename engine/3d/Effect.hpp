@@ -5,11 +5,6 @@
 class EffectShaderBuilder;
 class EffectShader;
 
-struct EffectBindings {
-    Shader::LocationHandle handles[5];
-    int textureSlot;
-};
-
 // Attributes should be singletons
 struct Attribute {
     static std::vector<Attribute*> instances;
@@ -51,7 +46,7 @@ private:
 
 // Effects should be singletons
 struct Effect {
-    virtual EffectBindings addTo(EffectShaderBuilder&) = 0;
+    virtual void addTo(EffectShaderBuilder&) = 0;
     virtual ~Effect() { }
 };
 
@@ -59,20 +54,27 @@ struct EffectInstance {
     Effect* effect;
     EffectInstance(Effect* effect)
         : effect(effect) { }
-    virtual void applyTo(EffectShader&, const EffectBindings&) = 0;
+    virtual void applyTo(OrderedShader) = 0;
     virtual ~EffectInstance() { }
 };
 
 class EffectShaderBuilder : public ShaderBuilder {
 public:
     const AttributeList attributes;
-
     Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
+    std::vector<OrderedShaderState> slots;
+
     EffectShaderBuilder(AttributeList attributes);
+
+    void beginEffect() {
+        newContext();
+        slots.push_back(orderedState());
+    }
 
 private:
     virtual std::string buildVertexSource() override;
     virtual std::string buildFragmentSource() override;
+    using ShaderBuilder::newContext;
 };
 
 class EffectShader : public Shader {
@@ -88,6 +90,8 @@ public:
     static const std::string FRAGMENT_DIFFUSE_COLOR;
 
     Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
+    std::vector<OrderedShaderState> slots;
+
     EffectShader() { }
     EffectShader(EffectShaderBuilder& builder) { initialize(builder); }
 
@@ -97,6 +101,7 @@ public:
         normalAttrib = builder.normalAttrib;
         modelUniform = builder.modelUniform;
         viewProjectionUniform = builder.viewProjectionUniform;
+        slots = builder.slots;
         LOGD("{%u, %u, %u, %u}", positionAttrib, normalAttrib, modelUniform, viewProjectionUniform);
     }
 

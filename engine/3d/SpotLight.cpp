@@ -25,20 +25,19 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int texHeight, Vec3 color, float _near, float _far)
     : SpotLight(position, direction, fov, fov, Vec3::findOrthogonal(direction), texWidth, texHeight, color, _near, _far) { }
 
-EffectBindings SpotLight::Effect::addTo(EffectShaderBuilder& s) {
-    EffectBindings data;
-    s.newContext();
+void SpotLight::Effect::addTo(EffectShaderBuilder& s) {
+    s.beginEffect();
     std::string mvpUniform = s.uniqueName("u_mvpMatrix");
     std::string textureUniform = s.uniqueName("u_depthMap");
     std::string colorUniform = s.uniqueName("u_color");
     std::string positionVarying = s.uniqueName("v_position");
     std::string lightPosUniform = s.uniqueName("u_lightPos");
-    data.handles[0] = s.addVertexUniform("mat4", mvpUniform);
-    data.handles[1] = s.addFragmentUniform("sampler2DShadow", textureUniform);
-    data.textureSlot = s.nextTextureSlot();
-    data.handles[2] = s.addFragmentUniform("vec3", colorUniform);
+    s.addVertexUniform("mat4", mvpUniform);
+    s.addFragmentUniform("sampler2DShadow", textureUniform);
+    s.nextTextureSlot();
+    s.addFragmentUniform("vec3", colorUniform);
+    s.addFragmentUniform("vec3", lightPosUniform);
     s.addVarying("vec3", positionVarying);
-    data.handles[3] = s.addFragmentUniform("vec3", lightPosUniform);
     std::string result = s.uniqueName("result");
     std::string direction = s.uniqueName("direction");
     std::string pos = s.uniqueName("pos");
@@ -49,15 +48,14 @@ EffectBindings SpotLight::Effect::addTo(EffectShaderBuilder& s) {
     s.fMain << "if("
             << "dot(" << positionVarying << ".xy," << positionVarying << ".xy) <= 1.0 && " << positionVarying << ".z >= -1.0){\n";
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << result << " * max(0.0, -dot(" << EffectShader::WORLD_NORMAL << ", normalize(" << direction << "))) * " << colorUniform << " / dot(" << direction << "," << direction << ");\n}\n";
-    return data;
 }
 
-void SpotLight::applyTo(EffectShader& s, const EffectBindings& data) {
+void SpotLight::applyTo(OrderedShader s) {
     Mat4x4 mat = projection * view;
-    s.uniformMat4x4(data.handles[0], mat);
-    s.uniformTexture(data.handles[1], depthMap, data.textureSlot);
-    s.uniformVec3(data.handles[2], color);
-    s.uniformVec3(data.handles[3], position);
+    s.uniformMat4x4(mat);
+    s.uniformTexture(depthMap);
+    s.uniformVec3(color);
+    s.uniformVec3(position);
 }
 
 void SpotLight::addTo(Scene& scene) {

@@ -82,8 +82,8 @@ void Shaderpass::drawNodes(Scene& scene, Framebuffer& framebuffer, const std::se
             shader.attribPointer(shader.normalAttrib, object.normals);
             framebuffer.draw(object.drawMode, object.indices);
         } else {
-            node.data.internal.effect->applyTo(shader, scene.shaderEntries[shaderId].bindings[node.data.internal.slot]);
-            drawNodes(scene, framebuffer, node.children, level - 1);
+            node.data.internal.effect->applyTo(shader.ordered(shader.slots[node.data.internal.slot]));
+            drawNodes(framebuffer, node.children, level - 1);
         }
     }
 }
