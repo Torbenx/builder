@@ -374,6 +374,41 @@ void TestRenderer::drawFrame() {
     // cubeComp.draw(Framebuffer::DEFAULT);
     // refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
+
+    /*LinearProgramming<BasicZeroTester> lp(4);
+    uint32_t numConstraints = 200;
+    uint32_t constraint[lp.n];
+    for (uint32_t i = 0; i < numConstraints; i++) {
+        for (uint32_t j = 0; j < lp.n; j++) {
+            lp.addVariable();
+            constraint[j] = i * lp.n + j;
+        }
+        lp.addConstraint(constraint);
+    }*/
+
+    /*uint32_t constraints[] = {
+        0, 3, 4, 5,
+        1, 3, 4, 5,
+        2, 3, 4, 5
+    };*/
+    /*uint32_t constraints[] = {
+        1, 2, 3, 4,
+        0, 2, 3, 4,
+        0, 1, 3, 4,
+        1, 5, 6, 8,
+        2, 3, 5, 7,
+        2, 9, 10, 11,
+    };
+    lp.n = 4;
+    lp.numConstraints = 6;
+    lp.numVariables = 12;
+    lp.constraints = constraints;*/
+    {
+        //LogTimer timer;
+        //lp.relaxed();
+    }
+    //lp.basis.debug();
+    //lp.dual.debug();
 }
 
 TestRenderer::~TestRenderer() {

@@ -100,46 +100,6 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
 }
 
 void Scene::draw() {
-    //LinearProgramming<BasicZeroTester> lp;
-
-    /*uint32_t k = 4;
-    lp.n = 4;
-    lp.numConstraints = 200;
-    lp.numVariables = k * lp.numConstraints + lp.n - k;
-    lp.constraints = new uint32_t[lp.n * lp.numVariables];
-    for (uint32_t i = 0; i < lp.numConstraints; i++) {
-        for (uint32_t j = 0; j < lp.n; j++) {
-            if(j < k)
-                lp.constraints[i * lp.n + j] = i * k + j;
-            else
-                lp.constraints[i * lp.n + j] = lp.numVariables - lp.n + j;
-        }
-    }*/
-
-    /*uint32_t constraints[] = {
-        0, 3, 4, 5,
-        1, 3, 4, 5,
-        2, 3, 4, 5
-    };*/
-    /*uint32_t constraints[] = {
-        1, 2, 3, 4,
-        0, 2, 3, 4,
-        0, 1, 3, 4,
-        1, 5, 6, 8,
-        2, 3, 5, 7,
-        2, 9, 10, 11,
-    };
-    lp.n = 4;
-    lp.numConstraints = 6;
-    lp.numVariables = 12;
-    lp.constraints = constraints;*/
-    /*{
-        LogTimer timer;
-        lp.doStuff();
-    }*/
-    //lp.basis.debug();
-    //lp.dual.debug();
-
     auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
         Vec4 px = mvp * Vec4(object.boundingBox.right, object.boundingBox.bottom, object.boundingBox.front, 1.0f);

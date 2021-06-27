@@ -317,3 +317,33 @@ int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, 
 
     return msg.wParam;
 }
+
+/*#include <bit>
+uintptr_t allocPtr = 0;
+
+void* operator new(std::size_t count, std::align_val_t al) {
+    std::size_t alignment = (std::size_t)al;
+    if (!allocPtr) {
+        allocPtr = (uintptr_t)VirtualAlloc(nullptr, 1024 * 1024 * 1024, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        LOGD("allocPtr=%p", allocPtr);
+    }
+    alignment = std::bit_ceil(alignment);
+    allocPtr = (allocPtr & ~(alignment - 1)) + alignment;
+    uintptr_t ret = allocPtr;
+    allocPtr += count;
+    //LOGD("alloc %p: size=%llu, alignment=%llu", (void*)ret, count, alignment);
+    return (void*)ret;
+}
+
+void operator delete(void* ptr, std::align_val_t al) noexcept {
+    std::size_t alignment = (std::size_t)al;
+    //LOGD("free %p: alignment=%llu", ptr, alignment);
+}
+
+void* operator new(std::size_t count) {
+    return operator new(count, (std::align_val_t)__STDCPP_DEFAULT_NEW_ALIGNMENT__);
+}
+
+void operator delete(void* ptr) noexcept {
+    operator delete(ptr, (std::align_val_t)__STDCPP_DEFAULT_NEW_ALIGNMENT__);
+}*/
