@@ -119,8 +119,6 @@ void Scene::draw() {
         pass.framebuffer->clear();
         for (auto& entry : pass.entries) {
             Object& object = objects[entry.objectId].object;
-            if (!isVisable(entry.modelViewProjectionMatrix, object))
-                continue;
             depthShader->uniformMat4x4(depthShader->mvpUniform, entry.modelViewProjectionMatrix);
             depthShader->attribPointer(depthShader->positionAttrib, object.vertices);
             pass.framebuffer->draw(object.drawMode, object.indices);

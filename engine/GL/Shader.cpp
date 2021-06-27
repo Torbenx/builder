@@ -12,8 +12,8 @@ ShaderBuilder::ShaderBuilder() {
         fInit << "precision lowp sampler2DShadow;\n";
         fInit << "precision lowp samplerCubeShadow;\n";
     } else {
-        vExt << "#version 150\n";
-        fExt << "#version 150\n";
+        vExt << "#version 430\n";
+        fExt << "#version 430\n";
     }
 }
 
@@ -43,17 +43,13 @@ std::string ShaderBuilder::uniqueName(std::string name) {
 }
 
 Shader::LocationHandle ShaderBuilder::addAttrib(std::string type, std::string name, std::string qualifiers) {
-    vInit << qualifiers << "in " << type << " " << name << ";\n";
-    GLuint handle = locations.size();
-    locations.push_back(Shader::Location(name, false));
-    return { handle };
+    vInit << "layout(location=" << attribCount << ") " << qualifiers << "in " << type << " " << name << ";\n";
+    return { attribCount++ };
 }
 
 Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string name, std::string qualifiers, bool vertex) {
-    (vertex ? vInit : fInit) << qualifiers << "uniform " << type << " " << name << ";\n";
-    GLuint handle = locations.size();
-    locations.push_back(Shader::Location(name, true));
-    return { handle };
+    (vertex ? vInit : fInit) << "layout(location=" << uniformCount << ") " << qualifiers << "uniform " << type << " " << name << ";\n";
+    return { uniformCount++ };
 }
 
 void ShaderBuilder::addVarying(std::string type, std::string name, std::string qualifiers) {
@@ -129,15 +125,6 @@ void Shader::initialize(ShaderBuilder& builder) {
     }
 
     glLinkProgram(glId);
-
-    locations.resize(builder.locations.size());
-    for (int i = 0; i < builder.locations.size(); i++) {
-        if (builder.locations[i].isUniform) {
-            locations[i] = glGetUniformLocation(glId, builder.locations[i].name.c_str());
-        } else {
-            locations[i] = glGetAttribLocation(glId, builder.locations[i].name.c_str());
-        }
-    }
 }
 
 void Shader::release() {
@@ -157,7 +144,7 @@ void Shader::use() const {
 }
 
 GLuint Shader::getAttrib(Shader::LocationHandle attrib) const {
-    return locations[attrib.handle];
+    return attrib.handle;
 }
 
 GLuint Shader::getAndEnableAttrib(Shader::LocationHandle attrib) const {
@@ -167,7 +154,7 @@ GLuint Shader::getAndEnableAttrib(Shader::LocationHandle attrib) const {
 }
 
 GLint Shader::getUniform(Shader::LocationHandle uniform) const {
-    return locations[uniform.handle];
+    return uniform.handle;
 }
 
 void Shader::uniform1f(Shader::LocationHandle uniform, float u) const {

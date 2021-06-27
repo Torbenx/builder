@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/solver/LUDecomposition.hpp"
+#include <cmath>
 
 template<class ZeroTester = BasicZeroTester>
 class LinearProgramming {

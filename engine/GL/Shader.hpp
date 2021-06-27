@@ -72,7 +72,6 @@ public:
 
 private:
     GLuint glId = 0;
-    std::vector<GLuint> locations;
 };
 
 class ShaderBuilder {
@@ -101,9 +100,10 @@ protected:
     virtual std::string buildFragmentSource();
 
 private:
-    std::vector<Shader::Location> locations;
     int contextCount = 0;
-    int textureSlot = 0;
+    GLint textureSlot = 0;
+    GLuint uniformCount = 0;
+    GLuint attribCount = 0;
     bool fragmentShaderDisabled = false;
 
     friend Shader;
