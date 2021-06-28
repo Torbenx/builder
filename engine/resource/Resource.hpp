@@ -8,6 +8,9 @@
 template<typename T>
 class Resource;
 
+template<typename T>
+concept Releasable = requires(T value) { value.release(); };
+
 class ResourceMonitor {
 public:
     bool expired() { return refCount == 0; }
@@ -34,7 +37,7 @@ private:
         DEBUG_RESOURCE("unref");
         --refCount;
         if (refCount == 0) {
-             return release();
+            return release();
         }
         return false;
     }
@@ -114,11 +117,19 @@ private:
         }
     }
 
+    void do_release() requires Releasable<T> {
+        const_cast<T&>(value).release();
+    }
+
+    void do_release() requires (!Releasable<T>) {
+        LOGD("monitor::release() returned true but no release() function is present on T, resource might be leaked!");
+    }
+
     // always override monitor after unref()
     void unref() {
         if (monitor) {
             if (monitor->unref()) {
-                const_cast<T&>(value).release();
+                do_release();
             }
         }
     }

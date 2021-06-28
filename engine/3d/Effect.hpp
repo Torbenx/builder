@@ -113,20 +113,21 @@ private:
     using Shader::initialize;
 };
 
-struct EffectShaderHandle {
-    id_t id;
-    void release();
-};
-
 class EffectShaderFactory {
 public:
-    static Resource<EffectShaderHandle> getHandle(const std::vector<EffectInstance*>&);
-    static EffectShader& instance(EffectShaderHandle handle) { return shaders[handle.id]; }
-    static int_t slotCount(EffectShaderHandle handle) { return instance(handle).slots.size(); }
+    static Resource<id_t> getHandle(const std::vector<EffectInstance*>&);
+    static EffectShader& instance(id_t id) { return shaders[id]; }
+    static int_t slotCount(id_t id) { return instance(id).slots.size(); }
 
 private:
-    static inline std::unordered_map<uintptr_t, std::unique_ptr<StaticResourceMonitor<EffectShaderHandle>>> shaderHandles;
+    struct EffectShaderResourceMonitor final : public ResourceMonitor {
+        id_t id = std::numeric_limits<id_t>::max();
+        bool release() override {
+            shaders[id].release();
+            return false;
+        }
+    };
+    static inline std::unordered_map<uintptr_t, std::unique_ptr<EffectShaderResourceMonitor>> shaderHandles;
     static inline std::vector<EffectShader> shaders;
     static inline IdAllocator<> idAllocator;
-    friend EffectShaderHandle;
 };

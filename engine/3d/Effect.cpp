@@ -47,7 +47,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
     return f.str();
 }
 
-Resource<EffectShaderHandle> EffectShaderFactory::getHandle(const std::vector<EffectInstance*>& effects) {
+Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectInstance*>& effects) {
     uintptr_t hash = 0;
     for (EffectInstance* instance : effects) {
         hash ^= ((uintptr_t)instance->effect) >> 3;
@@ -59,12 +59,12 @@ Resource<EffectShaderHandle> EffectShaderFactory::getHandle(const std::vector<Ef
     }
     LOGD("");*/
 
-    std::unique_ptr<StaticResourceMonitor<EffectShaderHandle>>& ptr = shaderHandles[hash];
+    std::unique_ptr<EffectShaderResourceMonitor>& ptr = shaderHandles[hash];
     if (!ptr) {
-        ptr.reset(new StaticResourceMonitor<EffectShaderHandle>());
+        ptr.reset(new EffectShaderResourceMonitor());
     }
     if (!ptr->expired()) {
-        return ptr->acquire();
+        return Resource<id_t>(ptr->id, &*ptr);
     }
     id_t id = idAllocator.allocateId();
     if (id == shaders.size()) {
@@ -76,9 +76,6 @@ Resource<EffectShaderHandle> EffectShaderFactory::getHandle(const std::vector<Ef
         effect->effect->addTo(builder);
     }
     shaders[id].initialize(builder);
-    return ptr->set({ id });
-}
-
-void EffectShaderHandle::release() {
-    EffectShaderFactory::shaders[id].release();
+    ptr->id = id;
+    return Resource<id_t>(id, &*ptr);
 }

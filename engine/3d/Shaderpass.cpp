@@ -20,7 +20,7 @@ void BindingsTree::addEntry(EffectTriple* effects, int_t objectId) {
     nodes->emplace(objectId);
 }
 
-Shaderpass::Shaderpass(Resource<EffectShaderHandle> shaderHandle)
+Shaderpass::Shaderpass(Resource<id_t> shaderHandle)
     : shaderHandle(shaderHandle), solver(EffectShaderFactory::slotCount(*shaderHandle)), tree(EffectShaderFactory::slotCount(*shaderHandle)) { }
 
 void Shaderpass::addEntry(int_t objectId, std::vector<EffectInstance*>& effects) {
