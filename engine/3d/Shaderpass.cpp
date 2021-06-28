@@ -20,8 +20,8 @@ void BindingsTree::addEntry(EffectTriple* effects, int objectId) {
     nodes->emplace(objectId);
 }
 
-Shaderpass::Shaderpass(int shaderId, uint32_t n)
-    : shaderId(shaderId), solver(n), tree(n) { }
+Shaderpass::Shaderpass(uint32_t shaderId)
+    : shaderId(shaderId), solver(EffectShaderFactory::slotCount(shaderId)), tree(EffectShaderFactory::slotCount(shaderId)) { }
 
 void Shaderpass::addEntry(int objectId, std::vector<EffectInstance*>& effects) {
     Entry& entry = entries.emplace_back();
@@ -66,14 +66,13 @@ void Shaderpass::draw(Scene& scene, Renderpass& renderpass) {
         tree.addEntry(triples, entry.objectId);
     }
 
-    EffectShader& shader = scene.shaderEntries[shaderId].shader;
+    EffectShader& shader = EffectShaderFactory::instance(shaderId);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
-    drawNodes(scene, *renderpass.framebuffer, tree.root, tree.depth);
+    drawNodes(scene, *renderpass.framebuffer, shader, tree.root, tree.depth);
 }
 
-void Shaderpass::drawNodes(Scene& scene, Framebuffer& framebuffer, const std::set<BindingsTree::Node>& nodes, uint32_t level) {
-    EffectShader& shader = scene.shaderEntries[shaderId].shader;
+void Shaderpass::drawNodes(Scene& scene, Framebuffer& framebuffer, EffectShader& shader, const std::set<BindingsTree::Node>& nodes, uint32_t level) {
     for (const BindingsTree::Node& node : nodes) {
         if (level == 0) {
             auto& object = scene.objects[node.data.leaf.objectId].object;
@@ -83,7 +82,7 @@ void Shaderpass::drawNodes(Scene& scene, Framebuffer& framebuffer, const std::se
             framebuffer.draw(object.drawMode, object.indices);
         } else {
             node.data.internal.effect->applyTo(shader.ordered(shader.slots[node.data.internal.slot]));
-            drawNodes(framebuffer, node.children, level - 1);
+            drawNodes(scene, framebuffer, shader, node.children, level - 1);
         }
     }
 }

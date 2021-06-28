@@ -73,9 +73,9 @@ public:
     LinearProgramming<> solver;
     BindingsTree tree;
 
-    Shaderpass(int shaderId, uint32_t n);
+    Shaderpass(uint32_t shaderId);
 
     void draw(Scene&, Renderpass&);
     void addEntry(int objectId, std::vector<EffectInstance*>& effects);
-    void drawNodes(Scene&, Framebuffer&, const std::set<BindingsTree::Node>& nodes, uint32_t level);
+    void drawNodes(Scene&, Framebuffer&, EffectShader&, const std::set<BindingsTree::Node>& nodes, uint32_t level);
 };

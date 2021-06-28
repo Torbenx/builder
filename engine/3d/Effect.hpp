@@ -1,6 +1,8 @@
 #pragma once
 
 #include "GL/Shader.hpp"
+#include "util/IdAllocator.hpp"
+#include <unordered_map>
 
 class EffectShaderBuilder;
 class EffectShader;
@@ -102,9 +104,20 @@ public:
         modelUniform = builder.modelUniform;
         viewProjectionUniform = builder.viewProjectionUniform;
         slots = builder.slots;
-        LOGD("{%u, %u, %u, %u}", positionAttrib, normalAttrib, modelUniform, viewProjectionUniform);
     }
 
 private:
     using Shader::initialize;
+};
+
+class EffectShaderFactory {
+public:
+    static uint32_t getId(const std::vector<EffectInstance*>&);
+    static EffectShader& instance(uint32_t id) { return shaders[id]; }
+    static uint32_t slotCount(uint32_t id) { return instance(id).slots.size(); }
+
+private:
+    static inline std::unordered_map<uintptr_t, uint32_t> shaderIds;
+    static inline std::vector<EffectShader> shaders;
+    static inline IdAllocator<uint32_t> idAllocator;
 };

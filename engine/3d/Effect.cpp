@@ -46,3 +46,35 @@ std::string EffectShaderBuilder::buildFragmentSource() {
 
     return f.str();
 }
+
+uint32_t EffectShaderFactory::getId(const std::vector<EffectInstance*>& effects) {
+    uintptr_t hash = 0;
+    for (EffectInstance* instance : effects) {
+        hash ^= ((uintptr_t)instance->effect) >> 3;
+    }
+
+    /*LOGD("hash: %llx", hash);
+    for (EffectInstance* instance : effects) {
+        LOGD("0x%p: 0x%p", instance, instance->effect);
+    }
+    LOGD("");*/
+
+    auto it = shaderIds.find(hash);
+    uint32_t id;
+    if (it == shaderIds.end()) {
+        id = idAllocator.allocateId();
+        shaderIds.insert({ hash, id });
+        if (id == shaders.size()) {
+            shaders.resize(id + 1);
+        }
+        AttributeList attributes;
+        EffectShaderBuilder builder(attributes);
+        for (EffectInstance* effect : effects) {
+            effect->effect->addTo(builder);
+        }
+        shaders[id].initialize(builder);
+    } else {
+        id = it->second;
+    }
+    return id;
+}

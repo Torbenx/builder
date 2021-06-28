@@ -45,7 +45,6 @@ public:
         std::vector<EffectInstance*> effects;
     };
     struct ShaderEntry {
-        EffectShader shader;
         int indices[MAX_RENDERPASSES];
     };
     Resource<SimpleDepthShader> depthShader = Shaders::depth();
@@ -54,7 +53,5 @@ public:
     Renderpass renderpasses[MAX_RENDERPASSES];
     int renderpassCount = 0;
     std::vector<EffectInstance*> globalEffects;
-    std::unordered_map<uintptr_t, int> shaderIds;
     std::vector<ShaderEntry> shaderEntries;
-    IdAllocator<int> shaderIdAllocator;
 };

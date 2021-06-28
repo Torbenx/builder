@@ -4,9 +4,7 @@
 #include <unordered_set>
 
 Scene::~Scene() {
-    for (auto pair : shaderIds) {
-        shaderEntries[pair.second].shader.release();
-    }
+
 }
 
 void Scene::addEffect(EffectInstance* effect) {
@@ -52,46 +50,22 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
     std::sort(effects.begin(), effects.end(), [](EffectInstance* first, EffectInstance* second) {
         return first->effect < second->effect;
     });
-    uintptr_t hash = 0;
-    for (EffectInstance* instance : effects) {
-        hash ^= ((uintptr_t)instance->effect) >> 3;
-    }
 
-    /*LOGD("hash: %llx", hash);
-    for (EffectInstance* instance : effects) {
-        LOGD("0x%p: 0x%p", instance, instance->effect);
-    }
-    LOGD("");*/
-
-    auto it = shaderIds.find(hash);
-    int shaderId;
-    if (it == shaderIds.end()) {
-        shaderId = shaderIdAllocator.allocateId();
-        shaderIds.insert({ hash, shaderId });
-        if (shaderId == shaderEntries.size()) {
-            shaderEntries.resize(shaderId + 1);
-        }
-        ShaderEntry& shader = shaderEntries[shaderId];
-        AttributeList attributes;
-        EffectShaderBuilder builder(attributes);
-        for (EffectInstance* effect : effects) {
-            effect->effect->addTo(builder);
-        }
-        shader.shader.initialize(builder);
+    uint32_t shaderId = EffectShaderFactory::getId(effects);
+    if (shaderId == shaderEntries.size()) {
+        shaderEntries.resize(shaderId + 1);
         for (int i = 0; i < MAX_RENDERPASSES; i++) {
-            shader.indices[i] = -1;
+            shaderEntries[shaderId].indices[i] = -1;
         }
-    } else {
-        shaderId = it->second;
     }
 
-    ShaderEntry& shader = shaderEntries[shaderId];
+    ShaderEntry& shaderEntry = shaderEntries[shaderId];
     Shaderpass* shaderpass;
-    int shaderpassIndex = shader.indices[renderpassIndex];
+    int shaderpassIndex = shaderEntry.indices[renderpassIndex];
     if (shaderpassIndex == -1) {
         shaderpassIndex = renderpass.passes.size();
-        shader.indices[renderpassIndex] = shaderpassIndex;
-        shaderpass = &renderpass.passes.emplace_back(shaderId, shader.shader.slots.size());
+        shaderEntry.indices[renderpassIndex] = shaderpassIndex;
+        shaderpass = &renderpass.passes.emplace_back(shaderId);
     } else {
         shaderpass = &renderpass.passes[shaderpassIndex];
     }
