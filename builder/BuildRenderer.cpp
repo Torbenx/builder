@@ -20,10 +20,10 @@ BuildRenderer::BuildRenderer() : explorer(this), head(this){
         .width(TypedSize::gl(0.5f));
 }
 
-void BuildRenderer::change(int newWidth, int newHeight){
+void BuildRenderer::change(int_t newWidth, int_t newHeight){
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     ScreenMetrics metrics;
-    int dpi = getDPI();
+    int_t dpi = getDPI();
     metrics.x.size = newWidth;
     metrics.x.dpi = dpi;
     metrics.y.size = newHeight;

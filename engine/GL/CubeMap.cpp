@@ -1,4 +1,5 @@
 #include "GL/CubeMap.hpp"
+#include "util/log.hpp"
 
 CubeMap CubeMap::color(int width, int height, Texture::Format format) {
     CubeMap cubeMap(Texture::Type::Color);

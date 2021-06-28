@@ -121,36 +121,36 @@ TestRenderer::TestRenderer()
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
-    for (int i = -5; i <= 5; i++) {
+    for (int_t i = -5; i <= 5; i++) {
         scene.addObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox }, { textureEffect });
     }
 }
 
-template<size_t N>
+template<int_t N>
 void performTest() {
     IdAllocator<uint32_t, N> a;
-    size_t base = 10;
-    size_t aa = 0;
-    size_t A = 1 << aa, B = 1 << (base - aa);
+    int_t base = 10;
+    int_t aa = 0;
+    int_t A = 1 << aa, B = 1 << (base - aa);
     uint32_t p[1 << base];
-    size_t mask = (1 << base) - 1;
-    for (size_t i = 0; i < (1 << base); i++) {
+    int_t mask = (1 << base) - 1;
+    for (int_t i = 0; i < (1 << base); i++) {
         p[i] = a.allocateId();
     }
-    for (size_t i = 0; i < 30; i++) {
+    for (int_t i = 0; i < 30; i++) {
         std::swap(p[std::rand() & mask], p[std::rand() & mask]);
     }
-    size_t maxBucketCount = 0;
+    int_t maxBucketCount = 0;
     {
         LogTimer timer;
-        //for (size_t j = 0; j < A; j++) {
-            for (size_t i = 0; i < B; i++) {
+        //for (int_t j = 0; j < A; j++) {
+            for (int_t i = 0; i < B; i++) {
                 a.freeId(p[0 * B + i]);
                 if (a.bucketCount() > maxBucketCount) {
                     maxBucketCount = a.bucketCount();
                 }
             }
-            /*for (size_t i = 0; i < B; i++) {
+            /*for (int_t i = 0; i < B; i++) {
                 a.allocateId();
             }
         }*/
@@ -167,7 +167,7 @@ uint64_t test2(float* in1, float* in2) {
     return vget_lane_u64((uint64x1_t)vmovn_u32(cmp), 0);
 }*/
 
-void TestRenderer::change(int newWidth, int newHeight) {
+void TestRenderer::change(int_t newWidth, int_t newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth / (float)newHeight;
     projection = Mat4x4::frustumH(67.0f * F_PI / 180.0f, as, 0.1f, 100.0f);
@@ -184,14 +184,14 @@ void TestRenderer::change(int newWidth, int newHeight) {
     LOGD("test2: 0x%llx", test2(a, b));*/
 }
 
-std::atomic<size_t> testCounter = 0;
+std::atomic<int_t> testCounter = 0;
 
 class MyTask : public Task {
 public:
     Task* sched;
     void run() {
         while (true) {
-            size_t counter = testCounter.fetch_add(1, std::memory_order_relaxed);
+            int_t counter = testCounter.fetch_add(1, std::memory_order_relaxed);
             Task::schedulingQueue.pushBack(sched);
             yield();
         }
@@ -228,43 +228,43 @@ void TestRenderer::pointer(PointerEvent event) {
 
     do {
         static Scheduler me;
-        const size_t targetCounter = 100;
-        const size_t taskCount = targetCounter;
-        const size_t extraThreadCount = 0;
+        const int_t targetCounter = 100;
+        const int_t taskCount = targetCounter;
+        const int_t extraThreadCount = 0;
         testCounter = 0;
         MyTask* tasks = new MyTask[taskCount];
         Task::schedulingQueue.clear();
 
-        for (size_t i = 0; i < taskCount; i++) {
+        for (int_t i = 0; i < taskCount; i++) {
             tasks[i].sched = &tasks[(taskCount + i - 1) % taskCount];
             if (i != 0)
                 Task::schedulingQueue.pushBack(&tasks[i]);
         }
 
         ShutdownTask* shutdownTasks = new ShutdownTask[extraThreadCount + 1];
-        for (size_t i = 0; i < extraThreadCount + 1; i++) {
+        for (int_t i = 0; i < extraThreadCount + 1; i++) {
             Task::schedulingQueue.pushBack(&shutdownTasks[i]);
         }
         SchedulerThead threads[extraThreadCount];
 
-        size_t start = getNanos();
+        int_t start = getNanos();
         me.enter();
-        size_t end = getNanos();
+        int_t end = getNanos();
 
-        for (int i = 0; i < extraThreadCount; i++) {
+        for (int_t i = 0; i < extraThreadCount; i++) {
             threads[i].join();
         }
 
         delete[] tasks;
-        static size_t testCount = 0;
+        static int_t testCount = 0;
         testCount++;
-        static size_t testTotal = 0;
+        static int_t testTotal = 0;
         testTotal += (end - start) / 1000;
         LOGD("counter: %u, time: %u us, avg: %f", testCounter.load(std::memory_order_relaxed), (end - start) / 1000, testTotal / (float)testCount);
     } while (false);
 }
 
-void TestRenderer::rawPointer(int dx, int dy) {
+void TestRenderer::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
 }
 
@@ -384,38 +384,10 @@ void TestRenderer::drawFrame() {
             constraint[j] = i * lp.n + j;
         }
         lp.addConstraint(constraint);
-    }*/
-
-    /*uint32_t constraints[] = {
-        0, 3, 4, 5,
-        1, 3, 4, 5,
-        2, 3, 4, 5
-    };*/
-    /*uint32_t constraints[] = {
-        1, 2, 3, 4,
-        0, 2, 3, 4,
-        0, 1, 3, 4,
-        1, 5, 6, 8,
-        2, 3, 5, 7,
-        2, 9, 10, 11,
-    };
-    lp.n = 4;
-    lp.numConstraints = 6;
-    lp.numVariables = 12;
-    lp.constraints = constraints;*/
-    {
-        //LogTimer timer;
-        //lp.relaxed();
     }
-    //lp.basis.debug();
+    LogTimer timer;
+    lp.relaxed();*/
     //lp.dual.debug();
 }
 
-TestRenderer::~TestRenderer() {
-    /*delete obj1;
-    delete obj2;
-    delete obj3;
-    delete obj4;
-    delete obj5;
-    delete pawn;*/
-}
+TestRenderer::~TestRenderer() { }

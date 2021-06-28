@@ -16,7 +16,7 @@ class BuildRenderer : public Renderer{
 
         BuildRenderer();
         void pointer(PointerEvent pointer) override;
-        void change(int newWidth, int newHeight) override;
+        void change(int_t newWidth, int_t newHeight) override;
         void setPath(std::string path);
         void drawFrame() override;
 };

@@ -1,4 +1,5 @@
 #include "3d/PointLight.hpp"
+#include "util/log.hpp"
 #include <cmath>
 
 PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _near, float _far)

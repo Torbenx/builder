@@ -20,9 +20,9 @@ Renderer* (*createRenderer)();
 HWND engine_hwnd;
 ID3D11Device *dxDevice;
 HANDLE hDxDevice;
-int rendererState = RENDERER_STATE_INVISIBLE;
-int lastMouseX = INT_MAX;
-int lastMouseY = INT_MAX;
+int_t rendererState = RENDERER_STATE_INVISIBLE;
+int_t lastMouseX = std::numeric_limits<int_t>::max();
+int_t lastMouseY = std::numeric_limits<int_t>::max();
 std::map<unsigned int,unsigned int> counter;
 
 void init_text();
@@ -151,7 +151,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 RAWINPUT *raw = (RAWINPUT*)data.data();
                 switch(raw->header.dwType){
                     case RIM_TYPEMOUSE:{
-                        int dx,dy;
+                        int_t dx,dy;
                         if(raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE){
                             if(lastMouseX != INT_MAX){
                                 LOGW("switched from relative to absolute input");
@@ -244,7 +244,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
     }
 }
 
-int Renderer::getState(){
+int_t Renderer::getState(){
     return rendererState;
 }
 
@@ -258,7 +258,7 @@ int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, 
     init_time();
     init_textureFormats();
 
-    const int rawInputDeviceCount = 2;
+    const int_t rawInputDeviceCount = 2;
     RAWINPUTDEVICE rid[rawInputDeviceCount];
 
     rid[0].usUsagePage = 0x01;
@@ -291,8 +291,8 @@ int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, 
         return 0;
     }
 
-    int width = 1024;
-    int height = 512;
+    int_t width = 1024;
+    int_t height = 512;
     engine_hwnd = CreateWindowEx(
         WS_EX_CLIENTEDGE,
         g_szClassName,
@@ -324,7 +324,9 @@ uintptr_t allocPtr = 0;
 void* operator new(std::size_t count, std::align_val_t al) {
     std::size_t alignment = (std::size_t)al;
     if (!allocPtr) {
-        allocPtr = (uintptr_t)VirtualAlloc(nullptr, 1024 * 1024 * 1024, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        int_t size =  1024 * 1024 * 1024;
+        allocPtr = (uintptr_t)VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        std::memset((void*)allocPtr, 0, size);
         LOGD("allocPtr=%p", allocPtr);
     }
     alignment = std::bit_ceil(alignment);

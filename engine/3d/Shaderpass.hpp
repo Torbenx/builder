@@ -16,8 +16,8 @@ struct Renderpass {
 
 struct EffectTriple {
     EffectInstance* effect;
-    uint32_t rank;
-    uint32_t slot;
+    int_t rank;
+    int_t slot;
 };
 
 class BindingsTree {
@@ -27,17 +27,17 @@ public:
         union {
             struct {
                 EffectInstance* effect;
-                uint32_t slot;
+                int_t slot;
             } internal;
             struct {
-                int objectId;
+                int_t objectId;
             } leaf;
         } data;
         std::set<Node> children;
 
-        Node(int objectId)
+        Node(int_t objectId)
             : isLeaf(true) { data.leaf.objectId = objectId; }
-        Node(EffectInstance* effect, uint32_t slot)
+        Node(EffectInstance* effect, int_t slot)
             : isLeaf(false) {
             data.internal.effect = effect;
             data.internal.slot = slot;
@@ -47,25 +47,25 @@ public:
             return isLeaf ? (data.leaf.objectId < other.data.leaf.objectId) : (data.internal.effect < other.data.internal.effect);
         }
         bool operator<(uintptr_t effect) const { return ((uintptr_t)data.internal.effect) < effect; }
-        bool operator<(int objectId) const { return data.leaf.objectId < objectId; }
+        bool operator<(int_t objectId) const { return data.leaf.objectId < objectId; }
     };
 
     std::set<Node> root;
-    size_t depth;
-    void addEntry(EffectTriple* effects, int objectId);
+    int_t depth;
+    void addEntry(EffectTriple* effects, int_t objectId);
 
-    BindingsTree(size_t depth)
+    BindingsTree(int_t depth)
         : depth(depth) { }
 };
 
 class Shaderpass {
 public:
     struct Entry {
-        int objectId;
-        std::vector<uint32_t> effectIds;
+        id_t objectId;
+        std::vector<id_t> effectIds;
     };
 
-    int shaderId;
+    id_t shaderId;
     std::vector<Entry> entries;
     std::unordered_map<EffectInstance*, uint32_t> map;
     std::vector<EffectInstance*> inverseMap;
@@ -73,9 +73,9 @@ public:
     LinearProgramming<> solver;
     BindingsTree tree;
 
-    Shaderpass(uint32_t shaderId);
+    Shaderpass(id_t shaderId);
 
     void draw(Scene&, Renderpass&);
-    void addEntry(int objectId, std::vector<EffectInstance*>& effects);
-    void drawNodes(Scene&, Framebuffer&, EffectShader&, const std::set<BindingsTree::Node>& nodes, uint32_t level);
+    void addEntry(int_t objectId, std::vector<EffectInstance*>& effects);
+    void drawNodes(Scene&, Framebuffer&, EffectShader&, const std::set<BindingsTree::Node>& nodes, int_t level);
 };

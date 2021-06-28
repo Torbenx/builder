@@ -47,7 +47,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
     return f.str();
 }
 
-uint32_t EffectShaderFactory::getId(const std::vector<EffectInstance*>& effects) {
+id_t EffectShaderFactory::getId(const std::vector<EffectInstance*>& effects) {
     uintptr_t hash = 0;
     for (EffectInstance* instance : effects) {
         hash ^= ((uintptr_t)instance->effect) >> 3;
@@ -60,7 +60,7 @@ uint32_t EffectShaderFactory::getId(const std::vector<EffectInstance*>& effects)
     LOGD("");*/
 
     auto it = shaderIds.find(hash);
-    uint32_t id;
+    id_t id;
     if (it == shaderIds.end()) {
         id = idAllocator.allocateId();
         shaderIds.insert({ hash, id });

@@ -1,9 +1,9 @@
 #include "3d/Shaderpass.hpp"
 #include "3d/Scene.hpp"
 
-void BindingsTree::addEntry(EffectTriple* effects, int objectId) {
+void BindingsTree::addEntry(EffectTriple* effects, int_t objectId) {
     std::set<Node>* nodes = &root;
-    for (size_t level = 0; level < depth; level++) {
+    for (int_t level = 0; level < depth; level++) {
         auto it = nodes->lower_bound((uintptr_t)effects[level].effect);
         if (it == nodes->end() || it->data.internal.effect != effects[level].effect) {
             it = nodes->emplace_hint(it, effects[level].effect, effects[level].slot);
@@ -20,14 +20,14 @@ void BindingsTree::addEntry(EffectTriple* effects, int objectId) {
     nodes->emplace(objectId);
 }
 
-Shaderpass::Shaderpass(uint32_t shaderId)
+Shaderpass::Shaderpass(id_t shaderId)
     : shaderId(shaderId), solver(EffectShaderFactory::slotCount(shaderId)), tree(EffectShaderFactory::slotCount(shaderId)) { }
 
-void Shaderpass::addEntry(int objectId, std::vector<EffectInstance*>& effects) {
+void Shaderpass::addEntry(int_t objectId, std::vector<EffectInstance*>& effects) {
     Entry& entry = entries.emplace_back();
     entry.objectId = objectId;
-    uint32_t ids[effects.size()];
-    for (size_t i = 0; i < effects.size(); i++) {
+    id_t ids[effects.size()];
+    for (int_t i = 0; i < effects.size(); i++) {
         EffectInstance* effect = effects[i];
         auto it = map.find(effect);
         if (it == map.end()) {
@@ -52,15 +52,14 @@ void Shaderpass::draw(Scene& scene, Renderpass& renderpass) {
     solver.solve();
 
     EffectTriple triples[solver.n];
-    size_t variableCount = solver.basisSize;
     for (Entry& entry : entries) {
-        for (size_t i = 0; i < solver.n; i++) {
+        for (int_t i = 0; i < solver.n; i++) {
             triples[i].effect = inverseMap[entry.effectIds[i]];
             triples[i].rank = solver.output[entry.effectIds[i]];
             triples[i].slot = i;
         }
         std::sort(triples, triples + solver.n,
-            [variableCount](const EffectTriple& a, const EffectTriple& b) {
+            [](const EffectTriple& a, const EffectTriple& b) {
                 return a.rank > b.rank;
             });
         tree.addEntry(triples, entry.objectId);
@@ -72,7 +71,7 @@ void Shaderpass::draw(Scene& scene, Renderpass& renderpass) {
     drawNodes(scene, *renderpass.framebuffer, shader, tree.root, tree.depth);
 }
 
-void Shaderpass::drawNodes(Scene& scene, Framebuffer& framebuffer, EffectShader& shader, const std::set<BindingsTree::Node>& nodes, uint32_t level) {
+void Shaderpass::drawNodes(Scene& scene, Framebuffer& framebuffer, EffectShader& shader, const std::set<BindingsTree::Node>& nodes, int_t level) {
     for (const BindingsTree::Node& node : nodes) {
         if (level == 0) {
             auto& object = scene.objects[node.data.leaf.objectId].object;

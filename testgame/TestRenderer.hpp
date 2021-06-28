@@ -24,7 +24,7 @@ class TestRenderer : public Renderer {
 public:
     uint64_t lframe;
     uint64_t lsecond;
-    int frameCounter = 0;
+    int_t frameCounter = 0;
     Vec3 obj5_coords[4];
     Vec3 up;
     PointLight pointLight;
@@ -47,9 +47,9 @@ public:
     uint32_t w = -1, a = -1, s = -1, d = -1, fullscreen = -1, exitKey = -1, upKey = -1, downKey = -1;
     Vec3 pos;
     bool wd = false, ad = false, sd = false, dd = false, upKeyDown = false, downKeyDown = false;
-    int lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
-    int navBaseX, navBaseY;
-    int navDeltaX = 0, navDeltaY = 0;
+    int_t lookPointerId = POINTER_ID_INVALID, navPointerId = POINTER_ID_INVALID;
+    int_t navBaseX, navBaseY;
+    int_t navDeltaX = 0, navDeltaY = 0;
     TextComponent textComp;
     DepthMapComponent cubeComp;
     TextureComponent refComp;
@@ -57,9 +57,9 @@ public:
     UiScene uiScene;
 
     TestRenderer();
-    void change(int width, int height);
+    void change(int_t width, int_t height);
     void pointer(PointerEvent event);
-    void rawPointer(int dx, int dy);
+    void rawPointer(int_t dx, int_t dy);
     void rawKey(uint32_t keycode, bool down);
     void drawFrame();
     ~TestRenderer();

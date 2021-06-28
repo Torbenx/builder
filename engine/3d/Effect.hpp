@@ -10,10 +10,10 @@ class EffectShader;
 // Attributes should be singletons
 struct Attribute {
     static std::vector<Attribute*> instances;
-    const int id;
+    const id_t id;
     Attribute()
         : id(instances.size()) { instances.push_back(this); }
-    static Attribute* fromId(int id) { return instances[id]; }
+    static Attribute* fromId(id_t id) { return instances[id]; }
     virtual void addTo(EffectShaderBuilder&) = 0;
     virtual ~Attribute() { }
 };
@@ -21,22 +21,22 @@ struct Attribute {
 class AttributeList {
 public:
     struct iterator {
-        int id;
+        id_t id;
         uint64_t attributes;
-        iterator(uint64_t attributes, int id)
+        iterator(uint64_t attributes, id_t id)
             : attributes(attributes), id(id) { }
         bool operator!=(iterator other) { return id != other.id; }
         iterator& operator++() {
             while (++id < sizeof(attributes) * 8) {
-                if (attributes & (1 << id))
+                if (attributes & ((uint64_t)1 << id))
                     break;
             }
             return *this;
         }
         Attribute* operator*() { return Attribute::fromId(id); }
     };
-    bool has(Attribute* attribute) const { return attributes & (1 << attribute->id); }
-    void add(Attribute* attribute) { attributes |= (1 << attribute->id); }
+    bool has(Attribute* attribute) const { return attributes & ((uint64_t)1 << attribute->id); }
+    void add(Attribute* attribute) { attributes |= ((uint64_t)1 << attribute->id); }
     iterator begin() const { return ++iterator(attributes, -1); }
     iterator end() const { return iterator(attributes, sizeof(attributes) * 8); }
     bool operator==(AttributeList other) const { return attributes == other.attributes; }
@@ -112,12 +112,12 @@ private:
 
 class EffectShaderFactory {
 public:
-    static uint32_t getId(const std::vector<EffectInstance*>&);
-    static EffectShader& instance(uint32_t id) { return shaders[id]; }
-    static uint32_t slotCount(uint32_t id) { return instance(id).slots.size(); }
+    static id_t getId(const std::vector<EffectInstance*>&);
+    static EffectShader& instance(id_t id) { return shaders[id]; }
+    static int_t slotCount(id_t id) { return instance(id).slots.size(); }
 
 private:
-    static inline std::unordered_map<uintptr_t, uint32_t> shaderIds;
+    static inline std::unordered_map<uintptr_t, id_t> shaderIds;
     static inline std::vector<EffectShader> shaders;
-    static inline IdAllocator<uint32_t> idAllocator;
+    static inline IdAllocator<> idAllocator;
 };

@@ -3,7 +3,6 @@
 #include "GL/Buffer.hpp"
 #include "GL/forward.hpp"
 #include "GL/glwrapper.hpp"
-#include "util/ptrs.hpp"
 
 class Texture {
 public:

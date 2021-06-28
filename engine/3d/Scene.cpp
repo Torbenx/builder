@@ -12,12 +12,12 @@ void Scene::addEffect(EffectInstance* effect) {
 }
 
 void Scene::addObject(const Object& object, const std::vector<EffectInstance*>& effects) {
-    int objectId = objects.size();
+    id_t objectId = objects.size();
     objects.push_back({ object, effects });
     for (DepthRenderpass& pass : depthPasses) {
         pass.entries.push_back({ objectId, pass.viewProjectionMatrix * object.modelMatrix });
     }
-    for (int i = 0; i < renderpassCount; i++) {
+    for (int_t i = 0; i < renderpassCount; i++) {
         addObjectToRenderpass(i, objectId);
     }
 }
@@ -27,20 +27,20 @@ void Scene::addDepthRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProje
     pass.framebuffer = framebuffer;
     pass.viewProjectionMatrix = viewProjectionMatrix;
     pass.entries.reserve(objects.size());
-    for (int i = 0; i < objects.size(); i++)
+    for (id_t i = 0; i < objects.size(); i++)
         pass.entries.push_back({ i, pass.viewProjectionMatrix * objects[i].object.modelMatrix });
     depthPasses.push_back(std::move(pass));
 }
 
-int Scene::addRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProjectionMatrix) {
-    int index = renderpassCount++;
+int_t Scene::addRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProjectionMatrix) {
+    int_t index = renderpassCount++;
     Renderpass& renderpass = renderpasses[index];
     renderpass.framebuffer = framebuffer;
     renderpass.viewProjectionMatrix = viewProjectionMatrix;
     return index;
 }
 
-void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
+void Scene::addObjectToRenderpass(int_t renderpassIndex, id_t objectId) {
     Renderpass& renderpass = renderpasses[renderpassIndex];
 
     std::vector<EffectInstance*> effects;
@@ -51,7 +51,7 @@ void Scene::addObjectToRenderpass(int renderpassIndex, int objectId) {
         return first->effect < second->effect;
     });
 
-    uint32_t shaderId = EffectShaderFactory::getId(effects);
+    id_t shaderId = EffectShaderFactory::getId(effects);
     if (shaderId == shaderEntries.size()) {
         shaderEntries.resize(shaderId + 1);
         for (int i = 0; i < MAX_RENDERPASSES; i++) {
@@ -99,11 +99,11 @@ void Scene::draw() {
         }
     }
 
-    for (int i = renderpassCount - 1; i >= 0; i--) {
+    for (int_t i = renderpassCount - 1; i >= 0; i--) {
         Renderpass& renderpass = renderpasses[i];
         renderpass.framebuffer->bind();
         renderpass.framebuffer->clear();
-        int rendererObjects = 0;
+        int_t rendererObjects = 0;
         for (Shaderpass& shaderpass : renderpass.passes) {
             shaderpass.draw(*this, renderpass);
         }

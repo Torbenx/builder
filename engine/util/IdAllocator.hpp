@@ -1,9 +1,10 @@
 #pragma once
 
-#include <set>
+#include "util/types.hpp"
 #include <iostream>
+#include <set>
 
-template<typename T, size_t N = 20>
+template<typename T = id_t, size_t N = 20>
 class IdAllocator {
 public:
     IdAllocator(T min = 0, T max = std::numeric_limits<T>::max()) {
@@ -37,7 +38,7 @@ public:
             return;
         }
         if (it == buckets.begin()) {
-            if(!it->isRange) {
+            if (!it->isRange) {
                 split(it, id);
                 return;
             }
@@ -57,7 +58,7 @@ public:
                 prevIt->pushBack(id);
                 return;
             }
-            if(!it->isRange) {
+            if (!it->isRange) {
                 split(it, id);
                 return;
             }
