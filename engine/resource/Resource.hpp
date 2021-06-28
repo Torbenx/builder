@@ -1,123 +1,75 @@
 #pragma once
 
 #include "util/log.hpp"
+#include "util/types.hpp"
 
-#define DEBUG_RESOURCE(str) //LOGD(str " refCount=%d, weakRefCount=%d", refCount, weakRefCount)
+#define DEBUG_RESOURCE(str) //LOGD(str " refCount=%d", refCount)
 
-struct Monitor {
-    int refCount;
-    int weakRefCount;
+template<typename T>
+class Resource;
 
-    // default construct with 1 reference
-    Monitor()
-        : refCount(1), weakRefCount(0) { }
+class ResourceMonitor {
+public:
+    bool expired() { return refCount == 0; }
+
+    virtual ~ResourceMonitor() {
+        DEBUG_RESOURCE("~");
+    }
+
+protected:
+    virtual bool release() {
+        delete this;
+        return true;
+    }
+
+private:
+    int_t refCount = 0;
 
     void ref() {
         DEBUG_RESOURCE("ref");
         ++refCount;
     }
+
     bool unref() {
         DEBUG_RESOURCE("unref");
         --refCount;
-        return refCount == 0;
+        if (refCount == 0) {
+             return release();
+        }
+        return false;
     }
-    void weakRef() {
-        DEBUG_RESOURCE("weakRef");
-        ++weakRefCount;
-    }
-    void weakUnref() {
-        DEBUG_RESOURCE("weakUnref");
-        --weakRefCount;
-    }
-    bool dead() { return refCount == 0 && weakRefCount == 0; }
 
-    ~Monitor() {
-        DEBUG_RESOURCE("~");
-    }
+    template<typename T>
+    friend class Resource;
 };
 
 template<typename T>
 class Resource {
 public:
-    class Weak {
-    public:
-        Weak()
-            : value() { }
-
-        Weak& operator=(const Weak& other) {
-            unref();
-            const_cast<T&>(value) = other.value;
-            monitor = other.monitor;
-            ref();
-            return *this;
-        }
-
-        Resource<T> acquire() {
-            if (expired()) {
-                LOGD("acquire on expired resource");
-                return Resource<T>();
-            }
-            return Resource<T>(value, monitor);
-        }
-
-        bool expired() {
-            if (!monitor)
-                return true;
-            if (monitor->refCount == 0) {
-                unref();
-                return true;
-            }
-            return false;
-        }
-
-        ~Weak() {
-            unref();
-        }
-
-    private:
-        const T value;
-        Monitor* monitor = nullptr;
-
-        Weak(const T& value, Monitor* monitor)
-            : value(value), monitor(monitor) { ref(); }
-
-        void ref() {
-            if (monitor) {
-                monitor->weakRef();
-            } else {
-                LOGD("Weak::ref with no monitor!");
-            }
-        }
-
-        void unref() {
-            if (monitor) {
-                monitor->weakUnref();
-                if (monitor->dead()) {
-                    delete monitor;
-                }
-            }
-        }
-        friend Resource;
-    };
-
     const T value;
 
     Resource()
         : value() { }
     Resource(T value)
-        : value(value), monitor(new Monitor()) { }
+        : value(value), monitor(new ResourceMonitor()) { ref(); }
     Resource(const Resource<T>& res)
         : value(res.value), monitor(res.monitor) { ref(); }
 
     void set(const T& new_value) {
         unref();
         const_cast<T&>(value) = new_value;
-        monitor = new Monitor();
+        monitor = new ResourceMonitor();
+        ref();
     }
 
     void clear() {
         unref();
         monitor = nullptr;
+    }
+
+    void setEternal(const T& new_value) {
+        clear();
+        const_cast<T&>(value) = new_value;
     }
 
     template<typename U>
@@ -142,36 +94,17 @@ public:
         return *this;
     }
 
-    const T* operator->() {
-        return &value;
-    }
+    const T* operator->() { return &value; }
+    const T& operator*() { return value; }
+    operator const T() { return value; }
+    bool hasMonitor() { return monitor != nullptr; }
+    ~Resource() { unref(); }
 
-    const T& operator*() {
-        return value;
-    }
-
-    operator const T() {
-        return value;
-    }
-
-    void setEternal(const T& new_value) {
-        clear();
-        const_cast<T&>(value) = new_value;
-    }
-
-    Weak weak() {
-        return Weak(value, monitor);
-    }
-
-    ~Resource() {
-        unref();
-    }
-
-    Monitor* monitor = nullptr;
+    Resource(const T& value, ResourceMonitor* monitor)
+        : value(value), monitor(monitor) { ref(); }
 
 private:
-    Resource(const T& value, Monitor* monitor)
-        : value(value), monitor(monitor) { ref(); }
+    mutable ResourceMonitor* monitor = nullptr;
 
     void ref() {
         if (monitor) {
@@ -186,10 +119,10 @@ private:
         if (monitor) {
             if (monitor->unref()) {
                 const_cast<T&>(value).release();
-                if (monitor->dead()) {
-                    delete monitor;
-                }
             }
         }
     }
+
+    template<typename U>
+    friend class Resource;
 };

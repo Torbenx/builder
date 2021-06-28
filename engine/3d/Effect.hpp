@@ -3,6 +3,8 @@
 #include "GL/Shader.hpp"
 #include "resource/Resource.hpp"
 #include "util/IdAllocator.hpp"
+#include "util/Shaders.hpp"
+#include <memory>
 #include <unordered_map>
 
 class EffectShaderBuilder;
@@ -123,7 +125,7 @@ public:
     static int_t slotCount(EffectShaderHandle handle) { return instance(handle).slots.size(); }
 
 private:
-    static inline std::unordered_map<uintptr_t, Resource<EffectShaderHandle>::Weak> shaderHandles;
+    static inline std::unordered_map<uintptr_t, std::unique_ptr<StaticResourceMonitor<EffectShaderHandle>>> shaderHandles;
     static inline std::vector<EffectShader> shaders;
     static inline IdAllocator<> idAllocator;
     friend EffectShaderHandle;

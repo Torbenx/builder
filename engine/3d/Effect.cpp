@@ -59,24 +59,24 @@ Resource<EffectShaderHandle> EffectShaderFactory::getHandle(const std::vector<Ef
     }
     LOGD("");*/
 
-    Resource<EffectShaderHandle>::Weak& w = shaderHandles[hash];
-    if (w.expired()) {
-        id_t id = idAllocator.allocateId();
-        if (id == shaders.size()) {
-            shaders.resize(id + 1);
-        }
-        AttributeList attributes;
-        EffectShaderBuilder builder(attributes);
-        for (EffectInstance* effect : effects) {
-            effect->effect->addTo(builder);
-        }
-        shaders[id].initialize(builder);
-        Resource<EffectShaderHandle> ret({ id });
-        w = ret.weak();
-        return ret;
-    } else {
-        return w.acquire();
+    std::unique_ptr<StaticResourceMonitor<EffectShaderHandle>>& ptr = shaderHandles[hash];
+    if (!ptr) {
+        ptr.reset(new StaticResourceMonitor<EffectShaderHandle>());
     }
+    if (!ptr->expired()) {
+        return ptr->acquire();
+    }
+    id_t id = idAllocator.allocateId();
+    if (id == shaders.size()) {
+        shaders.resize(id + 1);
+    }
+    AttributeList attributes;
+    EffectShaderBuilder builder(attributes);
+    for (EffectInstance* effect : effects) {
+        effect->effect->addTo(builder);
+    }
+    shaders[id].initialize(builder);
+    return ptr->set({ id });
 }
 
 void EffectShaderHandle::release() {

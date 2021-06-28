@@ -108,6 +108,10 @@ public:
             glDeleteBuffers(1, &glId);
         else
             delete[] data();
+        glId = 0;
+        m_data = nullptr;
+        m_elementSize = 0;
+        m_size = 0;
     }
 
     void view(int offset, int size) {

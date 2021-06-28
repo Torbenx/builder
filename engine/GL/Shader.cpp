@@ -131,6 +131,7 @@ void Shader::release() {
     LOGD("release glId=%d", glId);
     if (glId != 0) {
         glDeleteProgram(glId);
+        glId = 0;
     }
 }
 

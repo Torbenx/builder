@@ -5,6 +5,31 @@
 #include "util/log.hpp"
 #include "util/text.hpp"
 
+template<typename T>
+struct StaticResourceMonitor final : public ResourceMonitor {
+    T value;
+
+    Resource<T> acquire() {
+        if (!expired()) {
+            return Resource<T>(value, this);
+        } else {
+            return Resource<T>();
+        }
+    }
+
+    Resource<T> set(T new_value) {
+        if (!expired()) {
+            LOGD("StaticResourceMonitor::set on resource that hasn't expired!");
+        }
+        const_cast<T&>(value) = new_value;
+        return Resource<T>(value, this);
+    }
+
+    bool release() override {
+        return true;
+    }
+};
+
 struct SimpleTextureShader : public Shader {
     LocationHandle positionAttrib, texCoordAttrib, textureUniform;
     void applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler = "sampler2D");
@@ -29,20 +54,18 @@ struct SimpleCubeMapShader : public Shader {
     void applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler = "samplerCube");
 };
 
-#define DECLARE_SHADER(name, type)                \
-    static inline Resource<type>::Weak w_##name;  \
-    static Resource<type> name() {                \
-        if (w_##name.expired()) {                 \
-            LOGD("constructing Shaders::" #name); \
-            ShaderBuilder b;                      \
-            type s = type();                      \
-            s.apply##type(b);                     \
-            s.initialize(b);                      \
-            Resource<type> r(s);                  \
-            w_##name = r.weak();                  \
-            return r;                             \
-        }                                         \
-        return w_##name.acquire();                \
+#define DECLARE_SHADER(name, type)                      \
+    static inline StaticResourceMonitor<type> m_##name; \
+    static Resource<type> name() {                      \
+        if (!m_##name.expired()) {                      \
+            return m_##name.acquire();                  \
+        }                                               \
+        LOGD("constructing Shaders::" #name);           \
+        ShaderBuilder b;                                \
+        type s = type();                                \
+        s.apply##type(b);                               \
+        s.initialize(b);                                \
+        return m_##name.set(s);                         \
     }
 
 class Shaders {

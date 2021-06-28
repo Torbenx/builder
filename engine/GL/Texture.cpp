@@ -90,6 +90,7 @@ void Texture::release() {
     } else {
         glDeleteTextures(1, &glId);
     }
+    glId = 0;
 }
 
 void Texture::bind() const {
