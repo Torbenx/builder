@@ -1,7 +1,10 @@
 #pragma once
 
 #include <bit>
+#include <cstdint>
+#include <cstring>
 #include <limits>
+#include <vector>
 
 template<typename T>
 struct BitTraits {

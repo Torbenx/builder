@@ -2,6 +2,7 @@
 
 #include "GL/Texture.hpp"
 #include "resource/Resource.hpp"
+#include <iostream>
 
 class JpegDecoder {
 public:

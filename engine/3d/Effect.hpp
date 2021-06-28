@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GL/Shader.hpp"
+#include "resource/Resource.hpp"
 #include "util/IdAllocator.hpp"
 #include <unordered_map>
 
@@ -110,14 +111,20 @@ private:
     using Shader::initialize;
 };
 
+struct EffectShaderHandle {
+    id_t id;
+    void release();
+};
+
 class EffectShaderFactory {
 public:
-    static id_t getId(const std::vector<EffectInstance*>&);
-    static EffectShader& instance(id_t id) { return shaders[id]; }
-    static int_t slotCount(id_t id) { return instance(id).slots.size(); }
+    static Resource<EffectShaderHandle> getHandle(const std::vector<EffectInstance*>&);
+    static EffectShader& instance(EffectShaderHandle handle) { return shaders[handle.id]; }
+    static int_t slotCount(EffectShaderHandle handle) { return instance(handle).slots.size(); }
 
 private:
-    static inline std::unordered_map<uintptr_t, id_t> shaderIds;
+    static inline std::unordered_map<uintptr_t, Resource<EffectShaderHandle>::Weak> shaderHandles;
     static inline std::vector<EffectShader> shaders;
     static inline IdAllocator<> idAllocator;
+    friend EffectShaderHandle;
 };

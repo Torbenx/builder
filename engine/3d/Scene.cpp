@@ -51,21 +51,21 @@ void Scene::addObjectToRenderpass(int_t renderpassIndex, id_t objectId) {
         return first->effect < second->effect;
     });
 
-    id_t shaderId = EffectShaderFactory::getId(effects);
-    if (shaderId == shaderEntries.size()) {
-        shaderEntries.resize(shaderId + 1);
-        for (int i = 0; i < MAX_RENDERPASSES; i++) {
-            shaderEntries[shaderId].indices[i] = -1;
+    Resource<EffectShaderHandle> handle = EffectShaderFactory::getHandle(effects);
+    if (handle->id == shaderEntries.size()) {
+        shaderEntries.resize(handle->id + 1);
+        for (int_t i = 0; i < MAX_RENDERPASSES; i++) {
+            shaderEntries[handle->id].indices[i] = -1;
         }
     }
 
-    ShaderEntry& shaderEntry = shaderEntries[shaderId];
+    ShaderEntry& shaderEntry = shaderEntries[handle->id];
     Shaderpass* shaderpass;
-    int shaderpassIndex = shaderEntry.indices[renderpassIndex];
+    int_t shaderpassIndex = shaderEntry.indices[renderpassIndex];
     if (shaderpassIndex == -1) {
         shaderpassIndex = renderpass.passes.size();
         shaderEntry.indices[renderpassIndex] = shaderpassIndex;
-        shaderpass = &renderpass.passes.emplace_back(shaderId);
+        shaderpass = &renderpass.passes.emplace_back(handle);
     } else {
         shaderpass = &renderpass.passes[shaderpassIndex];
     }

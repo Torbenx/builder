@@ -1,6 +1,7 @@
 #pragma once
 
 #include "util/time.hpp"
+#include "util/log.hpp"
 #include <iostream>
 
 class LogTimer {

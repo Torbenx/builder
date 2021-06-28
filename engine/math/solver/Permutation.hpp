@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 template<typename size_type>
 class Permutation {
 public:

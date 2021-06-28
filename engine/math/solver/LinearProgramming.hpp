@@ -2,6 +2,7 @@
 
 #include "math/solver/LUDecomposition.hpp"
 #include <cmath>
+#include <cstring>
 
 template<class ZeroTester = BasicZeroTester>
 class LinearProgramming {

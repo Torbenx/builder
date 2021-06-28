@@ -3,6 +3,7 @@
 #include "math/solver/Permutation.hpp"
 #include "math/solver/SparseOps.hpp"
 #include "util/LogTimer.hpp"
+#include <vector>
 
 template<typename T, typename size_type, class ZeroTester>
 class LUPDecomposition {

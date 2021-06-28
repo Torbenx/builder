@@ -47,7 +47,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
     return f.str();
 }
 
-id_t EffectShaderFactory::getId(const std::vector<EffectInstance*>& effects) {
+Resource<EffectShaderHandle> EffectShaderFactory::getHandle(const std::vector<EffectInstance*>& effects) {
     uintptr_t hash = 0;
     for (EffectInstance* instance : effects) {
         hash ^= ((uintptr_t)instance->effect) >> 3;
@@ -59,11 +59,9 @@ id_t EffectShaderFactory::getId(const std::vector<EffectInstance*>& effects) {
     }
     LOGD("");*/
 
-    auto it = shaderIds.find(hash);
-    id_t id;
-    if (it == shaderIds.end()) {
-        id = idAllocator.allocateId();
-        shaderIds.insert({ hash, id });
+    Resource<EffectShaderHandle>::Weak& w = shaderHandles[hash];
+    if (w.expired()) {
+        id_t id = idAllocator.allocateId();
         if (id == shaders.size()) {
             shaders.resize(id + 1);
         }
@@ -73,8 +71,14 @@ id_t EffectShaderFactory::getId(const std::vector<EffectInstance*>& effects) {
             effect->effect->addTo(builder);
         }
         shaders[id].initialize(builder);
+        Resource<EffectShaderHandle> ret({ id });
+        w = ret.weak();
+        return ret;
     } else {
-        id = it->second;
+        return w.acquire();
     }
-    return id;
+}
+
+void EffectShaderHandle::release() {
+    EffectShaderFactory::shaders[id].release();
 }

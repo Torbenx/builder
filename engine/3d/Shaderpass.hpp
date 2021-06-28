@@ -1,5 +1,7 @@
 #pragma once
 
+#include "GL/Framebuffer.hpp"
+#include "3d/Effect.hpp"
 #include "math/solver/LinearProgramming.hpp"
 #include "util/IdAllocator.hpp"
 #include <set>
@@ -65,7 +67,7 @@ public:
         std::vector<id_t> effectIds;
     };
 
-    id_t shaderId;
+    Resource<EffectShaderHandle> shaderHandle;
     std::vector<Entry> entries;
     std::unordered_map<EffectInstance*, uint32_t> map;
     std::vector<EffectInstance*> inverseMap;
@@ -73,7 +75,7 @@ public:
     LinearProgramming<> solver;
     BindingsTree tree;
 
-    Shaderpass(id_t shaderId);
+    Shaderpass(Resource<EffectShaderHandle> shaderHandle);
 
     void draw(Scene&, Renderpass&);
     void addEntry(int_t objectId, std::vector<EffectInstance*>& effects);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "util/log.hpp"
+#include "math/Vec3.hpp"
 #include <math.h>
 
 class Box {

@@ -8,7 +8,7 @@ void BindingsTree::addEntry(EffectTriple* effects, int_t objectId) {
         if (it == nodes->end() || it->data.internal.effect != effects[level].effect) {
             it = nodes->emplace_hint(it, effects[level].effect, effects[level].slot);
         } else if (it->data.internal.slot != effects[level].slot) {
-            for (size_t i = level + 1; i < depth; i++) {
+            for (int_t i = level + 1; i < depth; i++) {
                 if (effects[i].slot == it->data.internal.slot) {
                     effects[i].slot = effects[level].slot;
                     break;
@@ -20,8 +20,8 @@ void BindingsTree::addEntry(EffectTriple* effects, int_t objectId) {
     nodes->emplace(objectId);
 }
 
-Shaderpass::Shaderpass(id_t shaderId)
-    : shaderId(shaderId), solver(EffectShaderFactory::slotCount(shaderId)), tree(EffectShaderFactory::slotCount(shaderId)) { }
+Shaderpass::Shaderpass(Resource<EffectShaderHandle> shaderHandle)
+    : shaderHandle(shaderHandle), solver(EffectShaderFactory::slotCount(*shaderHandle)), tree(EffectShaderFactory::slotCount(*shaderHandle)) { }
 
 void Shaderpass::addEntry(int_t objectId, std::vector<EffectInstance*>& effects) {
     Entry& entry = entries.emplace_back();
@@ -65,7 +65,7 @@ void Shaderpass::draw(Scene& scene, Renderpass& renderpass) {
         tree.addEntry(triples, entry.objectId);
     }
 
-    EffectShader& shader = EffectShaderFactory::instance(shaderId);
+    EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
     drawNodes(scene, *renderpass.framebuffer, shader, tree.root, tree.depth);
