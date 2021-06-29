@@ -52,10 +52,10 @@ void UiScene::build(){
             solver.getSolution((*it)->base+UI_VAR_TOP),
             solver.getSolution((*it)->base+UI_VAR_RIGHT)
         );
-        if(std::isnan(rect.top)) LOGW("{%s}.top not determined",typeid(*it).name());
-        if(std::isnan(rect.bottom)) LOGW("{%s}.bottom not determined",typeid(*it).name());
-        if(std::isnan(rect.left)) LOGW("{%s}.left not determined",typeid(*it).name());
-        if(std::isnan(rect.right)) LOGW("{%s}.right not determined",typeid(*it).name());
+        //if(std::isnan(rect.top)) LOGW("{%s}.top not determined",typeid(*it).name());
+        //if(std::isnan(rect.bottom)) LOGW("{%s}.bottom not determined",typeid(*it).name());
+        //if(std::isnan(rect.left)) LOGW("{%s}.left not determined",typeid(*it).name());
+        //if(std::isnan(rect.right)) LOGW("{%s}.right not determined",typeid(*it).name());
         (*it)->rect = rect;
         (*it)->updateRect(metrics);
     }

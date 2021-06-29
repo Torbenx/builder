@@ -55,6 +55,9 @@ public:
     std::set<Node> root;
     int_t depth;
     void addEntry(EffectTriple* effects, int_t objectId);
+    void clear() { root.clear(); }
+    void debug(const std::set<Node>& nodes, int_t level);
+    void debug() { debug(root, 0); }
 
     BindingsTree(int_t depth)
         : depth(depth) { }

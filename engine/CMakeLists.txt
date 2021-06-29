@@ -35,7 +35,7 @@ if(ENGINE_LINK_STATIC)
     set(linkage STATIC)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer -O2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 
 add_library(engine ${linkage}
     "GL/CubeMap.cpp"

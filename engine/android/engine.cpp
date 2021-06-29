@@ -248,7 +248,7 @@ void Renderer::exit(){
     android_exit();
 }
 
-int Renderer::getState(){
+int_t Renderer::getState(){
     return rendererState;
 }
 

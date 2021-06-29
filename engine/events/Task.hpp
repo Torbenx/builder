@@ -57,14 +57,9 @@ private:
 public:
     void enter() {
         std::thread::id myThread = std::this_thread::get_id();
-        std::hash<std::thread::id> hasher;
         ExecutionContext executionContext;
         entryPoints[myThread] = &executionContext;
-        LOGD("scheduling started on thread 0x%llx", hasher(myThread));
-        size_t start = getNanos();
         Task::yieldWith(executionContext);
-        size_t end = getNanos();
-        LOGD("scheduling ended after %u us on thread 0x%llx", (end - start) / 1000, hasher(myThread));
     }
 };
 
@@ -72,7 +67,6 @@ class ShutdownTask : public Task {
 public:
     virtual void run() override {
         std::thread::id myThread = std::this_thread::get_id();
-        std::hash<std::thread::id> hasher;
         ExecutionContext me;
         me.yieldTo(Scheduler::entryPoints[myThread]);
     }

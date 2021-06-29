@@ -122,7 +122,7 @@ private:
     }
 
     void do_release() requires (!Releasable<T>) {
-        LOGD("monitor::release() returned true but no release() function is present on T, resource might be leaked!");
+        LOGD("monitor::release() returned true but T is not Releaseable, resource might be leaked!");
     }
 
     // always override monitor after unref()

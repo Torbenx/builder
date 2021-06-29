@@ -37,7 +37,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     include_directories(libs/EGL/api)
     include_directories(libs/OpenGL/api)
-
+    
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     find_package(Python COMPONENTS Interpreter REQUIRED)
@@ -94,7 +94,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         ${lib_dir}/libengine.so
         ${lib_dir}/libturbojpeg.so
         ${lib_dir}/${lib_cxx_file_name}
-        ${lib_dir}/libclang_rt.asan-aarch64-android.so
+        #${lib_dir}/libclang_rt.asan-aarch64-android.so
         classes.dex
     )
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")

@@ -121,7 +121,7 @@ TestRenderer::TestRenderer()
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
-    for (int_t i = -5; i <= 5; i++) {
+    for (int_t i = -0; i <= 0; i++) {
         scene.addObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox }, { textureEffect });
     }
 }
@@ -144,13 +144,13 @@ void performTest() {
     {
         LogTimer timer;
         //for (int_t j = 0; j < A; j++) {
-            for (int_t i = 0; i < B; i++) {
-                a.freeId(p[0 * B + i]);
-                if (a.bucketCount() > maxBucketCount) {
-                    maxBucketCount = a.bucketCount();
-                }
+        for (int_t i = 0; i < B; i++) {
+            a.freeId(p[0 * B + i]);
+            if (a.bucketCount() > maxBucketCount) {
+                maxBucketCount = a.bucketCount();
             }
-            /*for (int_t i = 0; i < B; i++) {
+        }
+        /*for (int_t i = 0; i < B; i++) {
                 a.allocateId();
             }
         }*/
@@ -385,6 +385,21 @@ void TestRenderer::drawFrame() {
         }
         lp.addConstraint(constraint);
     }
+    uint32_t constrains[] = {
+        0, 3, 4, 5,
+        1, 3, 4, 5,
+        2, 3, 4, 5,
+     };
+
+    lp.addVariable();
+    lp.addVariable();
+    lp.addVariable();
+    lp.addVariable();
+    lp.addVariable();
+    lp.addVariable();
+    lp.addConstraint(&constrains[0]);
+    lp.addConstraint(&constrains[4]);
+    lp.addConstraint(&constrains[8]);
     LogTimer timer;
     lp.relaxed();*/
     //lp.dual.debug();
