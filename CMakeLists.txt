@@ -37,7 +37,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     include_directories(libs/EGL/api)
     include_directories(libs/OpenGL/api)
-    
+
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     find_package(Python COMPONENTS Interpreter REQUIRED)
@@ -106,6 +106,7 @@ endif()
 add_subdirectory(libs)
 
 include_directories(libs/libjpeg-turbo)
+include_directories(libs/abseil)
 include_directories(engine)
 
 set(CMAKE_CXX_STANDARD 20)
