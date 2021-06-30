@@ -33,6 +33,7 @@ public:
     BitSetBase& operator=(BitSetBase&& other) {
         m_data = other.m_data;
         m_size = other.m_size;
+        global = other.global;
         other.m_data = nullptr;
         other.m_size = 0;
         return *this;
@@ -41,6 +42,7 @@ public:
     BitSetBase& operator=(const BitSetBase& other) {
         m_size = other.m_size;
         m_data = new T[m_size];
+        global = other.global;
         std::memcpy(m_data, other.m_data, m_size * sizeof(T));
         return *this;
     }
@@ -75,6 +77,7 @@ public:
         if (i >= m_size)
             growAndClear(i + 1);
         m_data[i] |= mask;
+        global |= mask;
     }
 
     void clearBit(size_t i) {
@@ -103,6 +106,7 @@ public:
     }
 
     BitSetBase& operator|=(const BitSetBase<T>& other) {
+        global |= other.global;
         size_t size = other.m_size;
         if (size > m_size) {
             size = m_size;
@@ -116,6 +120,7 @@ public:
     }
 
     BitSetBase& operator&=(const BitSetBase<T>& other) {
+        global &= other.global;
         size_t size = m_size;
         if (other.m_size < size) {
             std::memset(m_data + other.m_size, 0, (m_size - other.m_size) * sizeof(T));
@@ -154,6 +159,7 @@ public:
     }
 
     void setBitsUpTo(size_t i) {
+        global = -1;
         T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
         if (i >= m_size) {
@@ -168,10 +174,17 @@ public:
     }
 
     void clear() {
+        global = 0;
         std::memset(m_data, 0, m_size * sizeof(T));
     }
 
+    static bool mightShareAny(const BitSetBase<T>& a, const BitSetBase<T>& b) {
+        return a.global & b.global;
+    }
+
     static bool shareAny(const BitSetBase<T>& a, const BitSetBase<T>& b) {
+        if (!mightShareAny(a, b))
+            return false;
         size_t size = std::min(a.m_size, b.m_size);
         T ret = 0;
         for (size_t i = 0; i < size; i++) {
@@ -201,6 +214,7 @@ private:
 
     T* m_data = nullptr;
     size_t m_size = 0;
+    T global = 0;
 };
 
 template<typename T>

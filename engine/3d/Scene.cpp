@@ -65,9 +65,9 @@ void Scene::addObjectToRenderpass(int_t renderpassIndex, id_t objectId) {
     if (shaderpassIndex == -1) {
         shaderpassIndex = renderpass.passes.size();
         shaderEntry.indices[renderpassIndex] = shaderpassIndex;
-        shaderpass = &renderpass.passes.emplace_back(handle);
+        shaderpass = renderpass.passes.emplace_back(Shaderpass::construct(handle)).get();
     } else {
-        shaderpass = &renderpass.passes[shaderpassIndex];
+        shaderpass = renderpass.passes[shaderpassIndex].get();
     }
 
     shaderpass->addEntry(objectId, effects);
@@ -104,8 +104,8 @@ void Scene::draw() {
         renderpass.framebuffer->bind();
         renderpass.framebuffer->clear();
         int_t rendererObjects = 0;
-        for (Shaderpass& shaderpass : renderpass.passes) {
-            shaderpass.draw(*this, renderpass);
+        for (std::unique_ptr<Shaderpass>& shaderpass : renderpass.passes) {
+            shaderpass->draw(*this, renderpass);
         }
     }
 }

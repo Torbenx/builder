@@ -7,3 +7,7 @@
 [submodule "libs/OpenGL"]
 	path = libs/OpenGL
 	url = https://github.com/KhronosGroup/OpenGL-Registry.git
+[submodule "libs/abseil"]
+	path = libs/abseil
+	url = https://github.com/abseil/abseil-cpp.git
+	branch = lts_2021_03_24

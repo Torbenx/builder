@@ -54,7 +54,7 @@ public:
 
     void leftMultiplyAccumulateBy(Matrix& l) {
         size_type columnCount = columns.size();
-        Column temp;
+        static Column temp;
         for (size_type i = 0; i < columnCount; i++) {
             temp = columns[i];
             for (Entry entry : columns[i]) {

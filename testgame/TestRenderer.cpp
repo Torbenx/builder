@@ -375,17 +375,18 @@ void TestRenderer::drawFrame() {
     // refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
 
-    /*LinearProgramming<BasicZeroTester> lp(4);
+    constexpr uint32_t N = 4;
+    LinearProgramming<N> lp;
     uint32_t numConstraints = 200;
-    uint32_t constraint[lp.n];
+    uint32_t constraint[N];
     for (uint32_t i = 0; i < numConstraints; i++) {
-        for (uint32_t j = 0; j < lp.n; j++) {
+        for (uint32_t j = 0; j < N; j++) {
             lp.addVariable();
-            constraint[j] = i * lp.n + j;
+            constraint[j] = i * N + j;
         }
         lp.addConstraint(constraint);
     }
-    uint32_t constrains[] = {
+    /*uint32_t constrains[] = {
         0, 3, 4, 5,
         1, 3, 4, 5,
         2, 3, 4, 5,
@@ -399,9 +400,9 @@ void TestRenderer::drawFrame() {
     lp.addVariable();
     lp.addConstraint(&constrains[0]);
     lp.addConstraint(&constrains[4]);
-    lp.addConstraint(&constrains[8]);
+    lp.addConstraint(&constrains[8]);*/
     LogTimer timer;
-    lp.relaxed();*/
+    lp.relaxed();
     //lp.dual.debug();
 }
 
