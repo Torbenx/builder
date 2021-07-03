@@ -65,7 +65,7 @@ TestRenderer::TestRenderer()
     reflection.addTo(scene);
     scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 0, 0) * 0.5f) });
     scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(0, 1, 0) * 0.5f) });
-    // scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4.value, fNormal.value, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
+    // scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
     scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(0, 0, 1) * 0.5f) });
 
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
@@ -170,7 +170,9 @@ uint64_t test2(float* in1, float* in2) {
 void TestRenderer::change(int_t newWidth, int_t newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth / (float)newHeight;
-    projection = Mat4x4::frustumH(67.0f * F_PI / 180.0f, as, 0.1f, 100.0f);
+    float _near = 0.1f;
+    float fovV = _near * std::tan(67.0f * F_PI / 180.0f / 2.0f);
+    projection = Mat4x4::frustum(-fovV * as + 0.5f * _near, fovV * as, -fovV, fovV, _near, 100.0f);
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
@@ -226,7 +228,7 @@ void TestRenderer::pointer(PointerEvent event) {
     }
     trackPointerEvent(event);
 
-    do {
+    /*do {
         static Scheduler me;
         const int_t targetCounter = 100;
         const int_t taskCount = targetCounter;
@@ -261,7 +263,7 @@ void TestRenderer::pointer(PointerEvent event) {
         static int_t testTotal = 0;
         testTotal += (end - start) / 1000;
         LOGD("counter: %u, time: %u us, avg: %f", testCounter.load(std::memory_order_relaxed), (end - start) / 1000, testTotal / (float)testCount);
-    } while (false);
+    } while (false);*/
 }
 
 void TestRenderer::rawPointer(int_t dx, int_t dy) {
@@ -375,7 +377,7 @@ void TestRenderer::drawFrame() {
     // refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
 
-    constexpr uint32_t N = 4;
+    /*constexpr uint32_t N = 4;
     LinearProgramming<N> lp;
     uint32_t numConstraints = 200;
     uint32_t constraint[N];
@@ -386,7 +388,7 @@ void TestRenderer::drawFrame() {
         }
         lp.addConstraint(constraint);
     }
-    /*uint32_t constrains[] = {
+    uint32_t constrains[] = {
         0, 3, 4, 5,
         1, 3, 4, 5,
         2, 3, 4, 5,
@@ -401,8 +403,8 @@ void TestRenderer::drawFrame() {
     lp.addConstraint(&constrains[0]);
     lp.addConstraint(&constrains[4]);
     lp.addConstraint(&constrains[8]);*/
-    LogTimer timer;
-    lp.relaxed();
+    //LogTimer timer;
+    //lp.relaxed();
     //lp.dual.debug();
 }
 

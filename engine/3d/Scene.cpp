@@ -4,16 +4,16 @@
 #include <unordered_set>
 
 Scene::~Scene() {
-
 }
 
 void Scene::addEffect(EffectInstance* effect) {
     globalEffects.push_back(effect);
 }
 
-void Scene::addObject(const Object& object, const std::vector<EffectInstance*>& effects) {
+void Scene::addObject(const SceneObject& object, const std::vector<EffectInstance*>& effects) {
     id_t objectId = objects.size();
-    objects.push_back({ object, effects });
+    objects.push_back(object);
+    objectEntries.push_back({ effects });
     for (DepthRenderpass& pass : depthPasses) {
         pass.entries.push_back({ objectId, pass.viewProjectionMatrix * object.modelMatrix });
     }
@@ -28,7 +28,7 @@ void Scene::addDepthRenderpass(Framebuffer* framebuffer, const Mat4x4& viewProje
     pass.viewProjectionMatrix = viewProjectionMatrix;
     pass.entries.reserve(objects.size());
     for (id_t i = 0; i < objects.size(); i++)
-        pass.entries.push_back({ i, pass.viewProjectionMatrix * objects[i].object.modelMatrix });
+        pass.entries.push_back({ i, pass.viewProjectionMatrix * objects[i].modelMatrix });
     depthPasses.push_back(std::move(pass));
 }
 
@@ -44,9 +44,9 @@ void Scene::addObjectToRenderpass(int_t renderpassIndex, id_t objectId) {
     Renderpass& renderpass = renderpasses[renderpassIndex];
 
     std::vector<EffectInstance*> effects;
-    effects.reserve(globalEffects.size() + objects[objectId].effects.size());
+    effects.reserve(globalEffects.size() + objectEntries[objectId].effects.size());
     effects.insert(effects.end(), globalEffects.begin(), globalEffects.end());
-    effects.insert(effects.end(), objects[objectId].effects.begin(), objects[objectId].effects.end());
+    effects.insert(effects.end(), objectEntries[objectId].effects.begin(), objectEntries[objectId].effects.end());
     std::sort(effects.begin(), effects.end(), [](EffectInstance* first, EffectInstance* second) {
         return first->effect < second->effect;
     });
@@ -74,7 +74,7 @@ void Scene::addObjectToRenderpass(int_t renderpassIndex, id_t objectId) {
 }
 
 void Scene::draw() {
-    auto isVisable = [](const Mat4x4& mvp, const Object& object) {
+    /*auto isVisable = [](const Mat4x4& mvp, const Object& object) {
         Vec4 base = mvp * Vec4(object.boundingBox.left, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
         Vec4 px = mvp * Vec4(object.boundingBox.right, object.boundingBox.bottom, object.boundingBox.front, 1.0f);
         Vec4 py = mvp * Vec4(object.boundingBox.left, object.boundingBox.top, object.boundingBox.front, 1.0f);
@@ -85,14 +85,14 @@ void Scene::draw() {
         pz.clampToW();
         float volume = Vec3::dot((px - base).xyz(), Vec3::cross((py - base).xyz(), (pz - base).xyz()));
         return std::abs(volume) > 0.0001f || std::isnan(volume);
-    };
+    };*/
 
     depthShader->use();
     for (DepthRenderpass& pass : depthPasses) {
         pass.framebuffer->bind();
         pass.framebuffer->clear();
         for (auto& entry : pass.entries) {
-            Object& object = objects[entry.objectId].object;
+            SceneObject& object = objects[entry.objectId];
             depthShader->uniformMat4x4(depthShader->mvpUniform, entry.modelViewProjectionMatrix);
             depthShader->attribPointer(depthShader->positionAttrib, object.vertices);
             pass.framebuffer->draw(object.drawMode, object.indices);
@@ -105,7 +105,7 @@ void Scene::draw() {
         renderpass.framebuffer->clear();
         int_t rendererObjects = 0;
         for (std::unique_ptr<Shaderpass>& shaderpass : renderpass.passes) {
-            shaderpass->draw(*this, renderpass);
+            shaderpass->draw(objects, renderpass);
         }
     }
 }

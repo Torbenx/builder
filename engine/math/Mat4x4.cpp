@@ -49,7 +49,7 @@ Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
     float *m = re.matrix;
     Vec3 ex = Vec3::cross(dir, up);
     ex.normalize();
-    Vec3 ey = Vec3::cross(ex, dir); //already unit length
+    Vec3 ey = Vec3::cross(ex, dir); //already normalized
 
     m[ 0] = ex.x;
     m[ 1] = ey.x;
@@ -178,17 +178,17 @@ Mat4x4 Mat4x4::frustum(float left, float right, float bottom, float top, float _
 Mat4x4 Mat4x4::frustumVH(float vfov, float hfov, float _near, float _far){
     hfov = _near*tan(hfov/2.0f);
     vfov = _near*tan(vfov/2.0f);
-    return frustum(-vfov,vfov,-hfov,hfov,_near,_far);
-}
-
-Mat4x4 Mat4x4::frustumV(float vfov, float aspect, float _near, float _far){
-    vfov = _near*tan(vfov/2.0f);
-    return frustum(-vfov,vfov,-vfov*aspect,vfov*aspect,_near,_far);
+    return frustum(-hfov,hfov,-vfov,vfov,_near,_far);
 }
 
 Mat4x4 Mat4x4::frustumH(float hfov, float aspect, float _near, float _far){
     hfov = _near*tan(hfov/2.0f);
-    return frustum(-hfov*aspect,hfov*aspect,-hfov,hfov,_near,_far);
+    return frustum(-hfov,hfov,-hfov*aspect,hfov*aspect,_near,_far);
+}
+
+Mat4x4 Mat4x4::frustumV(float vfov, float aspect, float _near, float _far){
+    vfov = _near*tan(vfov/2.0f);
+    return frustum(-vfov*aspect,vfov*aspect,-vfov,vfov,_near,_far);
 }
 
 Mat4x4 Mat4x4::ortho(float left, float right, float bottom, float top, float _near, float _far){

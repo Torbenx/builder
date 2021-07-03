@@ -66,9 +66,9 @@ public:
 
     ShaderpassImpl(Resource<id_t> shaderHandle);
 
-    void draw(Scene&, Renderpass&) override;
+    void draw(std::vector<SceneObject>&, Renderpass&) override;
     void addEntry(int_t objectId, std::vector<EffectInstance*>& effects) override;
-    void drawNodes(Scene&, Framebuffer&, EffectShader&, const std::vector<BindingsTree::Node>& nodes, int_t level);
+    void drawNodes(std::vector<SceneObject>&, Framebuffer&, EffectShader&, const std::vector<BindingsTree::Node>& nodes, int_t level);
 };
 
 std::unique_ptr<Shaderpass> Shaderpass::construct(Resource<id_t> shaderHandle) {
@@ -148,7 +148,7 @@ void ShaderpassImpl<N>::addEntry(int_t objectId, std::vector<EffectInstance*>& e
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::draw(Scene& scene, Renderpass& renderpass) {
+void ShaderpassImpl<N>::draw(std::vector<SceneObject>& objects, Renderpass& renderpass) {
     solver.solve();
 
     tree.clear();
@@ -169,21 +169,21 @@ void ShaderpassImpl<N>::draw(Scene& scene, Renderpass& renderpass) {
     EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
-    drawNodes(scene, *renderpass.framebuffer, shader, tree.root, 0);
+    drawNodes(objects, *renderpass.framebuffer, shader, tree.root, 0);
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::drawNodes(Scene& scene, Framebuffer& framebuffer, EffectShader& shader, const std::vector<BindingsTree::Node>& nodes, int_t level) {
+void ShaderpassImpl<N>::drawNodes(std::vector<SceneObject>& objects, Framebuffer& framebuffer, EffectShader& shader, const std::vector<BindingsTree::Node>& nodes, int_t level) {
     for (const BindingsTree::Node& node : nodes) {
         if (level == N) {
-            auto& object = scene.objects[node.data.leaf.objectId].object;
+            auto& object = objects[node.data.leaf.objectId];
             shader.uniformMat4x4(shader.modelUniform, object.modelMatrix);
             shader.attribPointer(shader.positionAttrib, object.vertices);
             shader.attribPointer(shader.normalAttrib, object.normals);
             framebuffer.draw(object.drawMode, object.indices);
         } else {
             node.data.internal.effect->applyTo(shader.ordered(shader.slots[node.data.internal.slot]));
-            drawNodes(scene, framebuffer, shader, node.children, level + 1);
+            drawNodes(objects, framebuffer, shader, node.children, level + 1);
         }
     }
 }

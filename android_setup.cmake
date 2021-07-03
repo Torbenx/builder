@@ -34,9 +34,13 @@ foreach(abi IN LISTS ABIS)
     endif()
     message(STATUS "------------------------------------------")
     message(CHECK_START "setting up ANDROID_ABI=${abi}")
+    set(ANDROID_STL c++_static)
+    if(ENGINE_LINK_DYNAMIC)
+        set(ANDROID_STL c++_shared)
+    endif()
     execute_process(
         COMMAND ${CMAKE_COMMAND} -G Ninja -S . -B build/android/${abi}
-        -DCMAKE_TOOLCHAIN_FILE=${Android_CMAKE_TOOLCHAIN} -DANDROID_ABI=${abi} -DANDROID_PLATFORM=${ANDROID_MIN_SDK_VERSION} -DANDROID_STL=c++_shared
+        -DCMAKE_TOOLCHAIN_FILE=${Android_CMAKE_TOOLCHAIN} -DANDROID_ABI=${abi} -DANDROID_PLATFORM=${ANDROID_MIN_SDK_VERSION} -DANDROID_STL=${ANDROID_STL}
         -DANDROID_SDK=${ANDROID_SDK} -DANDROID_MIN_SDK_VERSION=${ANDROID_MIN_SDK_VERSION} -DANDROID_TARGET_SDK_VERSION=${ANDROID_TARGET_SDK_VERSION}
         WORKING_DIRECTORY ${current_dir}
     )

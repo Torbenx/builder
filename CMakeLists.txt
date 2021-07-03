@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.18)
 project(engine)
 
 set(CMAKE_BUILD_TYPE release)
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O2 -g")
+set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O2 -g")
 
 function(add_assets _TARGET)
     cmake_parse_arguments(
@@ -75,35 +77,33 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
     add_custom_target(classes_dex SOURCES classes.dex)
 
-    #c++ standard library
-    set(lib_cxx_name c++_shared)
-    find_library(lib_cxx_source ${lib_cxx_name} REQUIRED)
-
-    set(lib_cxx_file_name lib${lib_cxx_name}.so)
-    add_custom_command(
-        OUTPUT  ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${lib_cxx_file_name}
-        COMMAND ${CMAKE_COMMAND} -E copy ${lib_cxx_source} ${ANDROID_APK_WORKING_DIR}/${lib_dir}
-        DEPENDS ${lib_cxx_source}
-        COMMENT "Copying c++ standard library"
-    )
-
-    add_custom_target(lib_cxx SOURCES ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${lib_cxx_file_name})
-
-
     set(PLATFORM_ANDROID_APK_FILES
-        ${lib_dir}/libengine.so
         ${lib_dir}/libturbojpeg.so
-        ${lib_dir}/${lib_cxx_file_name}
         #${lib_dir}/libclang_rt.asan-aarch64-android.so
         classes.dex
     )
+    if(ENGINE_LINK_DYNAMIC)
+        #c++ standard library
+        set(lib_cxx_name c++_shared)
+        find_library(lib_cxx_source ${lib_cxx_name} REQUIRED)
+
+        set(lib_cxx_file_name lib${lib_cxx_name}.so)
+        add_custom_command(
+            OUTPUT  ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${lib_cxx_file_name}
+            COMMAND ${CMAKE_COMMAND} -E copy ${lib_cxx_source} ${ANDROID_APK_WORKING_DIR}/${lib_dir}
+            DEPENDS ${lib_cxx_source}
+            COMMENT "Copying c++ standard library"
+        )
+
+        add_custom_target(lib_cxx SOURCES ${ANDROID_APK_WORKING_DIR}/${lib_dir}/${lib_cxx_file_name})
+
+        list(APPEND PLATFORM_ANDROID_APK_FILES ${lib_dir}/libengine.so ${lib_dir}/${lib_cxx_file_name})
+    endif()
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 
 else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
 endif()
-
-add_subdirectory(libs)
 
 include_directories(libs/libjpeg-turbo)
 include_directories(libs/abseil)
@@ -115,3 +115,5 @@ add_subdirectory(engine)
 
 add_subdirectory(builder)
 add_subdirectory(testgame)
+
+add_subdirectory(libs)
