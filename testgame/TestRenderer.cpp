@@ -43,7 +43,8 @@ TestRenderer::TestRenderer()
     , ambientLight(Vec3(1, 1, 1) * 1.0f)
     , reflection(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f)
     , look(up, isAndroid())
-    , pos(7, 1, 0) {
+    , pos(7, 1, 0)
+    , renderpass(&Framebuffer::DEFAULT) {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     reflection.framebuffer.clearColor(0, 0, 0, 1);
@@ -56,17 +57,16 @@ TestRenderer::TestRenderer()
     f5.setEternal(VertexBuffer::wrap(obj5_coords));
     fNormal = VertexBuffer::upload({ up, up, up, up });
 
-    scene.addEffect(&ambientLight);
+    /*scene.addEffect(&ambientLight);
     spotLight.addTo(scene);
-    pointLight.addTo(scene);
+    pointLight.addTo(scene);*/
 
-    scene.addRenderpass(&Framebuffer::DEFAULT, Mat4x4::Id);
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { { new UniformColor(Vec3(1, 1, 1) * 0.1f), &reflection } });
-    reflection.addTo(scene);
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 0, 0) * 0.5f) });
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(0, 1, 0) * 0.5f) });
+    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(1, 1, 1) * 0.1f), &reflection, &ambientLight });
+    //reflection.addTo(scene);
+    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(1, 0, 0) * 0.5f), &ambientLight });
+    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(0, 1, 0) * 0.5f), &ambientLight });
     // scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
-    scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(0, 0, 1) * 0.5f) });
+    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(0, 0, 1) * 0.5f), &ambientLight });
 
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
     lframe = getNanos();
@@ -122,7 +122,7 @@ TestRenderer::TestRenderer()
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
     for (int_t i = -0; i <= 0; i++) {
-        scene.addObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox }, { textureEffect });
+        renderpass.addObject(objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox }), { textureEffect, &ambientLight });
     }
 }
 
@@ -170,9 +170,8 @@ uint64_t test2(float* in1, float* in2) {
 void TestRenderer::change(int_t newWidth, int_t newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth / (float)newHeight;
-    float _near = 0.1f;
-    float fovV = _near * std::tan(67.0f * F_PI / 180.0f / 2.0f);
-    projection = Mat4x4::frustum(-fovV * as + 0.5f * _near, fovV * as, -fovV, fovV, _near, 100.0f);
+    float fovV = 67.0f * F_PI / 180.0f;
+    projection = Mat4x4::frustumV(fovV, as, 0.1f, 100.0f);
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
@@ -355,11 +354,12 @@ void TestRenderer::drawFrame() {
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
 
-    scene.updateViewProjectionMatrix(0, projection * view);
-    scene.updateViewProjectionMatrix(1, projection * view * reflection.getReflectionMatrix());
+    /*scene.updateViewProjectionMatrix(0, projection * view);
+    scene.updateViewProjectionMatrix(1, projection * view * reflection.getReflectionMatrix());*/
+    renderpass.viewProjectionMatrix = projection * view;
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    scene.draw();
+    renderpass.draw(objects);
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
 

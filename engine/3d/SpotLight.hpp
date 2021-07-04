@@ -1,6 +1,7 @@
 #pragma once
 
-#include "3d/Scene.hpp"
+#include "3d/Effect.hpp"
+#include "GL/Framebuffer.hpp"
 
 class SpotLight : public EffectInstance {
 public:
@@ -13,7 +14,6 @@ public:
     SpotLight(Vec3 position, Vec3 direction, float fov, int width, int height, Vec3 color, float near, float far);
     SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3 hDirection, int texWidth, int texHeight, Vec3 color, float near, float far);
     virtual void applyTo(OrderedShader) override;
-    void addTo(Scene& scene);
 
 private:
     Framebuffer framebuffer;

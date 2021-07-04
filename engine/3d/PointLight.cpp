@@ -46,7 +46,7 @@ void PointLight::applyTo(OrderedShader s) {
     s.uniformVec2(Vec2((m_near + m_far) / (m_far - m_near), 2.0f * m_near * m_far / (m_far - m_near)));
 }
 
-void PointLight::addTo(Scene& scene) {
+/*void PointLight::addTo(Scene& scene) {
     Mat4x4 projection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
     for (int i = 0; i < 6; i++) {
         Mat4x4 view;
@@ -73,4 +73,4 @@ void PointLight::addTo(Scene& scene) {
         scene.addDepthRenderpass(&framebuffers[i], projection * view);
     }
     scene.addEffect(this);
-}
+}*/

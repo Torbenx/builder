@@ -2,6 +2,14 @@
 
 //T should have a field next of type std::atomic<T*>
 template<class T>
+struct AtomicListItem {
+    std::atomic<T*> next = nullptr;
+};
+
+template<class T>
+concept AtomicLinkable = std::is_convertible_v<const volatile T*, const volatile AtomicListItem<T>*>;
+
+template<AtomicLinkable T>
 class AtomicList {
 public:
     AtomicList()

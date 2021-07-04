@@ -18,10 +18,6 @@ Mat4x4 Reflection::getReflectionMatrix() {
     return Mat4x4::reflection(reflection, position);
 }
 
-void Reflection::addTo(Scene& scene) {
-    scene.addRenderpass(&framebuffer, Mat4x4::Id);
-}
-
 void Reflection::Effect::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string textureUniform = s.uniqueName("u_texture");

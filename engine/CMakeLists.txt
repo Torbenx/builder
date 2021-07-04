@@ -67,7 +67,6 @@ add_library(engine ${linkage}
     "ui/UiInput.cpp"
     "ui/UiSceneComponent.cpp"
     "ui/UiSolver.cpp"
-    "3d/Scene.cpp"
     "3d/Effect.cpp"
     "3d/PointLight.cpp"
     "3d/SpotLight.cpp"

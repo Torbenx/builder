@@ -1,5 +1,5 @@
 #include "3d/Shaderpass.hpp"
-#include "3d/Scene.hpp"
+#include "3d/Renderpass.hpp"
 
 struct EffectTriple {
     EffectInstance* effect;
@@ -56,7 +56,6 @@ public:
         std::vector<id_t> effectIds;
     };
 
-    Resource<id_t> shaderHandle;
     std::vector<Entry> entries;
     std::unordered_map<EffectInstance*, uint32_t> map;
     std::vector<EffectInstance*> inverseMap;
@@ -66,9 +65,9 @@ public:
 
     ShaderpassImpl(Resource<id_t> shaderHandle);
 
-    void draw(std::vector<SceneObject>&, Renderpass&) override;
+    void draw(GraphicsObjectCollection&, Renderpass&) override;
     void addEntry(int_t objectId, std::vector<EffectInstance*>& effects) override;
-    void drawNodes(std::vector<SceneObject>&, Framebuffer&, EffectShader&, const std::vector<BindingsTree::Node>& nodes, int_t level);
+    void drawNodes(GraphicsObjectCollection&, Framebuffer&, EffectShader&, const std::vector<BindingsTree::Node>& nodes, int_t level);
 };
 
 std::unique_ptr<Shaderpass> Shaderpass::construct(Resource<id_t> shaderHandle) {
@@ -119,7 +118,7 @@ void BindingsTree::debug(const std::vector<Node>& nodes, int_t level) {
 
 template<uint32_t N>
 ShaderpassImpl<N>::ShaderpassImpl(Resource<id_t> shaderHandle)
-    : shaderHandle(shaderHandle), tree(N) { }
+    : Shaderpass(shaderHandle), tree(N) { }
 
 template<uint32_t N>
 void ShaderpassImpl<N>::addEntry(int_t objectId, std::vector<EffectInstance*>& effects) {
@@ -148,7 +147,7 @@ void ShaderpassImpl<N>::addEntry(int_t objectId, std::vector<EffectInstance*>& e
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::draw(std::vector<SceneObject>& objects, Renderpass& renderpass) {
+void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& renderpass) {
     solver.solve();
 
     tree.clear();
@@ -173,7 +172,7 @@ void ShaderpassImpl<N>::draw(std::vector<SceneObject>& objects, Renderpass& rend
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::drawNodes(std::vector<SceneObject>& objects, Framebuffer& framebuffer, EffectShader& shader, const std::vector<BindingsTree::Node>& nodes, int_t level) {
+void ShaderpassImpl<N>::drawNodes(GraphicsObjectCollection& objects, Framebuffer& framebuffer, EffectShader& shader, const std::vector<BindingsTree::Node>& nodes, int_t level) {
     for (const BindingsTree::Node& node : nodes) {
         if (level == N) {
             auto& object = objects[node.data.leaf.objectId];

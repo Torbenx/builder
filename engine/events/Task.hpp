@@ -30,11 +30,10 @@ private:
     size_t size = 0;
 };
 
-class Task {
+class Task : public AtomicListItem<Task> {
 public:
     static inline AtomicList<Task> schedulingQueue;
 
-    std::atomic<Task*> next = nullptr;
     std::atomic<uint64_t> events = 0;
     uint64_t key; // (~((events + key) ^ events)) & key
     Stack stack;

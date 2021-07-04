@@ -3,7 +3,7 @@
 #include <3d/CommonEffects.hpp>
 #include <3d/PointLight.hpp>
 #include <3d/Reflection.hpp>
-#include <3d/Scene.hpp>
+#include <3d/Renderpass.hpp>
 #include <3d/SpotLight.hpp>
 #include <GL/Shader.hpp>
 #include <GL/glwrapper.hpp>
@@ -53,8 +53,9 @@ public:
     TextComponent textComp;
     DepthMapComponent cubeComp;
     TextureComponent refComp;
-    Scene scene;
     UiScene uiScene;
+    Renderpass renderpass;
+    GraphicsObjectCollection objects;
 
     TestRenderer();
     void change(int_t width, int_t height);

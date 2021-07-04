@@ -1,7 +1,7 @@
 #pragma once
 
-#include "3d/Scene.hpp"
-#include "GL/CubeMap.hpp"
+#include "3d/Effect.hpp"
+#include "GL/Framebuffer.hpp"
 
 class PointLight : public EffectInstance {
 public:
@@ -16,5 +16,4 @@ public:
     int width, height;
     PointLight(Vec3 position, int width, int height, Vec3 color, float near, float far);
     virtual void applyTo(OrderedShader) override;
-    void addTo(Scene& scene);
 };

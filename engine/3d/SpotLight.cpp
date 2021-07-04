@@ -57,8 +57,3 @@ void SpotLight::applyTo(OrderedShader s) {
     s.uniformVec3(color);
     s.uniformVec3(position);
 }
-
-void SpotLight::addTo(Scene& scene) {
-    scene.addEffect(this);
-    scene.addDepthRenderpass(&framebuffer, projection * view);
-}
