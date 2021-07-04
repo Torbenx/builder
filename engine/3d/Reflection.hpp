@@ -4,7 +4,7 @@
 #include "3d/Effect.hpp"
 #include "resource/Resource.hpp"
 
-class Reflection : public EffectInstance {
+class Reflection : public EffectInstance, public Renderpass {
 public:
     static inline class Effect : public ::Effect {
         virtual void addTo(EffectShaderBuilder&) override;
@@ -16,5 +16,6 @@ public:
     float factor;
     Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);
     Mat4x4 getReflectionMatrix();
+    void updateViewProjectionMatrix(Mat4x4&);
     virtual void applyTo(OrderedShader) override;
 };

@@ -2,6 +2,7 @@
 
 Reflection::Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor)
     : EffectInstance(&EFFECT)
+    , Renderpass(&framebuffer)
     , texture(Texture::color(width, height, Texture::Format::RGBA8888))
     , depthAttachment(Texture::depth(width, height, Texture::DepthBits::D16, true))
     , reflection(reflection)
@@ -12,6 +13,10 @@ Reflection::Reflection(Vec3 reflection, Vec3 position, int width, int height, fl
     framebuffer.attach(texture);
     framebuffer.attach(depthAttachment);
     framebuffer.viewport(width, height);
+}
+
+void Reflection::updateViewProjectionMatrix(Mat4x4& viewProjectionMatrix) {
+    this->viewProjectionMatrix = viewProjectionMatrix * getReflectionMatrix();
 }
 
 Mat4x4 Reflection::getReflectionMatrix() {

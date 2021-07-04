@@ -66,12 +66,23 @@ TestRenderer::TestRenderer()
     id_t id3 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
     id_t id4 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
     id_t id5 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
-    //reflection.addTo(scene);
-    renderpass.addObject(id1, { new UniformColor(Vec3(1, 0, 0) * 0.5f), &ambientLight, &spotLight, &pointLight });
-    renderpass.addObject(id2, { new UniformColor(Vec3(0, 1, 0) * 0.5f), &ambientLight, &spotLight, &pointLight });
-    renderpass.addObject(id3, { new UniformColor(Vec3(1, 1, 1) * 0.1f), &ambientLight, &spotLight, &pointLight, &reflection });
-    //renderpass.addObject(id4, { new UniformColor(Vec3(1, 1, 0) * 0.5f), &ambientLight, &spotLight, &pointLight });
-    renderpass.addObject(id5, { new UniformColor(Vec3(0, 0, 1) * 0.5f), &ambientLight, &spotLight, &pointLight });
+
+    std::vector<EffectInstance*> effects1 { new UniformColor(Vec3(1, 0, 0) * 0.5f), &ambientLight, &spotLight, &pointLight };
+    std::vector<EffectInstance*> effects2 { new UniformColor(Vec3(0, 1, 0) * 0.5f), &ambientLight, &spotLight, &pointLight };
+    std::vector<EffectInstance*> effects3 { new UniformColor(Vec3(1, 1, 1) * 0.1f), &ambientLight, &spotLight, &pointLight, &reflection };
+    std::vector<EffectInstance*> effects4 { new UniformColor(Vec3(1, 1, 0) * 0.5f), &ambientLight, &spotLight, &pointLight };
+    std::vector<EffectInstance*> effects5 { new UniformColor(Vec3(0, 0, 1) * 0.5f), &ambientLight, &spotLight, &pointLight };
+
+    renderpass.addObject(id1, effects1);
+    renderpass.addObject(id2, effects2);
+    renderpass.addObject(id3, effects3);
+    //renderpass.addObject(id4, effects4);
+    renderpass.addObject(id5, effects5);
+
+    reflection.addObject(id1, effects1);
+    reflection.addObject(id2, effects2);
+    //reflection.addObject(id4, effects4);
+    reflection.addObject(id5, effects5);
 
     spotLight.addObject(id1);
     spotLight.addObject(id2);
@@ -133,7 +144,7 @@ TestRenderer::TestRenderer()
     decoder.decode(jpegFile);
     pawnTexture = decoder.texture;
 
-    refComp.texture = &pawnTexture.value;
+    refComp.texture = &*reflection.texture;
 
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
@@ -141,6 +152,7 @@ TestRenderer::TestRenderer()
     for (int_t i = -5; i <= 5; i++) {
         id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox });
         renderpass.addObject(id, { textureEffect, &ambientLight, &spotLight, &pointLight });
+        reflection.addObject(id, { textureEffect, &ambientLight, &spotLight, &pointLight });
         spotLight.addObject(id);
         pointLight.addObject(id);
     }
@@ -379,11 +391,11 @@ void TestRenderer::drawFrame() {
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
 
-    /*scene.updateViewProjectionMatrix(0, projection * view);
-    scene.updateViewProjectionMatrix(1, projection * view * reflection.getReflectionMatrix());*/
     renderpass.viewProjectionMatrix = projection * view;
+    reflection.updateViewProjectionMatrix(renderpass.viewProjectionMatrix);
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
+    reflection.draw(objects);
     renderpass.draw(objects);
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
@@ -399,7 +411,7 @@ void TestRenderer::drawFrame() {
     }
 
     // cubeComp.draw(Framebuffer::DEFAULT);
-    // refComp.draw(Framebuffer::DEFAULT);
+    //refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
 
     /*constexpr uint32_t N = 4;
