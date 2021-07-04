@@ -61,12 +61,29 @@ TestRenderer::TestRenderer()
     spotLight.addTo(scene);
     pointLight.addTo(scene);*/
 
-    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(1, 1, 1) * 0.1f), &reflection, &ambientLight });
+    id_t id1 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
+    id_t id2 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
+    id_t id3 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
+    id_t id4 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
+    id_t id5 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
     //reflection.addTo(scene);
-    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(1, 0, 0) * 0.5f), &ambientLight });
-    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(0, 1, 0) * 0.5f), &ambientLight });
-    // scene.addObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }, { new UniformColor(Vec3(1, 1, 0) * 0.5f) });
-    renderpass.addObject(objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT }), { new UniformColor(Vec3(0, 0, 1) * 0.5f), &ambientLight });
+    renderpass.addObject(id1, { new UniformColor(Vec3(1, 0, 0) * 0.5f), &ambientLight, &spotLight, &pointLight });
+    renderpass.addObject(id2, { new UniformColor(Vec3(0, 1, 0) * 0.5f), &ambientLight, &spotLight, &pointLight });
+    renderpass.addObject(id3, { new UniformColor(Vec3(1, 1, 1) * 0.1f), &ambientLight, &spotLight, &pointLight, &reflection });
+    //renderpass.addObject(id4, { new UniformColor(Vec3(1, 1, 0) * 0.5f), &ambientLight, &spotLight, &pointLight });
+    renderpass.addObject(id5, { new UniformColor(Vec3(0, 0, 1) * 0.5f), &ambientLight, &spotLight, &pointLight });
+
+    spotLight.addObject(id1);
+    spotLight.addObject(id2);
+    spotLight.addObject(id3);
+    spotLight.addObject(id4);
+    spotLight.addObject(id5);
+
+    pointLight.addObject(id1);
+    pointLight.addObject(id2);
+    pointLight.addObject(id3);
+    pointLight.addObject(id4);
+    pointLight.addObject(id5);
 
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
     lframe = getNanos();
@@ -121,9 +138,17 @@ TestRenderer::TestRenderer()
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
-    for (int_t i = -0; i <= 0; i++) {
-        renderpass.addObject(objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox }), { textureEffect, &ambientLight });
+    for (int_t i = -5; i <= 5; i++) {
+        id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox });
+        renderpass.addObject(id, { textureEffect, &ambientLight, &spotLight, &pointLight });
+        spotLight.addObject(id);
+        pointLight.addObject(id);
     }
+
+    glEnable(GL_DEPTH_TEST);
+    pointLight.draw(objects);
+    spotLight.draw(objects);
+    glDisable(GL_DEPTH_TEST);
 }
 
 template<int_t N>

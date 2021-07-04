@@ -73,6 +73,7 @@ add_library(engine ${linkage}
     "3d/Reflection.cpp"
     "3d/CommonEffects.cpp"
     "3d/Shaderpass.cpp"
+    "3d/Renderpass.cpp"
     "events/ExecutionContext.cpp"
     ${platform_source}
 )

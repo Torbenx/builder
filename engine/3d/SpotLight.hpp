@@ -1,9 +1,9 @@
 #pragma once
 
-#include "3d/Effect.hpp"
+#include "3d/Renderpass.hpp"
 #include "GL/Framebuffer.hpp"
 
-class SpotLight : public EffectInstance {
+class SpotLight : public EffectInstance, public DepthRenderpass {
 public:
     static inline struct Effect : public ::Effect {
         virtual void addTo(EffectShaderBuilder&) override;

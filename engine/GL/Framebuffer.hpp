@@ -55,7 +55,7 @@ private:
     int offsetY, offsetX, width, height;
 
     Framebuffer(bool isDefault, GLbitfield clearMask);
-    Framebuffer(const Framebuffer& other);
+    Framebuffer(const Framebuffer& other) = delete;
 
     void attachInteral(const Texture& texture, GLenum subTarget);
     bool isCurrent() { return this == currentFramebuffer; }
