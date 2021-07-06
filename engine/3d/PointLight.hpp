@@ -19,4 +19,5 @@ public:
     virtual void applyTo(OrderedShader) override;
     void addObject(id_t);
     void draw(GraphicsObjectCollection&);
+    void updateViewProjectionMatrix();
 };

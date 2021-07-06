@@ -11,7 +11,6 @@ struct GraphicsObject {
     VertexBuffer vertices;
     VertexBuffer normals;
     IndexBuffer indices;
-    Box boundingBox;
 };
 
 class GraphicsObjectCollection {

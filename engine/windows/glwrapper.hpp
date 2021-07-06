@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <windows.h>
+#include <Windows.h>
 #include <GL/gl.h>
 #include <GL/wglext.h>
 #include <GL/glcorearb.h>

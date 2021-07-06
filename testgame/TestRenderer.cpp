@@ -50,22 +50,18 @@ TestRenderer::TestRenderer()
     reflection.framebuffer.clearColor(0, 0, 0, 1);
 
     float f1Scale = 0.5f;
-    f1 = VertexBuffer::upload({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale });
+    f1 = VertexBuffer::upload({ Vec3(-1, -1, 0) * f1Scale, Vec3(-1, 1, 0) * f1Scale, Vec3(1, -1, 0) * f1Scale, Vec3(1, 1, 0) * f1Scale });
     f2 = VertexBuffer::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
     f3 = VertexBuffer::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
     f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
     f5.setEternal(VertexBuffer::wrap(obj5_coords));
     fNormal = VertexBuffer::upload({ up, up, up, up });
 
-    /*scene.addEffect(&ambientLight);
-    spotLight.addTo(scene);
-    pointLight.addTo(scene);*/
-
-    id_t id1 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
-    id_t id2 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
-    id_t id3 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
-    id_t id4 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
-    id_t id5 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4), Box::INFINIT });
+    id_t id1 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4) });
+    id_t id2 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4) });
+    id_t id3 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4) });
+    id_t id4 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4) });
+    id_t id5 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4) });
 
     std::vector<EffectInstance*> effects1 { new UniformColor(Vec3(1, 0, 0) * 0.5f), &ambientLight, &spotLight, &pointLight };
     std::vector<EffectInstance*> effects2 { new UniformColor(Vec3(0, 1, 0) * 0.5f), &ambientLight, &spotLight, &pointLight };
@@ -76,12 +72,12 @@ TestRenderer::TestRenderer()
     renderpass.addObject(id1, effects1);
     renderpass.addObject(id2, effects2);
     renderpass.addObject(id3, effects3);
-    //renderpass.addObject(id4, effects4);
+    renderpass.addObject(id4, effects4);
     renderpass.addObject(id5, effects5);
 
     reflection.addObject(id1, effects1);
     reflection.addObject(id2, effects2);
-    //reflection.addObject(id4, effects4);
+    reflection.addObject(id4, effects4);
     reflection.addObject(id5, effects5);
 
     spotLight.addObject(id1);
@@ -150,7 +146,7 @@ TestRenderer::TestRenderer()
     TextureColor* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
     for (int_t i = -5; i <= 5; i++) {
-        id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices, parser.boundingBox });
+        id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
         renderpass.addObject(id, { textureEffect, &ambientLight, &spotLight, &pointLight });
         reflection.addObject(id, { textureEffect, &ambientLight, &spotLight, &pointLight });
         spotLight.addObject(id);
@@ -384,8 +380,9 @@ void TestRenderer::drawFrame() {
     pos -= navD.y * dt * dirX;
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
     Vec3 plp = pointLight.position;
-    // plp += Vec3(plp.z * dt, plp.z * dt / 2.0, -plp.x * dt);
+    plp += Vec3(plp.z * dt, plp.z * dt / 2.0, -plp.x * dt);
     pointLight.position = plp;
+    pointLight.updateViewProjectionMatrix();
     obj5_coords[0] = Vec3(plp.x - 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
@@ -395,6 +392,7 @@ void TestRenderer::drawFrame() {
     reflection.updateViewProjectionMatrix(renderpass.viewProjectionMatrix);
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
+    pointLight.draw(objects);
     reflection.draw(objects);
     renderpass.draw(objects);
     glDisable(GL_DEPTH_TEST);
@@ -411,10 +409,10 @@ void TestRenderer::drawFrame() {
     }
 
     // cubeComp.draw(Framebuffer::DEFAULT);
-    //refComp.draw(Framebuffer::DEFAULT);
+    // refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
 
-    /*constexpr uint32_t N = 4;
+    constexpr uint32_t N = 4;
     LinearProgramming<N> lp;
     uint32_t numConstraints = 200;
     uint32_t constraint[N];
@@ -425,7 +423,7 @@ void TestRenderer::drawFrame() {
         }
         lp.addConstraint(constraint);
     }
-    uint32_t constrains[] = {
+    /*uint32_t constrains[] = {
         0, 3, 4, 5,
         1, 3, 4, 5,
         2, 3, 4, 5,
@@ -440,8 +438,8 @@ void TestRenderer::drawFrame() {
     lp.addConstraint(&constrains[0]);
     lp.addConstraint(&constrains[4]);
     lp.addConstraint(&constrains[8]);*/
-    //LogTimer timer;
-    //lp.relaxed();
+    LogTimer timer;
+    lp.relaxed();
     //lp.dual.debug();
 }
 

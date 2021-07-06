@@ -13,35 +13,7 @@ PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _
     , height(height)
     , passes { &framebuffers[0], &framebuffers[1], &framebuffers[2], &framebuffers[3], &framebuffers[4], &framebuffers[5] } {
 
-    Mat4x4 projection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
-    for (int_t i = 0; i < 6; i++) {
-        framebuffers[i].bind();
-        framebuffers[i].attach(depthMap, CubeMap::Faces[i]);
-        framebuffers[i].viewport(width, height);
-
-        Mat4x4 view;
-        switch (CubeMap::Faces[i]) {
-        case CubeMap::PosX:
-            view = Mat4x4::look(position, Vec3(+1, 0, 0), Vec3(0, -1, 0));
-            break;
-        case CubeMap::NegX:
-            view = Mat4x4::look(position, Vec3(-1, 0, 0), Vec3(0, -1, 0));
-            break;
-        case CubeMap::PosY:
-            view = Mat4x4::look(position, Vec3(0, +1, 0), Vec3(0, 0, +1));
-            break;
-        case CubeMap::NegY:
-            view = Mat4x4::look(position, Vec3(0, -1, 0), Vec3(0, 0, -1));
-            break;
-        case CubeMap::PosZ:
-            view = Mat4x4::look(position, Vec3(0, 0, +1), Vec3(0, -1, 0));
-            break;
-        case CubeMap::NegZ:
-            view = Mat4x4::look(position, Vec3(0, 0, -1), Vec3(0, -1, 0));
-            break;
-        }
-        passes[i].viewProjectionMatrix = projection * view;
-    }
+    updateViewProjectionMatrix();
 }
 
 void PointLight::Effect::addTo(EffectShaderBuilder& s) {
@@ -80,5 +52,37 @@ void PointLight::addObject(id_t id) {
 void PointLight::draw(GraphicsObjectCollection& objects) {
     for (int_t i = 0; i < 6; i++) {
         passes[i].draw(objects);
+    }
+}
+
+void PointLight::updateViewProjectionMatrix() {
+    Mat4x4 projection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
+    for (int_t i = 0; i < 6; i++) {
+        framebuffers[i].bind();
+        framebuffers[i].attach(depthMap, CubeMap::Faces[i]);
+        framebuffers[i].viewport(width, height);
+
+        Mat4x4 view;
+        switch (CubeMap::Faces[i]) {
+        case CubeMap::PosX:
+            view = Mat4x4::look(position, Vec3(+1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegX:
+            view = Mat4x4::look(position, Vec3(-1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::PosY:
+            view = Mat4x4::look(position, Vec3(0, +1, 0), Vec3(0, 0, +1));
+            break;
+        case CubeMap::NegY:
+            view = Mat4x4::look(position, Vec3(0, -1, 0), Vec3(0, 0, -1));
+            break;
+        case CubeMap::PosZ:
+            view = Mat4x4::look(position, Vec3(0, 0, +1), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegZ:
+            view = Mat4x4::look(position, Vec3(0, 0, -1), Vec3(0, -1, 0));
+            break;
+        }
+        passes[i].viewProjectionMatrix = projection * view;
     }
 }

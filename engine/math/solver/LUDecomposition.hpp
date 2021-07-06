@@ -184,7 +184,7 @@ public:
 
 private:
     template<typename F>
-    void decompose(size_type startRow, F lambda) {
+    void decompose(size_type startRow, F&& lambda) {
         ZeroTester tester;
         size_type columnCount = u.columns.size();
         std::vector<size_type> columnOffsets;

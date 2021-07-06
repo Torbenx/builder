@@ -1,8 +1,10 @@
 #pragma once
 
 #include "util/types.hpp"
+#include "util/log.hpp"
 #include <iostream>
 #include <set>
+#include <cstring>
 
 template<typename T = id_t, size_t N = 20>
 class IdAllocator {
