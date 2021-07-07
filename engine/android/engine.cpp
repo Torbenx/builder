@@ -17,15 +17,15 @@
 
 ALooper *looper;
 
-Renderer* (*createRenderer)();
-Renderer *renderer = nullptr;
+CreateFunctions createFunctions;
+Renderer<GL> *renderer = nullptr;
 int rendererState = RENDERER_STATE_INVISIBLE;
 AChoreographer *choreographer;
 
 void init_textureFormats();
 
-void engine_setRenderer(Renderer* (*r)()){
-    createRenderer = r;
+void engine_setRenderer(CreateFunctions functions){
+    createFunctions = functions;
 }
 
 void android_initThread(int cmdFd){
@@ -94,7 +94,7 @@ void android_runThread(){
                             context = eglCreateContext(display, config, EGL_NO_CONTEXT, context_attrib_list);
                             CHECK_EGL(context, EGL_NO_CONTEXT, "eglCreateContext");
                             CHECK_EGL_BOOL(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context), "eglMakeCurrent (init)");
-                            renderer = createRenderer();
+                            renderer = createFunctions.createRenderer_GL();
                             break;
                         }
                         case ENGINE_CMD_VISIBLE:
@@ -244,11 +244,11 @@ void android_runThread(){
     ALooper_release(looper);
 }
 
-void Renderer::exit(){
+void RendererState::exit(){
     android_exit();
 }
 
-int_t Renderer::getState(){
+int_t RendererState::getState(){
     return rendererState;
 }
 

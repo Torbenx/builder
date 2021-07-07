@@ -54,3 +54,9 @@ public:
 
     virtual ~Renderer() { }
 };
+
+#define __FOREACH_G_API(api) Renderer<api>*(*createRenderer_##api)();
+struct CreateFunctions {
+    ENUMERATE_G_APIS(__FOREACH_G_API)
+};
+#undef __FOREACH_G_API

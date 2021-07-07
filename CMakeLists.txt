@@ -107,7 +107,6 @@ endif()
 
 find_package(Vulkan)
 if (Vulkan_FOUND)
-    message("Vulkan_INCLUDE_DIRS=${Vulkan_INCLUDE_DIRS}")
     include_directories(${Vulkan_INCLUDE_DIRS})
 endif()
 

@@ -38,7 +38,7 @@ struct SurfaceChangeCmdData{
     int height;
 };
 
-void engine_setRenderer(Renderer* (*r)());
+void engine_setRenderer(CreateFunctions functions);
 
 jobject android_createTextFormat(const char* text, int maxWidth, float textSize, float *width, float *height, int *lineCount);
 void android_releaseTextFormat(jobject obj);

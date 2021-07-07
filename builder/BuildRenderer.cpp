@@ -5,7 +5,8 @@
 #include <util/fullscreen.hpp>
 #include <dirent.h>
 
-BuildRenderer::BuildRenderer() : explorer(this), head(this){
+template<Gapi G>
+BuildRenderer<G>::BuildRenderer() : explorer(this), head(this){
     setPath(isAndroid() ? "/data/data/com.tt.builder" : "C:/Users/Torben/Documents/dev/c++");
     Framebuffer::DEFAULT.clearColor(0.1f, 0.1f, 0.1f, 1.0f);
     scene.layout(&head)
@@ -20,7 +21,8 @@ BuildRenderer::BuildRenderer() : explorer(this), head(this){
         .width(TypedSize::gl(0.5f));
 }
 
-void BuildRenderer::change(int_t newWidth, int_t newHeight){
+template<Gapi G>
+void BuildRenderer<G>::change(int_t newWidth, int_t newHeight){
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     ScreenMetrics metrics;
     int_t dpi = getDPI();
@@ -32,17 +34,20 @@ void BuildRenderer::change(int_t newWidth, int_t newHeight){
     scene.build();
 }
 
-void BuildRenderer::drawFrame(){
+template<Gapi G>
+void BuildRenderer<G>::drawFrame(){
     Framebuffer::DEFAULT.clear();
     explorer.draw(Framebuffer::DEFAULT);
     head.draw(Framebuffer::DEFAULT);
 }
 
-void BuildRenderer::pointer(PointerEvent event){
+template<Gapi G>
+void BuildRenderer<G>::pointer(PointerEvent event){
     explorer.pointer(event);
 }
 
-void BuildRenderer::setPath(std::string path){
+template<Gapi G>
+void BuildRenderer<G>::setPath(std::string path){
     files.clear();
     isProject = false;
     DIR *dir =  opendir(path.c_str());
@@ -60,3 +65,5 @@ void BuildRenderer::setPath(std::string path){
     explorer.setPath(path);
     head.setPath(path);
 }
+
+INSTANTIATE_G_API_CLASS(BuildRenderer);
