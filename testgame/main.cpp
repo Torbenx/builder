@@ -1,6 +1,9 @@
 #include "TestRenderer.hpp"
 #include <main.hpp>
 
-Renderer *createRenderer(){
-    return new TestRenderer();
+template<Gapi G>
+Renderer<G>* createRenderer() {
+    return new TestRenderer<G>();
 }
+
+INSTANTIATE_CREATE_RENDERER_FUNCTION();

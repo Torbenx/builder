@@ -78,7 +78,7 @@ add_library(engine ${linkage}
     ${platform_source}
 )
 
-find_package(Threads)
+find_package(Threads REQUIRED)
 
 set_target_properties(engine PROPERTIES UNITY_BUILD ON)
-target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES})

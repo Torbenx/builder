@@ -1,13 +1,13 @@
 #include "Renderer.hpp"
 
-bool Renderer::isInvisible(){
+bool RendererState::isInvisible(){
     return getState() == RENDERER_STATE_INVISIBLE;
 }
 
-bool Renderer::isBackground(){
+bool RendererState::isBackground(){
     return getState() == RENDERER_STATE_BACKGROUND;
 }
 
-bool Renderer::isForeground(){
+bool RendererState::isForeground(){
     return getState() == RENDERER_STATE_FOREGROUND;
 }

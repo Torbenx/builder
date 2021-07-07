@@ -105,6 +105,12 @@ else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
 endif()
 
+find_package(Vulkan)
+if (Vulkan_FOUND)
+    message("Vulkan_INCLUDE_DIRS=${Vulkan_INCLUDE_DIRS}")
+    include_directories(${Vulkan_INCLUDE_DIRS})
+endif()
+
 include_directories(libs/libjpeg-turbo)
 include_directories(libs/abseil)
 include_directories(engine)

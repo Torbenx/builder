@@ -1,6 +1,7 @@
 #pragma once
 
 #include "input/Pointer.hpp"
+#include "util/Gapi.hpp"
 #include "util/types.hpp"
 #include <stdint.h>
 
@@ -24,14 +25,17 @@
 #define RENDERER_STATE_BACKGROUND 2
 #define RENDERER_STATE_FOREGROUND 3
 
-class Renderer {
-public:
+struct RendererState {
     static bool isInvisible();
     static bool isBackground();
     static bool isForeground();
     static int_t getState();
     static void exit();
+};
 
+template<Gapi G>
+class Renderer {
+public:
     virtual void visible() { }
     virtual void background() { }
     virtual void foreground() { }

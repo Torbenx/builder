@@ -12,11 +12,12 @@
 #include <list>
 #include <map>
 #include <Windowsx.h>
+#include <vulkan/vulkan.hpp>
 
 const char g_szClassName[] = "myWindowClass";
 
-Renderer *renderer;
-Renderer* (*createRenderer)();
+Renderer<GL> *renderer;
+CreateFunctions createFunctions;
 HWND engine_hwnd;
 ID3D11Device *dxDevice;
 HANDLE hDxDevice;
@@ -64,11 +65,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
                 0, 0, 0
             };
 
-            SetPixelFormat(hdc,ChoosePixelFormat(hdc,&pfd),&pfd);
+            SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
 
             HGLRC hglrc_initial = wglCreateContext(hdc);
             wglMakeCurrent(hdc, hglrc_initial);
             glwrapper_init();
+
+            /*if(wglSwapIntervalEXT(0)){
+                LOGD("disabled vsync");
+            }*/
 
             wglDeleteContext(hglrc_initial);
             int context_attribs[] = {
@@ -86,11 +91,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
             hDxDevice = wglDXOpenDeviceNV(dxDevice);
             init_text();
 
-            /*if(wglSwapIntervalEXT(0)){
-                LOGD("disabled vsync");
-            }*/
-
-            renderer = createRenderer();
+            renderer = createFunctions.createRenderer_GL();
             return 0;
         }
         case WM_SIZE:{
@@ -244,16 +245,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
     }
 }
 
-int_t Renderer::getState(){
+int_t RendererState::getState(){
     return rendererState;
 }
 
-void Renderer::exit(){
+void RendererState::exit(){
     DestroyWindow(engine_hwnd);
 }
 
-int engine_main(Renderer* (*r)(), HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
-    createRenderer = r;
+int engine_main(CreateFunctions functions, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
+    createFunctions = functions;
     redirectToConsole();
     init_time();
     init_textureFormats();

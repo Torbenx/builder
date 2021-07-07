@@ -20,7 +20,8 @@
 #include <ui/UiScene.hpp>
 #include <util/text.hpp>
 
-class TestRenderer : public Renderer {
+template<Gapi G>
+class TestRenderer : public Renderer<G> {
 public:
     uint64_t lframe;
     uint64_t lsecond;

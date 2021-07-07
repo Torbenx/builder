@@ -22,7 +22,8 @@
 #include <windows/fullscreen.hpp>
 #endif
 
-TestRenderer::TestRenderer()
+template<Gapi G>
+TestRenderer<G>::TestRenderer()
     : up(0, 1, 0)
     , pointLight(
           Vec3(0, 1, -2),
@@ -200,7 +201,8 @@ uint64_t test2(float* in1, float* in2) {
     return vget_lane_u64((uint64x1_t)vmovn_u32(cmp), 0);
 }*/
 
-void TestRenderer::change(int_t newWidth, int_t newHeight) {
+template<Gapi G>
+void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
     float as = (float)newWidth / (float)newHeight;
     float fovV = 67.0f * F_PI / 180.0f;
@@ -232,7 +234,8 @@ public:
     }
 };
 
-void TestRenderer::pointer(PointerEvent event) {
+template<Gapi G>
+void TestRenderer<G>::pointer(PointerEvent event) {
     if (!rawInput()) {
         if (event.event == POINTER_EVENT_DOWN && navPointerId == POINTER_ID_INVALID) {
             navPointerId = event.pointerId;
@@ -298,11 +301,13 @@ void TestRenderer::pointer(PointerEvent event) {
     } while (false);*/
 }
 
-void TestRenderer::rawPointer(int_t dx, int_t dy) {
+template<Gapi G>
+void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
 }
 
-void TestRenderer::rawKey(uint32_t keycode, bool down) {
+template<Gapi G>
+void TestRenderer<G>::rawKey(uint32_t keycode, bool down) {
     if (keycode == w) {
         wd = down;
     } else if (keycode == a) {
@@ -328,11 +333,12 @@ void TestRenderer::rawKey(uint32_t keycode, bool down) {
         }
     } else if (keycode == exitKey) {
         if (down)
-            exit();
+            RendererState::exit();
     }
 }
 
-void TestRenderer::drawFrame() {
+template<Gapi G>
+void TestRenderer<G>::drawFrame() {
     uint64_t now = getNanos();
     if (now - lsecond >= NANOS_PER_SECOND) {
         LOGD("FPS: %d", frameCounter);
@@ -412,7 +418,7 @@ void TestRenderer::drawFrame() {
     // refComp.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
 
-    constexpr uint32_t N = 4;
+    /*constexpr uint32_t N = 4;
     LinearProgramming<N> lp;
     uint32_t numConstraints = 200;
     uint32_t constraint[N];
@@ -423,7 +429,7 @@ void TestRenderer::drawFrame() {
         }
         lp.addConstraint(constraint);
     }
-    /*uint32_t constrains[] = {
+    uint32_t constrains[] = {
         0, 3, 4, 5,
         1, 3, 4, 5,
         2, 3, 4, 5,
@@ -438,9 +444,12 @@ void TestRenderer::drawFrame() {
     lp.addConstraint(&constrains[0]);
     lp.addConstraint(&constrains[4]);
     lp.addConstraint(&constrains[8]);*/
-    LogTimer timer;
-    lp.relaxed();
+    //LogTimer timer;
+    //lp.relaxed();
     //lp.dual.debug();
 }
 
-TestRenderer::~TestRenderer() { }
+template<Gapi G>
+TestRenderer<G>::~TestRenderer() { }
+
+INSTANTIATE_G_API_CLASS(TestRenderer);

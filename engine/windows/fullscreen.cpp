@@ -134,7 +134,7 @@ void goFullscreen(FullscreenConfig config){
         saved_width = rect.right - rect.left;
         saved_height = rect.bottom - rect.top;
     }
-    if(Renderer::isForeground()){
+    if(RendererState::isForeground()){
         goFullscreenImpl(*(FullscreenConfigImpl*)config.impl);
     }
 }
@@ -163,7 +163,7 @@ void exitFullscreenImpl(){
 void exitFullscreen(){
     if(!engine_fullscreen)return;
     engine_fullscreen = false;
-    if(Renderer::isForeground()){
+    if(RendererState::isForeground()){
         exitFullscreenImpl();
     }
 }
