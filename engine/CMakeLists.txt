@@ -75,6 +75,7 @@ add_library(engine ${linkage}
     "3d/Shaderpass.cpp"
     "3d/Renderpass.cpp"
     "events/ExecutionContext.cpp"
+    "VK/vk_mem_alloc.cpp"
     ${platform_source}
 )
 

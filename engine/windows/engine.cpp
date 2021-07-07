@@ -12,13 +12,16 @@
 #include <list>
 #include <map>
 #include <stdio.h>
+
+#define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.hpp>
 
 const char g_szClassName[] = "myWindowClass";
 
-Renderer<GL>* renderer;
+Renderer<OpenGL>* renderer;
 CreateFunctions createFunctions;
 HWND engine_hwnd;
+HINSTANCE engine_hinstance;
 ID3D11Device* dxDevice;
 HANDLE hDxDevice;
 int_t rendererState = RENDERER_STATE_INVISIBLE;
@@ -58,7 +61,53 @@ void initializeGL(const HDC& hdc) {
 
 void initializeVK() {
     auto appInfo = vk::ApplicationInfo()
-                       .setPApplicationName("Engine");
+                       .setPApplicationName("Engine")
+                       .setApplicationVersion(0)
+                       .setPEngineName("Engine")
+                       .setEngineVersion(0)
+                       .setApiVersion(VK_API_VERSION_1_0);
+
+    const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
+    const char* extensions[] = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
+    auto instanceInfo = vk::InstanceCreateInfo()
+                            .setPApplicationInfo(&appInfo)
+                            .setEnabledLayerCount(1)
+                            .setPpEnabledLayerNames(layers)
+                            .setEnabledExtensionCount(2)
+                            .setPpEnabledExtensionNames(extensions);
+    vk::Instance inst;
+    auto result = vk::createInstance(&instanceInfo, nullptr, &inst);
+
+    uint32_t count = 0;
+    result = inst.enumeratePhysicalDevices(&count, nullptr);
+    if (count != 1) {
+        return;
+    }
+    vk::PhysicalDevice device;
+    result = inst.enumeratePhysicalDevices(&count, &device);
+    auto properties = device.getProperties();
+    LOGD("device: %s, type: %s", properties.deviceName.data(), to_string(properties.deviceType).c_str());
+
+    auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
+                           .setHinstance(engine_hinstance)
+                           .setHwnd(engine_hwnd);
+    vk::SurfaceKHR surface;
+    result = inst.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface);
+
+    uint32_t familyCount = 0;
+    device.getQueueFamilyProperties(&familyCount, nullptr);
+    vk::QueueFamilyProperties familyProperties[familyCount];
+    device.getQueueFamilyProperties(&familyCount, familyProperties);
+
+    for (int_t i = 0; i < familyCount; i++) {
+        vk::Bool32 supportsPresent = VK_FALSE;
+        result = device.getSurfaceSupportKHR(i, surface, &supportsPresent);
+        LOGD("i=%lld, supportsPresent=%d, graphics=%d", i, supportsPresent, (bool)(familyProperties[i].queueFlags & vk::QueueFlagBits::eGraphics));
+    }
+
+    LOGD("%s", result == vk::Result::eSuccess ? "success" : "fail");
+
+    while (true) { }
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -93,15 +142,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
 
-        initializeGL(hdc);
-        //initializeVK();
+        //initializeGL(hdc);
+        initializeVK();
 
         ID3D11DeviceContext* dxContext;
         D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
         hDxDevice = wglDXOpenDeviceNV(dxDevice);
         init_text();
 
-        renderer = createFunctions.createRenderer_GL();
+        renderer = createFunctions.createRenderer_OpenGL();
         return 0;
     }
     case WM_SIZE: {
@@ -276,6 +325,7 @@ void RendererState::exit() {
 
 int engine_main(CreateFunctions functions, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     createFunctions = functions;
+    engine_hinstance = hInstance;
     redirectToConsole();
     init_time();
     init_textureFormats();

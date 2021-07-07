@@ -3,9 +3,9 @@
 template<typename T>
 concept Gapi = true;
 
-struct VK { };
-struct GL { };
+struct Vulkan { };
+struct OpenGL { };
 
-#define ENUMERATE_G_APIS(o) o(GL) o(VK)
+#define ENUMERATE_G_APIS(o) o(OpenGL) o(Vulkan)
 
-#define INSTANTIATE_G_API_CLASS(clz) template class clz<GL>; template class clz<VK>;
+#define INSTANTIATE_G_API_CLASS(clz) template class clz<OpenGL>; template class clz<Vulkan>;

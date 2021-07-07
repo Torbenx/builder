@@ -108,6 +108,7 @@ endif()
 find_package(Vulkan)
 if (Vulkan_FOUND)
     include_directories(${Vulkan_INCLUDE_DIRS})
+    include_directories(libs/vk_mem_alloc)
 endif()
 
 include_directories(libs/libjpeg-turbo)
