@@ -18,7 +18,7 @@
 ALooper *looper;
 
 CreateFunctions createFunctions;
-Renderer<GL> *renderer = nullptr;
+Renderer<OpenGL> *renderer = nullptr;
 int rendererState = RENDERER_STATE_INVISIBLE;
 AChoreographer *choreographer;
 
@@ -94,7 +94,7 @@ void android_runThread(){
                             context = eglCreateContext(display, config, EGL_NO_CONTEXT, context_attrib_list);
                             CHECK_EGL(context, EGL_NO_CONTEXT, "eglCreateContext");
                             CHECK_EGL_BOOL(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context), "eglMakeCurrent (init)");
-                            renderer = createFunctions.createRenderer_GL();
+                            renderer = createFunctions.createRenderer_OpenGL();
                             break;
                         }
                         case ENGINE_CMD_VISIBLE:
@@ -250,13 +250,4 @@ void RendererState::exit(){
 
 int_t RendererState::getState(){
     return rendererState;
-}
-
-void android_touch(int ev, int pointerId, int x, int y){
-    PointerEvent event;
-    event.event = ev;
-    event.pointerId = pointerId;
-    event.x = x;
-    event.y = y;
-    renderer->pointer(event);
 }

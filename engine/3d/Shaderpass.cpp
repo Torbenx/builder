@@ -31,6 +31,7 @@ std::unique_ptr<Shaderpass> Shaderpass::construct(Resource<id_t> shaderHandle) {
     case 5:
         return std::make_unique<ShaderpassImpl<5>>(shaderHandle);
     }
+    return {};
 }
 
 template<uint32_t N>

@@ -105,14 +105,13 @@ else()
     message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
 endif()
 
-find_package(Vulkan)
-if (Vulkan_FOUND)
-    include_directories(${Vulkan_INCLUDE_DIRS})
-    include_directories(libs/vk_mem_alloc)
-endif()
+find_package(Threads REQUIRED)
+find_package(Vulkan REQUIRED)
 
 include_directories(libs/libjpeg-turbo)
 include_directories(libs/abseil)
+include_directories(libs/vulkan/include)
+include_directories(libs/vk_mem_alloc)
 include_directories(engine)
 
 set(CMAKE_CXX_STANDARD 20)

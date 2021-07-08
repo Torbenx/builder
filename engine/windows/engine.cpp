@@ -14,7 +14,7 @@
 #include <stdio.h>
 
 #define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan.hpp>
+#include "VK/VKmain.hpp"
 
 const char g_szClassName[] = "myWindowClass";
 
@@ -59,57 +59,6 @@ void initializeGL(const HDC& hdc) {
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 }
 
-void initializeVK() {
-    auto appInfo = vk::ApplicationInfo()
-                       .setPApplicationName("Engine")
-                       .setApplicationVersion(0)
-                       .setPEngineName("Engine")
-                       .setEngineVersion(0)
-                       .setApiVersion(VK_API_VERSION_1_0);
-
-    const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
-    const char* extensions[] = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
-    auto instanceInfo = vk::InstanceCreateInfo()
-                            .setPApplicationInfo(&appInfo)
-                            .setEnabledLayerCount(1)
-                            .setPpEnabledLayerNames(layers)
-                            .setEnabledExtensionCount(2)
-                            .setPpEnabledExtensionNames(extensions);
-    vk::Instance inst;
-    auto result = vk::createInstance(&instanceInfo, nullptr, &inst);
-
-    uint32_t count = 0;
-    result = inst.enumeratePhysicalDevices(&count, nullptr);
-    if (count != 1) {
-        return;
-    }
-    vk::PhysicalDevice device;
-    result = inst.enumeratePhysicalDevices(&count, &device);
-    auto properties = device.getProperties();
-    LOGD("device: %s, type: %s", properties.deviceName.data(), to_string(properties.deviceType).c_str());
-
-    auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
-                           .setHinstance(engine_hinstance)
-                           .setHwnd(engine_hwnd);
-    vk::SurfaceKHR surface;
-    result = inst.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface);
-
-    uint32_t familyCount = 0;
-    device.getQueueFamilyProperties(&familyCount, nullptr);
-    vk::QueueFamilyProperties familyProperties[familyCount];
-    device.getQueueFamilyProperties(&familyCount, familyProperties);
-
-    for (int_t i = 0; i < familyCount; i++) {
-        vk::Bool32 supportsPresent = VK_FALSE;
-        result = device.getSurfaceSupportKHR(i, surface, &supportsPresent);
-        LOGD("i=%lld, supportsPresent=%d, graphics=%d", i, supportsPresent, (bool)(familyProperties[i].queueFlags & vk::QueueFlagBits::eGraphics));
-    }
-
-    LOGD("%s", result == vk::Result::eSuccess ? "success" : "fail");
-
-    while (true) { }
-}
-
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     /*counter[msg]++;
     if(counter[msg] - counter[msg] / 100 * 100 == 0){
@@ -140,25 +89,40 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             0, 0, 0
         };
 
-        SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
+        // SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
 
         //initializeGL(hdc);
-        initializeVK();
+        VulkanState::initialize(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+
+        auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
+                           .setHinstance(engine_hinstance)
+                           .setHwnd(engine_hwnd);
+        vk::SurfaceKHR surface;
+        VULKAN_VERIFY(VulkanState::instance.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface));
+        VulkanState::initializeSurface(surface);
 
         ID3D11DeviceContext* dxContext;
         D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
-        hDxDevice = wglDXOpenDeviceNV(dxDevice);
-        init_text();
+        //hDxDevice = wglDXOpenDeviceNV(dxDevice);
+        //init_text();
 
-        renderer = createFunctions.createRenderer_OpenGL();
+        // renderer = createFunctions.createRenderer_OpenGL();
         return 0;
     }
     case WM_SIZE: {
         LOGD("WM_SIZE");
+
+        auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
+                           .setHinstance(engine_hinstance)
+                           .setHwnd(engine_hwnd);
+        vk::SurfaceKHR surface;
+        VULKAN_VERIFY(VulkanState::instance.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface));
+        VulkanState::updateSurface(surface);
+
         RECT rect;
         if (GetClientRect(hwnd, &rect)) {
             if (rect.right != 0 && rect.bottom != 0) {
-                renderer->change(rect.right, rect.bottom);
+                //renderer->change(rect.right, rect.bottom);
             }
         } else {
             LOGW("GetClientRect failed");
@@ -172,18 +136,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (activate && !minimized) {
             if (rendererState == RENDERER_STATE_INVISIBLE) {
                 rendererState = RENDERER_STATE_BACKGROUND;
-                renderer->visible();
+                //renderer->visible();
             }
             rendererState = RENDERER_STATE_FOREGROUND;
-            renderer->foreground();
-            //ShowCursor(false);
+            //renderer->foreground();
             engine_goForeground();
         } else {
             if (rendererState == RENDERER_STATE_FOREGROUND) {
                 rendererState = RENDERER_STATE_BACKGROUND;
                 renderer->background();
             }
-            //ShowCursor(true);
             bool visible = engine_goBackground();
             if (((!visible) || minimized) && rendererState == RENDERER_STATE_BACKGROUND) {
                 rendererState = RENDERER_STATE_INVISIBLE;
@@ -195,13 +157,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_PAINT:
         //LOGD("WM_PAINT");
         if (rendererState != RENDERER_STATE_INVISIBLE) {
-            renderer->drawFrame();
-            SwapBuffers(GetDC(hwnd));
+            //renderer->drawFrame();
+            //SwapBuffers(GetDC(hwnd));
             return 0;
         } else {
             return DefWindowProc(hwnd, msg, wParam, lParam);
         }
     case WM_INPUT:
+        break;
         //LOGD("WM_INPUT");
         if (rendererState == RENDERER_STATE_FOREGROUND) {
             UINT size;

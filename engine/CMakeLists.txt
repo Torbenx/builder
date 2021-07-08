@@ -75,11 +75,9 @@ add_library(engine ${linkage}
     "3d/Shaderpass.cpp"
     "3d/Renderpass.cpp"
     "events/ExecutionContext.cpp"
-    "VK/vk_mem_alloc.cpp"
+    "VK/VKmain.cpp"
     ${platform_source}
 )
-
-find_package(Threads REQUIRED)
 
 set_target_properties(engine PROPERTIES UNITY_BUILD ON)
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES})
