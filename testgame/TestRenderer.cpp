@@ -177,13 +177,21 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
 
     CacheMap<uint32_t> map;
     uint16_t count = 20;
-    uint16_t mult = 17 * 5;
+    uint16_t mult = 3;
     for (int_t x = count; x >= 0; x--) {
         LOGD("inserting {%u, %u}", x * mult, x);
         map.insertOrAssign(x * mult, x);
     }
-    for (uint16_t x = 0; x < count; x++) {
-        LOGD("map[%u] -> %u", x * mult, map[x * mult]);
+    map.insertOrAssign(27, 10000);
+    map.remove(26);
+    map.remove(25);
+    map.remove(24);
+    for (uint16_t x = 0; x <= count; x++) {
+        if (map.has(x * mult)) {
+            LOGD("map[%u] -> %u", x * mult, map[x * mult]);
+        } else {
+            LOGD("map[%u] -> -", x * mult);
+        }
     }
 }
 
@@ -230,7 +238,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
     }
     trackPointerEvent(event);
 
-    /*do {
+    do {
         static Scheduler me;
         const int_t targetCounter = 100;
         const int_t taskCount = targetCounter;
@@ -265,7 +273,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
         static int_t testTotal = 0;
         testTotal += (end - start) / 1000;
         LOGD("counter: %u, time: %u us, avg: %f", testCounter.load(std::memory_order_relaxed), (end - start) / 1000, testTotal / (float)testCount);
-    } while (false);*/
+    } while (false);
 }
 
 template<Gapi G>
