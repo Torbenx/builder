@@ -3,7 +3,7 @@
 #include "GL/Framebuffer.hpp"
 #include "math/Box.hpp"
 #include "math/Mat4x4.hpp"
-#include "util/IdAllocator.hpp"
+#include "containers/IdAllocator.hpp"
 
 struct GraphicsObject {
     Mat4x4 modelMatrix;

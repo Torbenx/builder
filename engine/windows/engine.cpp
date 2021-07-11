@@ -89,40 +89,41 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             0, 0, 0
         };
 
-        // SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
+        SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
 
-        //initializeGL(hdc);
-        VulkanState::initialize(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+        initializeGL(hdc);
+
+        /*VulkanState::initialize(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 
         auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
                            .setHinstance(engine_hinstance)
                            .setHwnd(engine_hwnd);
         vk::SurfaceKHR surface;
         VULKAN_VERIFY(VulkanState::instance.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface));
-        VulkanState::initializeSurface(surface);
+        VulkanState::initializeSurface(surface);*/
 
         ID3D11DeviceContext* dxContext;
         D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
-        //hDxDevice = wglDXOpenDeviceNV(dxDevice);
-        //init_text();
+        hDxDevice = wglDXOpenDeviceNV(dxDevice);
+        init_text();
 
-        // renderer = createFunctions.createRenderer_OpenGL();
+        renderer = createFunctions.createRenderer_OpenGL();
         return 0;
     }
     case WM_SIZE: {
         LOGD("WM_SIZE");
 
-        auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
+        /*auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
                            .setHinstance(engine_hinstance)
                            .setHwnd(engine_hwnd);
         vk::SurfaceKHR surface;
         VULKAN_VERIFY(VulkanState::instance.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface));
-        VulkanState::updateSurface(surface);
+        VulkanState::updateSurface(surface);*/
 
         RECT rect;
         if (GetClientRect(hwnd, &rect)) {
             if (rect.right != 0 && rect.bottom != 0) {
-                //renderer->change(rect.right, rect.bottom);
+                renderer->change(rect.right, rect.bottom);
             }
         } else {
             LOGW("GetClientRect failed");
@@ -136,10 +137,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (activate && !minimized) {
             if (rendererState == RENDERER_STATE_INVISIBLE) {
                 rendererState = RENDERER_STATE_BACKGROUND;
-                //renderer->visible();
+                renderer->visible();
             }
             rendererState = RENDERER_STATE_FOREGROUND;
-            //renderer->foreground();
+            renderer->foreground();
             engine_goForeground();
         } else {
             if (rendererState == RENDERER_STATE_FOREGROUND) {
@@ -157,14 +158,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_PAINT:
         //LOGD("WM_PAINT");
         if (rendererState != RENDERER_STATE_INVISIBLE) {
-            //renderer->drawFrame();
-            //SwapBuffers(GetDC(hwnd));
+            renderer->drawFrame();
+            SwapBuffers(GetDC(hwnd));
             return 0;
         } else {
             return DefWindowProc(hwnd, msg, wParam, lParam);
         }
     case WM_INPUT:
-        break;
         //LOGD("WM_INPUT");
         if (rendererState == RENDERER_STATE_FOREGROUND) {
             UINT size;

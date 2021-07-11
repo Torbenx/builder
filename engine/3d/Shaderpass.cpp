@@ -62,7 +62,7 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<EffectInstance*>& ef
     });
 
     std::sort(entries.begin(), entries.end(), [&](const Entry& a, const Entry& b) {
-        for (int i = 0; i < N; i++) {
+        for (int_t i = 0; i < N; i++) {
             EffectInstance* ae = a.effects[indices[i]];
             EffectInstance* be = b.effects[indices[i]];
             if (ae == be)
@@ -71,6 +71,27 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<EffectInstance*>& ef
         }
         return false;
     });
+
+    std::array<BitSet, N> binds;
+    std::array<EffectInstance*, N> prev {};
+    for (int_t k = 0; k < entries.size(); k++) {
+        int_t i = 0;
+        for (; i < N; i++) {
+            int_t j = indices[i];
+            if (prev[j] != entry.effects[j]) {
+                binds[i].setBit(k);
+                break;
+            }
+        }
+        for (; i < N; i++) {
+            int_t j = indices[i];
+            prev[j] = entries[k].effects[j];
+        }
+    }
+
+    /*for (int_t i = 0; i < N; i++) {
+        LOGD("%lld: %llu", i, binds[i].popcount());
+    }*/
 }
 
 template<uint32_t N>

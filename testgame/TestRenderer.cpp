@@ -1,5 +1,7 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
+#include <containers/CacheMap.hpp>
+#include <containers/IdAllocator.hpp>
 #include <events/ExecutionContext.hpp>
 #include <events/Task.hpp>
 #include <fstream>
@@ -10,7 +12,6 @@
 #include <resource/asset_istream.hpp>
 #include <string>
 #include <thread>
-#include <util/IdAllocator.hpp>
 #include <util/LogTimer.hpp>
 #include <util/draw_util.hpp>
 #include <util/fullscreen.hpp>
@@ -160,47 +161,6 @@ TestRenderer<G>::TestRenderer()
     glDisable(GL_DEPTH_TEST);
 }
 
-template<int_t N>
-void performTest() {
-    IdAllocator<uint32_t, N> a;
-    int_t base = 10;
-    int_t aa = 0;
-    int_t A = 1 << aa, B = 1 << (base - aa);
-    uint32_t p[1 << base];
-    int_t mask = (1 << base) - 1;
-    for (int_t i = 0; i < (1 << base); i++) {
-        p[i] = a.allocateId();
-    }
-    for (int_t i = 0; i < 30; i++) {
-        std::swap(p[std::rand() & mask], p[std::rand() & mask]);
-    }
-    int_t maxBucketCount = 0;
-    {
-        LogTimer timer;
-        //for (int_t j = 0; j < A; j++) {
-        for (int_t i = 0; i < B; i++) {
-            a.freeId(p[0 * B + i]);
-            if (a.bucketCount() > maxBucketCount) {
-                maxBucketCount = a.bucketCount();
-            }
-        }
-        /*for (int_t i = 0; i < B; i++) {
-                a.allocateId();
-            }
-        }*/
-    }
-    //a.debug();
-    LOGD("max bucket count: %llu, bucketSize: %llu, peak capacity: %llu", maxBucketCount, N, (maxBucketCount - 1) * N);
-}
-
-/*#include <arm_neon.h>
-uint64_t test2(float* in1, float* in2) {
-    float32x4_t a = vld1q_f32(in1);
-    float32x4_t b = vld1q_f32(in2);
-    uint32x4_t cmp = vcageq_f32(a, b);
-    return vget_lane_u64((uint64x1_t)vmovn_u32(cmp), 0);
-}*/
-
 template<Gapi G>
 void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
@@ -215,9 +175,16 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiScene.metrics = metrics;
     uiScene.build();
 
-    /*float a[] = {1, 2, 3, 4};
-    float b[] = {2, 1, 4, 1};
-    LOGD("test2: 0x%llx", test2(a, b));*/
+    CacheMap<uint32_t> map;
+    uint16_t count = 20;
+    uint16_t mult = 17 * 5;
+    for (int_t x = count; x >= 0; x--) {
+        LOGD("inserting {%u, %u}", x * mult, x);
+        map.insertOrAssign(x * mult, x);
+    }
+    for (uint16_t x = 0; x < count; x++) {
+        LOGD("map[%u] -> %u", x * mult, map[x * mult]);
+    }
 }
 
 std::atomic<int_t> testCounter = 0;

@@ -2,7 +2,7 @@
 
 #include "GL/Shader.hpp"
 #include "resource/Resource.hpp"
-#include "util/IdAllocator.hpp"
+#include "containers/IdAllocator.hpp"
 #include "util/Shaders.hpp"
 #include <memory>
 #include <unordered_map>

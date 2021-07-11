@@ -1,7 +1,7 @@
 #pragma once
 
 #include "math/solver/SparseEntry.hpp"
-#include "util/BitSet.hpp"
+#include "containers/BitSet.hpp"
 #include <iostream>
 #include <vector>
 #include <absl/container/inlined_vector.h>

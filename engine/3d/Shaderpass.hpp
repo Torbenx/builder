@@ -5,7 +5,7 @@
 #include "GL/Framebuffer.hpp"
 #include "math/Box.hpp"
 #include "math/solver/LinearProgramming.hpp"
-#include "util/IdAllocator.hpp"
+#include "containers/IdAllocator.hpp"
 #include <set>
 #include <unordered_map>
 
