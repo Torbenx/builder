@@ -159,6 +159,8 @@ TestRenderer<G>::TestRenderer()
     pointLight.draw(objects);
     spotLight.draw(objects);
     glDisable(GL_DEPTH_TEST);
+
+    log("Hello World!");
 }
 
 template<Gapi G>

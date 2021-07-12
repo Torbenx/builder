@@ -1,4 +1,5 @@
 #include "3d/Renderpass.hpp"
+#include <algorithm>
 
 void DepthRenderpass::draw(GraphicsObjectCollection& objects) {
     depthShader->use();

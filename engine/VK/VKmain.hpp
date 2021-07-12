@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include "vk_mem_alloc.h"
+#include "util/log.hpp"
 
 #define VULKAN_VERIFY(input)                                                                                    \
     {                                                                                                           \

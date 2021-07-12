@@ -4,7 +4,6 @@
 #include "containers/BitSet.hpp"
 #include <iostream>
 #include <vector>
-#include <absl/container/inlined_vector.h>
 
 struct BasicZeroTester {
     bool operator()(float f) {
@@ -21,7 +20,7 @@ class SparseVector {
 public:
     using Entry = SparseEntry<T, size_type>;
     using Vector = SparseVector<T, size_type, ZeroTester>;
-    using iterator = typename absl::InlinedVector<Entry, 4>::iterator;
+    using iterator = typename std::vector<Entry>::iterator;
 
     BitSet mask;
 
@@ -162,7 +161,7 @@ public:
     }
 
 private:
-    absl::InlinedVector<Entry, 4> entries;
+    std::vector<Entry> entries;
 
     Entry& at(size_type offset) {
         return entries[offset];

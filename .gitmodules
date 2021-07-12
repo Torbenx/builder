@@ -8,3 +8,6 @@
 [submodule "libs/vulkan"]
 	path = libs/vulkan
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "libs/fmt"]
+	path = libs/fmt
+	url = https://github.com/fmtlib/fmt.git

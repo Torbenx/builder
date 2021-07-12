@@ -108,7 +108,7 @@ find_package(Threads REQUIRED)
 find_package(Vulkan REQUIRED)
 
 include_directories(libs/libjpeg-turbo)
-include_directories(libs/abseil)
+include_directories(libs/fmt/include)
 include_directories(libs/vulkan/include)
 include_directories(libs/vk_mem_alloc)
 include_directories(engine)

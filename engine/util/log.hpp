@@ -5,12 +5,20 @@
 #pragma once
 
 #include "util/target.hpp"
+#include <type_traits>
+#include <fmt/core.h>
 
 #define VALIDATE_GL
 #define VALIDATE_MATH
 #define VALIDATE_MATH_MARGIN 0.00001f
 
 #ifdef PLATFORM_WINDOWS
+
+#include <iostream>
+
+static void log_print(const std::string& tag, const std::string& msg) {
+    std::cout << '[' << tag << "] " << msg << '\n';
+}
 
 #include <stdio.h>
 #include <cmath>
@@ -35,6 +43,19 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR  , TAG, __VA_ARGS__)
 
 #endif
+
+template<typename T>
+concept LogTag = std::is_same_v<decltype(T::tag), std::string>;
+
+struct DefaultLogTag {
+    static inline std::string tag = "default";
+};
+
+template<LogTag tag = DefaultLogTag, typename... Args>
+static void log(fmt::format_string<Args...> str, Args... args) {
+    std::string msg = fmt::format(str, args...);
+    log_print(tag::tag, msg);
+}
 
 #ifdef VALIDATE_GL
 #define GL_VERIFY(cond, ...) { if(!(cond)) LOGW("GL_VERIFY failed %s:%d: %s(): " #cond "; " __VA_ARGS__, __FILE__, __LINE__, __func__); }

@@ -80,4 +80,4 @@ add_library(engine ${linkage}
 )
 
 set_target_properties(engine PROPERTIES UNITY_BUILD ON)
-target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES})
+target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

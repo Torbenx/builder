@@ -1,5 +1,6 @@
 #include "3d/Shaderpass.hpp"
 #include "3d/Renderpass.hpp"
+#include "containers/BitSet.hpp"
 
 template<uint32_t N>
 class ShaderpassImpl : public Shaderpass {
