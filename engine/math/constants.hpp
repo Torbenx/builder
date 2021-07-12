@@ -4,6 +4,12 @@
 
 #define F_PI 3.14159265358979323846264338328f
 
+namespace Tag {
+struct Math {
+    static constexpr char tag[] = "math";
+};
+}
+
 template<typename T>
 struct VectorTraits {
     static constexpr int length = 0;

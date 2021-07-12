@@ -181,7 +181,7 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uint16_t count = 20;
     uint16_t mult = 3;
     for (int_t x = count; x >= 0; x--) {
-        LOGD("inserting {%u, %u}", x * mult, x);
+        log("inserting {{{}, {}}}", x * mult, x);
         map.insertOrAssign(x * mult, x);
     }
     map.insertOrAssign(27, 10000);
@@ -190,9 +190,9 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     map.remove(24);
     for (uint16_t x = 0; x <= count; x++) {
         if (map.has(x * mult)) {
-            LOGD("map[%u] -> %u", x * mult, map[x * mult]);
+            log("map[{}] -> {}", x * mult, map[x * mult]);
         } else {
-            LOGD("map[%u] -> -", x * mult);
+            log("map[{}] -> -", x * mult);
         }
     }
 }
@@ -274,7 +274,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
         testCount++;
         static int_t testTotal = 0;
         testTotal += (end - start) / 1000;
-        LOGD("counter: %u, time: %u us, avg: %f", testCounter.load(std::memory_order_relaxed), (end - start) / 1000, testTotal / (float)testCount);
+        log("counter: {}, time: {} us, avg: {}", testCounter.load(std::memory_order_relaxed), (end - start) / 1000, testTotal / (float)testCount);
     } while (false);
 }
 
@@ -318,7 +318,7 @@ template<Gapi G>
 void TestRenderer<G>::drawFrame() {
     uint64_t now = getNanos();
     if (now - lsecond >= NANOS_PER_SECOND) {
-        LOGD("FPS: %d", frameCounter);
+        log("FPS: {}", frameCounter);
 
         std::stringstream ss;
         ss << "FPS: " << frameCounter;

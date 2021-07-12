@@ -25,14 +25,14 @@ void trackPointerEvent(PointerEvent& event) {
                 if (it->isDown) {
                     it->isDown = false;
                 } else {
-                    LOGW("up of pointer that was already up");
+                    log("up of pointer that was already up");
                 }
                 found = true;
                 break;
             }
         }
         if (!found) {
-            LOGW("up of unknown pointer");
+            log("up of unknown pointer");
         }
         break;
     }
@@ -45,7 +45,7 @@ void trackPointerEvent(PointerEvent& event) {
                 it->y = event.y;
                 if (event.event == POINTER_EVENT_DOWN) {
                     if (it->isDown) {
-                        LOGW("down of pointer that was already down");
+                        log("down of pointer that was already down");
                     } else {
                         it->isDown = true;
                     }
@@ -63,7 +63,7 @@ void trackPointerEvent(PointerEvent& event) {
             pointers.push_back(pointer);
 #ifdef PLATFORM_ANDROID
             if (event.event != POINTER_EVENT_DOWN) {
-                LOGW("pointer moving that isn't down");
+                log("pointer moving that isn't down");
             }
 #endif
         }

@@ -222,7 +222,7 @@ private:
             }*/
             if (pivot == columnCount) {
                 isInvertible = false;
-                LOGD("not invertible!");
+                log<Tag::Math>("not invertible!");
                 u.debug();
                 break;
             }

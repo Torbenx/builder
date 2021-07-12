@@ -53,12 +53,6 @@ Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectInstance*>
         hash ^= ((uintptr_t)instance->effect) >> 3;
     }
 
-    /*LOGD("hash: %llx", hash);
-    for (EffectInstance* instance : effects) {
-        LOGD("0x%p: 0x%p", instance, instance->effect);
-    }
-    LOGD("");*/
-
     std::unique_ptr<EffectShaderResourceMonitor>& ptr = shaderHandles[hash];
     if (!ptr) {
         ptr.reset(new EffectShaderResourceMonitor());

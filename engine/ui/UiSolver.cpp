@@ -86,7 +86,7 @@ void UiSolver::solve(){
         exploreGeneralEq(markedEquations[i]);
 
         size_t variables = svarCount - svarStart;
-        //LOGD("Solving %u equations for %u variables", m_rhs.size(), variables);
+        //log("Solving {} equations for {} variables", m_rhs.size(), variables);
         if(variables == 0){
             //nothing to do
         }else if(variables == 1){
@@ -132,12 +132,12 @@ void UiSolver::exploreSimpleEq(ui_eqn_t eq, ui_var_t sourceVar){
         targetFactor = equation.term1.factor;
     }
     if(targetVar & UI_VAR_CONST_BIT){
-        LOGW("system overdetermined, target %x is fixed! (ignoring eq %x)", targetVar, eq);
+        log("system overdetermined, target {:x} is fixed! (ignoring eq {:x})", targetVar, eq);
         return;
     }
     UiSolution& target = solutions[targetVar];
     if(target.svar != UI_VAR_INVALID){
-        LOGW("system overdetermined, target %x already solved! (ignoring eq %x)", targetVar, eq);
+        log("system overdetermined, target {:x} already solved! (ignoring eq {:x})", targetVar, eq);
         return;
     }
     UiSolution source;

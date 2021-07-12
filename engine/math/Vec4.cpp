@@ -1,4 +1,5 @@
 #include "math/Vec4.hpp"
+#include "math/constants.hpp"
 #include "util/log.hpp"
 #include <algorithm>
 #include <cmath>
@@ -164,7 +165,7 @@ Vec4 Vec4::operator*=(Mat4x4 right) {
 }
 
 void Vec4::debug() {
-    LOGD("Vec4(%f,%f,%f,%f)", x, y, z, w);
+    log<Tag::Math>("Vec4({} ,{} ,{} ,{} )", x, y, z, w);
 }
 
 float Vec4::dot(Vec4 left, Vec4 right) {

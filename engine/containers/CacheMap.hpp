@@ -87,7 +87,7 @@ public:
 private:
     // n = number of bits to grow
     void grow(size_t n) {
-        LOGD("growing by %llu", n);
+        log("growing by {}", n);
         size_t newSize = 1 << (logSize + n);
         Set* newSets = new Set[newSize];
 
@@ -99,7 +99,7 @@ private:
                 uint8_t tag = set.getTag(state);
                 size_t indexDiff = tag & ((1 << n) - 1);
                 size_t newIndex = index + (indexDiff << logSize);
-                LOGD("moving %u, indexDiff=0x%llx, newIndex=%llu", tag, indexDiff, newIndex);
+                log("moving {}, indexDiff={:#x}, newIndex={}", tag, indexDiff, newIndex);
                 newSets[newIndex].insert(state, tag >> n, set.getValue(state));
             }
         }

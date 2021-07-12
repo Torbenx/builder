@@ -20,6 +20,6 @@ public:
     }
 
     void debug() {
-        LOGD("left=%f, bottom=%f, front=%f, right=%f, top=%f, back=%f", left, bottom, front, right, top, back);
+        log<Tag::Math>("left={}, bottom={}, front={}, right={}, top={}, back={}", left, bottom, front, right, top, back);
     }
 };

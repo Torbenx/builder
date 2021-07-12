@@ -27,7 +27,6 @@ HANDLE hDxDevice;
 int_t rendererState = RENDERER_STATE_INVISIBLE;
 int_t lastMouseX = std::numeric_limits<int_t>::max();
 int_t lastMouseY = std::numeric_limits<int_t>::max();
-std::map<unsigned int, unsigned int> counter;
 
 void init_text();
 void init_time();
@@ -35,7 +34,7 @@ void init_textureFormats();
 
 void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
-        LOGD("glDebug: [%d]: %s", severity, message);
+        log<Tag::GL>("[{}] glDebug: {}", severity, message);
 }
 
 void initializeGL(const HDC& hdc) {
@@ -44,7 +43,7 @@ void initializeGL(const HDC& hdc) {
     glwrapper_init();
 
     /*if(wglSwapIntervalEXT(0)){
-        LOGD("disabled vsync");
+        log<Tag::GL>("disabled vsync");
     }*/
 
     wglDeleteContext(hglrc_initial);
@@ -60,13 +59,9 @@ void initializeGL(const HDC& hdc) {
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    /*counter[msg]++;
-    if(counter[msg] - counter[msg] / 100 * 100 == 0){
-        LOGD("0x%x: %u", msg, counter[msg]);
-    }*/
     switch (msg) {
     case WM_CREATE: {
-        LOGD("WM_CREATE");
+        log<Tag::Windows>("WM_CREATE");
 
         HDC hdc = GetDC(hwnd);
 
@@ -111,7 +106,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     }
     case WM_SIZE: {
-        LOGD("WM_SIZE");
+        log<Tag::Windows>("WM_SIZE");
 
         /*auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
                            .setHinstance(engine_hinstance)
@@ -126,12 +121,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 renderer->change(rect.right, rect.bottom);
             }
         } else {
-            LOGW("GetClientRect failed");
+            log<Tag::Windows>("GetClientRect failed");
         }
         return 0;
     }
     case WM_ACTIVATE: {
-        LOGD("WM_ACTIVATE: %llx", wParam);
+        log<Tag::Windows>("WM_ACTIVATE: {:#x}", wParam);
         bool activate = LOWORD(wParam);
         bool minimized = HIWORD(wParam);
         if (activate && !minimized) {
@@ -156,7 +151,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
     case WM_PAINT:
-        //LOGD("WM_PAINT");
         if (rendererState != RENDERER_STATE_INVISIBLE) {
             renderer->drawFrame();
             SwapBuffers(GetDC(hwnd));
@@ -165,7 +159,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return DefWindowProc(hwnd, msg, wParam, lParam);
         }
     case WM_INPUT:
-        //LOGD("WM_INPUT");
         if (rendererState == RENDERER_STATE_FOREGROUND) {
             UINT size;
             GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &size, sizeof(RAWINPUTHEADER));
@@ -177,7 +170,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 int_t dx, dy;
                 if (raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) {
                     if (lastMouseX != INT_MAX) {
-                        LOGW("switched from relative to absolute input");
+                        log<Tag::Windows>("switched from relative to absolute input");
                         dx = raw->data.mouse.lLastX - lastMouseX;
                         dy = raw->data.mouse.lLastY - lastMouseY;
                     } else {
@@ -192,7 +185,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     lastMouseX = INT_MAX;
                     lastMouseY = INT_MAX;
                 }
-                //LOGD("%d, %d -> %d, %d", raw->data.mouse.lLastX, raw->data.mouse.lLastY, dx, dy);
                 renderer->rawPointer(dx, dy);
                 unsigned short buttons = raw->data.mouse.usButtonFlags;
                 if (buttons & RI_MOUSE_RIGHT_BUTTON_DOWN)
@@ -216,12 +208,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 if (buttons & RI_MOUSE_BUTTON_5_UP)
                     renderer->rawMouseKey(EXTRA_MOUSE_BUTTON(2), false);
                 if (buttons & RI_MOUSE_WHEEL) {
-                    LOGD("scroll: %d", ((signed short)raw->data.mouse.usButtonData) / 120);
+                    log("scroll: {}", ((signed short)raw->data.mouse.usButtonData) / 120);
                 }
                 break;
             }
             case RIM_TYPEKEYBOARD: {
-                //LOGD("key: 0x%x, flags: %d%d%d", raw->data.keyboard.VKey, raw->data.keyboard.Flags & 1, (raw->data.keyboard.Flags & 2) >> 1, (raw->data.keyboard.Flags & 4) >> 2);
+                //log("key: {:#x}, flags: {}{}{}, raw->data.keyboard.VKey, raw->data.keyboard.Flags & 1, (raw->data.keyboard.Flags & 2) >> 1, (raw->data.keyboard.Flags & 4) >> 2);
                 renderer->rawKey(raw->data.keyboard.VKey, !(raw->data.keyboard.Flags & RI_KEY_BREAK));
                 break;
             }
@@ -257,11 +249,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     }
     case WM_CLOSE:
-        LOGD("WM_CLOSE");
+        log<Tag::Windows>("WM_CLOSE");
         DestroyWindow(hwnd);
         return 0;
     case WM_DESTROY:
-        LOGD("WM_DESTROY");
+        log<Tag::Windows>("WM_DESTROY");
         if (rendererState == RENDERER_STATE_FOREGROUND) {
             rendererState = RENDERER_STATE_BACKGROUND;
             renderer->background();
@@ -361,19 +353,19 @@ void* operator new(std::size_t count, std::align_val_t al) {
         int_t size =  1024 * 1024 * 1024;
         allocPtr = (uintptr_t)VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         std::memset((void*)allocPtr, 0, size);
-        LOGD("allocPtr=%p", allocPtr);
+        log("allocPtr={}", allocPtr);
     }
     alignment = std::bit_ceil(alignment);
     allocPtr = (allocPtr & ~(alignment - 1)) + alignment;
     uintptr_t ret = allocPtr;
     allocPtr += count;
-    //LOGD("alloc %p: size=%llu, alignment=%llu", (void*)ret, count, alignment);
+    //log("alloc {}: size={}, alignment={}", (void*)ret, count, alignment);
     return (void*)ret;
 }
 
 void operator delete(void* ptr, std::align_val_t al) noexcept {
     std::size_t alignment = (std::size_t)al;
-    //LOGD("free %p: alignment=%llu", ptr, alignment);
+    //log("free {}: alignment={}", ptr, alignment);
 }
 
 void* operator new(std::size_t count) {

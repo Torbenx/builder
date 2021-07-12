@@ -5,6 +5,12 @@
 #include "util/log.hpp"
 #include "util/text.hpp"
 
+namespace Tag {
+struct Shaders {
+    static constexpr char tag[] = "shaders";
+};
+}
+
 template<typename T>
 struct StaticResourceMonitor final : public ResourceMonitor {
     T value;
@@ -19,7 +25,7 @@ struct StaticResourceMonitor final : public ResourceMonitor {
 
     Resource<T> set(T new_value) {
         if (!expired()) {
-            LOGD("StaticResourceMonitor::set on resource that hasn't expired!");
+            log("StaticResourceMonitor::set on resource that hasn't expired!");
         }
         const_cast<T&>(value) = new_value;
         return Resource<T>(value, this);
@@ -54,18 +60,18 @@ struct SimpleCubeMapShader : public Shader {
     void applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler = "samplerCube");
 };
 
-#define DECLARE_SHADER(name, type)                      \
-    static inline StaticResourceMonitor<type> m_##name; \
-    static Resource<type> name() {                      \
-        if (!m_##name.expired()) {                      \
-            return m_##name.acquire();                  \
-        }                                               \
-        LOGD("constructing Shaders::" #name);           \
-        ShaderBuilder b;                                \
-        type s = type();                                \
-        s.apply##type(b);                               \
-        s.initialize(b);                                \
-        return m_##name.set(s);                         \
+#define DECLARE_SHADER(name, type)                         \
+    static inline StaticResourceMonitor<type> m_##name;    \
+    static Resource<type> name() {                         \
+        if (!m_##name.expired()) {                         \
+            return m_##name.acquire();                     \
+        }                                                  \
+        log<Tag::Shaders>("constructing Shaders::" #name); \
+        ShaderBuilder b;                                   \
+        type s = type();                                   \
+        s.apply##type(b);                                  \
+        s.initialize(b);                                   \
+        return m_##name.set(s);                            \
     }
 
 class Shaders {

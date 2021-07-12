@@ -22,7 +22,7 @@ void ObjParser::parse(std::istream& in) {
     dim = -1;
     while (in.getline(buf, bufsize)) {
         if (in.fail()) {
-            LOGE("fail");
+            log("fail");
         }
         if (buf[0] == 'v') {
             if (buf[1] == ' ') {
@@ -37,7 +37,7 @@ void ObjParser::parse(std::istream& in) {
                     }
                     line = end;
                     if (++r > MAX_DIM) {
-                        LOGW("dimension to high");
+                        log("dimension to high");
                         break;
                     }
                     if (r == 1)
@@ -53,7 +53,7 @@ void ObjParser::parse(std::istream& in) {
                     if (dim == -1) {
                         dim = r;
                     } else {
-                        LOGW("inconsistent dimension");
+                        log("inconsistent dimension");
                     }
                 }
             } else if (buf[1] == 't') {
@@ -68,7 +68,7 @@ void ObjParser::parse(std::istream& in) {
                     line = end;
                     if (++r > 2) {
                         if (f != 0.0f)
-                            LOGW("expected 2d texture coordinates");
+                            log("expected 2d texture coordinates");
                     } else {
                         texCoords.push_back(f);
                     }
@@ -84,7 +84,7 @@ void ObjParser::parse(std::istream& in) {
                     }
                     line = end;
                     if (++r > MAX_DIM) {
-                        LOGW("dimension to high");
+                        log("dimension to high");
                         break;
                     }
                     normals.push_back(f);
@@ -93,7 +93,7 @@ void ObjParser::parse(std::istream& in) {
                     if (dim == -1) {
                         dim = r;
                     } else {
-                        LOGW("inconsistent dimension");
+                        log("inconsistent dimension");
                     }
                 }
             }
@@ -107,7 +107,7 @@ void ObjParser::parse(std::istream& in) {
                     break;
                 }
                 if (++r > MAX_POLY_TYPE) {
-                    LOGW("poly type to high");
+                    log("poly type to high");
                     break;
                 }
                 ObjParserIndex ind;
@@ -118,7 +118,7 @@ void ObjParser::parse(std::istream& in) {
                     if (l != -1) {
                         ind.t = l;
                     } else {
-                        LOGD("failed to parse texture index %s", line);
+                        log("failed to parse texture index {}", line);
                         ind.t = -1;
                     }
                     if (end[0] == '/') {
@@ -127,7 +127,7 @@ void ObjParser::parse(std::istream& in) {
                         if (l != -1) {
                             ind.n = l;
                         } else {
-                            LOGD("failed to parse normal index: %s", line);
+                            log("failed to parse normal index: {}", line);
                             ind.n = -1;
                         }
                     }
@@ -139,13 +139,13 @@ void ObjParser::parse(std::istream& in) {
                 if (polyType == -1) {
                     polyType = r;
                 } else {
-                    LOGW("inconsistent poly type");
+                    log("inconsistent poly type");
                 }
             }
         }
     }
     boundingBox.debug();
-    LOGD("vertex: %d, index: %d tex: %d normal: %d", vertex.size() / dim, index.size() / polyType, texCoords.size() / 2, normals.size() / dim);
+    log("vertex: {}, index: {} tex: {} normal: {}", vertex.size() / dim, index.size() / polyType, texCoords.size() / 2, normals.size() / dim);
     int ni = index.size() / polyType;
     int tri = polyType - 2;
     n = ni * tri * 3;

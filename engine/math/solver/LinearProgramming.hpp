@@ -69,22 +69,22 @@ public:
         ZeroTester tester;
 
         while (true) {
-            /*LOGD("basis:");
+            /*log<Tag::Math>("basis:");
             basis.debug();
             basisObjective.debug();
-            LOGD("extra:");
+            log<Tag::Math>("extra:");
             extra.debug();
             extraObjective.debug();
-            LOGD("solution:");
+            log<Tag::Math>("solution:");
             solution.debug();
-            LOGD("dual:");
+            log<Tag::Math>("dual:");
             dual.debug();
-            LOGD("bound:");
+            log<Tag::Math>("bound:");
             bound.debug();
-            LOGD("multipliers:");
+            log<Tag::Math>("multipliers:");
             multipliers.debug();
-            LOGD("score=%f", SparseOps::dot(basisObjective, solution));
-            LOGD("");*/
+            log<Tag::Math>("score={}", SparseOps::dot(basisObjective, solution));
+            log<Tag::Math>("");*/
 
             // pick enteringIndex
             uint32_t enteringIndex = dirtyMultipliers.nextSetBit(0, extraSize);
@@ -115,7 +115,7 @@ public:
                 }
             }
             if (leavingIndex == basisSize) {
-                LOGD("unbound");
+                log<Tag::Math>("unbound");
                 return;
             }
 

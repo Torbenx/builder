@@ -27,7 +27,7 @@ std::streambuf::int_type assetbuf::underflow(){
     if(gptr() == egptr()){
         int ret = AAsset_read(asset, buffer, bufferSize);
         if(ret < 0){
-            LOGW("Error");
+            log<Tag::Android>("Error");
             return traits_type::eof();
         }else if(ret == 0){
             return traits_type::eof();
@@ -39,7 +39,7 @@ std::streambuf::int_type assetbuf::underflow(){
 }
 
 std::streampos assetbuf::seekpos(std::streampos pos, std::ios_base::openmode){
-    LOGE("SEEKPOS");
+    log<Tag::Android>("SEEKPOS");
     return std::streampos(std::streamoff(-1));
 }
 

@@ -89,10 +89,6 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<EffectInstance*>& ef
             prev[j] = entries[k].effects[j];
         }
     }
-
-    /*for (int_t i = 0; i < N; i++) {
-        LOGD("%lld: %llu", i, binds[i].popcount());
-    }*/
 }
 
 template<uint32_t N>

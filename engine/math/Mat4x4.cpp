@@ -401,7 +401,7 @@ Mat4x4 Mat4x4::operator=(Mat4x4 right){
 
 void Mat4x4::debug(){
     float *m = matrix;
-    LOGD("%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f",
+    log<Tag::Math>("{} {} {} {}\n{} {} {} {}\n{} {} {} {}\n{} {} {} {}",
         m[ 0],m[ 4],m[ 8],m[12],
         m[ 1],m[ 5],m[ 9],m[13],
         m[ 2],m[ 6],m[10],m[14],

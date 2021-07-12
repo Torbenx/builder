@@ -4,6 +4,12 @@
 #include <D3D11.h>
 #include <Windows.h>
 
+namespace Tag {
+struct Windows {
+    static constexpr char tag[] = "windows";
+};
+}
+
 extern HWND engine_hwnd;
 extern ID3D11Device* dxDevice;
 extern HANDLE hDxDevice;

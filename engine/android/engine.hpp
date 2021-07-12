@@ -3,9 +3,10 @@
 #include "Renderer.hpp"
 #include "math/Mat4x4.hpp"
 #include <android/asset_manager.h>
-#include <jni.h>
 #include <android/looper.h>
 #include <android/native_window.h>
+#include <jni.h>
+#include <string>
 
 typedef int32_t cmd_t;
 
@@ -23,24 +24,30 @@ typedef int32_t cmd_t;
 #define ENGINE_CMD_SURFACE_CHANGE 11
 #define ENGINE_CMD_SURFACE_DESTROY 12
 
-extern JavaVM *jvm;
-extern AAssetManager *assetManager;
-extern ALooper *looper;
+extern JavaVM* jvm;
+extern AAssetManager* assetManager;
+extern ALooper* looper;
 extern jobject activity;
 
-struct SurfaceCmdData{
-    ANativeWindow *window;
+namespace Tag {
+struct Android {
+    static constexpr char tag[] = "android" ;
+};
+}
+
+struct SurfaceCmdData {
+    ANativeWindow* window;
 };
 
-struct SurfaceChangeCmdData{
-    ANativeWindow *window;
+struct SurfaceChangeCmdData {
+    ANativeWindow* window;
     int width;
     int height;
 };
 
 void engine_setRenderer(CreateFunctions functions);
 
-jobject android_createTextFormat(const char* text, int maxWidth, float textSize, float *width, float *height, int *lineCount);
+jobject android_createTextFormat(const char* text, int maxWidth, float textSize, float* width, float* height, int* lineCount);
 void android_releaseTextFormat(jobject obj);
 
 jobject android_textTextureConstructor(int glId, int width, int height);

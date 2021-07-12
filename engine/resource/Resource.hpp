@@ -3,7 +3,7 @@
 #include "util/log.hpp"
 #include "util/types.hpp"
 
-#define DEBUG_RESOURCE(str) //LOGD(str " refCount=%d", refCount)
+#define DEBUG_RESOURCE(str) //log(str " refCount={}", refCount)
 
 template<typename T>
 class Resource;
@@ -113,7 +113,7 @@ private:
         if (monitor) {
             monitor->ref();
         } else {
-            LOGD("ref with no monitor!");
+            log("ref with no monitor!");
         }
     }
 
@@ -122,7 +122,7 @@ private:
     }
 
     void do_release() requires (!Releasable<T>) {
-        LOGD("monitor::release() returned true but T is not Releaseable, resource might be leaked!");
+        log("monitor::release() returned true but T is not Releaseable, resource might be leaked!");
     }
 
     // always override monitor after unref()

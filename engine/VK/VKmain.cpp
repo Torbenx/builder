@@ -33,11 +33,11 @@ void initialize(const char* surfaceExtensionName) {
     uint32_t count = 0;
     VULKAN_VERIFY(instance.enumeratePhysicalDevices(&count, nullptr));
     if (count != 1) {
-        LOGD("count is not 1");
+        log<Tag::VK>("count is not 1");
     }
     VULKAN_VERIFY(instance.enumeratePhysicalDevices(&count, &physicalDevice));
     auto properties = physicalDevice.getProperties();
-    LOGD("physicalDevice: %s, type: %s", properties.deviceName.data(), to_string(properties.deviceType).c_str());
+    log<Tag::VK>("physicalDevice: {}, type: {}", properties.deviceName.data(), to_string(properties.deviceType));
 }
 
 void initializeSurface(vk::SurfaceKHR newSurface) {
@@ -56,7 +56,7 @@ void initializeSurface(vk::SurfaceKHR newSurface) {
         }
     }
     if (queueFamilyIndex == familyCount) {
-        LOGD("no supported queue family");
+        log<Tag::VK>("no supported queue family");
         return;
     }
 
@@ -97,25 +97,25 @@ void updateSurface(vk::SurfaceKHR newSurface) {
     vk::Bool32 supportsPresent = VK_FALSE;
     VULKAN_VERIFY(physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, &supportsPresent));
     if (!supportsPresent) {
-        LOGD("queue can't present on current surface");
+        log<Tag::VK>("queue can't present on current surface");
         return;
     }
 
     vk::SurfaceCapabilitiesKHR capabilities;
     vk::Result result = physicalDevice.getSurfaceCapabilitiesKHR(surface, &capabilities);
     if (result != vk::Result::eSuccess) {
-        LOGD("surface might be invalid");
+        log<Tag::VK>("surface might be invalid");
         VULKAN_VERIFY(result);
         return;
     }
-    LOGD("surface:");
-    LOGD("  extent: %d x %d", capabilities.currentExtent.width, capabilities.currentExtent.height);
-    LOGD("  imageCount: %d - %d", capabilities.minImageCount, capabilities.maxImageCount);
-    LOGD("  transform: 0x%x", capabilities.currentTransform);
+    log<Tag::VK>("surface:");
+    log<Tag::VK>("  extent: {} x {}", capabilities.currentExtent.width, capabilities.currentExtent.height);
+    log<Tag::VK>("  imageCount: {} - {}", capabilities.minImageCount, capabilities.maxImageCount);
+    log<Tag::VK>("  transform: {:#x}", capabilities.currentTransform);
 
     uint32_t targetImageCount = 2;
     if (capabilities.minImageCount > targetImageCount || (capabilities.maxImageCount > 0 && capabilities.maxImageCount < targetImageCount)) {
-        LOGD("target image count of %u not supported", targetImageCount);
+        log<Tag::VK>("target image count of {} not supported", targetImageCount);
         return;
     }
 
@@ -123,7 +123,7 @@ void updateSurface(vk::SurfaceKHR newSurface) {
     VULKAN_VERIFY(physicalDevice.getSurfaceFormatsKHR(surface, &formatCount, nullptr));
     vk::SurfaceFormatKHR formats[formatCount];
     VULKAN_VERIFY(physicalDevice.getSurfaceFormatsKHR(surface, &formatCount, formats));
-    LOGD("  formats: %u", formatCount);
+    log<Tag::VK>("  formats: {}", formatCount);
 
     vk::Format targetFormat = vk::Format::eB8G8R8A8Unorm;
     vk::ColorSpaceKHR colorSpace;
@@ -138,7 +138,7 @@ void updateSurface(vk::SurfaceKHR newSurface) {
             }
         }
         if (i == formatCount) {
-            LOGD("target format not supported");
+            log<Tag::VK>("target format not supported");
             return;
         }
     }

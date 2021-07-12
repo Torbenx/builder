@@ -79,21 +79,21 @@ TextTexture::TextTexture(int width, int height)
     D3D11_TEXTURE2D_DESC desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, D3D11_BIND_RENDER_TARGET);
     HRESULT hr = dxDevice->CreateTexture2D(&desc, NULL, &impl->dxTexture);
     if (hr != S_OK)
-        LOGW("failed to create direct3d texture: 0x%lx", hr);
+        log<Tag::Windows>("failed to create direct3d texture: {:#x}", hr);
 
     impl->sharedTexture = wglDXRegisterObjectNV(hDxDevice, impl->dxTexture, glId, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
     if (!impl->sharedTexture)
-        LOGW("failed to register shared object: %lx", GetLastError());
+        log<Tag::Windows>("failed to register shared object: {:#x}", GetLastError());
 
     IDXGISurface* dxSurface;
     hr = impl->dxTexture->QueryInterface(__uuidof(IDXGISurface), (void**)&dxSurface);
     if (hr != S_OK)
-        LOGW("failed to get dxgi surface: 0x%lx", hr);
+        log<Tag::Windows>("failed to get dxgi surface: {:#x}", hr);
 
     D2D1_BITMAP_PROPERTIES1 bmProp = D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), 96.0f, 96.0f);
     hr = d2Context->CreateBitmapFromDxgiSurface(dxSurface, &bmProp, &impl->dxBitmap);
     if (hr != S_OK)
-        LOGW("failed to create direct2d bitmap: 0x%lx", hr);
+        log<Tag::Windows>("failed to create direct2d bitmap: {:#x}", hr);
     dxSurface->Release();
 
     if (impl->sharedTexture)

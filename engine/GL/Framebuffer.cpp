@@ -25,7 +25,7 @@ void Framebuffer::bind() {
     GL_GET_EXPECT(GL_FRAMEBUFFER_BINDING, currentFramebuffer->glId);
 #ifdef VALIDATE_GL
     /*if (isCurrent())
-        LOGD("framebuffer %d already bound", glId);*/
+        log<Tag::GL>("framebuffer {} already bound", glId);*/
 #endif
 
     glBindFramebuffer(GL_FRAMEBUFFER, glId);

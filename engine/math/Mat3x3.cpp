@@ -89,7 +89,7 @@ Mat3x3 Mat3x3::diagonal(Vec2 v){
 }
 
 Mat3x3 Mat3x3::invert(Mat3x3 matrix){
-    LOGW("invert not implemented");
+    log<Tag::Math>("invert not implemented");
     return Mat3x3();
 }
 
@@ -129,7 +129,7 @@ Mat3x3 Mat3x3::operator=(Mat3x3 right){
 
 void Mat3x3::debug(){
     float *m = matrix;
-    LOGD("%f %f %f\n%f %f %f\n%f %f %f",
+    log<Tag::Math>("{} {} {}\n{} {} {}\n{} {} {}",
         m[0], m[3], m[6],
         m[1], m[4], m[7],
         m[2], m[5], m[8]);

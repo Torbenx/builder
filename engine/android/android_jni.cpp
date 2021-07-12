@@ -96,9 +96,9 @@ void android_exitFullscreen(){
 void android_sendBuf(int fd, void *buf, int size){
     int ret = write(fd, buf, size);
     if(ret == -1){
-        LOGW("write error: %s", strerror(errno));
+        log<Tag::Android>("write error: {}", strerror(errno));
     }else if(ret != size){
-        LOGW("wrote wrong size: %d",ret);
+        log<Tag::Android>("wrote wrong size: {}",ret);
     }
 }
 

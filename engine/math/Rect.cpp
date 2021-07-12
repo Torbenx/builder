@@ -1,35 +1,32 @@
 #include "math/Rect.hpp"
+#include "math/constants.hpp"
 #include "util/log.hpp"
 
-Rect::Rect(){
-
-}
-
-float Rect::width(){
+float Rect::width() {
     return right - left;
 }
 
-float Rect::height(){
+float Rect::height() {
     return top - bottom;
 }
 
-Vec2 Rect::topLeft(){
+Vec2 Rect::topLeft() {
     return Vec2(left, top);
 }
 
-Vec2 Rect::topRight(){
+Vec2 Rect::topRight() {
     return Vec2(right, top);
 }
 
-Vec2 Rect::bottomRight(){
+Vec2 Rect::bottomRight() {
     return Vec2(right, bottom);
 }
 
-Vec2 Rect::bottomLeft(){
+Vec2 Rect::bottomLeft() {
     return Vec2(left, bottom);
 }
 
-std::array<Vec2, 4> Rect::corners(){
+std::array<Vec2, 4> Rect::corners() {
     return {
         bottomLeft(),
         bottomRight(),
@@ -38,15 +35,15 @@ std::array<Vec2, 4> Rect::corners(){
     };
 }
 
-bool Rect::contains(Vec2 p){
+bool Rect::contains(Vec2 p) {
     return left <= p.x && p.x <= right && bottom <= p.y && p.y <= top;
 }
 
-void Rect::debug(){
-    LOGD("top=%f, bottom=%f, left=%f, right=%f", top, bottom, left, right);
+void Rect::debug() {
+    log<Tag::Math>("top={}, bottom={}, left={}, right={}", top, bottom, left, right);
 }
 
-Rect Rect::operator+=(Vec2 v){
+Rect Rect::operator+=(Vec2 v) {
     top += v.y;
     bottom += v.y;
     left += v.x;
@@ -54,7 +51,7 @@ Rect Rect::operator+=(Vec2 v){
     return *this;
 }
 
-Rect Rect::operator-=(Vec2 v){
+Rect Rect::operator-=(Vec2 v) {
     top -= v.y;
     bottom -= v.y;
     left -= v.x;
@@ -62,7 +59,7 @@ Rect Rect::operator-=(Vec2 v){
     return *this;
 }
 
-Rect Rect::operator=(Rect other){
+Rect Rect::operator=(Rect other) {
     top = other.top;
     bottom = other.bottom;
     left = other.left;
@@ -70,7 +67,7 @@ Rect Rect::operator=(Rect other){
     return *this;
 }
 
-Rect Rect::btlr(float bottom, float top, float left, float right){
+Rect Rect::btlr(float bottom, float top, float left, float right) {
     Rect rect;
     rect.top = top;
     rect.bottom = bottom;
@@ -79,7 +76,7 @@ Rect Rect::btlr(float bottom, float top, float left, float right){
     return rect;
 }
 
-Rect Rect::bltr(float bottom, float left, float top, float right){
+Rect Rect::bltr(float bottom, float left, float top, float right) {
     Rect rect;
     rect.top = top;
     rect.bottom = bottom;
@@ -88,7 +85,7 @@ Rect Rect::bltr(float bottom, float left, float top, float right){
     return rect;
 }
 
-Rect Rect::tlbr(float top, float left, float bottom, float right){
+Rect Rect::tlbr(float top, float left, float bottom, float right) {
     Rect rect;
     rect.top = top;
     rect.bottom = bottom;

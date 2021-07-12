@@ -8,7 +8,7 @@ void JpegDecoder::decode(std::istream& in) {
     int fileSize = in.tellg();
     in.seekg(0, in.beg);
     if (fileSize <= 0) {
-        LOGE("failed: %d", fileSize);
+        log("failed: {}", fileSize);
         return;
     }
     unsigned char* fileBuf = new unsigned char[fileSize];
@@ -18,10 +18,10 @@ void JpegDecoder::decode(std::istream& in) {
 
     int subsamp, colorspace;
     if (tjDecompressHeader3(tjInstance, fileBuf, fileSize, &width, &height, &subsamp, &colorspace) < 0) {
-        LOGE("FAIL");
+        log("FAIL");
         return;
     }
-    LOGD("size: %d x %d", width, height);
+    log("size: {} x {}", width, height);
     int pixelFormat = TJPF_RGBX;
     int pixelSize = tjPixelSize[pixelFormat];
     unsigned char* imgBuf = new unsigned char[width * height * pixelSize];

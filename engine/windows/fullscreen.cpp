@@ -52,12 +52,12 @@ std::list<std::string> getDisplayList(){
     //std::map<std::string,std::string> monitors;
     std::list<std::string> ret;
     while(EnumDisplayDevices(nullptr, i++, &adapter, 0)){
-        LOGD("name: %s, string: %s", adapter.DeviceName, adapter.DeviceString);
+        log<Tag::Windows>("name: {}, string: {}", adapter.DeviceName, adapter.DeviceString);
         int j = 0;
         DISPLAY_DEVICE monitor;
         monitor.cb = sizeof(DISPLAY_DEVICE);
         while(EnumDisplayDevices(adapter.DeviceName, j++, &monitor, 0)){
-            LOGD("    name: %s, string: %s", monitor.DeviceName, monitor.DeviceString);
+            log<Tag::Windows>("    name: {}, string: {}", monitor.DeviceName, monitor.DeviceString);
             //monitors[monitor.DeviceName] = adapter.DeviceName;
             ret.push_back(adapter.DeviceName);
         }
@@ -72,7 +72,7 @@ FullscreenConfig getFullscreenConfig(std::string adapterName, int width, int hei
     devMode.dmSize = sizeof(DEVMODE);
     while(EnumDisplaySettings(adapterName.c_str(), i++, &devMode)){
         if(devMode.dmPelsWidth == width && devMode.dmPelsHeight == height && devMode.dmDisplayFrequency == refreshRate){
-            LOGD("config found for %s: %ldx%ld@%ld",adapterName.c_str(),devMode.dmPelsWidth,devMode.dmPelsHeight,devMode.dmDisplayFrequency);
+            log<Tag::Windows>("config found for {}: {}x{}@{}",adapterName.c_str(),devMode.dmPelsWidth,devMode.dmPelsHeight,devMode.dmDisplayFrequency);
             FullscreenConfig config;
             ((FullscreenConfigImpl*)config.impl)->adapterName = adapterName;
             ((FullscreenConfigImpl*)config.impl)->deviceMode = devMode;
@@ -80,6 +80,20 @@ FullscreenConfig getFullscreenConfig(std::string adapterName, int width, int hei
         }
     }
     return FullscreenConfig::DEFAULT;
+}
+
+void logChangeDisplayResult(long ret) {
+    switch(ret){
+        case DISP_CHANGE_SUCCESSFUL: /*log<Tag::Windows>("DISP_CHANGE_SUCCESSFUL");*/ break;
+        case DISP_CHANGE_BADDUALVIEW: log<Tag::Windows>("DISP_CHANGE_BADDUALVIEW"); break;
+        case DISP_CHANGE_BADFLAGS: log<Tag::Windows>("DISP_CHANGE_BADFLAGS"); break;
+        case DISP_CHANGE_BADMODE: log<Tag::Windows>("DISP_CHANGE_BADMODE"); break;
+        case DISP_CHANGE_BADPARAM: log<Tag::Windows>("DISP_CHANGE_BADPARAM"); break;
+        case DISP_CHANGE_FAILED: log<Tag::Windows>("DISP_CHANGE_FAILED"); break;
+        case DISP_CHANGE_NOTUPDATED: log<Tag::Windows>("DISP_CHANGE_NOTUPDATED"); break;
+        case DISP_CHANGE_RESTART: log<Tag::Windows>("DISP_CHANGE_RESTART"); break;
+        default: log<Tag::Windows>("unknown return value: {}", ret);
+    }
 }
 
 int saved_x, saved_y, saved_width, saved_height;
@@ -102,24 +116,14 @@ void goFullscreenImpl(FullscreenConfigImpl config){
     }
 
     SetWindowPos(engine_hwnd, HWND_TOPMOST, 0, 0, width, height, 0);
-    LOGD("setting %s to: %dx%d@%ld", saved_config.adapterName.c_str(), width, height, saved_config.deviceMode.dmDisplayFrequency);
+    log<Tag::Windows>("setting {} to: {}x{}@{}", saved_config.adapterName.c_str(), width, height, saved_config.deviceMode.dmDisplayFrequency);
     long ret;
     if(saved_config.deviceMode.dmSize == 0){
         ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, CDS_FULLSCREEN, NULL);
     }else{
         ret = ChangeDisplaySettingsEx(saved_config.adapterName.c_str(), &saved_config.deviceMode, NULL, CDS_FULLSCREEN, NULL);
     }
-    switch(ret){
-        case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
-        case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
-        case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
-        case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
-        case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
-        case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
-        case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
-        case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
-        default: LOGW("unknown return value: %ld", ret);
-    }
+    logChangeDisplayResult(ret);
     ShowWindow(engine_hwnd, SW_SHOW);
 }
 
@@ -145,17 +149,7 @@ void exitFullscreenImpl(){
     SetWindowPos(engine_hwnd, HWND_NOTOPMOST, saved_x, saved_y, saved_width, saved_height, 0);
     if(saved_config.deviceMode.dmSize != 0){
         long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
-        switch(ret){
-            case DISP_CHANGE_SUCCESSFUL: /*LOGD("DISP_CHANGE_SUCCESSFUL");*/ break;
-            case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
-            case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
-            case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
-            case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
-            case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
-            case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
-            case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
-            default: LOGW("unknown return value: %ld", ret);
-        }
+        logChangeDisplayResult(ret);
     }
     ShowWindow(engine_hwnd, SW_RESTORE);
 }
@@ -185,18 +179,7 @@ bool engine_goBackground(){
         SetWindowPos(engine_hwnd, HWND_NOTOPMOST, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, 0);
         if(saved_config.deviceMode.dmSize != 0){
             long ret = ChangeDisplaySettingsEx(NULL, NULL, NULL, 0, NULL);
-            switch(ret){
-                case DISP_CHANGE_SUCCESSFUL: //LOGD("DISP_CHANGE_SUCCESSFUL");
-                    break;
-                case DISP_CHANGE_BADDUALVIEW: LOGW("DISP_CHANGE_BADDUALVIEW"); break;
-                case DISP_CHANGE_BADFLAGS: LOGW("DISP_CHANGE_BADFLAGS"); break;
-                case DISP_CHANGE_BADMODE: LOGW("DISP_CHANGE_BADMODE"); break;
-                case DISP_CHANGE_BADPARAM: LOGW("DISP_CHANGE_BADPARAM"); break;
-                case DISP_CHANGE_FAILED: LOGW("DISP_CHANGE_FAILED"); break;
-                case DISP_CHANGE_NOTUPDATED: LOGW("DISP_CHANGE_NOTUPDATED"); break;
-                case DISP_CHANGE_RESTART: LOGW("DISP_CHANGE_RESTART"); break;
-                default: LOGW("unknown return value: %ld", ret);
-            }
+            logChangeDisplayResult(ret);
         }
         ShowWindow(engine_hwnd, SW_MINIMIZE);
         return false;

@@ -1,15 +1,21 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
-#include "vk_mem_alloc.h"
 #include "util/log.hpp"
+#include "vk_mem_alloc.h"
+#include <vulkan/vulkan.hpp>
 
-#define VULKAN_VERIFY(input)                                                                                    \
-    {                                                                                                           \
-        vk::Result _result = input;                                                                             \
-        if (_result != vk::Result::eSuccess) {                                                                  \
-            LOGD("VULKAN_VERIFY failed: %s:%d: %s(): " #input " -> %d", __FILE__, __LINE__, __func__, _result); \
-        }                                                                                                       \
+namespace Tag {
+struct VK {
+    static constexpr char tag[] = "vk";
+};
+}
+
+#define VULKAN_VERIFY(input)                                                                                                \
+    {                                                                                                                       \
+        vk::Result _result = input;                                                                                         \
+        if (_result != vk::Result::eSuccess) {                                                                              \
+            log<Tag::VK>("VULKAN_VERIFY failed: {}:{}: {}(): " #input " -> {}", __FILE__, __LINE__, __func__, _result); \
+        }                                                                                                                   \
     }
 
 namespace VulkanState {

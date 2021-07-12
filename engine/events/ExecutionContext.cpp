@@ -52,6 +52,5 @@ void __attribute__((noinline)) ExecutionContext::bootstrap_interal(void(MIGHT_YI
 #endif
 
     callback(data);
-    // LOGE("callbacks passed to bootstrap() should never return!!!");
     // while (true) { }
 }

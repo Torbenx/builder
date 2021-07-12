@@ -12,7 +12,7 @@
 #define ENGINE_IDENT_CMD 1
 #define ENGINE_IDENT_INPUT 2
 
-#define CHECK_EGL(ret, fret, fun) if(ret == fret){LOGD(fun " failed: 0x%x", eglGetError());}
+#define CHECK_EGL(ret, fret, fun) if(ret == fret){log<Tag::Android>(fun " failed: {:#x}", eglGetError());}
 #define CHECK_EGL_BOOL(ret, fun) CHECK_EGL(ret, false, fun)
 
 ALooper *looper;
@@ -132,7 +132,7 @@ void android_runThread(){
                             struct SurfaceCmdData data;
                             read(fd, &data, sizeof(struct SurfaceCmdData));
                             if(surface != EGL_NO_SURFACE){
-                                LOGI("surfaceCreate() while other surface still present");
+                                log<Tag::Android>("surfaceCreate() while other surface still present");
                                 CHECK_EGL_BOOL(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context), "eglMakeCurrent (clear for new surface)");
                                 eglDestroySurface(display, surface);
                                 ANativeWindow_release(window);
@@ -153,7 +153,7 @@ void android_runThread(){
                             struct SurfaceChangeCmdData data;
                             read(fd, &data, sizeof(struct SurfaceChangeCmdData));
                             if(window != data.window && surface != EGL_NO_SURFACE){
-                                LOGD("surface generation increased");
+                                log<Tag::Android>("surface generation increased");
                                 eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context);
                                 eglDestroySurface(display, surface);
                                 ANativeWindow_release(window);
@@ -179,11 +179,11 @@ void android_runThread(){
                         }
                     }
                 }else if(readRet == 0){
-                    LOGD("end of pipe?!");
+                    log<Tag::Android>("end of pipe?!");
                 }else if(readRet == -1){
-                    LOGW("error: %s", strerror(errno));
+                    log<Tag::Android>("error: {}", strerror(errno));
                 }else{
-                    LOGI("failed to read full cmd");
+                    log<Tag::Android>("failed to read full cmd");
                 }
                 break;
             }

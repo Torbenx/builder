@@ -78,7 +78,7 @@ void ShaderBuilder::disableFragmentShader() {
 void Shader::initialize(ShaderBuilder& builder) {
     GL_VERIFY(!glIsProgram(glId));
     glId = glCreateProgram();
-    LOGD("initalize glId=%d", glId);
+    log<Tag::GL>("initalize glId={}", glId);
 
     auto printSource = [](std::string source) {
         std::istringstream stream(source);
@@ -86,7 +86,7 @@ void Shader::initialize(ShaderBuilder& builder) {
         char line[bufSize];
         int lineNumber = 1;
         while (stream.getline(line, bufSize)) {
-            LOGW("%2d: %s", lineNumber++, line);
+            log<Tag::GL>("{:2d}: {}", lineNumber++, line);
         }
     };
 
@@ -102,12 +102,12 @@ void Shader::initialize(ShaderBuilder& builder) {
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
             std::vector<char> message(length);
             glGetShaderInfoLog(shader, length, &length, message.data());
-            LOGW("\n"
-                 "%s Shader failed to compile:\n"
+            log<Tag::GL>("\n"
+                 "{} Shader failed to compile:\n"
                  "--------------SOURCE--------------\n",
                 vertex ? "Vertex" : "Fragment");
             printSource(std::string(source));
-            LOGW("--------------ERROR---------------\n%s\n", message.data());
+            log<Tag::GL>("--------------ERROR---------------\n{}\n", message.data());
         } else
 #endif
         {
@@ -128,7 +128,7 @@ void Shader::initialize(ShaderBuilder& builder) {
 }
 
 void Shader::release() {
-    LOGD("release glId=%d", glId);
+    log<Tag::GL>("release glId={}", glId);
     if (glId != 0) {
         glDeleteProgram(glId);
         glId = 0;
