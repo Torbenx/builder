@@ -1,10 +1,6 @@
 [submodule "libs/libjpeg-turbo"]
 	path = libs/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
-[submodule "libs/abseil"]
-	path = libs/abseil
-	url = https://github.com/abseil/abseil-cpp.git
-	branch = lts_2021_03_24
 [submodule "libs/vulkan"]
 	path = libs/vulkan
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
