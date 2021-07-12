@@ -31,13 +31,8 @@ void init_text() {
 }
 
 TextFormat::TextFormat(std::string text, int maxWidth, float textSize) {
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    std::wstring wText;
-    try {
-        wText = converter.from_bytes(text.c_str());
-    } catch (const std::range_error&) {
-        wText = L"*** ERROR ***";
-    }
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter("*** ERROR ***", L"*** ERROR ***");
+    std::wstring wText(converter.from_bytes(text.c_str()));
 
     IDWriteTextFormat* format;
     writeFactory->CreateTextFormat(L"Verdana", NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, textSize, L"", &format);

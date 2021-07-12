@@ -41,9 +41,9 @@ public:
     AtomicList<Task>* list;
 
     virtual ~Task() { }
-    virtual void run() { }
-    static void yieldWith(ExecutionContext& executionContext);
-    void yield() { yieldWith(executionContext); }
+    virtual void MIGHT_YIELD run() { }
+    static void MIGHT_YIELD yieldWith(ExecutionContext& executionContext);
+    void MIGHT_YIELD yield() { yieldWith(executionContext); }
 };
 
 class ShutdownTask;
@@ -54,7 +54,7 @@ private:
     friend class ShutdownTask;
 
 public:
-    void enter() {
+    void MIGHT_YIELD enter() {
         std::thread::id myThread = std::this_thread::get_id();
         ExecutionContext executionContext;
         entryPoints[myThread] = &executionContext;
@@ -64,7 +64,7 @@ public:
 
 class ShutdownTask : public Task {
 public:
-    virtual void run() override {
+    virtual void MIGHT_YIELD run() override {
         std::thread::id myThread = std::this_thread::get_id();
         ExecutionContext me;
         me.yieldTo(Scheduler::entryPoints[myThread]);
@@ -79,17 +79,17 @@ public:
         }) { }
 };
 
+void MIGHT_YIELD Task_yieldWith_bootstrap(void* data) {
+    Task* task = (Task*)data;
+    task->run();
+    task->yield();
+}
+
 void Task::yieldWith(ExecutionContext& executionContext) {
     Task* nextTask = schedulingQueue.popFront();
     if (nextTask->executionContext.isValid()) {
         executionContext.yieldTo(&(nextTask->executionContext));
     } else {
-        executionContext.bootstrap(
-            [](void* data) {
-                Task* task = (Task*)data;
-                task->run();
-                task->yield();
-            },
-            nextTask->stack.origin(), nextTask);
+        executionContext.bootstrap(Task_yieldWith_bootstrap, nextTask->stack.origin(), nextTask);
     }
 }

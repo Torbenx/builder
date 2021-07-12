@@ -200,7 +200,7 @@ std::atomic<int_t> testCounter = 0;
 class MyTask : public Task {
 public:
     Task* sched;
-    void run() {
+    void MIGHT_YIELD run() {
         while (true) {
             int_t counter = testCounter.fetch_add(1, std::memory_order_relaxed);
             Task::schedulingQueue.pushBack(sched);

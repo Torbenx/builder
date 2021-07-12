@@ -42,9 +42,9 @@ void FileExplorer::setPath(std::string path) {
     fileNameComps.push_back(back);
     makeClickable(*back, 0);
 
-    if (!((BuildRenderer<GL>*)renderer)->files.empty()) {
+    if (!((BuildRenderer<OpenGL>*)renderer)->files.empty()) {
         int id = 1;
-        for (auto it = ((BuildRenderer<GL>*)renderer)->files.begin(); it != ((BuildRenderer<GL>*)renderer)->files.end(); it++) {
+        for (auto it = ((BuildRenderer<OpenGL>*)renderer)->files.begin(); it != ((BuildRenderer<OpenGL>*)renderer)->files.end(); it++) {
             TextComponent* text = new TextComponent();
             text->text = *it;
             text->textSize = TypedSize::windowsDIP(20);
@@ -81,9 +81,9 @@ void FileExplorer::setPath(std::string path) {
 
 void FileExplorer::onClick(int id) {
     if (id == 0) {
-        ((BuildRenderer<GL>*)renderer)->setPath(path.substr(0, path.rfind('/')));
+        ((BuildRenderer<OpenGL>*)renderer)->setPath(path.substr(0, path.rfind('/')));
     } else {
-        ((BuildRenderer<GL>*)renderer)->setPath(path + "/" + fileNameComps[id]->text);
+        ((BuildRenderer<OpenGL>*)renderer)->setPath(path + "/" + fileNameComps[id]->text);
     }
 }
 

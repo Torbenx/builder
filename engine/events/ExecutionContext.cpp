@@ -29,7 +29,7 @@ void __attribute__((noinline)) ExecutionContext::yieldTo(ExecutionContext* conte
 #endif
 }
 
-void __attribute__((noinline)) ExecutionContext::bootstrap_interal(void (*callback)(void*), void* stack_pointer, void* data, bool* should_exit_ptr) {
+void __attribute__((noinline)) ExecutionContext::bootstrap_interal(void(MIGHT_YIELD* callback)(void*), void* stack_pointer, void* data, bool* should_exit_ptr) {
     yieldTo(this);
 
     if (*should_exit_ptr)

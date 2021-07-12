@@ -1,14 +1,19 @@
 #pragma once
 
-#include "util/log.hpp"
 #include "util/target.hpp"
+
+#ifdef PLATFORM_WINDOWS
+#define MIGHT_YIELD __attribute__((sysv_abi))
+#else
+#define MIGHT_YIELD
+#endif
 
 class ExecutionContext {
 public:
     ExecutionContext() { }
     ExecutionContext(const ExecutionContext&) = delete;
-    void __attribute__((sysv_abi)) yieldTo(ExecutionContext* context);
-    void __attribute__((sysv_abi)) bootstrap(void (*callback)(void*), void* stack_pointer, void* data) {
+    void MIGHT_YIELD yieldTo(ExecutionContext* context);
+    void MIGHT_YIELD bootstrap(void(MIGHT_YIELD* callback)(void*), void* stack_pointer, void* data) {
         bool should_exit = false;
         bootstrap_interal(callback, stack_pointer, data, &should_exit);
     }
@@ -18,5 +23,5 @@ public:
 
 private:
     void* stackPtr = nullptr;
-    void __attribute__((sysv_abi)) bootstrap_interal(void (*callback)(void*), void* stack_pointer, void* data, bool*);
+    void MIGHT_YIELD bootstrap_interal(void(MIGHT_YIELD* callback)(void*), void* stack_pointer, void* data, bool*);
 };

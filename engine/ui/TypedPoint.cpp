@@ -15,7 +15,7 @@ Vec2 TypedPoint::toTopLowPixels(ScreenMetrics m){
         case TYPED_POINT_ANDROID_DIP:
             return p * Vec2(m.x.dpi, m.y.dpi) / 160.0f;
         default:
-            throw 0;
+            std::abort();
     }
 }
 
@@ -32,7 +32,7 @@ Vec2 TypedPoint::toBottomLowPixels(ScreenMetrics m){
         case TYPED_POINT_ANDROID_DIP:
             return Vec2(p.x, m.y.size - p.y) * Vec2(m.x.dpi, m.y.dpi) / 160.0f;
         default:
-            throw 0;
+            std::abort();
     }
 }
 
@@ -49,7 +49,7 @@ Vec2 TypedPoint::toGL(ScreenMetrics m){
         case TYPED_POINT_ANDROID_DIP:
             return p * Vec2(m.x.dpi, m.y.dpi) / 160.0f * 2.0f * Vec2(1.0f/m.x.size, -1.0f/m.y.size) + Vec2(-1.0f, 1.0f);
         default:
-            throw 0;
+            std::abort();
     }
 }
 
@@ -66,7 +66,7 @@ Vec2 TypedPoint::toWindowsDIP(ScreenMetrics m){
         case TYPED_POINT_ANDROID_DIP:
             return p / 160.0f * 96.0f;
         default:
-            throw 0;
+            std::abort();
     }
 }
 
@@ -83,7 +83,24 @@ Vec2 TypedPoint::toAndroidDIP(ScreenMetrics m){
         case TYPED_POINT_ANDROID_DIP:
             return p;
         default:
-            throw 0;
+            std::abort();
+    }
+}
+
+TYPED_SIZE_TYPE TypedPoint::getSizeType(TYPED_POINT_TYPE type){
+    switch(type){
+        case TYPED_POINT_TOP_LOW_PIXELS:
+            return TYPED_SIZE_PIXELS;
+        case TYPED_POINT_BOTTOM_LOW_PIXELS:
+            return TYPED_SIZE_PIXELS;
+        case TYPED_POINT_GL:
+            return TYPED_SIZE_GL;
+        case TYPED_POINT_WINDOWS_DIP:
+            return TYPED_SIZE_WINDOWS_DIP;
+        case TYPED_POINT_ANDROID_DIP:
+            return TYPED_SIZE_ANDROID_DIP;
+        default:
+            std::abort();
     }
 }
 
@@ -109,21 +126,4 @@ TypedPoint TypedPoint::androidDIP(Vec2 p){
 
 TypedPoint TypedPoint::gl(Vec2 p){
     return {TYPED_POINT_GL, p};
-}
-
-TYPED_SIZE_TYPE TypedPoint::getSizeType(TYPED_POINT_TYPE type){
-    switch(type){
-        case TYPED_POINT_TOP_LOW_PIXELS:
-            return TYPED_SIZE_PIXELS;
-        case TYPED_POINT_BOTTOM_LOW_PIXELS:
-            return TYPED_SIZE_PIXELS;
-        case TYPED_POINT_GL:
-            return TYPED_SIZE_GL;
-        case TYPED_POINT_WINDOWS_DIP:
-            return TYPED_SIZE_WINDOWS_DIP;
-        case TYPED_POINT_ANDROID_DIP:
-            return TYPED_SIZE_ANDROID_DIP;
-        default:
-            throw 0;
-    }
 }
