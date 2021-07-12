@@ -37,7 +37,6 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     add_definitions("-DNOMINMAX")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -fno-exceptions -DVULKAN_HPP_NO_EXCEPTIONS")
 
-    include_directories(libs/EGL/api)
     include_directories(libs/OpenGL/api)
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
