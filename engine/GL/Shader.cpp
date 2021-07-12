@@ -66,7 +66,7 @@ int ShaderBuilder::nextTextureSlot() {
 #ifdef VALIDATE_GL
     GLint maxTextures;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
-    GL_VERIFY(state.textureSlot < maxTextures);
+    VERIFY(GL, state.textureSlot < maxTextures);
 #endif
     return state.textureSlot++;
 }
@@ -76,7 +76,7 @@ void ShaderBuilder::disableFragmentShader() {
 }
 
 void Shader::initialize(ShaderBuilder& builder) {
-    GL_VERIFY(!glIsProgram(glId));
+    VERIFY(GL, !glIsProgram(glId));
     glId = glCreateProgram();
     log<Tag::GL>("initalize glId={}", glId);
 
@@ -140,7 +140,7 @@ bool Shader::isValid() const {
 }
 
 void Shader::use() const {
-    GL_VERIFY(glIsProgram(glId));
+    VERIFY(GL, glIsProgram(glId));
     glUseProgram(glId);
 }
 

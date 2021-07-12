@@ -5,8 +5,8 @@
 #include "math/Vec4.hpp"
 
 #define VALIDATE_FRAMEBUFFER_STATE \
-    GL_VERIFY(isCurrent());        \
-    GL_EXPECT(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+    VERIFY(GL, isCurrent());        \
+    EXPECT(GL, glCheckFramebufferStatus(GL_FRAMEBUFFER), (GLenum)GL_FRAMEBUFFER_COMPLETE);
 
 enum DrawMode : GLenum {
     Points = GL_POINTS,

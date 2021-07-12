@@ -83,8 +83,8 @@ Texture::Texture(Type type, bool isRenderbuffer, GLenum target, GLenum binding)
 }
 
 void Texture::release() {
-    GL_VERIFY(glId != 0);
-    GL_VERIFY(glIsTexture(glId));
+    VERIFY(GL, glId != 0);
+    VERIFY(GL, glIsTexture(glId));
     if (isRenderbuffer) {
         glDeleteRenderbuffers(1, &glId);
     } else {
@@ -94,31 +94,31 @@ void Texture::release() {
 }
 
 void Texture::bind() const {
-    GL_VERIFY(!isRenderbuffer);
+    VERIFY(GL, !isRenderbuffer);
     glBindTexture(target, glId);
 }
 
 void Texture::magnifyFilter(Texture::Filter filter) const {
-    GL_VERIFY(!isRenderbuffer);
+    VERIFY(GL, !isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameteri(binding, GL_TEXTURE_MAG_FILTER, filter);
 }
 
 void Texture::minifyFilter(Texture::Filter filter) const {
-    GL_VERIFY(!isRenderbuffer);
+    VERIFY(GL, !isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter);
 }
 
 void Texture::wrappingMode(Texture::WrappingMode xMode, Texture::WrappingMode yMode) const {
-    GL_VERIFY(!isRenderbuffer);
+    VERIFY(GL, !isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameteri(target, GL_TEXTURE_WRAP_S, xMode);
     glTexParameteri(target, GL_TEXTURE_WRAP_T, yMode);
 }
 
 void Texture::borderColor(Vec4 color) const {
-    GL_VERIFY(!isRenderbuffer);
+    VERIFY(GL, !isRenderbuffer);
     GL_GET_EXPECT(binding, glId);
     glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, &color.x);
 }

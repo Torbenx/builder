@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GL/forward.hpp"
 #include "GL/glwrapper.hpp"
 #include "math/Vec2.hpp"
 #include "math/Vec3.hpp"
@@ -86,7 +87,7 @@ public:
     }
 
     static Buffer<BaseType> upload(Buffer<BaseType>& in, WriteFrequency wf = Normal) {
-        GL_VERIFY(!in.isGL());
+        VERIFY(GL, !in.isGL());
         Buffer<BaseType> out(in);
         glGenBuffers(1, &out.glId);
         out.bind(GL_ARRAY_BUFFER);
@@ -103,7 +104,7 @@ public:
         : glId(0), m_data(nullptr), m_elementSize(0), m_size(0) { }
 
     void release() {
-        GL_VERIFY(hasData());
+        VERIFY(GL, hasData());
         if (isGL())
             glDeleteBuffers(1, &glId);
         else
@@ -156,7 +157,7 @@ public:
     }
 
     void update(const BaseType* data, int offset, int size) const {
-        GL_VERIFY(hasData());
+        VERIFY(GL, hasData());
         if (isGL()) {
             bind(GL_ARRAY_BUFFER);
             glBufferSubData(GL_ARRAY_BUFFER, (GLintptr)(this->data() + offset), size * sizeof(BaseType), data);

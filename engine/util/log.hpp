@@ -5,37 +5,30 @@
 #pragma once
 
 #include "util/target.hpp"
-#include <type_traits>
 #include <fmt/core.h>
-
-#define VALIDATE_GL
-#define VALIDATE_MATH
-#define VALIDATE_MATH_MARGIN 0.00001f
+#include <type_traits>
 
 #ifdef PLATFORM_WINDOWS
-
 #include <iostream>
-
 static void log_print(const std::string& tag, const std::string& msg) {
     std::cout << '[' << tag << "] " << msg << '\n';
 }
-
 #endif
 
 #ifdef PLATFORM_ANDROID
-
 #include <android/log.h>
-
 static void log_print(const std::string& tag, const std::string& msg) {
     __android_log_write(ANDROID_LOG_DEBUG, tag.c_str(), msg.c_str());
 }
-
 #endif
 
 template<typename T>
-concept LogTag = std::is_convertible_v<decltype(T::tag), const char*>;
+concept LogTag = std::is_same_v<decltype(T::tag), const char[sizeof(T::tag)]> && sizeof(T::tag) <= 8;
 
-namespace Tag{
+template<typename T>
+concept VerifyTag = LogTag<T>&& std::is_same_v<decltype(T::verifyEnabled), const bool>;
+
+namespace Tag {
 struct Default {
     static constexpr char tag[] = "default";
 };
@@ -47,26 +40,33 @@ static void log(fmt::format_string<Args...> str, Args&&... args) {
     log_print(tag::tag, msg);
 }
 
-#ifdef VALIDATE_GL
-#define GL_VERIFY(cond, ...) { if(!(cond)) log("GL_VERIFY failed {}:{}: {}(): " #cond "; " __VA_ARGS__, __FILE__, __LINE__, __func__); }
-#define GL_EXPECT(lhs, rhs, ...) { GLenum l = (lhs); GLenum r = (rhs); if(l != r) log("GL_EXPECT failed: {}:{}: {}(): " #lhs " {{{:#x}}} == " #rhs " {{{:#x}}}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r); }
-#define GL_GET_EXPECT(pname, rhs, ...) { GLint l; glGetIntegerv(pname, &l); GLenum r = (rhs); if(l != r) log("GL_GET_EXPECT failed: {}:{}: {}(): " #pname " {{{:#x}}} == " #rhs " {{{:#x}}}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r); }
-#define GL_VERIFY_NOT_REACHED(...) GL_VERIFY(false, __VA_ARGS__)
-#else
-#define GL_VERIFY(cond, ...)
-#define GL_EXPECT(lhs, rhs, ...)
-#define GL_GET_EXPECT(pname, rhs, ...)
-#define GL_VERIFY_NOT_REACHED(...)
-#endif
+template<VerifyTag tag>
+void verify(bool, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
 
-#ifdef VALIDATE_MATH
-#define MATH_VERIFY(cond, ...) { if(!(cond)) log("MATH_VERIFY failed %s:%d: %s(): " #cond "; " __VA_ARGS__, __FILE__, __LINE__, __func__); }
-#define MATH_EXPECT(lhs, rhs, ...) { float l = (lhs); float r = (rhs); if(fabs(l - r) > VALIDATE_MATH_MARGIN) log("MATH_EXPECT failed: {}:{}: {}(): " #lhs " {{{}}} == " #rhs " {{{}}}; " __VA_ARGS__, __FILE__, __LINE__, __func__, l, r); }
-#define MATH_EXPECT_NORMALIZED(v, ...) { float len = v.length(); if(fabs(len - 1.0f) > VALIDATE_MATH_MARGIN) log("MATH_EXPECT_NORMALIZED failed: {}:{}: {}(): " #v " {{{}}}; " __VA_ARGS__, __FILE__, __LINE__, __func__, len); }
-#define MATH_VARIFY_NOT_REACHED(...) MATH_VERIFY(false, __VA_ARGS__)
-#else
-#define MATH_VARIFY(cond, ...)
-#define MATH_VARIFY_NOT_REACHED(...)
-#define MATH_EXPECT(lhs, rhs, ...)
-#define MATH_EXPECT_NORMALIZED(v, ...)
-#endif
+template<VerifyTag tag, typename T>
+void expect(T, T, const char*, const char*, const char*, int, const char*) requires((std::is_floating_point_v<T> || std::is_integral_v<T>)&&(!tag::verifyEnabled)) { }
+
+template<VerifyTag tag>
+void verify(bool cond, const char* condStr, const char* file, int line, const char* func) requires tag::verifyEnabled {
+    if (!cond) {
+        log<tag>("VERIFY failed {}:{}: {}(): {}", file, line, func, condStr);
+    }
+}
+
+template<VerifyTag tag, typename F>
+void expect(F lhs, F rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_floating_point_v<F>&& tag::verifyEnabled {
+    if (std::abs(lhs - rhs) > 0.00001f) {
+        log<tag>("EXPECT failed {}:{}: {}(): {} {{{}}} == {} {{{}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
+    }
+}
+
+template<VerifyTag tag, typename T>
+void expect(T lhs, T rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_integral_v<T>&& tag::verifyEnabled {
+    if (lhs != rhs) {
+        log<tag>("EXPECT failed {}:{}: {}(): {} {{{:#x}}} == {} {{{:#x}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
+    }
+}
+
+#define VERIFY(tag, cond) verify<Tag::tag>(cond, #cond, __FILE__, __LINE__, __func__)
+#define EXPECT(tag, lhs, rhs) expect<Tag::tag>(lhs, rhs, #lhs, #rhs, __FILE__, __LINE__, __func__)
+#define VERIFY_NOT_REACHED(tag) verify<Tag::tag>(false, "should not be reached", __FILE__, __LINE__, __func__)

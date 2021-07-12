@@ -58,7 +58,7 @@ void Framebuffer::draw(DrawMode mode, const IndexBuffer& indices) {
             type = GL_UNSIGNED_INT;
             break;
         default:
-            GL_VERIFY_NOT_REACHED();
+            VERIFY_NOT_REACHED(GL);
         }
         glDrawElements(mode, indices.size(), type, indices.data());
     } else {
@@ -80,7 +80,7 @@ void Framebuffer::attach(const CubeMap& cubeMap, CubeMap::Face face) {
 }
 
 void Framebuffer::attachInteral(const Texture& texture, GLenum subTarget) {
-    GL_VERIFY(isCurrent());
+    VERIFY(GL, isCurrent());
     clearMask |= GL_BUFFER_BITS[texture.type];
     if (texture.isRenderbuffer)
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_ATTACHMENTS[texture.type], GL_RENDERBUFFER, texture.glId);

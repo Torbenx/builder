@@ -7,8 +7,11 @@
 namespace Tag {
 struct Math {
     static constexpr char tag[] = "math";
+    static constexpr bool verifyEnabled = true;
 };
 }
+
+#define MATH_EXPECT_NORMALIZED(v) EXPECT(Math, v.length(), 1.0f)
 
 template<typename T>
 struct VectorTraits {
