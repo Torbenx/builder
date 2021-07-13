@@ -4,7 +4,7 @@
 #include <arm_neon.h>
 #include <bit>
 
-template<typename T>
+template<typename T, int_t D>
 class ArmCacheSet {
 private:
     struct IteratorState {
@@ -13,7 +13,7 @@ private:
         uint8_t tagOffset;
     };
 
-    uint8_t tags[16];
+    uint8_t tags[D][16];
     uint64_t used = 0;
     T values[16];
 
@@ -27,8 +27,10 @@ private:
 
     bool isUsed(uint8_t offset) { return used & usedMask(offset); }
 
-    void insert(uint8_t offset, uint8_t tagOffset, uint8_t tag, T value) {
-        tags[tagOffset] = tag;
+    void insert(uint8_t offset, uint8_t tagOffset, const uint8_t* tag, T value) {
+        for (int_t i = 0; i < D; i++) {
+            tags[i][tagOffset] = tag[i];
+        }
         values[offset] = value;
         used |= usedMask(offset);
     }
@@ -37,10 +39,15 @@ public:
     void remove(uint8_t offset) {
         used &= ~usedMask(offset);
     }
-
-    uint8_t getTag(IteratorState state) { return tags[state.tagOffset]; }
+    std::array<uint8_t, D> getTag(IteratorState state) {
+        std::array<uint8_t, D> tag;
+        for (int_t i = 0; i < D; i++) {
+            tag[i] = tags[i][state.tagOffset];
+        }
+        return tag;
+    }
     T& getValue(IteratorState state) { return values[state.offset]; }
-    void insert(IteratorState state, uint8_t tag, T value) { insert(state.offset, state.tagOffset, tag, value); }
+    void insert(IteratorState state, const uint8_t* tag, T value) { insert(state.offset, state.tagOffset, tag, value); }
 
     T& getValue(uint8_t offset) { return values[offset]; }
 
@@ -56,26 +63,41 @@ public:
         return true;
     }
 
-    void insert(uint8_t offset, uint8_t tag, T value) { insert(offset, computeTagOffset(offset), tag, value); }
+    void insert(uint8_t offset, const uint8_t* tag, T value) { insert(offset, computeTagOffset(offset), tag, value); }
 
     // only called when *this is full
-    size_t determineGrowth(uint8_t tag) {
-        uint8_t mask = 0xff;
-        for (uint8_t i = 0; i < 16; i++) {
-            mask &= ~(tags[i] ^ tag);
+    std::array<uint8_t, D> determineGrowth(const uint8_t* tag) {
+        std::array<uint8_t, D> mask { 0xff };
+        for (int_t i = 0; i < 16; i++) {
+            for (int_t j = 0; j < D; j++) {
+                mask[j] &= ~(tags[j][i] ^ tag[j]);
+            }
         }
-        return std::countr_one(mask) + 1;
+        uint8_t min = std::numeric_limits<uint8_t>::max();
+        int_t minIndex;
+        for (int_t j = 0; j < D; j++) {
+            uint8_t v = std::countr_one(mask[j]) + 1;
+            if (v < min) {
+                min = v;
+                minIndex = j;
+            }
+        }
+        mask.fill(0);
+        mask[minIndex] = min;
+        return mask;
     }
 
     uint8_t matchEmpty() { return std::countl_one(used) >> 2; }
 
-    uint8_t matchTag(uint8_t tag) {
-        uint8x16_t v = vld1q_u8(tags);
-        uint8x16_t w = vdupq_n_u8(tag);
-        v = vceqq_u8(v, w);
-        uint8x8_t o = vsli_n_u8(vget_low_u8(v), vget_high_u8(v), 4);
-        uint64_t mask = vget_lane_u64((uint64x1_t)o, 0);
-        mask &= used;
+    uint8_t matchTag(const uint8_t* tag) {
+        uint64_t mask = used;
+        for (int_t i = 0; i < D; i++) {
+            uint8x16_t v = vld1q_u8(tags[i]);
+            uint8x16_t w = vdupq_n_u8(tag[i]);
+            v = vceqq_u8(v, w);
+            uint8x8_t o = vsli_n_u8(vget_low_u8(v), vget_high_u8(v), 4);
+            mask &= vget_lane_u64((uint64x1_t)o, 0);
+        }
         return std::countl_zero(mask) >> 2;
     }
 };

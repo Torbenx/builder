@@ -44,7 +44,8 @@ public:
         uint8_t tag[D];
         tag[0] = key[0] >> logSize[0];
         for (int_t i = 1; i < D; i++) {
-            index = (index << logSize[i - 1]) + key[i] & ((1 << logSize[i]) - 1);
+            index <<= logSize[i];
+            index += key[i] & ((1 << logSize[i]) - 1);
             tag[i] = key[i] >> logSize[i];
         }
         Set& set = sets[index];
@@ -115,8 +116,8 @@ private:
         for (int_t i = 0; i < D; i++) {
             oldSize <<= logSize[i];
             newSize <<= logSize[i] + n[i];
+            ADUMP(n, i);
         }
-        log("newSize={}", newSize);
         Set* newSets = new Set[newSize];
 
         for (int_t index = 0; index < oldSize; index++) {
@@ -132,10 +133,13 @@ private:
             auto state = set.iterate();
             while (set.nextEntry(state)) {
                 std::array<uint8_t, D> tag = set.getTag(state);
-                int_t newIndex = coords[0] + ((tag[0] & ((1 << n[0]) - 1)) << logSize[0]);
+                int_t newIndex = coords[0];
+                newIndex += (tag[0] & ((1 << n[0]) - 1)) << logSize[0];
                 tag[0] >>= n[0];
                 for (int_t i = 1; i < D; i++) {
-                    newIndex = (newIndex << (logSize[i - 1] + n[i - 1])) + coords[i] + ((tag[i] & ((1 << n[i]) - 1)) << logSize[i]);
+                    newIndex <<= logSize[i] + n[i];
+                    newIndex += coords[i];
+                    newIndex += (tag[i] & ((1 << n[i]) - 1)) << logSize[i];
                     tag[i] >>= n[i];
                 }
                 newSets[newIndex].insert(state, tag.data(), set.getValue(state));
@@ -153,8 +157,8 @@ private:
 #ifdef ARCHITECTURE_ARM_64
 
 #include "containers/ArmCacheSet.hpp"
-template<typename T>
-using CacheMap = CacheMapBase<T, ArmCacheSet<T>>;
+template<typename T, int_t D>
+using CacheMap = CacheMapBase<T, ArmCacheSet<T, D>, D>;
 
 #else
 

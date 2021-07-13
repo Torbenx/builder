@@ -175,24 +175,31 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiScene.metrics = metrics;
     uiScene.build();
 
-    CacheMap<uint32_t, 1> map;
-    uint16_t count = 20;
-    uint16_t mult = 3;
-    for (int_t x = count; x >= 0; x--) {
-        log("inserting {{{}, {}}}", x * mult, x);
-        map.insertOrAssign({ (uint16_t)(x * mult) }, x);
+    CacheMap<uint32_t, 2> map;
+    uint16_t count = 50;
+    uint16_t multX = 1;
+    uint16_t multY = 1;
+    for (int_t x = count - 1; x >= 0; x--) {
+        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY) % count) }, x);
+        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY + 3) % count) }, x);
     }
-    map.insertOrAssign({ 27 }, 10000);
-    map.remove({ 26 });
-    map.remove({ 25 });
-    map.remove({ 24 });
-    for (uint16_t x = 0; x <= count; x++) {
-        if (map.has({ (uint16_t)(x * mult) })) {
-            log("map[{}] -> {}", x * mult, map[{ (uint16_t)(x * mult) }]);
-        } else {
-            log("map[{}] -> -", x * mult);
+    map.insertOrAssign({ 27, 40 }, 10000);
+    map.remove({ 26, 26 });
+    map.remove({ 25, 23 });
+    map.remove({ 24, 1 });
+    std::stringstream ss;
+    for (uint16_t x = 0; x < count; x++) {
+        for (uint16_t y = 0; y < count; y++) {
+            auto hint = map.find({ x, y });
+            if (hint.isValid()) {
+                ss << *hint << ", ";
+            } else {
+                ss << "-, ";
+            }
         }
+        ss << '\n';
     }
+    log("{}", ss.str());
 }
 
 std::atomic<int_t> testCounter = 0;
