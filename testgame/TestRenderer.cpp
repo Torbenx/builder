@@ -159,8 +159,6 @@ TestRenderer<G>::TestRenderer()
     pointLight.draw(objects);
     spotLight.draw(objects);
     glDisable(GL_DEPTH_TEST);
-
-    log("Hello World!");
 }
 
 template<Gapi G>
@@ -177,20 +175,20 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiScene.metrics = metrics;
     uiScene.build();
 
-    CacheMap<uint32_t> map;
+    CacheMap<uint32_t, 1> map;
     uint16_t count = 20;
     uint16_t mult = 3;
     for (int_t x = count; x >= 0; x--) {
         log("inserting {{{}, {}}}", x * mult, x);
-        map.insertOrAssign(x * mult, x);
+        map.insertOrAssign({ (uint16_t)(x * mult) }, x);
     }
-    map.insertOrAssign(27, 10000);
-    map.remove(26);
-    map.remove(25);
-    map.remove(24);
+    map.insertOrAssign({ 27 }, 10000);
+    map.remove({ 26 });
+    map.remove({ 25 });
+    map.remove({ 24 });
     for (uint16_t x = 0; x <= count; x++) {
-        if (map.has(x * mult)) {
-            log("map[{}] -> {}", x * mult, map[x * mult]);
+        if (map.has({ (uint16_t)(x * mult) })) {
+            log("map[{}] -> {}", x * mult, map[{ (uint16_t)(x * mult) }]);
         } else {
             log("map[{}] -> -", x * mult);
         }

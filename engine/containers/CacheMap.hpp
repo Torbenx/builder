@@ -1,13 +1,13 @@
 #pragma once
 
-#include "util/types.hpp"
 #include "util/target.hpp"
+#include "util/types.hpp"
 
-template<typename T, class Set>
+template<typename T, class Set, int_t D>
 class CacheMapBase {
 private:
     Set* sets;
-    size_t logSize;
+    uint8_t logSize[D];
 
 public:
     struct Hint {
@@ -20,32 +20,45 @@ public:
 
     CacheMapBase() {
         sets = new Set[1];
-        logSize = 0;
+        for (int_t i = 0; i < D; i++) {
+            logSize[i] = 0;
+        }
     }
 
     ~CacheMapBase() {
         delete[] sets;
     }
 
-    Hint find(uint16_t key) {
-        if (16 - std::countl_zero(key) > logSize + 8) {
-            return { nullptr, 16 };
+    Hint find(const uint16_t* key) {
+        for (int_t i = 0; i < D; i++) {
+            if (16 - std::countl_zero(key[i]) > logSize[i] + 8) {
+                return { nullptr, 16 };
+            }
         }
         return findUnchecked(key);
     }
+    Hint find(std::array<uint16_t, D> key) { return find(key.data()); }
 
-    Hint findUnchecked(uint16_t key) {
-        uint16_t index = key & ((1 << logSize) - 1);
-        uint8_t tag = key >> logSize;
+    Hint findUnchecked(const uint16_t* key) {
+        int_t index = key[0] & ((1 << logSize[0]) - 1);
+        uint8_t tag[D];
+        tag[0] = key[0] >> logSize[0];
+        for (int_t i = 1; i < D; i++) {
+            index = (index << logSize[i - 1]) + key[i] & ((1 << logSize[i]) - 1);
+            tag[i] = key[i] >> logSize[i];
+        }
         Set& set = sets[index];
         return { &set, set.matchTag(tag) };
     }
+    Hint findUnchecked(std::array<uint16_t, D> key) { return findUnchecked(key.data); }
 
-    void insertOrAssign(uint16_t key, T value) { insertOrAssignHint(find(key), key, value); }
+    void insertOrAssign(const uint16_t* key, T value) { insertOrAssignHint(find(key), key, value); }
+    void insertOrAssign(std::array<uint16_t, D> key, T value) { insertOrAssign(key.data(), value); }
 
-    bool has(uint16_t key) { return find(key).isValid(); }
+    bool has(const uint16_t* key) { return find(key).isValid(); }
+    bool has(std::array<uint16_t, D> key) { return has(key.data()); }
 
-    bool remove(uint16_t key) {
+    bool remove(const uint16_t* key) {
         Hint hint = find(key);
         if (!hint.isValid()) {
             return false;
@@ -53,60 +66,87 @@ public:
         removeHint(hint);
         return true;
     }
+    bool remove(std::array<uint16_t, D> key) { return remove(key.data()); }
 
     void removeUnchecked(uint16_t key) { removeHint(findUnchecked(key)); }
+    bool removeUnchecked(std::array<uint16_t, D> key) { return removeUnchecked(key.data()); }
 
     // hint must be valid
     void removeHint(Hint hint) {
         hint.set->remove(hint.offset);
     }
 
-    void insertOrAssignHint(Hint hint, uint16_t key, T value) {
+    void insertOrAssignHint(Hint hint, const uint16_t* key, T value) {
         if (hint.isValid()) {
             *hint = value;
             return;
         }
         if (hint.set == nullptr) {
-            grow((16 - std::countl_zero(key)) - (logSize + 8));
+            uint8_t n[D];
+            for (int_t i = 0; i < D; i++) {
+                n[i] = (16 - std::countl_zero(key[i])) - (logSize[i] + 8);
+            }
+            grow(n);
             insertOrAssign(key, value);
             return;
         }
         uint8_t offset = hint.set->matchEmpty();
+        uint8_t tag[D];
+        for (int_t i = 0; i < D; i++) {
+            tag[i] = key[i] >> logSize[i];
+        }
         if (offset >= 16) {
-            grow(hint.set->determineGrowth(key >> logSize));
+            grow(hint.set->determineGrowth(tag).data());
             insertOrAssign(key, value);
             return;
         }
-        hint.set->insert(offset, key >> logSize, value);
+        hint.set->insert(offset, tag, value);
     }
+    void insertOrAssignHint(Hint hint, std::array<uint16_t, D> key, T value) { insertOrAssignHint(hint, key, value); }
 
-    uint32_t& operator[](uint16_t key) {
-        return *findUnchecked(key);
-    }
+    T& operator[](const uint16_t* key) { return *findUnchecked(key); }
+    T& operator[](std::array<uint16_t, D> key) { return (*this)[key.data()]; }
 
 private:
     // n = number of bits to grow
-    void grow(size_t n) {
-        log("growing by {}", n);
-        size_t newSize = 1 << (logSize + n);
+    void grow(const uint8_t* n) {
+        size_t newSize = 1;
+        size_t oldSize = 1;
+        for (int_t i = 0; i < D; i++) {
+            oldSize <<= logSize[i];
+            newSize <<= logSize[i] + n[i];
+        }
+        log("newSize={}", newSize);
         Set* newSets = new Set[newSize];
 
-        for (size_t index = 0; index < (1 << logSize); index++) {
+        for (int_t index = 0; index < oldSize; index++) {
             Set& set = sets[index];
+
+            uint8_t coords[D];
+            size_t temp = index;
+            for (int_t i = D - 1; i >= 0; i--) {
+                coords[i] = temp & ((1 << logSize[i]) - 1);
+                temp >>= logSize[i];
+            }
 
             auto state = set.iterate();
             while (set.nextEntry(state)) {
-                uint8_t tag = set.getTag(state);
-                size_t indexDiff = tag & ((1 << n) - 1);
-                size_t newIndex = index + (indexDiff << logSize);
-                log("moving {}, indexDiff={:#x}, newIndex={}", tag, indexDiff, newIndex);
-                newSets[newIndex].insert(state, tag >> n, set.getValue(state));
+                std::array<uint8_t, D> tag = set.getTag(state);
+                int_t newIndex = coords[0] + ((tag[0] & ((1 << n[0]) - 1)) << logSize[0]);
+                tag[0] >>= n[0];
+                for (int_t i = 1; i < D; i++) {
+                    newIndex = (newIndex << (logSize[i - 1] + n[i - 1])) + coords[i] + ((tag[i] & ((1 << n[i]) - 1)) << logSize[i]);
+                    tag[i] >>= n[i];
+                }
+                newSets[newIndex].insert(state, tag.data(), set.getValue(state));
             }
         }
 
+        for (int_t i = 0; i < D; i++) {
+            logSize[i] += n[i];
+        }
         delete[] sets;
         sets = newSets;
-        logSize += n;
     }
 };
 
@@ -119,7 +159,7 @@ using CacheMap = CacheMapBase<T, ArmCacheSet<T>>;
 #else
 
 #include "containers/PortableCacheSet.hpp"
-template<typename T>
-using CacheMap = CacheMapBase<T, PortableCacheSet<T>>;
+template<typename T, int_t D>
+using CacheMap = CacheMapBase<T, PortableCacheSet<T, D>, D>;
 
 #endif
