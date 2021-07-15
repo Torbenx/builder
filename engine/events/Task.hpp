@@ -7,6 +7,13 @@
 #include <atomic>
 #include <thread>
 
+namespace Tag {
+struct Events {
+    static constexpr char tag[] = "events";
+    static constexpr bool verifyEnabled = true;
+};
+}
+
 class Stack {
 public:
     Stack() {
@@ -50,14 +57,18 @@ class ShutdownTask;
 
 class Scheduler {
 private:
-    static inline std::unordered_map<std::thread::id, ExecutionContext*> entryPoints; //lock this
+    static inline std::unordered_map<std::thread::id, ExecutionContext*> entryPoints;
+    static inline std::mutex entryPointsMutex;
     friend class ShutdownTask;
 
 public:
     void MIGHT_YIELD enter() {
         std::thread::id myThread = std::this_thread::get_id();
         ExecutionContext executionContext;
-        entryPoints[myThread] = &executionContext;
+        {
+            std::lock_guard<std::mutex> g(Scheduler::entryPointsMutex);
+            entryPoints[myThread] = &executionContext;
+        }
         Task::yieldWith(executionContext);
     }
 };
@@ -66,8 +77,16 @@ class ShutdownTask : public Task {
 public:
     virtual void MIGHT_YIELD run() override {
         std::thread::id myThread = std::this_thread::get_id();
+        ExecutionContext* entryPoint;
+        {
+            std::lock_guard<std::mutex> g(Scheduler::entryPointsMutex);
+            auto it = Scheduler::entryPoints.find(myThread);
+            VERIFY(Events, it != Scheduler::entryPoints.end());
+            entryPoint = it->second;
+            Scheduler::entryPoints.erase(it);
+        }
         ExecutionContext me;
-        me.yieldTo(Scheduler::entryPoints[myThread]);
+        me.yieldTo(entryPoint);
     }
 };
 

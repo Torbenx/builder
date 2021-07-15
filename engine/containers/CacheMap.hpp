@@ -154,11 +154,17 @@ private:
     }
 };
 
-#ifdef ARCHITECTURE_ARM_64
+#if defined(ARCHITECTURE_ARM_64)
 
 #include "containers/ArmCacheSet.hpp"
 template<typename T, int_t D>
 using CacheMap = CacheMapBase<T, ArmCacheSet<T, D>, D>;
+
+#elif defined(ARCHITECTURE_X86_64)
+
+#include "containers/X86CacheSet.hpp"
+template<typename T, int_t D>
+using CacheMap = CacheMapBase<T, X86CacheSet<T, D>, D>;
 
 #else
 

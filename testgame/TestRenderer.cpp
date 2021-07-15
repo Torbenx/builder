@@ -18,6 +18,7 @@
 #include <util/log.hpp>
 #include <util/target.hpp>
 #include <util/time.hpp>
+#include <numeric>
 
 #ifdef PLATFORM_WINDOWS
 #include <windows/fullscreen.hpp>
@@ -202,15 +203,15 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     log("{}", ss.str());
 }
 
-std::atomic<int_t> testCounter = 0;
-
 class MyTask : public Task {
 public:
     Task* sched;
     void MIGHT_YIELD run() {
         while (true) {
-            int_t counter = testCounter.fetch_add(1, std::memory_order_relaxed);
-            Task::schedulingQueue.pushBack(sched);
+            // Task::schedulingQueue.pushBack(sched);
+            /*for (volatile int_t i = 0; i < 100000; ++i) {
+
+            }*/
             yield();
         }
     }
@@ -247,17 +248,14 @@ void TestRenderer<G>::pointer(PointerEvent event) {
 
     do {
         static Scheduler me;
-        const int_t targetCounter = 100;
-        const int_t taskCount = targetCounter;
+        const int_t taskCount = 1000;
         const int_t extraThreadCount = 0;
-        testCounter = 0;
         MyTask* tasks = new MyTask[taskCount];
         Task::schedulingQueue.clear();
 
         for (int_t i = 0; i < taskCount; i++) {
             tasks[i].sched = &tasks[(taskCount + i - 1) % taskCount];
-            if (i != 0)
-                Task::schedulingQueue.pushBack(&tasks[i]);
+            Task::schedulingQueue.pushBack(&tasks[i]);
         }
 
         ShutdownTask* shutdownTasks = new ShutdownTask[extraThreadCount + 1];
@@ -265,6 +263,9 @@ void TestRenderer<G>::pointer(PointerEvent event) {
             Task::schedulingQueue.pushBack(&shutdownTasks[i]);
         }
         SchedulerThead threads[extraThreadCount];
+        /*for (volatile int_t i = 0; i < 100000; ++i) {
+
+        }*/
 
         int_t start = getNanos();
         me.enter();
@@ -275,11 +276,11 @@ void TestRenderer<G>::pointer(PointerEvent event) {
         }
 
         delete[] tasks;
-        static int_t testCount = 0;
-        testCount++;
-        static int_t testTotal = 0;
-        testTotal += (end - start) / 1000;
-        log("counter: {}, time: {} us, avg: {}", testCounter.load(std::memory_order_relaxed), (end - start) / 1000, testTotal / (float)testCount);
+
+        static std::vector<int_t> runs(100);
+        runs.erase(runs.begin());
+        runs.push_back((end - start) / 1000);
+        log("time: {} us, avg: {} us", (end - start) / 1000, std::accumulate(runs.begin(), runs.end(), 0) / (float)runs.size());
     } while (false);
 }
 

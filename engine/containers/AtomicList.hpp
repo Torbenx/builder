@@ -16,11 +16,12 @@ public:
         : initial(nullptr), head(&initial), tail(&initial) { }
 
     T* popFront() {
+        std::atomic<T*>* oldHead = head.load(std::memory_order_relaxed);
         while (true) {
-            std::atomic<T*>* oldHead = head.load(std::memory_order_relaxed);
             T* t = oldHead->load(std::memory_order_acquire);
-            if (t && head.compare_exchange_weak(oldHead, &(t->next), std::memory_order_relaxed))
+            if (t && head.compare_exchange_weak(oldHead, &(t->next), std::memory_order_relaxed)) {
                 return t;
+            }
         }
     }
 
