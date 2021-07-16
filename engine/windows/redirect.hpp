@@ -10,10 +10,7 @@
 //based on http://dslweb.nwnexus.com/~ast/dload/guicon.htm
 static const long MAX_CONSOLE_LINES = 5000;
 void redirectToConsole() {
-    int hConHandle;
-    intptr_t lStdHandle;
     CONSOLE_SCREEN_BUFFER_INFO coninfo;
-    FILE* fp;
     // allocate a console for this app
     AllocConsole();
     // set the screen buffer to be big enough to let us scroll text

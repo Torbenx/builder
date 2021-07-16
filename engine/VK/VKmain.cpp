@@ -1,4 +1,3 @@
-#define VMA_IMPLEMENTATION
 #include "VK/VKmain.hpp"
 
 namespace VulkanState {

@@ -10,7 +10,7 @@ GLenum GL_ATTACHMENTS[] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCI
 GLenum GL_BUFFER_BITS[] = { GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT };
 
 Framebuffer::Framebuffer(bool isDefault, GLbitfield clearMask)
-    : isDefault(isDefault), clearMask(clearMask) {
+    : clearMask(clearMask) {
     if (isDefault)
         glId = 0;
     else
@@ -23,10 +23,8 @@ Framebuffer::~Framebuffer() {
 
 void Framebuffer::bind() {
     GL_GET_EXPECT(GL_FRAMEBUFFER_BINDING, currentFramebuffer->glId);
-#ifdef VALIDATE_GL
     /*if (isCurrent())
         log<Tag::GL>("framebuffer {} already bound", glId);*/
-#endif
 
     glBindFramebuffer(GL_FRAMEBUFFER, glId);
     currentFramebuffer = this;
@@ -59,6 +57,7 @@ void Framebuffer::draw(DrawMode mode, const IndexBuffer& indices) {
             break;
         default:
             VERIFY_NOT_REACHED(GL);
+            type = GL_UNSIGNED_SHORT;
         }
         glDrawElements(mode, indices.size(), type, indices.data());
     } else {

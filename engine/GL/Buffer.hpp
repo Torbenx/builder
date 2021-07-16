@@ -101,7 +101,7 @@ public:
     }
 
     Buffer()
-        : glId(0), m_data(nullptr), m_elementSize(0), m_size(0) { }
+        : glId(0), m_data(nullptr), m_size(0), m_elementSize(0) { }
 
     void release() {
         VERIFY(GL, hasData());
@@ -178,7 +178,7 @@ private:
     }
 
     Buffer(BaseType* data, int m_elementSize, int size)
-        : m_data(data), glId(0), m_elementSize(m_elementSize), m_size(size) { }
+        : glId(0), m_data(data), m_size(size), m_elementSize(m_elementSize) { }
 };
 
 template class Buffer<float>;

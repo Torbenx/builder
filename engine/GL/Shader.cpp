@@ -94,10 +94,11 @@ void Shader::initialize(ShaderBuilder& builder) {
         GLuint shader = glCreateShader(vertex ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER);
         glShaderSource(shader, 1, &source, 0);
         glCompileShader(shader);
-#ifdef VALIDATE_GL
         GLint success = GL_FALSE;
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-        if (success == GL_FALSE) {
+        if (success == GL_TRUE) {
+            glAttachShader(glId, shader);
+        } else if(Tag::GL::verifyEnabled) {
             GLint length = 0;
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
             std::vector<char> message(length);
@@ -108,10 +109,6 @@ void Shader::initialize(ShaderBuilder& builder) {
                 vertex ? "Vertex" : "Fragment");
             printSource(std::string(source));
             log<Tag::GL>("--------------ERROR---------------\n{}\n", message.data());
-        } else
-#endif
-        {
-            glAttachShader(glId, shader);
         }
         glDeleteShader(shader);
     };

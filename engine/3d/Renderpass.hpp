@@ -15,7 +15,8 @@ struct DepthRenderpass {
     void addObject(id_t objectId);
 };
 
-struct Renderpass {
+class Renderpass {
+public:
     Framebuffer* framebuffer;
     Mat4x4 viewProjectionMatrix;
     std::vector<std::unique_ptr<Shaderpass>> passes;

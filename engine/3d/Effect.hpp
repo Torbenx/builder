@@ -24,8 +24,8 @@ struct Attribute {
 class AttributeList {
 public:
     struct iterator {
-        id_t id;
         uint64_t attributes;
+        id_t id;
         iterator(uint64_t attributes, id_t id)
             : attributes(attributes), id(id) { }
         bool operator!=(iterator other) { return id != other.id; }

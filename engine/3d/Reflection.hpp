@@ -13,8 +13,8 @@ public:
         static void addTo(EffectShaderBuilder&);
     } EFFECT;
     Framebuffer framebuffer;
-    Resource<Texture> depthAttachment;
     Resource<Texture> texture;
+    Resource<Texture> depthAttachment;
     Vec3 reflection, position;
     float factor;
     Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);

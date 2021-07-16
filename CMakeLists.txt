@@ -34,8 +34,8 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
     set(ASSETS_OUTPUT_DIR ${CMAKE_BINARY_DIR})
 
-    add_definitions("-DNOMINMAX")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -fno-exceptions -DVULKAN_HPP_NO_EXCEPTIONS -DFMT_EXCEPTIONS=0")
+    add_definitions("-DNOMINMAX -DVULKAN_HPP_NO_EXCEPTIONS -DFMT_EXCEPTIONS=0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -fno-exceptions")
 
     include_directories(libs/OpenGL/api)
 

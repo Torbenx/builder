@@ -76,8 +76,12 @@ add_library(engine ${linkage}
     "3d/Renderpass.cpp"
     "events/ExecutionContext.cpp"
     "VK/VKmain.cpp"
+    "VK/vk_mem_alloc.cpp"
     ${platform_source}
 )
 
+set_source_files_properties("VK/vk_mem_alloc.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-unused-variable;-Wno-unused-private-field")
+
 set_target_properties(engine PROPERTIES UNITY_BUILD ON)
+target_compile_options(engine PRIVATE "-Wall")
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

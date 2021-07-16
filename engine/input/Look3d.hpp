@@ -9,6 +9,4 @@ public:
     void move(float dx, float dy);
     Vec3 dir, up;
     bool invert;
-private:
-    Pointer lpointer;
 };

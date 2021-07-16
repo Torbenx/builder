@@ -48,7 +48,6 @@ private:
 
     GLuint glId;
     Vec4 m_clearColor;
-    bool isDefault;
     bool rMask = true, gMask = true, bMask = true, aMask = true, dMask = true;
     GLbitfield sMask = 0xffffffff;
     GLbitfield clearMask = 0;

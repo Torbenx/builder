@@ -5,23 +5,23 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3
     : EffectInstance(EFFECT)
     , DepthRenderpass(&framebuffer)
     , depthMap(Texture::depth(width, height, Texture::DepthBits::D16))
-    , position(position)
+    , color(color)
     , direction(direction)
+    , position(position)
+    , hDirection(hDirection)
     , hfov(hfov)
     , vfov(vfov)
-    , hDirection(hDirection)
-    , color(color)
     , m_near(_near)
     , m_far(_far)
     , width(width)
     , height(height) {
 
-    projection = Mat4x4::frustumVH(vfov, hfov, _near, _far);
+    projection = Mat4x4::frustumVH(this->vfov, this->hfov, m_near, m_far);
     view = Mat4x4::look(position, direction, hDirection);
     viewProjectionMatrix = projection * view;
     framebuffer.bind();
     framebuffer.attach(depthMap);
-    framebuffer.viewport(width, height);
+    framebuffer.viewport(this->width, this->height);
 }
 
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int texHeight, Vec3 color, float _near, float _far)
