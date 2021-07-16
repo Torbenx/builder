@@ -43,7 +43,7 @@ void Rect::debug() {
     log<Tag::Math>("top={}, bottom={}, left={}, right={}", top, bottom, left, right);
 }
 
-Rect Rect::operator+=(Vec2 v) {
+Rect& Rect::operator+=(Vec2 v) {
     top += v.y;
     bottom += v.y;
     left += v.x;
@@ -51,19 +51,11 @@ Rect Rect::operator+=(Vec2 v) {
     return *this;
 }
 
-Rect Rect::operator-=(Vec2 v) {
+Rect& Rect::operator-=(Vec2 v) {
     top -= v.y;
     bottom -= v.y;
     left -= v.x;
     right -= v.x;
-    return *this;
-}
-
-Rect Rect::operator=(Rect other) {
-    top = other.top;
-    bottom = other.bottom;
-    left = other.left;
-    right = other.right;
     return *this;
 }
 

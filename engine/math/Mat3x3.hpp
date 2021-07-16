@@ -22,10 +22,8 @@ class Mat3x3{
         static Mat3x3 translate(Vec2 v);
         static Mat3x3 reflection(Vec2 normal, Vec2 pos);
         static Mat3x3 diagonal(Vec2 v);
-        static Mat3x3 invert(Mat3x3 matrix);
-        Mat3x3 operator*=(Mat3x3 right);
-        Mat3x3 operator*=(float right);
-        Mat3x3 operator=(Mat3x3 right);
+        Mat3x3& operator*=(Mat3x3 right);
+        Mat3x3& operator*=(float right);
         void debug();
 };
 

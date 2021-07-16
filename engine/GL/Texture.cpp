@@ -70,9 +70,6 @@ Texture Texture::color(int width, int height, Texture::Format format, bool rende
     return tex;
 }
 
-Texture::Texture(const Texture& other)
-    : glId(other.glId), target(other.target), binding(other.binding), type(other.type), isRenderbuffer(other.isRenderbuffer) { }
-
 Texture::Texture(Type type, bool isRenderbuffer, GLenum target, GLenum binding)
     : target(target), binding(binding), type(type), isRenderbuffer(isRenderbuffer) {
     if (isRenderbuffer) {

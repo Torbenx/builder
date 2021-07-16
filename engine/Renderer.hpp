@@ -41,16 +41,16 @@ public:
     virtual void foreground() { }
     virtual void invisible() { }
 
-    virtual void change(int_t w, int_t h) { }
+    virtual void change([[maybe_unused]] int_t w, [[maybe_unused]] int_t h) { }
     virtual void drawFrame() { }
 
-    virtual void pointer(PointerEvent event) { }
+    virtual void pointer([[maybe_unused]] PointerEvent event) { }
 
-    virtual void rawPointer(int_t dx, int_t dy) { }
-    virtual void rawKey(uint32_t keycode, bool down) { }
-    virtual void rawMouseKey(uint32_t key, bool down) { }
+    virtual void rawPointer([[maybe_unused]] int_t dx, [[maybe_unused]] int_t dy) { }
+    virtual void rawKey([[maybe_unused]] uint32_t keycode, [[maybe_unused]] bool down) { }
+    virtual void rawMouseKey([[maybe_unused]] uint32_t key, [[maybe_unused]] bool down) { }
     //ticks > 0 => up
-    virtual void rawMouseWheel(int_t ticks) { }
+    virtual void rawMouseWheel([[maybe_unused]] int_t ticks) { }
 
     virtual ~Renderer() { }
 };

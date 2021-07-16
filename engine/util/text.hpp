@@ -16,22 +16,18 @@ class TextFormat {
 public:
     void* internal;
     TextFormat(std::string, int maxWidth, float textSize);
+    TextFormat(const TextFormat& other) = delete;
     ~TextFormat();
     float getWidth();
     float getHeight();
     int getLineCount();
-
-private:
-    TextFormat(const TextFormat& other) {};
 };
 
 class TextTexture : public Texture {
 public:
     void* internal;
     TextTexture(int width, int height);
+    TextTexture(const TextTexture& other) = delete;
     ~TextTexture();
     void drawText(const TextFormat& text, Vec2 position, Vec4 color, bool clear);
-
-private:
-    TextTexture(const TextTexture& other);
 };

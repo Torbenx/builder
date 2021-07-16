@@ -7,7 +7,7 @@
 #define MAX_DIM 3
 
 struct ObjParserIndex {
-    int v, t, n;
+    int_t v, t, n;
 };
 
 void ObjParser::parse(std::istream& in) {
@@ -15,7 +15,7 @@ void ObjParser::parse(std::istream& in) {
     std::vector<float> normals;
     std::vector<float> texCoords;
     std::vector<ObjParserIndex> index;
-    const int bufsize = 256;
+    const int_t bufsize = 256;
     char buf[bufsize];
     polyType = -1;
     boundingBox = { HUGE_VALF, -HUGE_VALF, HUGE_VALF, -HUGE_VALF, HUGE_VALF, -HUGE_VALF };
@@ -26,7 +26,7 @@ void ObjParser::parse(std::istream& in) {
         }
         if (buf[0] == 'v') {
             if (buf[1] == ' ') {
-                int r = 0;
+                int_t r = 0;
                 char* line = buf + 2;
                 Vec3 v;
                 for (;;) {
@@ -57,7 +57,7 @@ void ObjParser::parse(std::istream& in) {
                     }
                 }
             } else if (buf[1] == 't') {
-                int r = 0;
+                int_t r = 0;
                 char* line = buf + 2;
                 for (;;) {
                     char* end;
@@ -74,7 +74,7 @@ void ObjParser::parse(std::istream& in) {
                     }
                 }
             } else if (buf[1] == 'n') {
-                int r = 0;
+                int_t r = 0;
                 char* line = buf + 2;
                 for (;;) {
                     char* end;
@@ -98,11 +98,11 @@ void ObjParser::parse(std::istream& in) {
                 }
             }
         } else if (buf[0] == 'f') {
-            int r = 0;
+            int_t r = 0;
             char* line = buf + 1;
             for (;;) {
                 char* end;
-                int l = std::strtol(line, &end, 10) - 1;
+                int_t l = std::strtol(line, &end, 10) - 1;
                 if (l == -1) {
                     break;
                 }
@@ -146,17 +146,17 @@ void ObjParser::parse(std::istream& in) {
     }
     boundingBox.debug();
     log("vertex: {}, index: {} tex: {} normal: {}", vertex.size() / dim, index.size() / polyType, texCoords.size() / 2, normals.size() / dim);
-    int ni = index.size() / polyType;
-    int tri = polyType - 2;
+    int_t ni = index.size() / polyType;
+    int_t tri = polyType - 2;
     n = ni * tri * 3;
     if (false) {
         vertexCount = n;
         float* out_vertex = new float[n * dim];
         float* out_normals = new float[n * dim];
         float* out_texCoords = new float[n * 2];
-        for (int i = 0; i < ni; i++) {
-            for (int j = 0; j < tri; j++) {
-                for (int k = 0; k < dim; k++) {
+        for (int_t i = 0; i < ni; i++) {
+            for (int_t j = 0; j < tri; j++) {
+                for (int_t k = 0; k < dim; k++) {
                     // clang-format off
                     out_vertex[((i*tri+j)*3  )*dim+k] = vertex[index[i*polyType    ].v*dim+k];
                     out_vertex[((i*tri+j)*3+1)*dim+k] = vertex[index[i*polyType+j+1].v*dim+k];
@@ -185,17 +185,17 @@ void ObjParser::parse(std::istream& in) {
         GLuint* out_indices = new GLuint[n];
         float* out_vertex = new float[vertexCount * dim];
         float* out_normals = new float[vertexCount * dim];
-        for (int i = 1; i < texCoords.size(); i += 2) {
+        for (int_t i = 1; i < texCoords.size(); i += 2) {
             texCoords[i] = 1.0f - texCoords[i];
         }
-        for (int i = 0; i < index.size(); i++) {
-            for (int j = 0; j < dim; j++) {
+        for (int_t i = 0; i < index.size(); i++) {
+            for (int_t j = 0; j < dim; j++) {
                 out_vertex[index[i].t * dim + j] = vertex[index[i].v * dim + j];
                 out_normals[index[i].t * dim + j] = normals[index[i].n * dim + j];
             }
         }
-        for (int i = 0; i < ni; i++) {
-            for (int j = 0; j < tri; j++) {
+        for (int_t i = 0; i < ni; i++) {
+            for (int_t j = 0; j < tri; j++) {
                 // clang-format off
                 out_indices[(i*tri+j)*3  ] = index[i*polyType    ].t;
                 out_indices[(i*tri+j)*3+1] = index[i*polyType+j+1].t;

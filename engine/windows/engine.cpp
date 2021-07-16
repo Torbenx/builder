@@ -32,7 +32,14 @@ void init_text();
 void init_time();
 void init_textureFormats();
 
-void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
+void gl_debug_callback(
+    [[maybe_unused]] GLenum source,
+    [[maybe_unused]] GLenum type,
+    [[maybe_unused]] GLuint id,
+    [[maybe_unused]] GLenum severity,
+    [[maybe_unused]] GLsizei length,
+    [[maybe_unused]] const GLchar* message,
+    [[maybe_unused]] const void* userParam) {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
         log<Tag::GL>("[{}] glDebug: {}", severity, message);
 }
@@ -278,7 +285,7 @@ void RendererState::exit() {
     DestroyWindow(engine_hwnd);
 }
 
-int engine_main(CreateFunctions functions, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPSTR lpCmdLine, [[maybe_unused]] int nCmdShow) {
     createFunctions = functions;
     engine_hinstance = hInstance;
     redirectToConsole();

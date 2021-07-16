@@ -22,7 +22,6 @@ struct Pointer {
     int pointerId;
     int x, y;
     bool isDown;
-    Pointer operator=(Pointer pointer);
 };
 
 void trackPointerEvent(PointerEvent& event);

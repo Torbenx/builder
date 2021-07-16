@@ -351,12 +351,12 @@ Mat4x4 Mat4x4::diagonal(Vec3 v){
     return re;
 }
 
-Mat4x4 Mat4x4::operator*=(Mat4x4 right){
+Mat4x4& Mat4x4::operator*=(Mat4x4 right){
     *this = *this*right;
     return *this;
 }
 
-Mat4x4 Mat4x4::operator*=(float right){
+Mat4x4& Mat4x4::operator*=(float right){
     float *m = matrix;
     m[ 0] *= right;
     m[ 1] *= right;
@@ -374,28 +374,6 @@ Mat4x4 Mat4x4::operator*=(float right){
     m[13] *= right;
     m[14] *= right;
     m[15] *= right;
-    return *this;
-}
-
-Mat4x4 Mat4x4::operator=(Mat4x4 right){
-    float *m1 = matrix;
-    float *m2 = right.matrix;
-    m1[ 0] = m2[ 0];
-    m1[ 1] = m2[ 1];
-    m1[ 2] = m2[ 2];
-    m1[ 3] = m2[ 3];
-    m1[ 4] = m2[ 4];
-    m1[ 5] = m2[ 5];
-    m1[ 6] = m2[ 6];
-    m1[ 7] = m2[ 7];
-    m1[ 8] = m2[ 8];
-    m1[ 9] = m2[ 9];
-    m1[10] = m2[10];
-    m1[11] = m2[11];
-    m1[12] = m2[12];
-    m1[13] = m2[13];
-    m1[14] = m2[14];
-    m1[15] = m2[15];
     return *this;
 }
 

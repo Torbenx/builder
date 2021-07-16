@@ -88,17 +88,12 @@ Mat3x3 Mat3x3::diagonal(Vec2 v){
     return re;
 }
 
-Mat3x3 Mat3x3::invert(Mat3x3 matrix){
-    log<Tag::Math>("invert not implemented");
-    return Mat3x3();
-}
-
-Mat3x3 Mat3x3::operator*=(Mat3x3 right){
+Mat3x3& Mat3x3::operator*=(Mat3x3 right){
     *this = *this*right;
     return *this;
 }
 
-Mat3x3 Mat3x3::operator*=(float right){
+Mat3x3& Mat3x3::operator*=(float right){
     float *m = matrix;
     m[0] *= right;
     m[1] *= right;
@@ -109,21 +104,6 @@ Mat3x3 Mat3x3::operator*=(float right){
     m[6] *= right;
     m[7] *= right;
     m[8] *= right;
-    return *this;
-}
-
-Mat3x3 Mat3x3::operator=(Mat3x3 right){
-    float *m0 = matrix;
-    float *m1 = right.matrix;
-    m0[0] = m1[0];
-    m0[1] = m1[1];
-    m0[2] = m1[2];
-    m0[3] = m1[3];
-    m0[4] = m1[4];
-    m0[5] = m1[5];
-    m0[6] = m1[6];
-    m0[7] = m1[7];
-    m0[8] = m1[8];
     return *this;
 }
 

@@ -45,7 +45,6 @@ public:
 
     Texture()
         : glId(0) { }
-    Texture(const Texture&);
 
     void bind() const;
     void wrappingMode(WrappingMode xMode, WrappingMode yMode) const; // default value is WrappingMode::Repeat

@@ -6,14 +6,6 @@
 #include <Windows.h>
 #endif
 
-Pointer Pointer::operator=(Pointer pointer) {
-    this->pointerId = pointer.pointerId;
-    this->isDown = pointer.isDown;
-    this->x = pointer.x;
-    this->y = pointer.y;
-    return *this;
-}
-
 std::vector<Pointer> pointers;
 
 void trackPointerEvent(PointerEvent& event) {
@@ -109,8 +101,8 @@ int getPointerCount(bool mustBeDown) {
     }
 }
 
-void setCursorVisible(bool visible) {
-}
+/*void setCursorVisible(bool visible) {
+}*/
 
 PointerEvent teleportCursor(float x, float y) {
     PointerEvent event;
