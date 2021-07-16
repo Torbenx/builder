@@ -6,7 +6,9 @@
 class SpotLight : public EffectInstance, public DepthRenderpass {
 public:
     static inline struct Effect : public ::Effect {
-        virtual void addTo(EffectShaderBuilder&) override;
+        Effect()
+            : ::Effect(&Effect::addTo) { }
+        static void addTo(EffectShaderBuilder&);
     } EFFECT;
 
     Resource<Texture> depthMap;

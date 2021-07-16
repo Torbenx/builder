@@ -3,7 +3,7 @@
 #include <cmath>
 
 PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _near, float _far)
-    : EffectInstance(&EFFECT)
+    : EffectInstance(EFFECT)
     , m_near(_near)
     , m_far(_far)
     , position(position)

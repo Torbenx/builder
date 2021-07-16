@@ -1,7 +1,7 @@
 #include "3d/Reflection.hpp"
 
 Reflection::Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor)
-    : EffectInstance(&EFFECT)
+    : EffectInstance(EFFECT)
     , Renderpass(&framebuffer)
     , texture(Texture::color(width, height, Texture::Format::RGBA8888))
     , depthAttachment(Texture::depth(width, height, Texture::DepthBits::D16, true))

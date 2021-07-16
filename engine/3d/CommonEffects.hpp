@@ -6,12 +6,14 @@
 class AmbientLight : public EffectInstance {
 public:
     static inline struct Effect : public ::Effect {
-        virtual void addTo(EffectShaderBuilder&) override;
+        Effect()
+            : ::Effect(&Effect::addTo) { }
+        static void addTo(EffectShaderBuilder&);
     } EFFECT;
 
     Vec3 color;
     AmbientLight(Vec3 color)
-        : EffectInstance(&EFFECT), color(color) { }
+        : EffectInstance(EFFECT), color(color) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -21,12 +23,14 @@ public:
 class UniformColor : public EffectInstance {
 public:
     static inline struct Effect : public ::Effect {
-        virtual void addTo(EffectShaderBuilder&) override;
+        Effect()
+            : ::Effect(&Effect::addTo) { }
+        static void addTo(EffectShaderBuilder&);
     } EFFECT;
 
     Vec3 color;
     UniformColor(Vec3 color)
-        : EffectInstance(&EFFECT), color(color) { }
+        : EffectInstance(EFFECT), color(color) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -36,13 +40,15 @@ public:
 class TextureColor : public EffectInstance {
 public:
     static inline struct Effect : public ::Effect {
-        virtual void addTo(EffectShaderBuilder&) override;
+        Effect()
+            : ::Effect(&Effect::addTo) { }
+        static void addTo(EffectShaderBuilder&);
     } EFFECT;
 
     Texture texture;
     VertexBuffer texCoords;
     TextureColor(Texture texture, VertexBuffer texCoords)
-        : EffectInstance(&EFFECT), texture(texture), texCoords(texCoords) { }
+        : EffectInstance(EFFECT), texture(texture), texCoords(texCoords) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.attribPointer(texCoords);

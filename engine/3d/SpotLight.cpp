@@ -2,7 +2,7 @@
 #include "util/log.hpp"
 
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3 hDirection, int width, int height, Vec3 color, float _near, float _far)
-    : EffectInstance(&EFFECT)
+    : EffectInstance(EFFECT)
     , DepthRenderpass(&framebuffer)
     , depthMap(Texture::depth(width, height, Texture::DepthBits::D16))
     , position(position)

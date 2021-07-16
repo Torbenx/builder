@@ -7,8 +7,10 @@
 
 class Reflection : public EffectInstance, public Renderpass {
 public:
-    static inline class Effect : public ::Effect {
-        virtual void addTo(EffectShaderBuilder&) override;
+    static inline struct Effect : public ::Effect {
+        Effect()
+            : ::Effect(&Effect::addTo) { }
+        static void addTo(EffectShaderBuilder&);
     } EFFECT;
     Framebuffer framebuffer;
     Resource<Texture> depthAttachment;

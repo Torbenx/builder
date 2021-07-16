@@ -1,8 +1,8 @@
 #pragma once
 
 #include "GL/Shader.hpp"
-#include "resource/Resource.hpp"
 #include "containers/IdAllocator.hpp"
+#include "resource/Resource.hpp"
 #include "util/Shaders.hpp"
 #include <memory>
 #include <unordered_map>
@@ -49,16 +49,33 @@ private:
     uint64_t attributes = 0;
 };
 
-// Effects should be singletons
-struct Effect {
-    virtual void addTo(EffectShaderBuilder&) = 0;
-    virtual ~Effect() { }
+class Effect {
+public:
+    using AddToFunc = void (*)(EffectShaderBuilder&);
+
+    struct Handle {
+        Handle() { }
+        sid_t id;
+        void addTo(EffectShaderBuilder& builder) const { functions[id](builder); }
+    };
+
+    Effect(AddToFunc addTo) {
+        static sid_t nextId = 0;
+        functions[nextId] = addTo;
+        const_cast<Handle&>(handle).id = nextId++;
+    }
+    const Handle handle;
+    void addTo(EffectShaderBuilder& builder) { handle.addTo(builder); };
+
+private:
+    static inline sid_t nextId = 0;
+    static inline AddToFunc functions[128];
 };
 
 struct EffectInstance {
-    Effect* effect;
-    EffectInstance(Effect* effect)
-        : effect(effect) { }
+    Effect::Handle effect;
+    EffectInstance(Effect& effect)
+        : effect(effect.handle) { }
     virtual void applyTo(OrderedShader) = 0;
     virtual ~EffectInstance() { }
 };

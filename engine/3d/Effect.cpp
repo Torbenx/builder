@@ -50,7 +50,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
 Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectInstance*>& effects) {
     uintptr_t hash = 0;
     for (EffectInstance* instance : effects) {
-        hash ^= ((uintptr_t)instance->effect) >> 3;
+        hash ^= (uintptr_t)instance->effect.id;
     }
 
     std::unique_ptr<EffectShaderResourceMonitor>& ptr = shaderHandles[hash];
@@ -67,7 +67,7 @@ Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectInstance*>
     AttributeList attributes;
     EffectShaderBuilder builder(attributes);
     for (EffectInstance* effect : effects) {
-        effect->effect->addTo(builder);
+        effect->effect.addTo(builder);
     }
     shaders[id].initialize(builder);
     ptr->id = id;
