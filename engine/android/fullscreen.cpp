@@ -8,7 +8,7 @@ FullscreenConfig::FullscreenConfig(){
 
 }
 
-FullscreenConfig::FullscreenConfig(const FullscreenConfig& other){
+FullscreenConfig::FullscreenConfig([[maybe_unused]] const FullscreenConfig& other){
 
 }
 
@@ -16,7 +16,7 @@ FullscreenConfig::~FullscreenConfig(){
 
 }
 
-void goFullscreen(FullscreenConfig config){
+void goFullscreen([[maybe_unused]] FullscreenConfig config){
     android_goFullscreen();
 }
 

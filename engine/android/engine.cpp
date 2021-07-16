@@ -40,7 +40,7 @@ struct FrameCallbackData{
     EGLDisplay *display;
     EGLSurface *surface;
 };
-void android_doFrame(long ignore, void *data){
+void android_doFrame([[maybe_unused]] long ignore, void *data){
     EGLDisplay *display = ((FrameCallbackData*)data)->display;
     EGLSurface *surface = ((FrameCallbackData*)data)->surface;
     if(rendererState != RENDERER_STATE_INVISIBLE && *surface != EGL_NO_SURFACE){

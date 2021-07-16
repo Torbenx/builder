@@ -129,14 +129,15 @@ void updateSurface(vk::SurfaceKHR newSurface) {
     if (formatCount == 1 && formats[0].format == vk::Format::eUndefined) {
         colorSpace = formats[0].colorSpace;
     } else {
-        uint32_t i;
-        for (i = 0; i < formatCount; i++) {
+        bool found = false;
+        for (uint32_t i = 0; i < formatCount; i++) {
             if (formats[i].format == targetFormat) {
                 colorSpace = formats[i].colorSpace;
+                found = true;
                 break;
             }
         }
-        if (i == formatCount) {
+        if (!found) {
             log<Tag::VK>("target format not supported");
             return;
         }

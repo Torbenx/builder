@@ -38,8 +38,8 @@ std::streambuf::int_type assetbuf::underflow(){
     return traits_type::to_int_type(*gptr());
 }
 
-std::streampos assetbuf::seekpos(std::streampos pos, std::ios_base::openmode){
-    log<Tag::Android>("SEEKPOS");
+std::streampos assetbuf::seekpos(std::streampos, std::ios_base::openmode){
+    log<Tag::Android>("assetbuf::seekpos not implemented");
     return std::streampos(std::streamoff(-1));
 }
 

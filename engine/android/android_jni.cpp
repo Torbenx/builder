@@ -113,66 +113,66 @@ void android_exit(){
 }
 
 extern "C" {
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeThreadInit(JNIEnv *env, jobject thiz, jobject jAssetManager, jint cmdFd){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeThreadInit([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jobject jAssetManager, jint cmdFd){
         android_engineThreadInit(env, thiz, jAssetManager, cmdFd);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeThreadLoop(JNIEnv *env, jobject thiz){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeThreadLoop([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz){
         android_runThread();
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeCreate(JNIEnv *env, jobject thiz, jint fd){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeCreate([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd){
         android_sendCmd(fd, ENGINE_CMD_CREATE);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeStart(JNIEnv *env, jobject thiz, jint fd){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeStart([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd){
         android_sendCmd(fd, ENGINE_CMD_VISIBLE);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeResume(JNIEnv *env, jobject thiz, jint fd){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeResume([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd){
         android_sendCmd(fd, ENGINE_CMD_FOREGROUND);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativePause(JNIEnv *env, jobject thiz, jint fd){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativePause([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd){
         android_sendCmd(fd, ENGINE_CMD_BACKGROUND);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeStop(JNIEnv *env, jobject thiz, jint fd){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeStop([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd){
         android_sendCmd(fd, ENGINE_CMD_INVISIBLE);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDestroy(JNIEnv *env, jobject thiz, jint fd){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDestroy([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd){
         android_sendCmd(fd, ENGINE_CMD_DESTROY);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeSurfaceCreate(JNIEnv *env, jobject thiz, jint fd, jobject jSurface){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeSurfaceCreate([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd, jobject jSurface){
         android_sendCmd(fd, ENGINE_CMD_SURFACE_CREATE);
         ANativeWindow *cmdWindow = ANativeWindow_fromSurface(env, jSurface);
         struct SurfaceCmdData data = {cmdWindow};
         android_sendBuf(fd, &data, sizeof(struct SurfaceCmdData));
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeSurfaceChange(JNIEnv *env, jobject thiz, jint fd, jobject jSurface, jint width, jint height){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeSurfaceChange([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd, jobject jSurface, jint width, jint height){
        android_sendCmd(fd, ENGINE_CMD_SURFACE_CHANGE);
         ANativeWindow *cmdWindow = ANativeWindow_fromSurface(env, jSurface);
         struct SurfaceChangeCmdData data = {cmdWindow, width, height};
         android_sendBuf(fd, &data, sizeof(struct SurfaceChangeCmdData));
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeSurfaceDestroy(JNIEnv *env, jobject thiz, jint fd, jobject jSurface){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeSurfaceDestroy([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jint fd, jobject jSurface){
         android_sendCmd(fd, ENGINE_CMD_SURFACE_DESTROY);
         ANativeWindow *cmdWindow = ANativeWindow_fromSurface(env, jSurface);
         struct SurfaceCmdData data = {cmdWindow};
         android_sendBuf(fd, &data, sizeof(struct SurfaceCmdData));
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeCreateInputQueue(JNIEnv *env, jobject thiz, jobject jInputQueue){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeCreateInputQueue([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jobject jInputQueue){
         //since api 19
         AInputQueue *inputQueue = (AInputQueue*)env->CallLongMethod(jInputQueue, InputQueue_getNativePtrID);
         AInputQueue_attachLooper(inputQueue, looper, ENGINE_IDENT_INPUT, NULL, inputQueue);
     }
 
-    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDestroyInputQueue(JNIEnv *env, jobject thiz, jobject jInputQueue){
+    JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeDestroyInputQueue([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz, jobject jInputQueue){
         //since api 19
         AInputQueue *inputQueue = (AInputQueue*)env->CallLongMethod(jInputQueue, InputQueue_getNativePtrID);
         AInputQueue_detachLooper(inputQueue);

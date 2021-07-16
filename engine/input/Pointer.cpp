@@ -104,7 +104,7 @@ int getPointerCount(bool mustBeDown) {
 /*void setCursorVisible(bool visible) {
 }*/
 
-PointerEvent teleportCursor(float x, float y) {
+PointerEvent teleportCursor([[maybe_unused]] float x, [[maybe_unused]] float y) {
     PointerEvent event;
     event.event = POINTER_EVENT_MOVE;
     event.pointerId = POINTER_ID_INVALID;
