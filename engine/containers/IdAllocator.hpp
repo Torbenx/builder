@@ -234,3 +234,5 @@ private:
 
     std::set<Bucket> buckets;
 };
+
+using sIdAllocator = IdAllocator<sid_t, 40>;

@@ -2,8 +2,7 @@
 #include "util/log.hpp"
 
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3 hDirection, int width, int height, Vec3 color, float _near, float _far)
-    : EffectInstance(EFFECT)
-    , DepthRenderpass(&framebuffer)
+    : DepthRenderpass(&framebuffer)
     , depthMap(Texture::depth(width, height, Texture::DepthBits::D16))
     , color(color)
     , direction(direction)
@@ -27,7 +26,7 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int texHeight, Vec3 color, float _near, float _far)
     : SpotLight(position, direction, fov, fov, Vec3::findOrthogonal(direction), texWidth, texHeight, color, _near, _far) { }
 
-void SpotLight::Effect::addTo(EffectShaderBuilder& s) {
+void SpotLight::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string mvpUniform = s.uniqueName("u_mvpMatrix");
     std::string textureUniform = s.uniqueName("u_depthMap");

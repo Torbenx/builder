@@ -1,5 +1,6 @@
 #pragma once
 
+#include "3d/Attribute.hpp"
 #include "GL/Shader.hpp"
 #include "containers/IdAllocator.hpp"
 #include "resource/Resource.hpp"
@@ -7,78 +8,71 @@
 #include <memory>
 #include <unordered_map>
 
-class EffectShaderBuilder;
-class EffectShader;
-
-// Attributes should be singletons
-struct Attribute {
-    static std::vector<Attribute*> instances;
-    const id_t id;
-    Attribute()
-        : id(instances.size()) { instances.push_back(this); }
-    static Attribute* fromId(id_t id) { return instances[id]; }
-    virtual void addTo(EffectShaderBuilder&) = 0;
-    virtual ~Attribute() { }
-};
-
-class AttributeList {
-public:
-    struct iterator {
-        uint64_t attributes;
-        id_t id;
-        iterator(uint64_t attributes, id_t id)
-            : attributes(attributes), id(id) { }
-        bool operator!=(iterator other) { return id != other.id; }
-        iterator& operator++() {
-            while (++id < sizeof(attributes) * 8) {
-                if (attributes & ((uint64_t)1 << id))
-                    break;
-            }
-            return *this;
-        }
-        Attribute* operator*() { return Attribute::fromId(id); }
-    };
-    bool has(Attribute* attribute) const { return attributes & ((uint64_t)1 << attribute->id); }
-    void add(Attribute* attribute) { attributes |= ((uint64_t)1 << attribute->id); }
-    iterator begin() const { return ++iterator(attributes, -1); }
-    iterator end() const { return iterator(attributes, sizeof(attributes) * 8); }
-    bool operator==(AttributeList other) const { return attributes == other.attributes; }
-    bool operator!=(AttributeList other) const { return attributes != other.attributes; }
-
-private:
-    uint64_t attributes = 0;
-};
-
 class Effect {
 public:
     using AddToFunc = void (*)(EffectShaderBuilder&);
+    static constexpr int_t maxTypes = 128;
 
-    struct Handle {
-        Handle() { }
+    struct Type {
         sid_t id;
-        void addTo(EffectShaderBuilder& builder) const { functions[id](builder); }
     };
 
-    Effect(AddToFunc addTo) {
-        static sid_t nextId = 0;
-        functions[nextId] = addTo;
-        const_cast<Handle&>(handle).id = nextId++;
+    template<typename T> //don't require Implementation for convinience with incomplete types
+    static Type registerEffect() {
+        return registerEffect_internal(&T::addTo, sizeof(T));
     }
-    const Handle handle;
-    void addTo(EffectShaderBuilder& builder) { handle.addTo(builder); };
+
+    virtual void applyTo(OrderedShader) = 0;
+    virtual ~Effect() { }
 
 private:
-    static inline sid_t nextId = 0;
-    static inline AddToFunc functions[128];
+    static inline AddToFunc functions[maxTypes];
+
+    static Type registerEffect_internal(AddToFunc, int_t size);
+    friend class EffectShaderFactory;
 };
 
-struct EffectInstance {
-    Effect::Handle effect;
-    EffectInstance(Effect& effect)
-        : effect(effect.handle) { }
-    virtual void applyTo(OrderedShader) = 0;
-    virtual ~EffectInstance() { }
+template<typename T>
+concept EffectImplementation = (std::derived_from<T, Effect> && std::is_same_v<decltype(T::effectType), const Effect::Type>);
+
+namespace effect_impl {
+struct InstanceArray {
+    int_t elementSize;
+    int_t elementCount;
+    std::byte* array;
+
+    void* operator[](int_t id) {
+        return (void*)(array + id * elementSize);
+    }
 };
+
+inline InstanceArray arrays[Effect::maxTypes];
+}
+
+template<typename T = Effect>
+struct EffectHandle {
+    Effect::Type type;
+    sid_t id;
+
+    T* operator->() { return (T*)addr(); }
+    T& operator*() { return *(T*)addr(); }
+    void* addr() { return effect_impl::arrays[type.id][id]; }
+    operator EffectHandle<>() requires (!std::is_same_v<T, Effect>) {
+        return { type, id };
+    }
+};
+
+namespace effect_impl {
+EffectHandle<> allocateForType(Effect::Type);
+}
+
+template<EffectImplementation T, typename... Args>
+EffectHandle<T> make_effect(Args&&... args) {
+    EffectHandle<> handle = effect_impl::allocateForType(T::effectType);
+    VDUMP(handle.addr());
+    new (handle.addr()) T(std::forward<Args>(args)...);
+    return { handle.type, handle.id };
+}
 
 class EffectShaderBuilder : public ShaderBuilder {
 public:
@@ -94,22 +88,22 @@ public:
     }
 
 private:
-    virtual std::string buildVertexSource() override;
-    virtual std::string buildFragmentSource() override;
+    std::string buildVertexSource() override;
+    std::string buildFragmentSource() override;
     using ShaderBuilder::newContext;
 };
 
 class EffectShader : public Shader {
 public:
-    static const std::string WORLD_POSITION;
-    static const std::string WORLD_NORMAL;
-    static const std::string SCREEN_POSITION;
-    static const std::string LIGHT_INTENSITY;
-    static const std::string RAW_POSITION;
-    static const std::string RAW_NORMAL;
-    static const std::string RAW_TO_WORLD_MATRIX;
-    static const std::string WORLD_TO_SCREEN_MATRIX;
-    static const std::string FRAGMENT_DIFFUSE_COLOR;
+    static constexpr char WORLD_POSITION[] = "v_worldPos";
+    static constexpr char WORLD_NORMAL[] = "v_normal";
+    static constexpr char SCREEN_POSITION[] = "gl_Position";
+    static constexpr char LIGHT_INTENSITY[] = "intensity";
+    static constexpr char RAW_POSITION[] = "a_position";
+    static constexpr char RAW_NORMAL[] = "a_normal";
+    static constexpr char RAW_TO_WORLD_MATRIX[] = "u_model";
+    static constexpr char WORLD_TO_SCREEN_MATRIX[] = "u_viewProjection";
+    static constexpr char FRAGMENT_DIFFUSE_COLOR[] = "diffuseColor";
 
     Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
     std::vector<OrderedShaderState> slots;
@@ -130,21 +124,17 @@ private:
     using Shader::initialize;
 };
 
+namespace effect_impl {
+struct ShaderMonitor;
+}
+
 class EffectShaderFactory {
 public:
-    static Resource<id_t> getHandle(const std::vector<EffectInstance*>&);
+    static Resource<id_t> getHandle(const std::vector<EffectHandle<>>&);
     static EffectShader& instance(id_t id) { return shaders[id]; }
     static int_t slotCount(id_t id) { return instance(id).slots.size(); }
 
 private:
-    struct EffectShaderResourceMonitor final : public ResourceMonitor {
-        id_t id = std::numeric_limits<id_t>::max();
-        bool release() override {
-            shaders[id].release();
-            return false;
-        }
-    };
-    static inline std::unordered_map<uintptr_t, std::unique_ptr<EffectShaderResourceMonitor>> shaderHandles;
-    static inline std::vector<EffectShader> shaders;
-    static inline IdAllocator<> idAllocator;
+    static std::vector<EffectShader> shaders;
+    friend struct effect_impl::ShaderMonitor;
 };

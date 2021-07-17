@@ -1,8 +1,7 @@
 #include "3d/Reflection.hpp"
 
 Reflection::Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor)
-    : EffectInstance(EFFECT)
-    , Renderpass(&framebuffer)
+    : Renderpass(&framebuffer)
     , texture(Texture::color(width, height, Texture::Format::RGBA8888))
     , depthAttachment(Texture::depth(width, height, Texture::DepthBits::D16, true))
     , reflection(reflection)
@@ -23,7 +22,7 @@ Mat4x4 Reflection::getReflectionMatrix() {
     return Mat4x4::reflection(reflection, position);
 }
 
-void Reflection::Effect::addTo(EffectShaderBuilder& s) {
+void Reflection::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string textureUniform = s.uniqueName("u_texture");
     std::string positionVarying = s.uniqueName("v_position");

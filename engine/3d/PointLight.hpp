@@ -3,13 +3,10 @@
 #include "3d/Renderpass.hpp"
 #include "GL/Framebuffer.hpp"
 
-class PointLight : public EffectInstance {
+class PointLight : public Effect {
 public:
-    static inline struct Effect : public ::Effect {
-        Effect()
-            : ::Effect(&Effect::addTo) { }
-        static void addTo(EffectShaderBuilder&);
-    } EFFECT;
+    static inline const Type effectType = registerEffect<PointLight>();
+    static void addTo(EffectShaderBuilder&);
     Resource<CubeMap> depthMap;
     Framebuffer framebuffers[6];
     DepthRenderpass passes[6];

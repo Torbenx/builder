@@ -1,14 +1,61 @@
 #include "3d/Effect.hpp"
+#include <algorithm>
 
-const std::string EffectShader::WORLD_POSITION = "v_worldPos";
-const std::string EffectShader::WORLD_NORMAL = "v_normal";
-const std::string EffectShader::SCREEN_POSITION = "gl_Position";
-const std::string EffectShader::LIGHT_INTENSITY = "intensity";
-const std::string EffectShader::RAW_POSITION = "a_position";
-const std::string EffectShader::RAW_NORMAL = "a_normal";
-const std::string EffectShader::RAW_TO_WORLD_MATRIX = "u_model";
-const std::string EffectShader::WORLD_TO_SCREEN_MATRIX = "u_viewProjection";
-const std::string EffectShader::FRAGMENT_DIFFUSE_COLOR = "diffuseColor";
+std::vector<EffectShader> EffectShaderFactory::shaders;
+
+namespace effect_impl {
+
+IdAllocator<> shaderIdAllocator;
+std::unordered_map<uintptr_t, std::unique_ptr<ShaderMonitor>> shaderHandles;
+
+struct ShaderMonitor final : public ResourceMonitor {
+    id_t id;
+    uintptr_t hash;
+
+    ShaderMonitor(id_t id, uintptr_t hash)
+        : id(id), hash(hash) { }
+
+    bool release() override {
+        EffectShaderFactory::shaders[id].release();
+        shaderIdAllocator.freeId(id);
+        shaderHandles.erase(hash);
+        return false;
+    }
+};
+
+std::vector<sIdAllocator> effectIdAllocators;
+
+EffectHandle<> allocateForType(Effect::Type type) {
+    VDUMP(type.id);
+    if (effectIdAllocators.size() <= type.id) {
+        effectIdAllocators.resize(type.id + 1);
+    }
+    sid_t id = effectIdAllocators[type.id].allocateId();
+    auto& array = arrays[type.id];
+    if (array.elementCount <= id) {
+        int_t newElementCount = std::max((int_t)4, array.elementCount * 2);
+        std::byte* newArray = new std::byte[newElementCount * array.elementSize];
+        std::memcpy(newArray, array.array, array.elementCount * array.elementSize);
+        delete[] array.array;
+        array.array = newArray;
+        array.elementCount = newElementCount;
+    }
+    return { type, id };
+}
+
+}
+
+Effect::Type Effect::registerEffect_internal(AddToFunc addTo, int_t size) {
+    static sid_t nextId = 0;
+    VDUMP(nextId);
+    VDUMP(size);
+    functions[nextId] = addTo;
+    auto& array = effect_impl::arrays[nextId];
+    array.elementSize = size;
+    array.elementCount = 0;
+    array.array = nullptr;
+    return { nextId++ };
+}
 
 EffectShaderBuilder::EffectShaderBuilder(AttributeList attributes)
     : ShaderBuilder()
@@ -47,29 +94,26 @@ std::string EffectShaderBuilder::buildFragmentSource() {
     return f.str();
 }
 
-Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectInstance*>& effects) {
+Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectHandle<>>& effects) {
     uintptr_t hash = 0;
-    for (EffectInstance* instance : effects) {
-        hash ^= (uintptr_t)instance->effect.id;
+    for (EffectHandle<> effect : effects) {
+        hash ^= (uintptr_t)effect.type.id;
     }
 
-    std::unique_ptr<EffectShaderResourceMonitor>& ptr = shaderHandles[hash];
-    if (!ptr) {
-        ptr.reset(new EffectShaderResourceMonitor());
-    }
-    if (!ptr->expired()) {
+    std::unique_ptr<effect_impl::ShaderMonitor>& ptr = effect_impl::shaderHandles[hash];
+    if (ptr) {
         return Resource<id_t>(ptr->id, &*ptr);
     }
-    id_t id = idAllocator.allocateId();
+    id_t id = effect_impl::shaderIdAllocator.allocateId();
+    ptr.reset(new effect_impl::ShaderMonitor(id, hash));
     if (id == shaders.size()) {
         shaders.resize(id + 1);
     }
     AttributeList attributes;
     EffectShaderBuilder builder(attributes);
-    for (EffectInstance* effect : effects) {
-        effect->effect.addTo(builder);
+    for (EffectHandle<> effect : effects) {
+        Effect::functions[effect.type.id](builder);
     }
     shaders[id].initialize(builder);
-    ptr->id = id;
     return Resource<id_t>(id, &*ptr);
 }

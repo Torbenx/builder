@@ -1,20 +1,20 @@
 #include "3d/CommonEffects.hpp"
 
-void AmbientLight::Effect::addTo(EffectShaderBuilder& s) {
+void AmbientLight::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string colorUniform = s.uniqueName("u_color");
     s.addFragmentUniform("vec3", colorUniform);
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << colorUniform << ";\n";
 }
 
-void UniformColor::Effect::addTo(EffectShaderBuilder& s) {
+void UniformColor::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string colorUniform = s.uniqueName("u_color");
     s.addFragmentUniform("vec3", colorUniform);
     s.fMain << EffectShader::FRAGMENT_DIFFUSE_COLOR << " += " << colorUniform << ";\n";
 }
 
-void TextureColor::Effect::addTo(EffectShaderBuilder& s) {
+void TextureColor::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string texPositionAttrib = s.uniqueName("a_texPosition");
     std::string textureUniform = s.uniqueName("u_texture");

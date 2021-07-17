@@ -3,13 +3,10 @@
 #include "3d/Renderpass.hpp"
 #include "GL/Framebuffer.hpp"
 
-class SpotLight : public EffectInstance, public DepthRenderpass {
+class SpotLight : public Effect, public DepthRenderpass {
 public:
-    static inline struct Effect : public ::Effect {
-        Effect()
-            : ::Effect(&Effect::addTo) { }
-        static void addTo(EffectShaderBuilder&);
-    } EFFECT;
+    static inline const Type effectType = registerEffect<SpotLight>();
+    static void addTo(EffectShaderBuilder&);
 
     Resource<Texture> depthMap;
 

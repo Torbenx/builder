@@ -8,6 +8,12 @@
 #include <fmt/core.h>
 #include <type_traits>
 
+namespace Tag {
+struct Default {
+    static constexpr char tag[] = "default";
+};
+}
+
 #ifdef PLATFORM_WINDOWS
 #include <iostream>
 static void log_print(const std::string& tag, const std::string& msg) {
@@ -26,13 +32,7 @@ template<typename T>
 concept LogTag = std::is_same_v<decltype(T::tag), const char[sizeof(T::tag)]> && sizeof(T::tag) <= 8;
 
 template<typename T>
-concept VerifyTag = LogTag<T>&& std::is_same_v<decltype(T::verifyEnabled), const bool>;
-
-namespace Tag {
-struct Default {
-    static constexpr char tag[] = "default";
-};
-}
+concept VerifyTag = LogTag<T> && std::is_same_v<decltype(T::verifyEnabled), const bool>;
 
 template<LogTag tag = Tag::Default, typename... Args>
 static void log(fmt::format_string<Args...> str, Args&&... args) {
@@ -54,14 +54,14 @@ void verify(bool cond, const char* condStr, const char* file, int line, const ch
 }
 
 template<VerifyTag tag, typename F>
-void expect(F lhs, F rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_floating_point_v<F>&& tag::verifyEnabled {
+void expect(F lhs, F rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_floating_point_v<F> && tag::verifyEnabled {
     if (std::abs(lhs - rhs) > 0.00001f) {
         log<tag>("EXPECT failed {}:{}: {}(): {} {{{}}} == {} {{{}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
     }
 }
 
 template<VerifyTag tag, typename T>
-void expect(T lhs, T rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_integral_v<T>&& tag::verifyEnabled {
+void expect(T lhs, T rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_integral_v<T> && tag::verifyEnabled {
     if (lhs != rhs) {
         log<tag>("EXPECT failed {}:{}: {}(): {} {{{:#x}}} == {} {{{:#x}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
     }

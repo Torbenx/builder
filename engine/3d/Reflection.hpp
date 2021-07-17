@@ -5,13 +5,10 @@
 #include "GL/Framebuffer.hpp"
 #include "resource/Resource.hpp"
 
-class Reflection : public EffectInstance, public Renderpass {
+class Reflection : public Effect, public Renderpass {
 public:
-    static inline struct Effect : public ::Effect {
-        Effect()
-            : ::Effect(&Effect::addTo) { }
-        static void addTo(EffectShaderBuilder&);
-    } EFFECT;
+    static inline const Type effectType = registerEffect<Reflection>();
+    static void addTo(EffectShaderBuilder&);
     Framebuffer framebuffer;
     Resource<Texture> texture;
     Resource<Texture> depthAttachment;

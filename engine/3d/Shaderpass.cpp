@@ -7,7 +7,7 @@ class ShaderpassImpl : public Shaderpass {
 public:
     struct Entry {
         id_t objectId;
-        std::array<EffectInstance*, N> effects;
+        std::array<EffectHandle<>, N> effects;
     };
     std::vector<Entry> entries;
     std::array<std::unordered_map<uintptr_t, int_t>, N> counts;
@@ -16,7 +16,7 @@ public:
     ShaderpassImpl(Resource<id_t> shaderHandle);
 
     void draw(GraphicsObjectCollection&, Renderpass&) override;
-    void addEntry(id_t objectId, std::vector<EffectInstance*>& effects) override;
+    void addEntry(id_t objectId, std::vector<EffectHandle<>>& effects) override;
 };
 
 std::unique_ptr<Shaderpass> Shaderpass::construct(Resource<id_t> shaderHandle) {
@@ -44,10 +44,10 @@ ShaderpassImpl<N>::ShaderpassImpl(Resource<id_t> shaderHandle)
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<EffectInstance*>& effects) {
+void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<EffectHandle<>>& effects) {
     for (int_t i = 0; i < N; i++) {
         auto& map = counts[i];
-        uintptr_t key = (uintptr_t)effects[i] >> 3;
+        uintptr_t key = (uintptr_t)effects[i].id;
         auto it = map.find(key);
         if (it == map.end()) {
             it = map.insert({ key, 0 }).first;
@@ -56,7 +56,7 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<EffectInstance*>& ef
     }
     Entry& entry = entries.emplace_back();
     entry.objectId = objectId;
-    std::memcpy(entry.effects.data(), effects.data(), N * sizeof(EffectInstance*));
+    std::memcpy(entry.effects.data(), effects.data(), N * sizeof(EffectHandle<>));
 
     std::stable_sort(indices.begin(), indices.end(), [&](const int_t& a, const int_t& b) {
         return counts[a].size() < counts[b].size();
@@ -64,22 +64,22 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<EffectInstance*>& ef
 
     std::sort(entries.begin(), entries.end(), [&](const Entry& a, const Entry& b) {
         for (int_t i = 0; i < N; i++) {
-            EffectInstance* ae = a.effects[indices[i]];
-            EffectInstance* be = b.effects[indices[i]];
-            if (ae == be)
+            EffectHandle<> ae = a.effects[indices[i]];
+            EffectHandle<> be = b.effects[indices[i]];
+            if (ae.id == be.id)
                 continue;
-            return ae < be;
+            return ae.id < be.id;
         }
         return false;
     });
 
     std::array<BitSet, N> binds;
-    std::array<EffectInstance*, N> prev {};
+    std::array<EffectHandle<>, N> prev {};
     for (int_t k = 0; k < entries.size(); k++) {
         int_t i = 0;
         for (; i < N; i++) {
             int_t j = indices[i];
-            if (prev[j] != entry.effects[j]) {
+            if (prev[j].id != entry.effects[j].id) {
                 binds[i].setBit(k);
                 break;
             }
@@ -96,18 +96,18 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
     EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
-    std::array<EffectInstance*, N> prev {};
+    std::array<sid_t, N> prev { std::numeric_limits<sid_t>::max() };
     for (Entry& entry : entries) {
         int_t i = 0;
         for (; i < N; i++) {
             int_t j = indices[i];
-            if (prev[j] != entry.effects[j])
+            if (prev[j] != entry.effects[j].id)
                 break;
         }
         for (; i < N; i++) {
             int_t j = indices[i];
             entry.effects[j]->applyTo(shader.ordered(shader.slots[j]));
-            prev[j] = entry.effects[j];
+            prev[j] = entry.effects[j].id;
         }
         GraphicsObject& object = objects[entry.objectId];
         shader.uniformMat4x4(shader.modelUniform, object.modelMatrix);

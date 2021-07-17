@@ -25,11 +25,11 @@ public:
         : framebuffer(framebuffer) { }
 
     void draw(GraphicsObjectCollection&);
-    void addObject(id_t objectId, std::vector<EffectInstance*> effects);
+    void addObject(id_t objectId, std::vector<EffectHandle<>> effects);
 
 private:
     struct ObjectEntry {
-        std::vector<EffectInstance*> effects;
+        std::vector<EffectHandle<>> effects;
         int_t index;
     };
     std::vector<int_t> shaderIndices;
