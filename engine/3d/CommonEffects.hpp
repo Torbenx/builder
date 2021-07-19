@@ -10,7 +10,7 @@ public:
 
     Vec3 color;
     AmbientLight(Vec3 color)
-        : color(color) { }
+        : Effect(effectType), color(color) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -24,7 +24,7 @@ public:
 
     Vec3 color;
     UniformColor(Vec3 color)
-        : color(color) { }
+        : Effect(effectType), color(color) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -39,7 +39,7 @@ public:
     Texture texture;
     VertexBuffer texCoords;
     TextureColor(Texture texture, VertexBuffer texCoords)
-        : texture(texture), texCoords(texCoords) { }
+        : Effect(effectType), texture(texture), texCoords(texCoords) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.attribPointer(texCoords);

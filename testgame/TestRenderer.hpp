@@ -28,10 +28,10 @@ public:
     int_t frameCounter = 0;
     Vec3 obj5_coords[4];
     Vec3 up;
-    EffectHandle<PointLight> pointLight;
-    EffectHandle<SpotLight> spotLight;
-    EffectHandle<AmbientLight> ambientLight;
-    EffectHandle<Reflection> reflection;
+    PointLight pointLight;
+    SpotLight spotLight;
+    AmbientLight ambientLight;
+    Reflection reflection;
     Resource<VertexBuffer> f1;
     Resource<VertexBuffer> f2;
     Resource<VertexBuffer> f3;

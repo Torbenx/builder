@@ -27,13 +27,13 @@
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
     : up(0, 1, 0)
-    , pointLight(make_effect<PointLight>(
+    , pointLight(
           Vec3(0, 1, -2),
           1024, 1024,
           Vec3(1, 0.3, 1) * 12.0f,
           0.3f,
-          30))
-    , spotLight(make_effect<SpotLight>(
+          30)
+    , spotLight(
           Vec3(0, 3.4, 0),
           Vec3(0, -1, 0),
           F_PI * 0.2f,
@@ -42,15 +42,15 @@ TestRenderer<G>::TestRenderer()
           2048, 2048,
           Vec3(1, 1, 1) * 8.0f,
           0.7f,
-          30))
-    , ambientLight(make_effect<AmbientLight>(Vec3(1, 1, 1) * 1.0f))
-    , reflection(make_effect<Reflection>(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f))
+          30)
+    , ambientLight(Vec3(1, 1, 1) * 1.0f)
+    , reflection(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f)
     , look(up, isAndroid())
     , pos(7, 1, 0)
     , renderpass(&Framebuffer::DEFAULT) {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
-    reflection->framebuffer.clearColor(0, 0, 0, 1);
+    reflection.framebuffer.clearColor(0, 0, 0, 1);
 
     float f1Scale = 0.5f;
     f1 = VertexBuffer::upload({ Vec3(-1, -1, 0) * f1Scale, Vec3(-1, 1, 0) * f1Scale, Vec3(1, -1, 0) * f1Scale, Vec3(1, 1, 0) * f1Scale });
@@ -66,11 +66,11 @@ TestRenderer<G>::TestRenderer()
     id_t id4 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4) });
     id_t id5 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4) });
 
-    std::vector<EffectHandle<>> effects1 { make_effect<UniformColor>(Vec3(1, 0, 0) * 0.5f), ambientLight, spotLight, pointLight };
-    std::vector<EffectHandle<>> effects2 { make_effect<UniformColor>(Vec3(0, 1, 0) * 0.5f), ambientLight, spotLight, pointLight };
-    std::vector<EffectHandle<>> effects3 { make_effect<UniformColor>(Vec3(1, 1, 1) * 0.1f), ambientLight, spotLight, pointLight, reflection };
-    std::vector<EffectHandle<>> effects4 { make_effect<UniformColor>(Vec3(1, 1, 0) * 0.5f), ambientLight, spotLight, pointLight };
-    std::vector<EffectHandle<>> effects5 { make_effect<UniformColor>(Vec3(0, 0, 1) * 0.5f), ambientLight, spotLight, pointLight };
+    std::vector<Effect::Handle> effects1 { (new UniformColor(Vec3(1, 0, 0) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects2 { (new UniformColor(Vec3(0, 1, 0) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects3 { (new UniformColor(Vec3(1, 1, 1) * 0.1f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle(), reflection.handle() };
+    std::vector<Effect::Handle> effects4 { (new UniformColor(Vec3(1, 1, 0) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects5 { (new UniformColor(Vec3(0, 0, 1) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
 
     renderpass.addObject(id1, effects1);
     renderpass.addObject(id2, effects2);
@@ -78,22 +78,22 @@ TestRenderer<G>::TestRenderer()
     renderpass.addObject(id4, effects4);
     renderpass.addObject(id5, effects5);
 
-    reflection->addObject(id1, effects1);
-    reflection->addObject(id2, effects2);
-    reflection->addObject(id4, effects4);
-    reflection->addObject(id5, effects5);
+    reflection.addObject(id1, effects1);
+    reflection.addObject(id2, effects2);
+    reflection.addObject(id4, effects4);
+    reflection.addObject(id5, effects5);
 
-    spotLight->addObject(id1);
-    spotLight->addObject(id2);
-    spotLight->addObject(id3);
-    spotLight->addObject(id4);
-    spotLight->addObject(id5);
+    spotLight.addObject(id1);
+    spotLight.addObject(id2);
+    spotLight.addObject(id3);
+    spotLight.addObject(id4);
+    spotLight.addObject(id5);
 
-    pointLight->addObject(id1);
-    pointLight->addObject(id2);
-    pointLight->addObject(id3);
-    pointLight->addObject(id4);
-    pointLight->addObject(id5);
+    pointLight.addObject(id1);
+    pointLight.addObject(id2);
+    pointLight.addObject(id3);
+    pointLight.addObject(id4);
+    pointLight.addObject(id5);
 
     look.dir = (Vec3(0, -1, 0) - pos).normalize();
     lframe = getNanos();
@@ -117,8 +117,8 @@ TestRenderer<G>::TestRenderer()
     textComp.noBreaks = true;
 
     cubeComp.farDepth = 1.0f;
-    cubeComp.texture = &spotLight->depthMap.value;
-    refComp.texture = &reflection->texture.value;
+    cubeComp.texture = &spotLight.depthMap.value;
+    refComp.texture = &reflection.texture.value;
 
     uiScene.layout(&textComp)
         .alignTop()
@@ -143,22 +143,22 @@ TestRenderer<G>::TestRenderer()
     decoder.decode(jpegFile);
     pawnTexture = decoder.texture;
 
-    refComp.texture = &reflection->texture.value;
+    refComp.texture = &reflection.texture.value;
 
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
-    EffectHandle<TextureColor> textureEffect = make_effect<TextureColor>(pawnTexture, pawnTexCoords);
+    Effect* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
     for (int_t i = -5; i <= 5; i++) {
         id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
-        renderpass.addObject(id, { textureEffect, ambientLight, spotLight, pointLight });
-        reflection->addObject(id, { textureEffect, ambientLight, spotLight, pointLight });
-        spotLight->addObject(id);
-        pointLight->addObject(id);
+        renderpass.addObject(id, { textureEffect->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
+        reflection.addObject(id, { textureEffect->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
+        spotLight.addObject(id);
+        pointLight.addObject(id);
     }
 
     glEnable(GL_DEPTH_TEST);
-    pointLight->draw(objects);
-    spotLight->draw(objects);
+    pointLight.draw(objects);
+    spotLight.draw(objects);
     glDisable(GL_DEPTH_TEST);
 }
 
@@ -368,21 +368,20 @@ void TestRenderer<G>::drawFrame() {
     pos += navD.x * dt * Vec3::cross(dirX, up);
     pos -= navD.y * dt * dirX;
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
-    Vec3 plp = pointLight->position;
+    Vec3& plp = pointLight.position;
     plp += Vec3(plp.z * dt, plp.z * dt / 2.0, -plp.x * dt);
-    pointLight->position = plp;
-    pointLight->updateViewProjectionMatrix();
+    pointLight.updateViewProjectionMatrix();
     obj5_coords[0] = Vec3(plp.x - 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
 
     renderpass.viewProjectionMatrix = projection * view;
-    reflection->updateViewProjectionMatrix(renderpass.viewProjectionMatrix);
+    reflection.updateViewProjectionMatrix(renderpass.viewProjectionMatrix);
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    pointLight->draw(objects);
-    reflection->draw(objects);
+    pointLight.draw(objects);
+    reflection.draw(objects);
     renderpass.draw(objects);
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);

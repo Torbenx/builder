@@ -80,6 +80,7 @@ add_library(engine ${linkage}
     ${platform_source}
 )
 
+set_source_files_properties("events/ExecutionContext.cpp" PROPERTIES COMPILE_OPTIONS "-fomit-frame-pointer")
 set_source_files_properties("VK/vk_mem_alloc.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-all;-Wno-extra")
 
 set_target_properties(engine PROPERTIES UNITY_BUILD ON)

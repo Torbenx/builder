@@ -25,24 +25,16 @@ struct ShaderMonitor final : public ResourceMonitor {
 
 std::vector<sIdAllocator> effectIdAllocators;
 
-EffectHandle<> allocateForType(Effect::Type type) {
-    VDUMP(type.id);
-    if (effectIdAllocators.size() <= type.id) {
-        effectIdAllocators.resize(type.id + 1);
-    }
-    sid_t id = effectIdAllocators[type.id].allocateId();
-    auto& array = arrays[type.id];
-    if (array.elementCount <= id) {
-        int_t newElementCount = std::max((int_t)4, array.elementCount * 2);
-        std::byte* newArray = new std::byte[newElementCount * array.elementSize];
-        std::memcpy(newArray, array.array, array.elementCount * array.elementSize);
-        delete[] array.array;
-        array.array = newArray;
-        array.elementCount = newElementCount;
-    }
-    return { type, id };
 }
 
+Effect::Effect(Effect::Type type) {
+    m_handle.type = type;
+    VDUMP(type.id);
+    if (effect_impl::effectIdAllocators.size() <= type.id) {
+        effect_impl::effectIdAllocators.resize(type.id + 1);
+    }
+    m_handle.id = effect_impl::effectIdAllocators[type.id].allocateId();
+    m_handle.ptr = this;
 }
 
 Effect::Type Effect::registerEffect_internal(AddToFunc addTo, int_t size) {
@@ -50,10 +42,6 @@ Effect::Type Effect::registerEffect_internal(AddToFunc addTo, int_t size) {
     VDUMP(nextId);
     VDUMP(size);
     functions[nextId] = addTo;
-    auto& array = effect_impl::arrays[nextId];
-    array.elementSize = size;
-    array.elementCount = 0;
-    array.array = nullptr;
     return { nextId++ };
 }
 
@@ -94,9 +82,9 @@ std::string EffectShaderBuilder::buildFragmentSource() {
     return f.str();
 }
 
-Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectHandle<>>& effects) {
+Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>& effects) {
     uintptr_t hash = 0;
-    for (EffectHandle<> effect : effects) {
+    for (Effect::Handle effect : effects) {
         hash ^= (uintptr_t)effect.type.id;
     }
 
@@ -111,7 +99,7 @@ Resource<id_t> EffectShaderFactory::getHandle(const std::vector<EffectHandle<>>&
     }
     AttributeList attributes;
     EffectShaderBuilder builder(attributes);
-    for (EffectHandle<> effect : effects) {
+    for (Effect::Handle effect : effects) {
         Effect::functions[effect.type.id](builder);
     }
     shaders[id].initialize(builder);

@@ -17,10 +17,21 @@ public:
         sid_t id;
     };
 
-    template<typename T> //don't require Implementation for convinience with incomplete types
+    struct Handle {
+        Effect::Type type;
+        sid_t id;
+        Effect *ptr;
+        Effect* operator->() { return ptr; }
+    };
+
+    template<typename T>
     static Type registerEffect() {
         return registerEffect_internal(&T::addTo, sizeof(T));
     }
+
+    Effect(Type);
+
+    Handle handle() { return m_handle; }
 
     virtual void applyTo(OrderedShader) = 0;
     virtual ~Effect() { }
@@ -30,49 +41,9 @@ private:
 
     static Type registerEffect_internal(AddToFunc, int_t size);
     friend class EffectShaderFactory;
+
+    Handle m_handle;
 };
-
-template<typename T>
-concept EffectImplementation = (std::derived_from<T, Effect> && std::is_same_v<decltype(T::effectType), const Effect::Type>);
-
-namespace effect_impl {
-struct InstanceArray {
-    int_t elementSize;
-    int_t elementCount;
-    std::byte* array;
-
-    void* operator[](int_t id) {
-        return (void*)(array + id * elementSize);
-    }
-};
-
-inline InstanceArray arrays[Effect::maxTypes];
-}
-
-template<typename T = Effect>
-struct EffectHandle {
-    Effect::Type type;
-    sid_t id;
-
-    T* operator->() { return (T*)addr(); }
-    T& operator*() { return *(T*)addr(); }
-    void* addr() { return effect_impl::arrays[type.id][id]; }
-    operator EffectHandle<>() requires (!std::is_same_v<T, Effect>) {
-        return { type, id };
-    }
-};
-
-namespace effect_impl {
-EffectHandle<> allocateForType(Effect::Type);
-}
-
-template<EffectImplementation T, typename... Args>
-EffectHandle<T> make_effect(Args&&... args) {
-    EffectHandle<> handle = effect_impl::allocateForType(T::effectType);
-    VDUMP(handle.addr());
-    new (handle.addr()) T(std::forward<Args>(args)...);
-    return { handle.type, handle.id };
-}
 
 class EffectShaderBuilder : public ShaderBuilder {
 public:
@@ -130,7 +101,7 @@ struct ShaderMonitor;
 
 class EffectShaderFactory {
 public:
-    static Resource<id_t> getHandle(const std::vector<EffectHandle<>>&);
+    static Resource<id_t> getHandle(const std::vector<Effect::Handle>&);
     static EffectShader& instance(id_t id) { return shaders[id]; }
     static int_t slotCount(id_t id) { return instance(id).slots.size(); }
 
