@@ -31,16 +31,36 @@ void init_text() {
 }
 
 TextFormat::TextFormat(std::string text, int maxWidth, float textSize) {
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter("*** ERROR ***", L"*** ERROR ***");
-    std::wstring wText(converter.from_bytes(text.c_str()));
+    //std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter("*** ERROR ***", L"*** ERROR ***");
+    //std::wstring wText(converter.from_bytes(text.c_str()));
+    int wTextLength = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), text.length(), nullptr, 0);
+    wchar_t* wTextBuffer = nullptr;
+    if (wTextLength > 0) {
+        wTextBuffer = new wchar_t[wTextLength];
+        if (MultiByteToWideChar(CP_UTF8, 0, text.c_str(), text.length(), wTextBuffer, wTextLength) != wTextLength) {
+            delete[] wTextBuffer;
+            wTextBuffer = nullptr;
+        }
+    }
+    const wchar_t* wText;
+    if (wTextBuffer == nullptr) {
+        wText = L"*** ERROR ***";
+        wTextLength = 3 + 1 + 5 + 1 + 3;
+    } else {
+        wText = wTextBuffer;
+    }
 
     IDWriteTextFormat* format;
     writeFactory->CreateTextFormat(L"Verdana", NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, textSize, L"", &format);
 
     IDWriteTextLayout* layout;
-    writeFactory->CreateTextLayout(wText.data(), wText.length(), format, maxWidth < 0 ? INFINITY : maxWidth, INFINITY, &layout);
+    writeFactory->CreateTextLayout(wText, wTextLength, format, maxWidth < 0 ? INFINITY : maxWidth, INFINITY, &layout);
 
     format->Release();
+
+    if (wTextBuffer) {
+        delete[] wTextBuffer;
+    }
 
     internal = layout;
 }

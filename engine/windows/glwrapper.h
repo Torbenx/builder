@@ -9,9 +9,11 @@
 #include <GL/wglext.h>
 #include <GL/glcorearb.h>
 
-void glwrapper_init();
-
+#ifdef __cplusplus
 extern "C" {
+#endif
+
+void glwrapper_init();
 
 extern PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
 extern PFNGLDEBUGMESSAGECALLBACKARBPROC glDebugMessageCallbackARB;
@@ -185,4 +187,6 @@ extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
 extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
 extern PFNGLGETSHADERIVPROC glGetShaderiv;
 
+#ifdef __cplusplus
 }
+#endif

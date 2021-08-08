@@ -10,7 +10,6 @@
 
 class Effect {
 public:
-    using AddToFunc = void (*)(EffectShaderBuilder&);
     static constexpr int_t maxTypes = 128;
 
     struct Type {
@@ -20,13 +19,13 @@ public:
     struct Handle {
         Effect::Type type;
         sid_t id;
-        Effect *ptr;
+        Effect* ptr;
         Effect* operator->() { return ptr; }
     };
 
     template<typename T>
     static Type registerEffect() {
-        return registerEffect_internal(&T::addTo, sizeof(T));
+        return registerEffect_internal(&T::addTo);
     }
 
     Effect(Type);
@@ -37,9 +36,10 @@ public:
     virtual ~Effect() { }
 
 private:
+    using AddToFunc = void (*)(EffectShaderBuilder&);
     static inline AddToFunc functions[maxTypes];
 
-    static Type registerEffect_internal(AddToFunc, int_t size);
+    static Type registerEffect_internal(AddToFunc);
     friend class EffectShaderFactory;
 
     Handle m_handle;

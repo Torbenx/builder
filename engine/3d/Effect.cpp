@@ -37,10 +37,9 @@ Effect::Effect(Effect::Type type) {
     m_handle.ptr = this;
 }
 
-Effect::Type Effect::registerEffect_internal(AddToFunc addTo, int_t size) {
+Effect::Type Effect::registerEffect_internal(AddToFunc addTo) {
     static sid_t nextId = 0;
     VDUMP(nextId);
-    VDUMP(size);
     functions[nextId] = addTo;
     return { nextId++ };
 }

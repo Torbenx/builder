@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
    set(platform_source
-        "windows/glwrapper.cpp"
+        "windows/glwrapper.c"
         "windows/engine.cpp"
         "windows/fullscreen.cpp"
         "windows/Renderer.cpp"
@@ -12,6 +12,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         "resource/asset_istream.cpp"
     )
     set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite)
+    set_source_files_properties("windows/glwrapper.c" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
@@ -84,5 +85,5 @@ set_source_files_properties("events/ExecutionContext.cpp" PROPERTIES COMPILE_OPT
 set_source_files_properties("VK/vk_mem_alloc.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-all;-Wno-extra")
 
 set_target_properties(engine PROPERTIES UNITY_BUILD ON)
-target_compile_options(engine PRIVATE "-Wall;-Wextra;-Wno-sign-compare;-Wno-cast-function-type")
+target_compile_options(engine PRIVATE "-Wall;-Wextra;-Wno-sign-compare")
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

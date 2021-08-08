@@ -7,6 +7,7 @@
 namespace Tag {
 struct Windows {
     static constexpr char tag[] = "windows";
+    static constexpr bool verifyEnabled = true;
 };
 }
 

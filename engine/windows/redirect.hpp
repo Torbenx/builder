@@ -19,13 +19,14 @@ void redirectToConsole() {
     SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), coninfo.dwSize);
 
     // redirect unbuffered STDOUT to the console
-    freopen("CONOUT$", "w", stdout);
+    FILE* ret;
+    freopen_s(&ret, "CONOUT$", "w", stdout);
 
     // redirect unbuffered STDIN to the console
-    freopen("CONIN$", "r", stdin);
+    freopen_s(&ret, "CONIN$", "r", stdin);
 
     // redirect unbuffered STDERR to the console
-    freopen("CONERR$", "w", stderr);
+    freopen_s(&ret, "CONERR$", "w", stderr);
 
     // make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog
     // point to console as well

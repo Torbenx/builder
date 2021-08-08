@@ -3,7 +3,7 @@
 #include "util/log.hpp"
 
 #ifdef PLATFORM_WINDOWS
-#include "windows/glwrapper.hpp"
+#include "windows/glwrapper.h"
 #endif
 
 #ifdef PLATFORM_ANDROID
