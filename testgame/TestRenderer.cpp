@@ -95,7 +95,7 @@ TestRenderer<G>::TestRenderer()
     pointLight.addObject(id4);
     pointLight.addObject(id5);
 
-    look.dir = (Vec3(0, -1, 0) - pos).normalize();
+    look.dir = Vec3::normalize(Vec3(0, -1, 0) - pos);
     lframe = getNanos();
 
 #ifdef PLATFORM_ANDROID
@@ -340,7 +340,7 @@ void TestRenderer<G>::drawFrame() {
     float maxSpeed = 2.0f;
     float dt = (now - lframe) / (float)NANOS_PER_SECOND;
     lframe = now;
-    Vec3 dirX = (look.dir - Vec3::dot(look.dir, up) * up).normalize();
+    Vec3 dirX = Vec3::normalize(look.dir - Vec3::dot(look.dir, up) * up);
     if (wd) {
         pos += maxSpeed * dt * dirX;
     }

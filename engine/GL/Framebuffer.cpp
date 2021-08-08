@@ -88,7 +88,7 @@ void Framebuffer::attachInteral(const Texture& texture, GLenum subTarget) {
 }
 
 void Framebuffer::clearColor(float r, float g, float b, float a) {
-    m_clearColor.set(r, g, b, a);
+    m_clearColor = { r, g, b, a };
     if (isCurrent())
         glClearColor(r, g, b, a);
 }

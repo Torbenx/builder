@@ -47,8 +47,7 @@ Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
     MATH_EXPECT_NORMALIZED(up);
     Mat4x4 re;
     float *m = re.matrix;
-    Vec3 ex = Vec3::cross(dir, up);
-    ex.normalize();
+    Vec3 ex = Vec3::normalize(Vec3::cross(dir, up));
     Vec3 ey = Vec3::cross(ex, dir); //already normalized
 
     m[ 0] = ex.x;
@@ -74,7 +73,7 @@ Mat4x4 Mat4x4::look(Vec3 eye, Vec3 dir, Vec3 up){
 }
 
 Mat4x4 Mat4x4::lookAt(Vec3 eye, Vec3 center, Vec3 up){
-    return look(eye, (center-eye).normalize(), up);
+    return look(eye, Vec3::normalize(center - eye), up);
 }
 
 Mat4x4 Mat4x4::rotate(float radians, Vec3 axis){
