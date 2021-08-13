@@ -1,6 +1,14 @@
 #pragma once
 
+#include "util/log.hpp"
 #include <cmath>
+
+namespace Tag {
+struct Math {
+    static constexpr char tag[] = "math";
+    static constexpr bool verifyEnabled = true;
+};
+}
 
 class Vec2 {
 public:
@@ -32,7 +40,7 @@ public:
     Vec2& operator*=(float f);
     Vec2& operator/=(Vec2 v);
     Vec2& operator/=(float f);
-    void debug();
+    void debug() { log<Tag::Math>("Vec2({}, {})", x, y); }
     static float dot(Vec2 v1, Vec2 v2) { return v1.x * v2.x + v1.y * v2.y; }
 };
 

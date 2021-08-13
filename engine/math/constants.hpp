@@ -4,13 +4,6 @@
 
 #define F_PI 3.14159265358979323846264338328f
 
-namespace Tag {
-struct Math {
-    static constexpr char tag[] = "math";
-    static constexpr bool verifyEnabled = true;
-};
-}
-
 #define MATH_EXPECT_NORMALIZED(v) EXPECT(Math, v.length(), 1.0f)
 
 template<typename T>

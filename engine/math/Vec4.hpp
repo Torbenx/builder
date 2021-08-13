@@ -2,6 +2,7 @@
 
 #include "math/Mat4x4.hpp"
 #include "math/Vec3.hpp"
+#include <algorithm>
 
 class Vec4 {
 public:
@@ -25,9 +26,15 @@ public:
         : xyz(xyz) {
         this->w = w;
     }
-    void clampToW();
+    static Vec4 clampToW(Vec4 v) {
+        return {
+            std::clamp(v.x, -std::abs(v.w), std::abs(v.w)),
+            std::clamp(v.y, -std::abs(v.w), std::abs(v.w)),
+            std::clamp(v.z, -std::abs(v.w), std::abs(v.w))
+        };
+    }
     Vec4& operator*=(const Mat4x4& right);
-    void debug();
+    void debug() { log<Tag::Math>("Vec4({} ,{} ,{} ,{})", x, y, z, w); }
 };
 
 inline Vec4 operator*(Vec4 left, const Mat4x4& right) {

@@ -30,7 +30,7 @@ public:
     Vec3& operator/=(Vec3 right);
     Vec3& operator/=(float right);
     Vec3& operator*=(const Mat3x3& right);
-    void debug();
+    void debug() { log<Tag::Math>("Vec3({}, {}, {})", x, y, z); }
     static float dot(Vec3 left, Vec3 right);
     static Vec3 cross(Vec3 left, Vec3 right);
     static Vec3 findOrthogonal(Vec3 v);

@@ -96,7 +96,8 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
     EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
-    std::array<sid_t, N> prev { std::numeric_limits<sid_t>::max() };
+    std::array<sid_t, N> prev;
+    prev.fill(std::numeric_limits<sid_t>::max());
     for (Entry& entry : entries) {
         int_t i = 0;
         for (; i < N; i++) {
