@@ -251,3 +251,7 @@ void RendererState::exit(){
 int_t RendererState::getState(){
     return rendererState;
 }
+
+void log_print(const std::string& tag, const std::string& msg) {
+    __android_log_write(ANDROID_LOG_DEBUG, tag.c_str(), msg.c_str());
+}

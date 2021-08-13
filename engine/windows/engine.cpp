@@ -285,6 +285,10 @@ void RendererState::exit() {
     DestroyWindow(engine_hwnd);
 }
 
+void log_print(const std::string& tag, const std::string& msg) {
+    std::cout << '[' << tag << "] " << msg << '\n';
+}
+
 int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPSTR lpCmdLine, [[maybe_unused]] int nCmdShow) {
     createFunctions = functions;
     engine_hinstance = hInstance;

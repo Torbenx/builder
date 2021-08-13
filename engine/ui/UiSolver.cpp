@@ -34,7 +34,7 @@ void UiSolver::solve() {
 
     /*for(ui_var_t i=0;var<fixedCount;var++){
         printf("%u: ", i);
-        for(size_t j=0;j<fixed_to_eqns[i].size();j++){
+        for(int_t j=0;j<(int_t)fixed_to_eqns[i].size();j++){
             ui_eqn_t eq = fixed_to_eqns[i][j];
             if(eq & UI_EQN_NOT_SIMPLE_BIT){
                 printf("%u; ", eq & ~UI_EQN_NOT_SIMPLE_BIT);
@@ -46,7 +46,7 @@ void UiSolver::solve() {
     }
     for(ui_var_t i=0;i<varCount;i++){
         printf("%u: ", i);
-        for(size_t j=0;j<vars_to_eqns[i].size();j++){
+        for(int_t j=0;j<(int_t)vars_to_eqns[i].size();j++){
             ui_eqn_t eq = vars_to_eqns[i][j];
             if(eq & UI_EQN_NOT_SIMPLE_BIT){
                 printf("%u; ", eq & ~UI_EQN_NOT_SIMPLE_BIT);
@@ -58,7 +58,7 @@ void UiSolver::solve() {
     }*/
 
     solutions = new UiSolution[varCount];
-    for (size_t i = 0; i < varCount; i++) {
+    for (int_t i = 0; i < varCount; i++) {
         solutions[i].svar = UI_VAR_INVALID;
     }
 
@@ -78,21 +78,21 @@ void UiSolver::solve() {
     eqnExplored.clear();
     eqnExplored.resize(generalEquations.size());
 
-    for (size_t i = 0; i < markedEquations.size(); i++) {
+    for (int_t i = 0; i < (int_t)markedEquations.size(); i++) {
         svarStart = svarCount;
         m_rhs.clear();
         entries.clear();
 
         exploreGeneralEq(markedEquations[i]);
 
-        size_t variables = svarCount - svarStart;
+        int_t variables = svarCount - svarStart;
         //log("Solving {} equations for {} variables", m_rhs.size(), variables);
         if (variables == 0) {
             //nothing to do
         } else if (variables == 1) {
             float factor = 0.0f;
-            for (auto it = entries.begin(); it != entries.end(); it++) {
-                factor += it->factor;
+            for (UiMatrixEntry entry : entries) {
+                factor += entry.factor;
             }
             values.push_back(m_rhs[0] / factor);
         } else {
@@ -173,7 +173,7 @@ void UiSolver::exploreGeneralEq(ui_eqn_t eq) {
     m_rhs.push_back(0.0f);
 
     float rhs = equation.rhs.get().toGL(metrics);
-    for (size_t i = 0; i < equation.termCount; i++) {
+    for (int_t i = 0; i < equation.termCount; i++) {
         UiEquationTerm& term = equation.terms[i];
         if (term.var & UI_VAR_CONST_BIT) {
             rhs -= fixed[term.var & ~UI_VAR_CONST_BIT] * term.factor;
@@ -200,12 +200,12 @@ void UiSolver::exploreGeneralEq(ui_eqn_t eq) {
     m_rhs[eqnIndex] = rhs;
 }
 
-void UiSolver::solveLinearSystem(size_t size) {
+void UiSolver::solveLinearSystem(int_t size) {
     std::vector<float> matrix(size * (size + 1));
 
     [[maybe_unused]] auto print_matrix = [&]() {
-        for (size_t j = 0; j < size; j++) {
-            for (size_t k = 0; k < size + 1; k++) {
+        for (int_t j = 0; j < size; j++) {
+            for (int_t k = 0; k < size + 1; k++) {
                 printf("%+f ", matrix[j * (size + 1) + k]);
             }
             printf("\n");
@@ -213,8 +213,8 @@ void UiSolver::solveLinearSystem(size_t size) {
         printf("\n");
     };
 
-    for (size_t j = 0; j < size; j++) {
-        for (size_t k = 0; k < size; k++) {
+    for (int_t j = 0; j < size; j++) {
+        for (int_t k = 0; k < size; k++) {
             matrix[j * (size + 1) + k] = 0.0f;
         }
         matrix[j * (size + 1) + size] = m_rhs[j];
@@ -224,50 +224,50 @@ void UiSolver::solveLinearSystem(size_t size) {
     }
     //print_matrix();
 
-    for (size_t i = 0; i < size - 1; i++) {
+    for (int_t i = 0; i < size - 1; i++) {
         float max = 0.0f;
-        size_t r = 0;
-        for (size_t j = i; j < size; j++) {
+        int_t r = 0;
+        for (int_t j = i; j < size; j++) {
             if (abs(matrix[j * (size + 1) + i]) > fabs(max)) {
                 max = matrix[j * (size + 1) + i];
                 r = j;
             }
         }
         float inv_max = 1.0f / max;
-        for (size_t j = 0; j < size; j++) {
+        for (int_t j = 0; j < size; j++) {
             if (j == r)
                 continue;
             float f = matrix[j * (size + 1) + i];
-            for (size_t k = 0; k < size + 1; k++) {
+            for (int_t k = 0; k < size + 1; k++) {
                 matrix[j * (size + 1) + k] = matrix[j * (size + 1) + k] - matrix[r * (size + 1) + k] * f * inv_max;
             }
         }
-        for (size_t k = 0; k < size + 1; k++) {
+        for (int_t k = 0; k < size + 1; k++) {
             float temp = matrix[i * (size + 1) + k];
             matrix[i * (size + 1) + k] = matrix[r * (size + 1) + k];
             matrix[r * (size + 1) + k] = temp;
         }
-        for (size_t k = 0; k < size + 1; k++) {
+        for (int_t k = 0; k < size + 1; k++) {
             matrix[i * (size + 1) + k] *= inv_max;
         }
     }
     float invf = 1.0f / matrix[(size - 1) * (size + 1) + (size - 1)];
-    for (size_t k = 0; k < size + 1; k++) {
+    for (int_t k = 0; k < size + 1; k++) {
         matrix[(size - 1) * (size + 1) + k] *= invf;
     }
-    for (size_t i = size - 1; i != -1; i--) {
-        for (size_t j = 0; j < size; j++) {
+    for (int_t i = size - 1; i != -1; i--) {
+        for (int_t j = 0; j < size; j++) {
             if (j == i)
                 continue;
             float f = matrix[j * (size + 1) + i];
-            for (size_t k = 0; k < size + 1; k++) {
+            for (int_t k = 0; k < size + 1; k++) {
                 matrix[j * (size + 1) + k] -= matrix[i * (size + 1) + k] * f;
             }
         }
     }
     //print_matrix();
 
-    for (size_t i = 0; i < size; i++) {
+    for (int_t i = 0; i < size; i++) {
         values.push_back(matrix[i * (size + 1) + size]);
     }
 }

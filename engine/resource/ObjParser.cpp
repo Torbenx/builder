@@ -185,10 +185,10 @@ void ObjParser::parse(std::istream& in) {
         GLuint* out_indices = new GLuint[n];
         float* out_vertex = new float[vertexCount * dim];
         float* out_normals = new float[vertexCount * dim];
-        for (int_t i = 1; i < texCoords.size(); i += 2) {
+        for (int_t i = 1; i < (int_t)texCoords.size(); i += 2) {
             texCoords[i] = 1.0f - texCoords[i];
         }
-        for (int_t i = 0; i < index.size(); i++) {
+        for (int_t i = 0; i < (int_t)index.size(); i++) {
             for (int_t j = 0; j < dim; j++) {
                 out_vertex[index[i].t * dim + j] = vertex[index[i].v * dim + j];
                 out_normals[index[i].t * dim + j] = normals[index[i].n * dim + j];

@@ -7,12 +7,13 @@ FileExplorer::FileExplorer(void* renderer) {
 }
 
 void FileExplorer::updateRect(ScreenMetrics& metrics) {
+    this->metrics = metrics;
     if (!hasMetrics) {
         hasMetrics = true;
-        this->metrics = metrics;
         setPath(path);
+    } else {
+        UiSceneComponent::updateRect(metrics);
     }
-    UiSceneComponent::updateRect(metrics);
 }
 
 void FileExplorer::setPath(std::string path) {

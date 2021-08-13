@@ -76,7 +76,7 @@ FullscreenConfig getFullscreenConfig(std::string adapterName, int width, int hei
     devMode.dmSize = DM_SPECVERSION;
     devMode.dmSize = sizeof(DEVMODE);
     while (EnumDisplaySettings(adapterName.c_str(), i++, &devMode)) {
-        if (devMode.dmPelsWidth == width && devMode.dmPelsHeight == height && devMode.dmDisplayFrequency == refreshRate) {
+        if ((int)devMode.dmPelsWidth == width && (int)devMode.dmPelsHeight == height && (int)devMode.dmDisplayFrequency == refreshRate) {
             log<Tag::Windows>("config found for {}: {}x{}@{}", adapterName.c_str(), devMode.dmPelsWidth, devMode.dmPelsHeight, devMode.dmDisplayFrequency);
             FullscreenConfig config;
             ((FullscreenConfigImpl*)config.impl)->adapterName = adapterName;

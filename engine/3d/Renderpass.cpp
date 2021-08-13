@@ -31,11 +31,11 @@ void Renderpass::addObject(id_t objectId, std::vector<Effect::Handle> effects) {
     });
     Resource<id_t> handle = EffectShaderFactory::getHandle(effects);
     int_t index;
-    for (index = 0; index < passes.size(); index++) {
+    for (index = 0; index < (int_t)passes.size(); index++) {
         if (*passes[index]->shaderHandle == *handle)
             break;
     }
-    if (index == passes.size()) {
+    if (index == (int_t)passes.size()) {
         passes.emplace_back(Shaderpass::construct(handle));
     }
     passes[index]->addEntry(objectId, effects);

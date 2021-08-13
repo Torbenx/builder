@@ -14,19 +14,7 @@ struct Default {
 };
 }
 
-#ifdef PLATFORM_WINDOWS
-#include <iostream>
-static void log_print(const std::string& tag, const std::string& msg) {
-    std::cout << '[' << tag << "] " << msg << '\n';
-}
-#endif
-
-#ifdef PLATFORM_ANDROID
-#include <android/log.h>
-static void log_print(const std::string& tag, const std::string& msg) {
-    __android_log_write(ANDROID_LOG_DEBUG, tag.c_str(), msg.c_str());
-}
-#endif
+void log_print(const std::string& tag, const std::string& msg);
 
 template<typename T>
 concept LogTag = std::is_same_v<decltype(T::tag), const char[sizeof(T::tag)]> && sizeof(T::tag) <= 8;

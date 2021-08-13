@@ -1,5 +1,6 @@
 #include "math/Mat4x4.hpp"
 #include "util/log.hpp"
+#include "math/constants.hpp"
 #include <cmath>
 
 Mat4x4 Mat4x4::Id(true);

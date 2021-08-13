@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ui/TypedSize.hpp"
+#include "util/types.hpp"
 #include <list>
 #include <map>
 #include <vector>
@@ -24,7 +25,7 @@ struct UiEquationTerm {
 
 struct UiGeneralEquation {
     UiEquationTerm* terms;
-    size_t termCount;
+    int_t termCount;
     LazyTypedSizeXY rhs;
 };
 
@@ -71,8 +72,8 @@ private:
     std::vector<float> values;
 
     std::vector<ui_eqn_t> markedEquations;
-    size_t svarCount;
-    size_t svarStart;
+    int_t svarCount;
+    int_t svarStart;
     std::vector<bool> eqnExplored;
     std::vector<UiMatrixEntry> entries;
     std::vector<float> m_rhs;
@@ -81,7 +82,7 @@ private:
     void exploreEq(ui_eqn_t eq, ui_var_t origin);
     void exploreSimpleEq(ui_eqn_t eq, ui_var_t origin);
     void exploreGeneralEq(ui_eqn_t eq);
-    void solveLinearSystem(size_t size);
+    void solveLinearSystem(int_t size);
 
 public:
     std::vector<std::vector<ui_eqn_t>> vars_to_eqns;

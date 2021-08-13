@@ -81,6 +81,6 @@ add_library(engine ${linkage}
 set_source_files_properties("events/ExecutionContext.cpp" PROPERTIES COMPILE_OPTIONS "-fomit-frame-pointer")
 set_source_files_properties("VK/vk_mem_alloc.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-all;-Wno-extra")
 
-set_target_properties(engine PROPERTIES UNITY_BUILD ON)
-target_compile_options(engine PRIVATE "-Wall;-Wextra;-Wno-sign-compare")
+#set_target_properties(engine PROPERTIES UNITY_BUILD ON)
+target_compile_options(engine PRIVATE "-Wall;-Wextra")
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

@@ -75,7 +75,7 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
 
     std::array<BitSet, N> binds;
     std::array<Effect::Handle, N> prev {};
-    for (int_t k = 0; k < entries.size(); k++) {
+    for (int_t k = 0; k < (int_t)entries.size(); k++) {
         int_t i = 0;
         for (; i < N; i++) {
             int_t j = indices[i];
