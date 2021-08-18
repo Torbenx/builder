@@ -3,6 +3,9 @@
 
 std::vector<EffectShader> EffectShaderFactory::shaders;
 
+Effect::AddToFunc Effect::functions[Effect::MAX_TYPES];
+Effect::TypeData Effect::typeData[Effect::MAX_TYPES];
+
 namespace effect_impl {
 
 IdAllocator<> shaderIdAllocator;
@@ -27,20 +30,20 @@ std::vector<sIdAllocator> effectIdAllocators;
 
 }
 
-Effect::Effect(Effect::Type type) {
-    m_handle.type = type;
+sid_t Effect::allocateEffectId(Effect::Type type) {
     VDUMP(type.id);
     if (effect_impl::effectIdAllocators.size() <= type.id) {
         effect_impl::effectIdAllocators.resize(type.id + 1);
     }
-    m_handle.id = effect_impl::effectIdAllocators[type.id].allocateId();
-    m_handle.ptr = this;
+    return effect_impl::effectIdAllocators[type.id].allocateId();
 }
 
-Effect::Type Effect::registerEffect_internal(AddToFunc addTo) {
+Effect::Type Effect::registerEffectType(AddToFunc addTo, TypeData data) {
     static sid_t nextId = 0;
     VDUMP(nextId);
+    EXPECT(Math, data.vertexBufferCount, (int_t)0);
     functions[nextId] = addTo;
+    typeData[nextId] = data;
     return { nextId++ };
 }
 
@@ -84,7 +87,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
 Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>& effects) {
     uintptr_t hash = 0;
     for (Effect::Handle effect : effects) {
-        hash ^= (uintptr_t)effect.type.id;
+        hash ^= (uintptr_t)effect.type.id + 1;
     }
 
     std::unique_ptr<effect_impl::ShaderMonitor>& ptr = effect_impl::shaderHandles[hash];

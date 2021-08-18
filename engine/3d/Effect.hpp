@@ -8,12 +8,22 @@
 #include <memory>
 #include <unordered_map>
 
+template<typename T>
+class EffectImpl;
+
 class Effect {
 public:
-    static constexpr int_t maxTypes = 128;
+    static constexpr int_t MAX_TYPES = 128;
 
     struct Type {
         sid_t id;
+    };
+
+    struct TypeData {
+        int_t vertexBufferOffset; // offset in bytes form Effect* to start of an array of VertexBuffer
+        int_t vertexBufferCount;
+        int_t textureOffset; // offset in bytes form Effect* to start of an array of Texture
+        int_t textureCount;
     };
 
     struct Handle {
@@ -23,26 +33,61 @@ public:
         Effect* operator->() { return ptr; }
     };
 
-    template<typename T>
-    static Type registerEffect() {
-        return registerEffect_internal(&T::addTo);
+    virtual void applyTo(OrderedShader) = 0;
+    virtual ~Effect() {
+        // deallocated type id!
     }
 
-    Effect(Type);
+    Effect(Type type)
+        : m_handle { type, allocateEffectId(type), this } { }
 
     Handle handle() { return m_handle; }
 
-    virtual void applyTo(OrderedShader) = 0;
-    virtual ~Effect() { }
-
 private:
     using AddToFunc = void (*)(EffectShaderBuilder&);
-    static inline AddToFunc functions[maxTypes];
+    static AddToFunc functions[MAX_TYPES];
+    static TypeData typeData[MAX_TYPES];
 
-    static Type registerEffect_internal(AddToFunc);
-    friend class EffectShaderFactory;
+    static Type registerEffectType(AddToFunc, TypeData);
+    static sid_t allocateEffectId(Type);
 
     Handle m_handle;
+
+    friend class EffectShaderFactory;
+    template<typename T>
+    friend class EffectImpl;
+};
+
+namespace effect_impl {
+template<typename T>
+concept HasVertexBuffers = requires(T t) { std::is_same_v<decltype(t.vertexBuffers), VertexBuffer[sizeof(t.vertexBuffers) / sizeof(VertexBuffer)]>; };
+}
+
+template<typename T>
+class EffectImpl : public Effect {
+public:
+    EffectImpl()
+        : Effect(effectType) { }
+
+private:
+    static int_t vertexBufferCount() { return 0; }
+    static int_t vertexBufferOffset() { return 0; }
+    static int_t textureCount() { return 0; }
+    static int_t textureOffset() { return 0; }
+
+    static int_t vertexBufferCount() requires effect_impl::HasVertexBuffers<T> { return 1; }
+    static int_t vertexBufferOffset() requires effect_impl::HasVertexBuffers<T> { return 1; }
+
+    static Type registerEffectTypeImpl() {
+        return registerEffectType(&T::addTo,
+            { .vertexBufferOffset = vertexBufferOffset(),
+                .vertexBufferCount = vertexBufferCount(),
+                .textureOffset = textureOffset(),
+                .textureCount = textureCount() });
+    }
+
+public:
+    static inline const Type effectType = registerEffectTypeImpl();
 };
 
 class EffectShaderBuilder : public ShaderBuilder {

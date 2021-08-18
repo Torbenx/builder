@@ -3,8 +3,7 @@
 #include <cmath>
 
 PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _near, float _far)
-    : Effect(effectType)
-    , depthMap(CubeMap::depth(width, height, Texture::DepthBits::D16))
+    : depthMap(CubeMap::depth(width, height, Texture::DepthBits::D16))
     , passes { &framebuffers[0], &framebuffers[1], &framebuffers[2], &framebuffers[3], &framebuffers[4], &framebuffers[5] }
     , position(position)
     , color(color)

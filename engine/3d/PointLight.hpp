@@ -3,9 +3,8 @@
 #include "3d/Renderpass.hpp"
 #include "GL/Framebuffer.hpp"
 
-class PointLight : public Effect {
+class PointLight : public EffectImpl<PointLight> {
 public:
-    static inline const Type effectType = registerEffect<PointLight>();
     static void addTo(EffectShaderBuilder&);
     Resource<CubeMap> depthMap;
     Framebuffer framebuffers[6];

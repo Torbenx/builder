@@ -3,43 +3,43 @@
 #include "3d/Effect.hpp"
 #include "math/Vec4.hpp"
 
-class AmbientLight : public Effect {
+class AmbientLight : public EffectImpl<AmbientLight> {
 public:
-    static inline const Type effectType = registerEffect<AmbientLight>();
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
     AmbientLight(Vec3 color)
-        : Effect(effectType), color(color) { }
+        : color(color) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
     }
 };
 
-class UniformColor : public Effect {
+class UniformColor : public EffectImpl<UniformColor> {
 public:
-    static inline const Type effectType = registerEffect<UniformColor>();
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
     UniformColor(Vec3 color)
-        : Effect(effectType), color(color) { }
+        : color(color) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
     }
 };
 
-class TextureColor : public Effect {
+class TextureColor : public EffectImpl<TextureColor> {
 public:
-    static inline const Type effectType = registerEffect<TextureColor>();
     static void addTo(EffectShaderBuilder&);
 
     Texture texture;
-    VertexBuffer texCoords;
+    union {
+        VertexBuffer texCoords;
+        VertexBuffer vertexBuffers[1];
+    };
     TextureColor(Texture texture, VertexBuffer texCoords)
-        : Effect(effectType), texture(texture), texCoords(texCoords) { }
+        : texture(texture), texCoords(texCoords) { }
 
     virtual void applyTo(OrderedShader s) override {
         s.attribPointer(texCoords);

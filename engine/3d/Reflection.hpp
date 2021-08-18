@@ -5,9 +5,8 @@
 #include "GL/Framebuffer.hpp"
 #include "resource/Resource.hpp"
 
-class Reflection : public Effect, public Renderpass {
+class Reflection : public EffectImpl<Reflection>, public Renderpass {
 public:
-    static inline const Type effectType = registerEffect<Reflection>();
     static void addTo(EffectShaderBuilder&);
     Framebuffer framebuffer;
     Resource<Texture> texture;
