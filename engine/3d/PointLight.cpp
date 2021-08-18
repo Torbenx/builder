@@ -2,6 +2,9 @@
 #include "util/log.hpp"
 #include <cmath>
 
+template<>
+const Effect::Type EffectImpl<PointLight>::effectType = registerEffectType();
+
 PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _near, float _far)
     : depthMap(CubeMap::depth(width, height, Texture::DepthBits::D16))
     , passes { &framebuffers[0], &framebuffers[1], &framebuffers[2], &framebuffers[3], &framebuffers[4], &framebuffers[5] }

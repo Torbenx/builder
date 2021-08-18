@@ -8,8 +8,7 @@ public:
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
-    AmbientLight(Vec3 color)
-        : color(color) { }
+    AmbientLight(Vec3 color);
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -21,8 +20,7 @@ public:
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
-    UniformColor(Vec3 color)
-        : color(color) { }
+    UniformColor(Vec3 color);
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -35,11 +33,11 @@ public:
 
     Texture texture;
     union {
-        VertexBuffer texCoords;
-        VertexBuffer vertexBuffers[1];
+        const VertexBuffer texCoords;
+        const VertexBuffer vertexBuffers[1];
     };
-    TextureColor(Texture texture, VertexBuffer texCoords)
-        : texture(texture), texCoords(texCoords) { }
+
+    TextureColor(Texture texture, VertexBuffer texCoords);
 
     virtual void applyTo(OrderedShader s) override {
         s.attribPointer(texCoords);

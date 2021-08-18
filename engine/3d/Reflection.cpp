@@ -1,5 +1,8 @@
 #include "3d/Reflection.hpp"
 
+template<>
+const Effect::Type EffectImpl<Reflection>::effectType = registerEffectType();
+
 Reflection::Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor)
     : Renderpass(&framebuffer)
     , texture(Texture::color(width, height, Texture::Format::RGBA8888))

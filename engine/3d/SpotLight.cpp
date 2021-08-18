@@ -1,6 +1,9 @@
 #include "3d/SpotLight.hpp"
 #include "util/log.hpp"
 
+template<>
+const Effect::Type EffectImpl<SpotLight>::effectType = registerEffectType();
+
 SpotLight::SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3 hDirection, int width, int height, Vec3 color, float _near, float _far)
     : DepthRenderpass(&framebuffer)
     , depthMap(Texture::depth(width, height, Texture::DepthBits::D16))

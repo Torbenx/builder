@@ -60,34 +60,30 @@ private:
 
 namespace effect_impl {
 template<typename T>
-concept HasVertexBuffers = requires(T t) { std::is_same_v<decltype(t.vertexBuffers), VertexBuffer[sizeof(t.vertexBuffers) / sizeof(VertexBuffer)]>; };
+concept HasVertexBuffers = requires(T t) { std::is_same_v<decltype(t.vertexBuffers), const VertexBuffer[sizeof(t.vertexBuffers) / sizeof(VertexBuffer)]>; };
 }
 
 template<typename T>
 class EffectImpl : public Effect {
 public:
+    static const Type effectType;
+
     EffectImpl()
         : Effect(effectType) { }
 
-private:
-    static int_t vertexBufferCount() { return 0; }
-    static int_t vertexBufferOffset() { return 0; }
-    static int_t textureCount() { return 0; }
-    static int_t textureOffset() { return 0; }
-
-    static int_t vertexBufferCount() requires effect_impl::HasVertexBuffers<T> { return 1; }
-    static int_t vertexBufferOffset() requires effect_impl::HasVertexBuffers<T> { return 1; }
-
-    static Type registerEffectTypeImpl() {
-        return registerEffectType(&T::addTo,
-            { .vertexBufferOffset = vertexBufferOffset(),
-                .vertexBufferCount = vertexBufferCount(),
-                .textureOffset = textureOffset(),
-                .textureCount = textureCount() });
+    static Type registerEffectType() {
+        int_t vertexBufferCount = 0;
+        int_t vertexBufferOffset = 0;
+        if constexpr (effect_impl::HasVertexBuffers<T>) {
+            vertexBufferCount = sizeof(T::vertexBuffers) / sizeof(VertexBuffer);
+            vertexBufferOffset = offsetof(T, vertexBuffers);
+        }
+        return Effect::registerEffectType(&T::addTo,
+            {
+                .vertexBufferOffset = vertexBufferOffset,
+                .vertexBufferCount = vertexBufferCount
+            });
     }
-
-public:
-    static inline const Type effectType = registerEffectTypeImpl();
 };
 
 class EffectShaderBuilder : public ShaderBuilder {

@@ -1,5 +1,11 @@
 #include "3d/CommonEffects.hpp"
 
+template<>
+const Effect::Type EffectImpl<AmbientLight>::effectType = registerEffectType();
+
+AmbientLight::AmbientLight(Vec3 color)
+    : color(color) { }
+
 void AmbientLight::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string colorUniform = s.uniqueName("u_color");
@@ -7,12 +13,24 @@ void AmbientLight::addTo(EffectShaderBuilder& s) {
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << colorUniform << ";\n";
 }
 
+template<>
+const Effect::Type EffectImpl<UniformColor>::effectType = registerEffectType();
+
+UniformColor::UniformColor(Vec3 color)
+    : color(color) { }
+
 void UniformColor::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
     std::string colorUniform = s.uniqueName("u_color");
     s.addFragmentUniform("vec3", colorUniform);
     s.fMain << EffectShader::FRAGMENT_DIFFUSE_COLOR << " += " << colorUniform << ";\n";
 }
+
+template<>
+const Effect::Type EffectImpl<TextureColor>::effectType = registerEffectType();
+
+TextureColor::TextureColor(Texture texture, VertexBuffer texCoords)
+    : texture(texture), texCoords(texCoords) { }
 
 void TextureColor::addTo(EffectShaderBuilder& s) {
     s.beginEffect();
