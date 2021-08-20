@@ -11,6 +11,6 @@ public:
     Vec4 color;
     Resource<VertexBuffer> coords;
     TestComponent();
-    void draw(Framebuffer&);
-    void updateRect(ScreenMetrics&);
+    void draw(Framebuffer&) override;
+    void updateRect(ScreenMetrics&) override;
 };

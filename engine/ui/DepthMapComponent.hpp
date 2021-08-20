@@ -6,5 +6,5 @@ class DepthMapComponent : public TextureComponent{
     public:
         float farDepth;
         DepthMapComponent();
-        void doUniforms();
+        void doUniforms() override;
 };

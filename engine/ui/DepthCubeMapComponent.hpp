@@ -6,5 +6,5 @@ class DepthCubeMapComponent : public CubeMapComponent{
     public:
         float farDepth;
         DepthCubeMapComponent();
-        void doUniforms();
+        void doUniforms() override;
 };

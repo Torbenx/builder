@@ -20,10 +20,10 @@ public:
     };
 
     struct TypeData {
-        int_t vertexBufferOffset; // offset in bytes form Effect* to start of an array of VertexBuffer
-        int_t vertexBufferCount;
-        int_t textureOffset; // offset in bytes form Effect* to start of an array of Texture
-        int_t textureCount;
+        int_t vertexBufferOffset = 0; // offset in bytes form Effect* to start of an array of VertexBuffer
+        int_t vertexBufferCount = 0;
+        int_t textureOffset = 0; // offset in bytes form Effect* to start of an array of Texture
+        int_t textureCount = 0;
     };
 
     struct Handle {
@@ -59,8 +59,20 @@ private:
 };
 
 namespace effect_impl {
+
+template<typename T, typename ArrayType>
+struct ArraySize;
+
+template<typename T, size_t N>
+struct ArraySize<T, T[N]> {
+    static constexpr size_t n = N;
+};
+
 template<typename T>
-concept HasVertexBuffers = requires(T t) { std::is_same_v<decltype(t.vertexBuffers), const VertexBuffer[sizeof(t.vertexBuffers) / sizeof(VertexBuffer)]>; };
+concept HasVertexBuffers = ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n == ArraySize<const char* const, decltype(T::vertexBufferNames)>::n;
+
+template<typename T>
+concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n == ArraySize<const char* const, decltype(T::textureNames)>::n;
 }
 
 template<typename T>
@@ -72,17 +84,16 @@ public:
         : Effect(effectType) { }
 
     static Type registerEffectType() {
-        int_t vertexBufferCount = 0;
-        int_t vertexBufferOffset = 0;
+        Effect::TypeData data;
         if constexpr (effect_impl::HasVertexBuffers<T>) {
-            vertexBufferCount = sizeof(T::vertexBuffers) / sizeof(VertexBuffer);
-            vertexBufferOffset = offsetof(T, vertexBuffers);
+            data.vertexBufferCount = effect_impl::ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n;
+            data.vertexBufferOffset = offsetof(T, vertexBuffers);
         }
-        return Effect::registerEffectType(&T::addTo,
-            {
-                .vertexBufferOffset = vertexBufferOffset,
-                .vertexBufferCount = vertexBufferCount
-            });
+        if constexpr (effect_impl::HasTextures<T>) {
+            data.textureCount = effect_impl::ArraySize<const Texture, decltype(T::textures)>::n;
+            data.textureOffset = offsetof(T, textures);
+        }
+        return Effect::registerEffectType(&T::addTo, data);
     }
 };
 

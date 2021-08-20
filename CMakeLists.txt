@@ -114,7 +114,6 @@ include_directories(libs/vulkan/include)
 include_directories(libs/vk_mem_alloc)
 include_directories(engine)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-offsetof")
 set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(engine)

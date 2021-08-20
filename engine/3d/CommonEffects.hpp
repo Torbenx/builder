@@ -32,6 +32,7 @@ public:
     static void addTo(EffectShaderBuilder&);
 
     Texture texture;
+    static inline const char* const vertexBufferNames[] = { "texCoords" };
     union {
         const VertexBuffer texCoords;
         const VertexBuffer vertexBuffers[1];

@@ -12,10 +12,10 @@ class TextComponent : public TextureComponent{
         TypedSize textSize;
         bool noBreaks = false;
         TextComponent();
-        void draw(Framebuffer&);
-        void updateRect(ScreenMetrics&);
-        void updateContent(ScreenMetrics&);
-        TypedSizeXY getContentWidth();
-        TypedSizeXY getContentHeight();
+        void draw(Framebuffer&) override;
+        void updateRect(ScreenMetrics&) override;
+        void updateContent(ScreenMetrics&) override;
+        TypedSizeXY getContentWidth() override;
+        TypedSizeXY getContentHeight() override;
         ~TextComponent();
 };

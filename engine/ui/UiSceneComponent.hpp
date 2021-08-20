@@ -15,8 +15,8 @@ public:
     std::list<UiRendererClickable> clickables;
     UiSceneComponent();
     void makeClickable(UiComponent& comp, int id);
-    void updateRect(ScreenMetrics&);
-    void draw(Framebuffer&) { }
+    void updateRect(ScreenMetrics&) override;
+    void draw(Framebuffer&) override { }
     virtual void pointer(PointerEvent event);
     virtual void onClick([[maybe_unused]] int id) { }
 };
