@@ -22,6 +22,9 @@ public:
     Vec3 color;
     UniformColor(Vec3 color);
 
+    Property col;
+    static const BufferEntryInfo fragmentUniform[];
+
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
     }

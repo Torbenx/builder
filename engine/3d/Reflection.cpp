@@ -26,7 +26,6 @@ Mat4x4 Reflection::getReflectionMatrix() {
 }
 
 void Reflection::addTo(EffectShaderBuilder& s) {
-    s.beginEffect();
     std::string textureUniform = s.uniqueName("u_texture");
     std::string positionVarying = s.uniqueName("v_position");
     std::string factorUniform = s.uniqueName("u_factor");

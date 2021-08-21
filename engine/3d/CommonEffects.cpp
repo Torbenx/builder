@@ -7,11 +7,12 @@ AmbientLight::AmbientLight(Vec3 color)
     : color(color) { }
 
 void AmbientLight::addTo(EffectShaderBuilder& s) {
-    s.beginEffect();
     std::string colorUniform = s.uniqueName("u_color");
     s.addFragmentUniform("vec3", colorUniform);
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << colorUniform << ";\n";
 }
+
+const BufferEntryInfo UniformColor::fragmentUniform[] { { InstructureVariable<Effect, Property>(&UniformColor::col) } };
 
 template<>
 const Effect::Type EffectImpl<UniformColor>::effectType = registerEffectType();
@@ -20,7 +21,6 @@ UniformColor::UniformColor(Vec3 color)
     : color(color) { }
 
 void UniformColor::addTo(EffectShaderBuilder& s) {
-    s.beginEffect();
     std::string colorUniform = s.uniqueName("u_color");
     s.addFragmentUniform("vec3", colorUniform);
     s.fMain << EffectShader::FRAGMENT_DIFFUSE_COLOR << " += " << colorUniform << ";\n";
@@ -33,7 +33,6 @@ TextureColor::TextureColor(Texture texture, VertexBuffer texCoords)
     : texture(texture), texCoords(texCoords) { }
 
 void TextureColor::addTo(EffectShaderBuilder& s) {
-    s.beginEffect();
     std::string texPositionAttrib = s.uniqueName("a_texPosition");
     std::string textureUniform = s.uniqueName("u_texture");
     std::string texPositionVarying = s.uniqueName("v_texPosition");

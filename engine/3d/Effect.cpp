@@ -41,7 +41,7 @@ sid_t Effect::allocateEffectId(Effect::Type type) {
 Effect::Type Effect::registerEffectType(AddToFunc addTo, TypeData data) {
     static sid_t nextId = 0;
     VDUMP(nextId);
-    EXPECT(Math, data.vertexBufferCount, (int_t)0);
+    EXPECT(Default, data.fragmentUniform.size(), (int_t)0);
     functions[nextId] = addTo;
     typeData[nextId] = data;
     return { nextId++ };
@@ -101,9 +101,13 @@ Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>&
     }
     AttributeList attributes;
     EffectShaderBuilder builder(attributes);
+    std::vector<OrderedShaderState> slots;
     for (Effect::Handle effect : effects) {
+        builder.newContext();
+        slots.push_back(builder.orderedState());
         Effect::functions[effect.type.id](builder);
     }
     shaders[id].initialize(builder);
+    shaders[id].slots = std::move(slots);
     return Resource<id_t>(id, &*ptr);
 }

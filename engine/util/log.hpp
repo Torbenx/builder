@@ -11,6 +11,7 @@
 namespace Tag {
 struct Default {
     static constexpr char tag[] = "default";
+    static constexpr bool verifyEnabled = true;
 };
 }
 

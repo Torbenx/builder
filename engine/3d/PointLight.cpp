@@ -19,7 +19,6 @@ PointLight::PointLight(Vec3 position, int width, int height, Vec3 color, float _
 }
 
 void PointLight::addTo(EffectShaderBuilder& s) {
-    s.beginEffect();
     std::string textureUniform = s.uniqueName("u_depthMap");
     std::string colorUniform = s.uniqueName("u_color");
     std::string lightPosUniform = s.uniqueName("u_lightPos");

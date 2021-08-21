@@ -1,16 +1,21 @@
 #pragma once
 
 struct Property {
-    struct Representation {
-        sid_t id;
-    };
-    struct Destination {
-        unsigned int buffer : 14;
-        unsigned int offset : 18;
-    };
+    /*struct Destination {
+        uint32_t buffer;
+        uint32_t offset
+    };*/
     struct Instance {
-        Representation rep;
-        Destination dest;
+        uint32_t representation;
+        uint32_t buffer;
+        uint32_t offset;
     };
     std::vector<Instance> instances;
+};
+
+/* property, representation -> propertyIndex, representation, format */
+
+template<class T>
+struct PropertyHolder : T {
+
 };

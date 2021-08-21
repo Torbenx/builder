@@ -2,6 +2,8 @@
 
 #include "3d/Attribute.hpp"
 #include "GL/Shader.hpp"
+#include "animation/Property.hpp"
+#include "containers/ArrayView.hpp"
 #include "containers/IdAllocator.hpp"
 #include "resource/Resource.hpp"
 #include "util/Shaders.hpp"
@@ -10,6 +12,22 @@
 
 template<typename T>
 class EffectImpl;
+
+class Effect;
+
+struct BufferEntryInfo {
+    enum Type : uint64_t {
+        Scalar,
+        Vec2,
+        Vec3,
+        Vec4,
+        Mat4,
+    };
+    InstructureVariable<Effect, Property> property;
+    Type type;
+    uint64_t representation;
+    const char* name;
+};
 
 class Effect {
 public:
@@ -20,10 +38,10 @@ public:
     };
 
     struct TypeData {
-        int_t vertexBufferOffset = 0; // offset in bytes form Effect* to start of an array of VertexBuffer
-        int_t vertexBufferCount = 0;
-        int_t textureOffset = 0; // offset in bytes form Effect* to start of an array of Texture
-        int_t textureCount = 0;
+        InstructureArray<Effect, const VertexBuffer> vertexBuffers;
+        InstructureArray<Effect, const Texture> textures;
+        ArrayView<const BufferEntryInfo> fragmentUniform;
+        ArrayView<const BufferEntryInfo> vertexUniform;
     };
 
     struct Handle {
@@ -63,9 +81,9 @@ namespace effect_impl {
 template<typename T, typename ArrayType>
 struct ArraySize;
 
-template<typename T, size_t N>
+template<typename T, int_t N>
 struct ArraySize<T, T[N]> {
-    static constexpr size_t n = N;
+    static constexpr int_t n = N;
 };
 
 template<typename T>
@@ -73,6 +91,12 @@ concept HasVertexBuffers = ArraySize<const VertexBuffer, decltype(T::vertexBuffe
 
 template<typename T>
 concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n == ArraySize<const char* const, decltype(T::textureNames)>::n;
+
+template<typename T>
+concept HasFragmentUniform = ArraySize<const BufferEntryInfo, decltype(T::fragmentUniform)>::n >= 0;
+
+template<typename T>
+concept HasVertexUniform = ArraySize<const BufferEntryInfo, decltype(T::vertexUniform)>::n >= 0;
 }
 
 template<typename T>
@@ -86,12 +110,13 @@ public:
     static Type registerEffectType() {
         Effect::TypeData data;
         if constexpr (effect_impl::HasVertexBuffers<T>) {
-            data.vertexBufferCount = effect_impl::ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n;
-            data.vertexBufferOffset = offsetof(T, vertexBuffers);
+            data.vertexBuffers = &T::vertexBuffers;
         }
         if constexpr (effect_impl::HasTextures<T>) {
-            data.textureCount = effect_impl::ArraySize<const Texture, decltype(T::textures)>::n;
-            data.textureOffset = offsetof(T, textures);
+            data.textures = &T::textures;
+        }
+        if constexpr (effect_impl::HasFragmentUniform<T>) {
+            data.fragmentUniform = T::fragmentUniform;
         }
         return Effect::registerEffectType(&T::addTo, data);
     }
@@ -101,19 +126,12 @@ class EffectShaderBuilder : public ShaderBuilder {
 public:
     const AttributeList attributes;
     Shader::LocationHandle positionAttrib, normalAttrib, modelUniform, viewProjectionUniform;
-    std::vector<OrderedShaderState> slots;
 
     EffectShaderBuilder(AttributeList attributes);
-
-    void beginEffect() {
-        newContext();
-        slots.push_back(orderedState());
-    }
 
 private:
     std::string buildVertexSource() override;
     std::string buildFragmentSource() override;
-    using ShaderBuilder::newContext;
 };
 
 class EffectShader : public Shader {
@@ -140,7 +158,6 @@ public:
         normalAttrib = builder.normalAttrib;
         modelUniform = builder.modelUniform;
         viewProjectionUniform = builder.viewProjectionUniform;
-        slots = builder.slots;
     }
 
 private:

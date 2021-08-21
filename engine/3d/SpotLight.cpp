@@ -30,7 +30,6 @@ SpotLight::SpotLight(Vec3 position, Vec3 direction, float fov, int texWidth, int
     : SpotLight(position, direction, fov, fov, Vec3::findOrthogonal(direction), texWidth, texHeight, color, _near, _far) { }
 
 void SpotLight::addTo(EffectShaderBuilder& s) {
-    s.beginEffect();
     std::string mvpUniform = s.uniqueName("u_mvpMatrix");
     std::string textureUniform = s.uniqueName("u_depthMap");
     std::string colorUniform = s.uniqueName("u_color");
