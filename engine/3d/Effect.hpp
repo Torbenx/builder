@@ -15,23 +15,37 @@ class EffectImpl;
 
 class Effect;
 
-struct BufferEntryInfo {
-    enum Type : uint64_t {
-        Scalar,
-        Vec2,
-        Vec3,
-        Vec4,
-        Mat4,
+struct VertexBufferDescription {
+    const char* name;
+    Property::Format format;
+};
+
+struct TextureDescription {
+    enum SamplerType {
+        Sampler2D,
+        Sampler2DShadow,
+        SamplerCube,
+        SamplerCubeShadow,
     };
+    const char* name;
+    SamplerType type;
+};
+
+struct BufferEntryDescription {
+    template<class U, class P>
+    BufferEntryDescription(P U::*property, Property::Representation<P> representation, const char* name)
+        : property(property), format(representation.format), representation(representation.id), name(name) { }
+
     InstructureVariable<Effect, Property> property;
-    Type type;
-    uint64_t representation;
+    Property::Format format;
+    int_t representation;
     const char* name;
 };
 
 class Effect {
 public:
     static constexpr int_t MAX_TYPES = 128;
+    using AddToFunc = void (*)(EffectShaderBuilder&);
 
     struct Type {
         sid_t id;
@@ -39,9 +53,12 @@ public:
 
     struct TypeData {
         InstructureArray<Effect, const VertexBuffer> vertexBuffers;
+        ArrayView<const VertexBufferDescription> vertexBufferDescriptions;
         InstructureArray<Effect, const Texture> textures;
-        ArrayView<const BufferEntryInfo> fragmentUniform;
-        ArrayView<const BufferEntryInfo> vertexUniform;
+        ArrayView<const TextureDescription> textureDescriptions;
+        ArrayView<const BufferEntryDescription> fragmentUniform;
+        ArrayView<const BufferEntryDescription> vertexUniform;
+        AddToFunc addToFunction;
     };
 
     struct Handle {
@@ -62,11 +79,9 @@ public:
     Handle handle() { return m_handle; }
 
 private:
-    using AddToFunc = void (*)(EffectShaderBuilder&);
-    static AddToFunc functions[MAX_TYPES];
     static TypeData typeData[MAX_TYPES];
 
-    static Type registerEffectType(AddToFunc, TypeData);
+    static Type registerEffectType(TypeData);
     static sid_t allocateEffectId(Type);
 
     Handle m_handle;
@@ -87,16 +102,16 @@ struct ArraySize<T, T[N]> {
 };
 
 template<typename T>
-concept HasVertexBuffers = ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n == ArraySize<const char* const, decltype(T::vertexBufferNames)>::n;
+concept HasVertexBuffers = ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n == ArraySize<const VertexBufferDescription, decltype(T::vertexBufferDescriptions)>::n;
 
 template<typename T>
-concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n == ArraySize<const char* const, decltype(T::textureNames)>::n;
+concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n == ArraySize<const TextureDescription, decltype(T::textureDescriptions)>::n;
 
 template<typename T>
-concept HasFragmentUniform = ArraySize<const BufferEntryInfo, decltype(T::fragmentUniform)>::n >= 0;
+concept HasFragmentUniform = ArraySize<const BufferEntryDescription, decltype(T::fragmentUniform)>::n >= 0;
 
 template<typename T>
-concept HasVertexUniform = ArraySize<const BufferEntryInfo, decltype(T::vertexUniform)>::n >= 0;
+concept HasVertexUniform = ArraySize<const BufferEntryDescription, decltype(T::vertexUniform)>::n >= 0;
 }
 
 template<typename T>
@@ -111,14 +126,17 @@ public:
         Effect::TypeData data;
         if constexpr (effect_impl::HasVertexBuffers<T>) {
             data.vertexBuffers = &T::vertexBuffers;
+            data.vertexBufferDescriptions = T::vertexBufferDescriptions;
         }
         if constexpr (effect_impl::HasTextures<T>) {
             data.textures = &T::textures;
+            data.textureDescriptions = T::textureDescriptions;
         }
         if constexpr (effect_impl::HasFragmentUniform<T>) {
             data.fragmentUniform = T::fragmentUniform;
         }
-        return Effect::registerEffectType(&T::addTo, data);
+        data.addToFunction = &T::addTo;
+        return Effect::registerEffectType(data);
     }
 };
 

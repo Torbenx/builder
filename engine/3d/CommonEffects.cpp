@@ -1,5 +1,9 @@
 #include "3d/CommonEffects.hpp"
 
+// AmbientLight
+
+const BufferEntryDescription AmbientLight::fragmentUniform[] = { { &UniformColor::col, Color::vector, "u_color" } };
+
 template<>
 const Effect::Type EffectImpl<AmbientLight>::effectType = registerEffectType();
 
@@ -12,7 +16,9 @@ void AmbientLight::addTo(EffectShaderBuilder& s) {
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << colorUniform << ";\n";
 }
 
-const BufferEntryInfo UniformColor::fragmentUniform[] { { InstructureVariable<Effect, Property>(&UniformColor::col) } };
+// UniformColor
+
+const BufferEntryDescription UniformColor::fragmentUniform[] = { { &UniformColor::col, Color::vector, "u_color" } };
 
 template<>
 const Effect::Type EffectImpl<UniformColor>::effectType = registerEffectType();
@@ -25,6 +31,8 @@ void UniformColor::addTo(EffectShaderBuilder& s) {
     s.addFragmentUniform("vec3", colorUniform);
     s.fMain << EffectShader::FRAGMENT_DIFFUSE_COLOR << " += " << colorUniform << ";\n";
 }
+
+// TextureColor
 
 template<>
 const Effect::Type EffectImpl<TextureColor>::effectType = registerEffectType();

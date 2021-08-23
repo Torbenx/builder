@@ -1,6 +1,16 @@
 #pragma once
 
-struct Property {
+#include "containers/ArrayBuilder.hpp"
+
+class Property {
+public:
+    enum Format {
+        Scalar,
+        Vec2,
+        Vec3,
+        Vec4,
+        Mat4,
+    };
     /*struct Destination {
         uint32_t buffer;
         uint32_t offset
@@ -10,12 +20,22 @@ struct Property {
         uint32_t buffer;
         uint32_t offset;
     };
-    std::vector<Instance> instances;
-};
 
-/* property, representation -> propertyIndex, representation, format */
+    template<class P>
+    struct Representation {
+        Representation(Format format)
+            : format(format) {
+            static int_t nextId = 0;
+            id = nextId++;
+        }
+        Format format;
+        int_t id;
+    };
 
-template<class T>
-struct PropertyHolder : T {
+private:
+    struct Op {
 
+    };
+
+    ArrayBuilder<Op> ops;
 };

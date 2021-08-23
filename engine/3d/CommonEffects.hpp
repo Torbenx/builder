@@ -1,6 +1,7 @@
 #pragma once
 
 #include "3d/Effect.hpp"
+#include "animation/CommonProperties.hpp"
 #include "math/Vec4.hpp"
 
 class AmbientLight : public EffectImpl<AmbientLight> {
@@ -9,6 +10,9 @@ public:
 
     Vec3 color;
     AmbientLight(Vec3 color);
+
+    Color col;
+    static const BufferEntryDescription fragmentUniform[];
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -22,8 +26,8 @@ public:
     Vec3 color;
     UniformColor(Vec3 color);
 
-    Property col;
-    static const BufferEntryInfo fragmentUniform[];
+    Color col;
+    static const BufferEntryDescription fragmentUniform[];
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -34,8 +38,13 @@ class TextureColor : public EffectImpl<TextureColor> {
 public:
     static void addTo(EffectShaderBuilder&);
 
-    Texture texture;
-    static inline const char* const vertexBufferNames[] = { "texCoords" };
+    static inline const TextureDescription textureDescriptions[] = { { "u_texture", TextureDescription::SamplerType::Sampler2D } };
+    union {
+        const Texture texture;
+        const Texture textures[1];
+    };
+
+    static inline const VertexBufferDescription vertexBufferDescriptions[] = { { "a_texPosition", Property::Format::Vec2 } };
     union {
         const VertexBuffer texCoords;
         const VertexBuffer vertexBuffers[1];

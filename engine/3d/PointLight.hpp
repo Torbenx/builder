@@ -6,6 +6,7 @@
 class PointLight : public EffectImpl<PointLight> {
 public:
     static void addTo(EffectShaderBuilder&);
+    
     Resource<CubeMap> depthMap;
     Framebuffer framebuffers[6];
     DepthRenderpass passes[6];
@@ -13,6 +14,7 @@ public:
     Vec3 color;
     float m_near, m_far;
     int width, height;
+
     PointLight(Vec3 position, int width, int height, Vec3 color, float near, float far);
     virtual void applyTo(OrderedShader) override;
     void addObject(id_t);
