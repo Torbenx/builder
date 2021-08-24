@@ -8,6 +8,7 @@
 #include <EGL/egl.h>
 #include <android/choreographer.h>
 #include <android/input.h>
+#include <android/log.h>
 
 #define ENGINE_IDENT_CMD 1
 #define ENGINE_IDENT_INPUT 2

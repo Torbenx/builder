@@ -1,6 +1,8 @@
 #pragma once
 
 #include "util/types.hpp"
+#include <concepts>
+#include <type_traits>
 
 template<typename T>
 class ArrayView {
@@ -27,7 +29,7 @@ template<class U, typename T>
 class InstructureVariable {
 public:
     template<class V, typename S>
-    InstructureVariable(S V::*member) requires std::derived_from<V, U> && std::is_convertible_v<S*, T*> {
+    InstructureVariable(S V::*member) requires std::is_convertible_v<V*, U*> && std::is_convertible_v<S*, T*> {
         V* v = nullptr;
         U* u = (U*)v;
         S* s = &(v->*member);
@@ -54,7 +56,7 @@ public:
     InstructureArray() { }
 
     template<class V, int_t N>
-    InstructureArray(T (V::*member)[N]) requires std::derived_from<V, U>
+    InstructureArray(T (V::*member)[N]) requires std::is_convertible_v<V*, U*>
         : m_size(N) {
         V* v = nullptr;
         U* u = (U*)v;

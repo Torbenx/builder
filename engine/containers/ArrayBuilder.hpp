@@ -26,7 +26,7 @@ private:
     std::vector<T> queue;
 };
 
-template<typename T, int_t>
+template<typename T, int_t N>
 class AtomicArrayBuilder {
 public:
     void pushBack(T item) {

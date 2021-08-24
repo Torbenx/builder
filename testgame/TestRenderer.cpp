@@ -19,6 +19,7 @@
 #include <util/log.hpp>
 #include <util/target.hpp>
 #include <util/time.hpp>
+#include <events/EventLogic.hpp>
 
 #ifdef PLATFORM_WINDOWS
 #include <windows/fullscreen.hpp>
@@ -160,6 +161,14 @@ TestRenderer<G>::TestRenderer()
     pointLight.draw(objects);
     spotLight.draw(objects);
     glDisable(GL_DEPTH_TEST);
+
+    event_logic::InitialHolder<__COUNTER__, int> a = 1;
+    event_logic::InitialHolder<__COUNTER__, int> b = 2;
+    event_logic::InitialHolder<__COUNTER__, int> c = 3;
+    auto r = (a && c) || (b && c);
+    //event_logic::Result<c> r { 0 };
+    auto tuple2 = event_logic::deduplicate(r.tuple);
+    log("a={}, b={}, c={}, size={}, size_dedup={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size<decltype(r.tuple)>(), std::tuple_size<decltype(tuple2)>());
 }
 
 template<Gapi G>
