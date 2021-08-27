@@ -2,7 +2,7 @@
 
 #include "3d/Attribute.hpp"
 #include "GL/Shader.hpp"
-#include "animation/Property.hpp"
+#include "GL/std140.hpp"
 #include "containers/ArrayView.hpp"
 #include "containers/IdAllocator.hpp"
 #include "resource/Resource.hpp"
@@ -16,8 +16,14 @@ class EffectImpl;
 class Effect;
 
 struct VertexBufferDescription {
+    enum Format {
+        Scalar,
+        Vec2,
+        Vec3,
+        Vec4,
+    };
     const char* name;
-    Property::Format format;
+    Format format;
 };
 
 struct TextureDescription {
@@ -31,15 +37,13 @@ struct TextureDescription {
     SamplerType type;
 };
 
-struct BufferEntryDescription {
-    template<class U, class P>
-    BufferEntryDescription(P U::*property, Property::Representation<P> representation, const char* name)
-        : property(property), format(representation.format), representation(representation.id), name(name) { }
+struct UniformBufferDescription {
+    int_t size = 0;
+};
 
-    InstructureVariable<Effect, Property> property;
-    Property::Format format;
-    int_t representation;
-    const char* name;
+struct UniformBufferDestination {
+    uint16_t bufferId;
+    uint16_t offset; // in 16 bytes
 };
 
 class Effect {
@@ -54,10 +58,16 @@ public:
     struct TypeData {
         InstructureArray<Effect, const VertexBuffer> vertexBuffers;
         ArrayView<const VertexBufferDescription> vertexBufferDescriptions;
+
         InstructureArray<Effect, const Texture> textures;
         ArrayView<const TextureDescription> textureDescriptions;
-        ArrayView<const BufferEntryDescription> fragmentUniform;
-        ArrayView<const BufferEntryDescription> vertexUniform;
+
+        UniformBufferDescription fragmentUniform;
+        InstructureVariable<Effect, UniformBufferDestination> fragmentUniformDestination;
+
+        UniformBufferDescription vertexUniform;
+        InstructureVariable<Effect, UniformBufferDestination> vertexUniformDestination;
+
         AddToFunc addToFunction;
     };
 
@@ -108,10 +118,10 @@ template<typename T>
 concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n == ArraySize<const TextureDescription, decltype(T::textureDescriptions)>::n;
 
 template<typename T>
-concept HasFragmentUniform = ArraySize<const BufferEntryDescription, decltype(T::fragmentUniform)>::n >= 0;
+concept HasFragmentUniform = std140::IsStruct<typename T::FragmentUniformBuffer> && std::is_same_v<decltype(T::fragmentUniformDestination), UniformBufferDestination>;
 
 template<typename T>
-concept HasVertexUniform = ArraySize<const BufferEntryDescription, decltype(T::vertexUniform)>::n >= 0;
+concept HasVertexUniform = std140::IsStruct<typename T::VertexUniformBuffer> && std::is_same_v<decltype(T::vertexUniformDestination), UniformBufferDestination>;
 }
 
 template<typename T>
@@ -133,7 +143,12 @@ public:
             data.textureDescriptions = T::textureDescriptions;
         }
         if constexpr (effect_impl::HasFragmentUniform<T>) {
-            data.fragmentUniform = T::fragmentUniform;
+            data.fragmentUniform = { sizeof(typename T::FragmentUniformBuffer) };
+            data.fragmentUniformDestination = &T::fragmentUniformDestination;
+        }
+        if constexpr (effect_impl::HasVertexUniform<T>) {
+            data.vertexUniform = { sizeof(typename T::VertexUniformBuffer) };
+            data.vertexUniformDestination = &T::vertexUniformDestination;
         }
         data.addToFunction = &T::addTo;
         return Effect::registerEffectType(data);

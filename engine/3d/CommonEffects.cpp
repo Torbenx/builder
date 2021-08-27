@@ -2,8 +2,6 @@
 
 // AmbientLight
 
-const BufferEntryDescription AmbientLight::fragmentUniform[] = { { &UniformColor::col, Color::vector, "u_color" } };
-
 template<>
 const Effect::Type EffectImpl<AmbientLight>::effectType = registerEffectType();
 
@@ -17,8 +15,6 @@ void AmbientLight::addTo(EffectShaderBuilder& s) {
 }
 
 // UniformColor
-
-const BufferEntryDescription UniformColor::fragmentUniform[] = { { &UniformColor::col, Color::vector, "u_color" } };
 
 template<>
 const Effect::Type EffectImpl<UniformColor>::effectType = registerEffectType();

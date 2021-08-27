@@ -40,7 +40,7 @@ void gl_debug_callback(
     [[maybe_unused]] GLsizei length,
     [[maybe_unused]] const GLchar* message,
     [[maybe_unused]] const void* userParam) {
-    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+    //if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
         log<Tag::GL>("[{}] glDebug: {}", severity, message);
 }
 

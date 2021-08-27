@@ -4,7 +4,7 @@
 
 namespace std140 {
 
-struct vec2 : Vec2 {
+struct alignas(8) vec2 : Vec2 {
     vec2()
         : Vec2() { }
     vec2(float x, float y)
@@ -26,7 +26,7 @@ struct alignas(16) vec3 : Vec3 {
         : Vec3(v) { }
 };
 
-struct vec4 : Vec4 {
+struct alignas(16) vec4 : Vec4 {
     vec4()
         : Vec4() { }
     vec4(float x, float y, float z, float w)
@@ -34,5 +34,8 @@ struct vec4 : Vec4 {
     vec4(Vec4 v)
         : Vec4(v) { }
 };
+
+template<typename T>
+concept IsStruct = std::is_standard_layout_v<T> && alignof(T) >= 16 && sizeof(T) % 16 == 0;
 
 }

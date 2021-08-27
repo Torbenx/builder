@@ -1,18 +1,19 @@
 #pragma once
 
 #include "3d/Effect.hpp"
-#include "animation/CommonProperties.hpp"
+#include "GL/std140.hpp"
 #include "math/Vec4.hpp"
 
 class AmbientLight : public EffectImpl<AmbientLight> {
 public:
+    struct FragmentUniformBuffer {
+        std140::vec3 color;
+    };
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
+    UniformBufferDestination fragmentUniformDestination;
     AmbientLight(Vec3 color);
-
-    Color col;
-    static const BufferEntryDescription fragmentUniform[];
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -21,13 +22,14 @@ public:
 
 class UniformColor : public EffectImpl<UniformColor> {
 public:
+    struct FragmentUniformBuffer {
+        std140::vec3 color;
+    };
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
+    UniformBufferDestination fragmentUniformDestination;
     UniformColor(Vec3 color);
-
-    Color col;
-    static const BufferEntryDescription fragmentUniform[];
 
     virtual void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
@@ -44,7 +46,7 @@ public:
         const Texture textures[1];
     };
 
-    static inline const VertexBufferDescription vertexBufferDescriptions[] = { { "a_texPosition", Property::Format::Vec2 } };
+    static inline const VertexBufferDescription vertexBufferDescriptions[] = { { "a_texPosition", VertexBufferDescription::Format::Vec2 } };
     union {
         const VertexBuffer texCoords;
         const VertexBuffer vertexBuffers[1];

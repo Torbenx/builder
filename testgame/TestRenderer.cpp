@@ -58,7 +58,7 @@ TestRenderer<G>::TestRenderer()
     f2 = VertexBuffer::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
     f3 = VertexBuffer::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
     f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
-    f5.setEternal(VertexBuffer::wrap(obj5_coords));
+    f5 = VertexBuffer::upload(obj5_coords, WriteFrequency::Often);
     fNormal = VertexBuffer::upload({ up, up, up, up });
 
     id_t id1 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4) });
@@ -384,6 +384,7 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
+    f5->update(obj5_coords);
 
     renderpass.viewProjectionMatrix = projection * view;
     reflection.updateViewProjectionMatrix(renderpass.viewProjectionMatrix);

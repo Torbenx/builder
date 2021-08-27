@@ -28,6 +28,8 @@ private:
 template<class U, typename T>
 class InstructureVariable {
 public:
+    InstructureVariable() { }
+
     template<class V, typename S>
     InstructureVariable(S V::*member) requires std::is_convertible_v<V*, U*> && std::is_convertible_v<S*, T*> {
         V* v = nullptr;
@@ -47,7 +49,7 @@ public:
     }
 
 private:
-    int_t m_offset;
+    int_t m_offset = 0;
 };
 
 template<class U, typename T>
