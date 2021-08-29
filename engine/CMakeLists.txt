@@ -24,8 +24,10 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         "android/android_jni.cpp"
         "android/text.cpp"
         "android/keycodes.cpp"
+        "android/glwrapper.c"
     )
     set(platform_libs android log EGL GLESv2)
+    set_source_files_properties("android/glwrapper.c" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
 
 else()
     message(FATAL_ERROR "Unsupported system: " ${CMAKE_SYSTEM_NAME})

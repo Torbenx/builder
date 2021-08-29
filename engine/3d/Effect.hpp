@@ -118,10 +118,10 @@ template<typename T>
 concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n == ArraySize<const TextureDescription, decltype(T::textureDescriptions)>::n;
 
 template<typename T>
-concept HasFragmentUniform = std140::IsStruct<typename T::FragmentUniformBuffer> && std::is_same_v<decltype(T::fragmentUniformDestination), UniformBufferDestination>;
+concept HasFragmentUniform = std140::Struct<typename T::FragmentUniformBuffer> && std::is_same_v<decltype(T::fragmentUniformDestination), UniformBufferDestination>;
 
 template<typename T>
-concept HasVertexUniform = std140::IsStruct<typename T::VertexUniformBuffer> && std::is_same_v<decltype(T::vertexUniformDestination), UniformBufferDestination>;
+concept HasVertexUniform = std140::Struct<typename T::VertexUniformBuffer> && std::is_same_v<decltype(T::vertexUniformDestination), UniformBufferDestination>;
 }
 
 template<typename T>

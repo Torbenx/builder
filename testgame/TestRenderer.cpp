@@ -149,7 +149,7 @@ TestRenderer<G>::TestRenderer()
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     Effect* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
 
-    for (int_t i = -5; i <= 5; i++) {
+    for (int_t i = -0; i <= 0; i++) {
         id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
         renderpass.addObject(id, { textureEffect->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
         reflection.addObject(id, { textureEffect->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });

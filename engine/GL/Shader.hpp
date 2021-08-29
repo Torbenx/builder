@@ -19,6 +19,12 @@ struct OrderedShaderState {
     GLuint textureSlot = 0;
 };
 
+struct UniformBuffer {
+    GBuffer buffer;
+    int_t offset;
+    int_t size;
+};
+
 class Shader {
 public:
     struct LocationHandle {

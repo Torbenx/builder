@@ -6,6 +6,7 @@
 #include "math/Vec3.hpp"
 #include "math/Vec4.hpp"
 #include "util/log.hpp"
+#include "util/types.hpp"
 #include <array>
 #include <cstring>
 #include <stdint.h>
@@ -13,6 +14,53 @@
 enum WriteFrequency : GLenum {
     Normal = GL_STATIC_DRAW,
     Often = GL_DYNAMIC_DRAW,
+};
+
+class GBuffer {
+public:
+    void initializeStatic(int_t size) { initialize(nullptr, size, 0); }
+    void initializeWriteOnly(int_t size) { initialize(nullptr, size, GL_MAP_WRITE_BIT); }
+    void initializeReadOnly(int_t size) { initialize(nullptr, size, GL_MAP_READ_BIT); }
+    void initializeReadWrite(int_t size) { initialize(nullptr, size, GL_MAP_WRITE_BIT | GL_MAP_READ_BIT); }
+    void initialize(int_t size, bool read, bool write) { initialize(nullptr, size, (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0)); }
+    void initializeStatic(void* data, int_t size) { initialize(data, size, 0); }
+    void initializeWriteOnly(void* data, int_t size) { initialize(data, size, GL_MAP_WRITE_BIT); }
+    void initializeReadOnly(void* data, int_t size) { initialize(data, size, GL_MAP_READ_BIT); }
+    void initializeReadWrite(void* data, int_t size) { initialize(data, size, GL_MAP_WRITE_BIT | GL_MAP_READ_BIT); }
+    void initialize(void* data, int_t size, bool read, bool write) { initialize(data, size, (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0)); }
+
+    void* mapReadable(int_t offset, int_t size) const { return map(offset, size, GL_MAP_READ_BIT); }
+    void* mapWritable(int_t offset, int_t size) const { return map(offset, size, GL_MAP_WRITE_BIT); }
+    void* mapReadWritable(int_t offset, int_t size) const { return map(offset, size, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT); }
+    void* map(int_t offset, int_t size, bool read, bool write) const { return map(offset, size, (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0)); }
+
+    void unmap() const {
+        glBindBuffer(TEMP_BUFFER_TARGET, glId);
+        glUnmapBuffer(TEMP_BUFFER_TARGET);
+    }
+
+    void release() {
+        glDeleteBuffers(1, &glId);
+        glId = 0;
+    }
+
+    GLuint glId = 0;
+
+private:
+    static constexpr GLenum TEMP_BUFFER_TARGET = GL_COPY_WRITE_BUFFER;
+
+    void initialize(void* data, int_t size, GLbitfield flags) {
+        if (flags != 0) {
+            flags |= GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+        }
+        glBindBuffer(TEMP_BUFFER_TARGET, glId);
+        glBufferStorage(TEMP_BUFFER_TARGET, size, data, flags);
+    }
+
+    void* map(int_t offset, int_t size, GLbitfield flags) const {
+        glBindBuffer(TEMP_BUFFER_TARGET, glId);
+        return glMapBufferRange(TEMP_BUFFER_TARGET, offset, size, flags | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    }
 };
 
 template<typename BaseType>

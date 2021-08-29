@@ -1,5 +1,6 @@
 #include "Renderer.hpp"
 #include "android/engine.hpp"
+#include "android/glwrapper.h"
 #include "util/log.hpp"
 #include <jni.h>
 #include <unistd.h>
@@ -95,6 +96,7 @@ void android_runThread(){
                             context = eglCreateContext(display, config, EGL_NO_CONTEXT, context_attrib_list);
                             CHECK_EGL(context, EGL_NO_CONTEXT, "eglCreateContext");
                             CHECK_EGL_BOOL(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context), "eglMakeCurrent (init)");
+                            glwrapper_init();
                             renderer = createFunctions.createRenderer_OpenGL();
                             break;
                         }
