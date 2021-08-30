@@ -26,7 +26,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         "android/keycodes.cpp"
         "android/glwrapper.c"
     )
-    set(platform_libs android log EGL GLESv2)
+    set(platform_libs android log EGL GLESv3)
     set_source_files_properties("android/glwrapper.c" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
 
 else()

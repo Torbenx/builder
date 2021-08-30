@@ -5,20 +5,23 @@
 
 #define GET_UI_BUILDER(comp) scene->layout(comp)
 
-UiScene::UiScene(){
+UiScene::UiScene() {
     solver.fixed = new float[4];
     solver.fixedCount = 4;
     solver.fixed_to_eqns.resize(4);
 }
 
-UiScene::~UiScene(){
+UiScene::~UiScene() {
+    for (auto* comp : components) {
+        comp->detach(allocator);
+    }
     delete solver.fixed;
 }
 
-UiSceneBuilder UiScene::layout(UiComponent* comp){
-    if(comp){
+UiSceneBuilder UiScene::layout(UiComponent* comp) {
+    if (comp) {
         auto where = std::find(components.begin(), components.end(), comp);
-        if(where == components.end()){
+        if (where == components.end()) {
             comp->base = solver.varCount;
             solver.varCount += 4;
             solver.vars_to_eqns.resize(solver.varCount);
@@ -31,11 +34,11 @@ UiSceneBuilder UiScene::layout(UiComponent* comp){
     return builder;
 }
 
-void UiScene::setParent(Rect rect){
+void UiScene::setParent(Rect rect) {
     this->parent = rect;
 }
 
-void UiScene::build(){
+void UiScene::build() {
 
     solver.fixed[UI_VAR_TOP] = parent.top;
     solver.fixed[UI_VAR_BOTTOM] = parent.bottom;
@@ -45,95 +48,96 @@ void UiScene::build(){
     solver.metrics = metrics;
     solver.solve();
 
-    for(auto it=components.begin();it!=components.end();it++){
+    for (auto* comp : components) {
         Rect rect = Rect::bltr(
-            solver.getSolution((*it)->base+UI_VAR_BOTTOM),
-            solver.getSolution((*it)->base+UI_VAR_LEFT),
-            solver.getSolution((*it)->base+UI_VAR_TOP),
-            solver.getSolution((*it)->base+UI_VAR_RIGHT)
-        );
-        (*it)->rect = rect;
-        (*it)->updateRect(metrics);
+            solver.getSolution(comp->base + UI_VAR_BOTTOM),
+            solver.getSolution(comp->base + UI_VAR_LEFT),
+            solver.getSolution(comp->base + UI_VAR_TOP),
+            solver.getSolution(comp->base + UI_VAR_RIGHT));
+        comp->rect = rect;
+        comp->updateRect(metrics, allocator);
     }
 
     solver.freeSolution();
 }
 
-void UiScene::clear(){
+void UiScene::clear() {
+    for (auto* comp : components) {
+        comp->detach(allocator);
+    }
     solver.clear();
     components.clear();
 }
 
-UiSceneBuilder& UiSceneBuilder::above(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::above(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(1, bottom(), -1, GET_UI_BUILDER(other).top(), padding.asYSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::below(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::below(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(-1, top(), 1, GET_UI_BUILDER(other).bottom(), padding.asYSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::toLeftOf(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::toLeftOf(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(-1, right(), 1, GET_UI_BUILDER(other).left(), padding.asXSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::toRightOf(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::toRightOf(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(1, left(), -1, GET_UI_BUILDER(other).right(), padding.asXSize().lazy());
     return *this;
 }
 
-
-UiSceneBuilder& UiSceneBuilder::alignTop(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::alignTop(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(-1, top(), 1, GET_UI_BUILDER(other).top(), padding.asYSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::alignBottom(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::alignBottom(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(1, bottom(), -1, GET_UI_BUILDER(other).bottom(), padding.asYSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::alignLeft(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::alignLeft(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(1, left(), -1, GET_UI_BUILDER(other).left(), padding.asXSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::alignRight(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::alignRight(UiComponent* other, TypedSize padding) {
     scene->solver.addEquation(-1, right(), 1, GET_UI_BUILDER(other).right(), padding.asXSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::alignHorizontal(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::alignHorizontal(UiComponent* other, TypedSize padding) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     scene->solver.addEquation(1, left(), -1, ob.left(), padding.asXSize().lazy());
     scene->solver.addEquation(-1, right(), 1, ob.right(), padding.asXSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::alignHorizontal(UiComponent* other, TypedSize paddingLeft, TypedSize paddingRight){
+UiSceneBuilder& UiSceneBuilder::alignHorizontal(UiComponent* other, TypedSize paddingLeft, TypedSize paddingRight) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     scene->solver.addEquation(1, left(), -1, ob.left(), paddingLeft.asXSize().lazy());
     scene->solver.addEquation(-1, right(), 1, ob.right(), paddingRight.asXSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::alignVertical(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::alignVertical(UiComponent* other, TypedSize padding) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     scene->solver.addEquation(-1, top(), 1, ob.top(), padding.asYSize().lazy());
     scene->solver.addEquation(1, bottom(), -1, ob.bottom(), padding.asYSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::alignVertical(UiComponent* other, TypedSize paddingTop, TypedSize paddingBottom){
+UiSceneBuilder& UiSceneBuilder::alignVertical(UiComponent* other, TypedSize paddingTop, TypedSize paddingBottom) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     scene->solver.addEquation(-1, top(), 1, ob.top(), paddingTop.asYSize().lazy());
     scene->solver.addEquation(1, bottom(), -1, ob.bottom(), paddingBottom.asYSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::align(UiComponent* other, TypedSize padding){
+UiSceneBuilder& UiSceneBuilder::align(UiComponent* other, TypedSize padding) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     scene->solver.addEquation(-1, top(), 1, ob.top(), padding.asYSize().lazy());
     scene->solver.addEquation(1, bottom(), -1, ob.bottom(), padding.asYSize().lazy());
@@ -142,7 +146,7 @@ UiSceneBuilder& UiSceneBuilder::align(UiComponent* other, TypedSize padding){
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::align(UiComponent* other, TypedSize paddingTop, TypedSize paddingLeft, TypedSize paddingBottom, TypedSize paddingRight){
+UiSceneBuilder& UiSceneBuilder::align(UiComponent* other, TypedSize paddingTop, TypedSize paddingLeft, TypedSize paddingBottom, TypedSize paddingRight) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     scene->solver.addEquation(-1, top(), 1, ob.top(), paddingTop.asYSize().lazy());
     scene->solver.addEquation(1, bottom(), -1, ob.bottom(), paddingBottom.asYSize().lazy());
@@ -151,17 +155,16 @@ UiSceneBuilder& UiSceneBuilder::align(UiComponent* other, TypedSize paddingTop, 
     return *this;
 }
 
-
-UiSceneBuilder& UiSceneBuilder::centerHorizontal(UiComponent* other, float fraction){
+UiSceneBuilder& UiSceneBuilder::centerHorizontal(UiComponent* other, float fraction) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     UiGeneralEquation eq;
     eq.termCount = 4;
     eq.terms = new UiEquationTerm[eq.termCount];
-    eq.terms[0].factor = -(1.0f-fraction);
+    eq.terms[0].factor = -(1.0f - fraction);
     eq.terms[0].var = ob.left();
     eq.terms[1].factor = -fraction;
     eq.terms[1].var = ob.right();
-    eq.terms[2].factor = 1.0f-fraction;
+    eq.terms[2].factor = 1.0f - fraction;
     eq.terms[2].var = left();
     eq.terms[3].factor = fraction;
     eq.terms[3].var = right();
@@ -175,18 +178,18 @@ UiSceneBuilder& UiSceneBuilder::centerHorizontal(UiComponent* other, float fract
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::centerVertical(UiComponent* other, float fraction){
+UiSceneBuilder& UiSceneBuilder::centerVertical(UiComponent* other, float fraction) {
     UiSceneBuilder ob = GET_UI_BUILDER(other);
     UiGeneralEquation eq;
     eq.termCount = 4;
     eq.terms = new UiEquationTerm[eq.termCount];
     eq.terms[0].factor = -fraction;
     eq.terms[0].var = ob.top();
-    eq.terms[1].factor = -(1.0f-fraction);
+    eq.terms[1].factor = -(1.0f - fraction);
     eq.terms[1].var = ob.bottom();
     eq.terms[2].factor = fraction;
     eq.terms[2].var = top();
-    eq.terms[3].factor = 1.0f-fraction;
+    eq.terms[3].factor = 1.0f - fraction;
     eq.terms[3].var = bottom();
     eq.rhs = TypedSize::zero.asYSize().lazy();
     ui_eqn_t eqId = scene->solver.generalEquations.size() | UI_EQN_NOT_SIMPLE_BIT;
@@ -198,29 +201,27 @@ UiSceneBuilder& UiSceneBuilder::centerVertical(UiComponent* other, float fractio
     return *this;
 }
 
-
-UiSceneBuilder& UiSceneBuilder::width(TypedSize width){
+UiSceneBuilder& UiSceneBuilder::width(TypedSize width) {
     scene->solver.addEquation(1, right(), -1, left(), width.asXSize().lazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::height(TypedSize height){
+UiSceneBuilder& UiSceneBuilder::height(TypedSize height) {
     scene->solver.addEquation(1, top(), -1, bottom(), height.asYSize().lazy());
     return *this;
 }
 
-
-UiSceneBuilder& UiSceneBuilder::wrapContentWidth(){
+UiSceneBuilder& UiSceneBuilder::wrapContentWidth() {
     scene->solver.addEquation(1, right(), -1, left(), comp->getContentWidthLazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::wrapContentHeight(){
+UiSceneBuilder& UiSceneBuilder::wrapContentHeight() {
     scene->solver.addEquation(1, top(), -1, bottom(), comp->getContentHeightLazy());
     return *this;
 }
 
-UiSceneBuilder& UiSceneBuilder::wrapContent(){
+UiSceneBuilder& UiSceneBuilder::wrapContent() {
     wrapContentWidth();
     wrapContentHeight();
     return *this;

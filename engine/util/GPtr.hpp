@@ -1,13 +1,6 @@
 #pragma once
 
-#include "GL/std140.hpp"
 #include "GL/Shader.hpp"
-
-struct GBufferCollection {
-    GBuffer buffer(uint8_t bufferId) {
-        return GBuffer { bufferId };
-    }
-};
 
 struct GPtr {
     uint32_t bufferId : 8 = 0;
@@ -16,40 +9,48 @@ struct GPtr {
 
 class GAllocator {
 public:
-    void* allocateStatic(GPtr* ptr, int_t size) {
-        GBuffer buffer;
+    void* staticData(GPtr* ptr, int_t size) {
+        GBuffer buffer { ptr->bufferId };
+        if (buffer.glId != 0)
+            buffer.release();
         buffer.initializeWriteOnly(size);
-        ptr.bufferId = buffer.glId;
-        ptr.offset = 0;
-        return buffer.mapWritable();
+        ptr->bufferId = buffer.glId;
+        ptr->offset = 0;
+        return buffer.mapWritable(0, size);
     }
 
-    void allocateDynamic(GPtr* ptr, int_t size) {
+    void dynamicData(GPtr*, int_t) {
 
     }
 
-    void free(GPtr ptr) {
-        GBuffer buffer { ptr.bufferId };
+    GBuffer buffer(uint8_t bufferId) {
+        return GBuffer { bufferId };
+    }
+
+    void free(GPtr* ptr) {
+        GBuffer buffer { ptr->bufferId };
         buffer.unmap();
         buffer.release();
+        ptr->bufferId = 0;
+        ptr->offset = 0;
     }
 };
 
-template<std140::Struct T>
-class GWritePtr {
+template<typename T>
+class StaticGData {
 public:
     GPtr ptr;
 
-    UniformBuffer operator()(GBufferCollection& buffers) {
-        return { buffers.buffer(ptr.id), ptr.offset * 16, sizeof(T) };
+    GBuffer operator()(GAllocator& allocator) {
+        return allocator.buffer(ptr.bufferId);
     }
 
-    T& operator[](GAllocator& allocator) {
-        T* r = (T*)allocator.allocateStatic(&ptr, sizeof(T));
+    T& update(GAllocator& allocator) {
+        T* r = (T*)allocator.staticData(&ptr, sizeof(T));
         return *r;
     }
 
     void release(GAllocator& allocator) {
-        allocator.free(ptr);
+        allocator.free(&ptr);
     }
 };

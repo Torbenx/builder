@@ -11,8 +11,8 @@ public:
     Resource<VertexBuffer> coords;
     Resource<VertexBuffer> texCoords;
     CubeMapComponent(bool createShader = true);
-    void draw(Framebuffer&) override;
-    void updateRect(ScreenMetrics&) override;
+    void draw(Framebuffer&, GAllocator&) override;
+    void updateRect(ScreenMetrics&, GAllocator&) override;
     virtual void doUniforms() { }
     virtual void positiveX(Rect rect);
     virtual void negativeX(Rect rect);

@@ -14,6 +14,7 @@ class UiSceneBuilder;
 class UiScene{
     public:
         ScreenMetrics metrics;
+        GAllocator allocator;
         Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
         std::vector<UiComponent*> components;
         UiSolver solver;

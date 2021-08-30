@@ -257,6 +257,11 @@ void Shader::attribPointer(Shader::LocationHandle attrib, int stride, const Vert
     glVertexAttribPointer(getAndEnableAttrib(attrib), a.elementSize(), GL_FLOAT, GL_FALSE, stride, a.data());
 }
 
+void Shader::attribPointer(LocationHandle attrib, GBuffer buffer) const {
+    buffer.bind(GL_ARRAY_BUFFER);
+    glVertexAttribPointer(getAndEnableAttrib(attrib), 2, GL_FLOAT, GL_FALSE, 0, 0);
+}
+
 void Shader::uniformTexture(Shader::LocationHandle uniform, const Texture& u, GLuint slot) const {
     glActiveTexture(GL_TEXTURE0 + slot);
     u.bind();

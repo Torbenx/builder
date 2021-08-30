@@ -10,15 +10,14 @@ class FileExplorer : public UiSceneComponent{
     public:
         std::vector<TextComponent*> fileNameComps;
         bool hasMetrics = false;
-        ScreenMetrics metrics;
         std::string path;
         void *renderer;
         TestComponent background;
 
         FileExplorer(void *renderer);
         void setPath(std::string path);
-        void updateRect(ScreenMetrics&);
-        void onClick(int id);
-        void draw(Framebuffer&);
+        void updateRect(ScreenMetrics&, GAllocator&) override;
+        void onClick(int id) override;
+        void draw(Framebuffer&, GAllocator&) override;
         ~FileExplorer();
 };

@@ -6,13 +6,11 @@ FileExplorer::FileExplorer(void* renderer) {
     this->renderer = renderer;
 }
 
-void FileExplorer::updateRect(ScreenMetrics& metrics) {
-    this->metrics = metrics;
+void FileExplorer::updateRect(ScreenMetrics& metrics, GAllocator& allocator) {
+    UiSceneComponent::updateRect(metrics, allocator);
     if (!hasMetrics) {
         hasMetrics = true;
         setPath(path);
-    } else {
-        UiSceneComponent::updateRect(metrics);
     }
 }
 
@@ -74,9 +72,9 @@ void FileExplorer::setPath(std::string path) {
     }
     if (hasMetrics) {
         for (auto* comp : fileNameComps) {
-            comp->updateContent(metrics);
+            comp->updateContent(scene.metrics, scene.allocator);
         }
-        UiSceneComponent::updateRect(metrics);
+        scene.build();
     }
 }
 
@@ -88,14 +86,15 @@ void FileExplorer::onClick(int id) {
     }
 }
 
-void FileExplorer::draw(Framebuffer& framebuffer) {
-    background.draw(framebuffer);
+void FileExplorer::draw(Framebuffer& framebuffer, GAllocator& allocator) {
+    background.draw(framebuffer, allocator);
     for (auto* comp : fileNameComps) {
-        comp->draw(framebuffer);
+        comp->draw(framebuffer, allocator);
     }
 }
 
 FileExplorer::~FileExplorer() {
+    scene.clear();
     for (auto* comp : fileNameComps) {
         delete comp;
     }

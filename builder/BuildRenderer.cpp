@@ -37,8 +37,8 @@ void BuildRenderer<G>::change(int_t newWidth, int_t newHeight){
 template<Gapi G>
 void BuildRenderer<G>::drawFrame(){
     Framebuffer::DEFAULT.clear();
-    explorer.draw(Framebuffer::DEFAULT);
-    head.draw(Framebuffer::DEFAULT);
+    explorer.draw(Framebuffer::DEFAULT, scene.allocator);
+    head.draw(Framebuffer::DEFAULT, scene.allocator);
 }
 
 template<Gapi G>

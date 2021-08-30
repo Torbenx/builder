@@ -36,7 +36,7 @@ struct alignas(16) vec4 : Vec4 {
 };
 
 template<typename T>
-concept Struct = std::is_standard_layout_v<T> && alignof(T) >= 16 && sizeof(T) % 16 == 0;
+concept Struct = std::is_standard_layout_v<T>;
 
 template<Struct T, size_t N>
 using array = std::array<T, N>;

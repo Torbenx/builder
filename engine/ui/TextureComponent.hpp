@@ -12,7 +12,7 @@ public:
     Resource<VertexBuffer> texCoords;
     TextureComponent(bool createShader = true);
     void setTexRect(Rect rect);
-    void draw(Framebuffer&) override;
-    void updateRect(ScreenMetrics&) override;
+    void draw(Framebuffer&, GAllocator&) override;
+    void updateRect(ScreenMetrics&, GAllocator&) override;
     virtual void doUniforms() { }
 };

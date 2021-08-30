@@ -73,6 +73,7 @@ public:
     void attribPointer(LocationHandle attrib, int size, int stride, const void* a) const;
     void attribPointer(LocationHandle attrib, const VertexBuffer& a) const;
     void attribPointer(LocationHandle attrib, int stride, const VertexBuffer& a) const;
+    void attribPointer(LocationHandle attrib, GBuffer buffer) const;
 
     OrderedShader ordered(OrderedShaderState state);
 

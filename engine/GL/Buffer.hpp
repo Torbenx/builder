@@ -39,6 +39,10 @@ public:
         glUnmapBuffer(TEMP_BUFFER_TARGET);
     }
 
+    void bind(GLenum target) const {
+        glBindBuffer(target, glId);
+    }
+
     void release() {
         glDeleteBuffers(1, &glId);
         glId = 0;
@@ -53,6 +57,7 @@ private:
         if (flags != 0) {
             flags |= GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
         }
+        glGenBuffers(1, &glId);
         glBindBuffer(TEMP_BUFFER_TARGET, glId);
         glBufferStorage(TEMP_BUFFER_TARGET, size, data, flags);
     }
