@@ -7,11 +7,15 @@ class SpotLight : public EffectImpl<SpotLight>, public DepthRenderpass {
 public:
     static void addTo(EffectShaderBuilder&);
 
-    Resource<Texture> depthMap;
+    union {
+        Texture depthMap;
+        const Texture textures[1];
+    };
 
     SpotLight(Vec3 position, Vec3 direction, float fov, int width, int height, Vec3 color, float near, float far);
     SpotLight(Vec3 position, Vec3 direction, float hfov, float vfov, Vec3 hDirection, int texWidth, int texHeight, Vec3 color, float near, float far);
-    virtual void applyTo(OrderedShader) override;
+    void applyTo(OrderedShader) override;
+    ~SpotLight();
 
 private:
     Framebuffer framebuffer;

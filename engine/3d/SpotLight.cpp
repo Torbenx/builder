@@ -35,8 +35,8 @@ void SpotLight::addTo(EffectShaderBuilder& s) {
     std::string colorUniform = s.uniqueName("u_color");
     std::string positionVarying = s.uniqueName("v_position");
     std::string lightPosUniform = s.uniqueName("u_lightPos");
-    s.addVertexUniform("mat4", mvpUniform);
     s.addFragmentUniform("sampler2DShadow", textureUniform);
+    s.addVertexUniform("mat4", mvpUniform);
     s.nextTextureSlot();
     s.addFragmentUniform("vec3", colorUniform);
     s.addFragmentUniform("vec3", lightPosUniform);
@@ -55,7 +55,10 @@ void SpotLight::addTo(EffectShaderBuilder& s) {
 
 void SpotLight::applyTo(OrderedShader s) {
     s.uniformMat4x4(viewProjectionMatrix);
-    s.uniformTexture(depthMap);
     s.uniformVec3(color);
     s.uniformVec3(position);
+}
+
+SpotLight::~SpotLight() {
+    depthMap.release();
 }

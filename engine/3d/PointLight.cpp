@@ -38,7 +38,6 @@ void PointLight::addTo(EffectShaderBuilder& s) {
 }
 
 void PointLight::applyTo(OrderedShader s) {
-    s.uniformCubeMap(depthMap);
     s.uniformVec3(color);
     s.uniformVec3(position);
     s.uniformVec2(Vec2((m_near + m_far) / (m_far - m_near), 2.0f * m_near * m_far / (m_far - m_near)));
@@ -86,4 +85,8 @@ void PointLight::updateViewProjectionMatrix() {
         }
         passes[i].viewProjectionMatrix = projection * view;
     }
+}
+
+PointLight::~PointLight() {
+    depthMap.release();
 }

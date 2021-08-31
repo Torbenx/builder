@@ -6,8 +6,11 @@
 class PointLight : public EffectImpl<PointLight> {
 public:
     static void addTo(EffectShaderBuilder&);
-    
-    Resource<CubeMap> depthMap;
+
+    union {
+        CubeMap depthMap;
+        const Texture textures[1];
+    };
     Framebuffer framebuffers[6];
     DepthRenderpass passes[6];
     Vec3 position;
@@ -20,4 +23,5 @@ public:
     void addObject(id_t);
     void draw(GraphicsObjectCollection&);
     void updateViewProjectionMatrix();
+    ~PointLight();
 };

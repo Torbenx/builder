@@ -58,10 +58,10 @@ public:
 
     struct TypeData {
         InstructureArray<Effect, const VertexBuffer> vertexBuffers;
-        ArrayView<const VertexBufferDescription> vertexBufferDescriptions;
+        //ArrayView<const VertexBufferDescription> vertexBufferDescriptions;
 
         InstructureArray<Effect, const Texture> textures;
-        ArrayView<const TextureDescription> textureDescriptions;
+        //ArrayView<const TextureDescription> textureDescriptions;
 
         UniformBufferDescription fragmentUniform;
         InstructureVariable<Effect, UniformBufferDestination> fragmentUniformDestination;
@@ -115,10 +115,10 @@ struct ArraySize<T, T[N]> {
 };
 
 template<typename T>
-concept HasVertexBuffers = ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n == ArraySize<const VertexBufferDescription, decltype(T::vertexBufferDescriptions)>::n;
+concept HasVertexBuffers = ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n >= 0;
 
 template<typename T>
-concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n == ArraySize<const TextureDescription, decltype(T::textureDescriptions)>::n;
+concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n >= 0;
 
 template<typename T>
 concept HasFragmentUniform = std140::Struct<typename T::FragmentUniformBuffer> && std::is_same_v<decltype(T::fragmentUniformDestination), UniformBufferDestination>;
@@ -139,11 +139,11 @@ public:
         Effect::TypeData data;
         if constexpr (effect_impl::HasVertexBuffers<T>) {
             data.vertexBuffers = &T::vertexBuffers;
-            data.vertexBufferDescriptions = T::vertexBufferDescriptions;
+            //data.vertexBufferDescriptions = T::vertexBufferDescriptions;
         }
         if constexpr (effect_impl::HasTextures<T>) {
             data.textures = &T::textures;
-            data.textureDescriptions = T::textureDescriptions;
+            //data.textureDescriptions = T::textureDescriptions;
         }
         if constexpr (effect_impl::HasFragmentUniform<T>) {
             data.fragmentUniform = { sizeof(typename T::FragmentUniformBuffer) };

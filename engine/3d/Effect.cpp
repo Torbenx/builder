@@ -40,7 +40,7 @@ sid_t Effect::allocateEffectId(Effect::Type type) {
 Effect::Type Effect::registerEffectType(TypeData data) {
     static sid_t nextId = 0;
     VDUMP(nextId);
-    EXPECT(Default, data.fragmentUniform.size, (int_t)0);
+    EXPECT(Default, data.textures.size(), (int_t)0);
     typeData[nextId] = data;
     return { nextId++ };
 }

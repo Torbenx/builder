@@ -19,7 +19,7 @@ private:
     GLenum value;
 };
 
-class CubeMap : private Texture {
+class CubeMap : public Texture {
 public:
     enum Face : GLenum {
         PosX = GL_TEXTURE_CUBE_MAP_POSITIVE_X,
@@ -54,5 +54,4 @@ public:
 private:
     CubeMap(Texture::Type type)
         : Texture(type, false, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BINDING_CUBE_MAP) { }
-    friend Framebuffer;
 };

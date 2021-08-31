@@ -123,8 +123,8 @@ TestRenderer<G>::TestRenderer()
     textComp.noBreaks = true;
 
     cubeComp.farDepth = 1.0f;
-    cubeComp.texture = &spotLight.depthMap.value;
-    refComp.texture = &reflection.texture.value;
+    cubeComp.texture = &spotLight.depthMap;
+    refComp.texture = &reflection.texture;
 
     uiScene.layout(&textComp)
         .alignTop()
@@ -148,8 +148,6 @@ TestRenderer<G>::TestRenderer()
     JpegDecoder decoder;
     decoder.decode(jpegFile);
     pawnTexture = decoder.texture;
-
-    refComp.texture = &reflection.texture.value;
 
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     Effect* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);

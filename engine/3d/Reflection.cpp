@@ -40,6 +40,9 @@ void Reflection::addTo(EffectShaderBuilder& s) {
 }
 
 void Reflection::applyTo(OrderedShader s) {
-    s.uniformTexture(texture);
     s.uniform1f(factor);
+}
+
+Reflection::~Reflection() {
+    texture.release();
 }
