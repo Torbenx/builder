@@ -6,12 +6,25 @@ template<>
 const Effect::Type EffectImpl<AmbientLight>::effectType = registerEffectType();
 
 AmbientLight::AmbientLight(Vec3 color)
-    : color(color) { }
+    : color(color) {
+    StaticGData<FragmentUniformBuffer> w;
+    GAllocator allocator;
+    w.update(allocator).color = color;
+    fragmentUniformBuffer = w.ptr;
+}
 
 void AmbientLight::addTo(EffectShaderBuilder& s) {
     std::string colorUniform = s.uniqueName("u_color");
-    s.addFragmentUniform("vec3", colorUniform);
+    s.beginFragmentUniformBuffer(s.uniqueName("AmbientLight"));
+    s.fInit << "vec3 " << colorUniform << ";\n";
+    s.endFragmentUniformBuffer();
+    //s.addFragmentUniform("vec3", colorUniform);
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << colorUniform << ";\n";
+}
+
+AmbientLight::~AmbientLight() {
+    GAllocator allocator;
+    allocator.free(&fragmentUniformBuffer);
 }
 
 // UniformColor

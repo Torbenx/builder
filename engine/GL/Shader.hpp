@@ -20,6 +20,12 @@ struct OrderedShaderState {
     GLuint uniformBufferIndex = 0;
 };
 
+struct UniformBuffer {
+    GBuffer buffer;
+    int_t offset;
+    int_t size;
+};
+
 class Shader {
 public:
     struct LocationHandle {
@@ -64,7 +70,9 @@ public:
         uniform1i(uniform, slot);
     }
     void uniformCubeMap(LocationHandle uniform, const CubeMap& u, GLuint slot) const { uniformTexture(uniform, u, slot); }
-    void uniformBuffer([[maybe_unused]] LocationHandle binding, [[maybe_unused]] const GBuffer& u, [[maybe_unused]] int_t offset, [[maybe_unused]] int_t size) const { }
+    void uniformBuffer(LocationHandle binding, const UniformBuffer& u) const {
+        glBindBufferRange(GL_UNIFORM_BUFFER, binding.handle, u.buffer.glId, u.offset, u.size);
+    }
 
     void attribPointer(LocationHandle attrib, const VertexBuffer& a) const {
         a.bind(GL_ARRAY_BUFFER);
@@ -77,7 +85,7 @@ public:
 
     OrderedShader ordered(OrderedShaderState state);
 
-private:
+//private:
     GLuint glId = 0;
 };
 
@@ -91,14 +99,13 @@ public:
     void uniformMat4x4(const Mat4x4& u) { shader.uniformMat4x4({ state.uniformIndex++ }, u); }
     void uniformTexture(const Texture& u) { shader.uniformTexture({ state.uniformIndex++ }, u, state.textureSlot++); }
     void uniformCubeMap(const CubeMap& u) { shader.uniformCubeMap({ state.uniformIndex++ }, u, state.textureSlot++); }
-    void uniformBuffer(const GBuffer& buffer, int_t offset, int_t length) { shader.uniformBuffer({ state.uniformBufferIndex++ }, buffer, offset, length); }
+    void uniformBuffer(const UniformBuffer& u) { shader.uniformBuffer({ state.uniformBufferIndex++ }, u); }
 
     void attribPointer(const VertexBuffer& a) { shader.attribPointer({ state.attribIndex++ }, a); }
 
-private:
     const Shader shader;
     OrderedShaderState state;
-
+private:
     OrderedShader(Shader shader, OrderedShaderState state)
         : shader(shader), state(state) { }
 
@@ -120,8 +127,8 @@ public:
     Shader::LocationHandle addVertexUniform(std::string type, std::string name, std::string qualifiers = "") { return addUniform(type, name, qualifiers, true); }
     Shader::LocationHandle addFragmentUniform(std::string type, std::string name, std::string qualifiers = "") { return addUniform(type, name, qualifiers, false); }
     Shader::LocationHandle beginUniformBuffer(std::string name, bool vertex);
-    Shader::LocationHandle beginFragmentUniformBuffer(std::string name) { return beginUniformBuffer(name, true); }
-    Shader::LocationHandle beginVertexUniformBuffer(std::string name) { return beginUniformBuffer(name, false); }
+    Shader::LocationHandle beginVertexUniformBuffer(std::string name) { return beginUniformBuffer(name, true); }
+    Shader::LocationHandle beginFragmentUniformBuffer(std::string name) { return beginUniformBuffer(name, false); }
     void endUniformBuffer(bool vertex);
     void endVertexUniformBuffer() { endUniformBuffer(true); }
     void endFragmentUniformBuffer() { endUniformBuffer(false); }

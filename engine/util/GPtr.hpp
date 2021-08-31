@@ -27,6 +27,10 @@ public:
         return GBuffer { bufferId };
     }
 
+    UniformBuffer buffer(GPtr ptr, int_t size) {
+        return { buffer(ptr.bufferId), ptr.offset, size };
+    }
+
     void free(GPtr* ptr) {
         GBuffer buffer { ptr->bufferId };
         buffer.unmap();

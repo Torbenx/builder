@@ -7,6 +7,7 @@
 #include "containers/IdAllocator.hpp"
 #include "containers/InstructureVariable.hpp"
 #include "resource/Resource.hpp"
+#include "util/GPtr.hpp"
 #include "util/Shaders.hpp"
 #include <memory>
 #include <unordered_map>
@@ -16,35 +17,8 @@ class EffectImpl;
 
 class Effect;
 
-struct VertexBufferDescription {
-    enum Format {
-        Scalar,
-        Vec2,
-        Vec3,
-        Vec4,
-    };
-    const char* name;
-    Format format;
-};
-
-struct TextureDescription {
-    enum SamplerType {
-        Sampler2D,
-        Sampler2DShadow,
-        SamplerCube,
-        SamplerCubeShadow,
-    };
-    const char* name;
-    SamplerType type;
-};
-
 struct UniformBufferDescription {
     int_t size = 0;
-};
-
-struct UniformBufferDestination {
-    uint16_t bufferId;
-    uint16_t offset; // in 16 bytes
 };
 
 class Effect {
@@ -58,21 +32,18 @@ public:
 
     struct TypeData {
         InstructureArray<Effect, const VertexBuffer> vertexBuffers;
-        //ArrayView<const VertexBufferDescription> vertexBufferDescriptions;
-
         InstructureArray<Effect, const Texture> textures;
-        //ArrayView<const TextureDescription> textureDescriptions;
 
-        UniformBufferDescription fragmentUniform;
-        InstructureVariable<Effect, UniformBufferDestination> fragmentUniformDestination;
+        UniformBufferDescription fragmentUniformDesc;
+        InstructureVariable<Effect, GPtr> fragmentUniformPtr;
 
-        UniformBufferDescription vertexUniform;
-        InstructureVariable<Effect, UniformBufferDestination> vertexUniformDestination;
+        UniformBufferDescription vertexUniformDesc;
+        InstructureVariable<Effect, GPtr> vertexUniformPtr;
 
         AddToFunc addToFunction;
     };
 
-    static TypeData data(Type type) { return typeData[type.id]; }
+    static TypeData data(Type type) { return typeData.data[type.id]; }
 
     struct Handle {
         Effect::Type type;
@@ -92,7 +63,13 @@ public:
     Handle handle() { return m_handle; }
 
 private:
-    static TypeData typeData[MAX_TYPES];
+    struct Helper {
+        union {
+            TypeData data[MAX_TYPES];
+        };
+        Helper() { }
+    };
+    static Helper typeData;
 
     static Type registerEffectType(TypeData);
     static sid_t allocateEffectId(Type);
@@ -121,10 +98,10 @@ template<typename T>
 concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n >= 0;
 
 template<typename T>
-concept HasFragmentUniform = std140::Struct<typename T::FragmentUniformBuffer> && std::is_same_v<decltype(T::fragmentUniformDestination), UniformBufferDestination>;
+concept HasFragmentUniform = std140::Struct<typename T::FragmentUniformBuffer> && std::is_same_v<decltype(T::fragmentUniformBuffer), GPtr>;
 
 template<typename T>
-concept HasVertexUniform = std140::Struct<typename T::VertexUniformBuffer> && std::is_same_v<decltype(T::vertexUniformDestination), UniformBufferDestination>;
+concept HasVertexUniform = std140::Struct<typename T::VertexUniformBuffer> && std::is_same_v<decltype(T::vertexUniformBuffer), GPtr>;
 }
 
 template<typename T>
@@ -139,19 +116,17 @@ public:
         Effect::TypeData data;
         if constexpr (effect_impl::HasVertexBuffers<T>) {
             data.vertexBuffers = &T::vertexBuffers;
-            //data.vertexBufferDescriptions = T::vertexBufferDescriptions;
         }
         if constexpr (effect_impl::HasTextures<T>) {
             data.textures = &T::textures;
-            //data.textureDescriptions = T::textureDescriptions;
         }
         if constexpr (effect_impl::HasFragmentUniform<T>) {
-            data.fragmentUniform = { sizeof(typename T::FragmentUniformBuffer) };
-            data.fragmentUniformDestination = &T::fragmentUniformDestination;
+            data.fragmentUniformDesc = { sizeof(typename T::FragmentUniformBuffer) };
+            data.fragmentUniformPtr = &T::fragmentUniformBuffer;
         }
         if constexpr (effect_impl::HasVertexUniform<T>) {
-            data.vertexUniform = { sizeof(typename T::VertexUniformBuffer) };
-            data.vertexUniformDestination = &T::vertexUniformDestination;
+            data.vertexUniformDesc = { sizeof(typename T::VertexUniformBuffer) };
+            data.vertexUniformPtr = &T::vertexUniformBuffer;
         }
         data.addToFunction = &T::addTo;
         return Effect::registerEffectType(data);

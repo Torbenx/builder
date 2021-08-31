@@ -3,7 +3,7 @@
 
 std::vector<EffectShader> EffectShaderFactory::shaders;
 
-Effect::TypeData Effect::typeData[Effect::MAX_TYPES];
+Effect::Helper Effect::typeData;
 
 namespace effect_impl {
 
@@ -40,8 +40,8 @@ sid_t Effect::allocateEffectId(Effect::Type type) {
 Effect::Type Effect::registerEffectType(TypeData data) {
     static sid_t nextId = 0;
     VDUMP(nextId);
-    EXPECT(Default, data.textures.size(), (int_t)0);
-    typeData[nextId] = data;
+    //EXPECT(Default, data.textures.size(), (int_t)0);
+    typeData.data[nextId] = data;
     return { nextId++ };
 }
 
@@ -85,7 +85,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
 Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>& effects) {
     uintptr_t hash = 0;
     for (Effect::Handle effect : effects) {
-        hash ^= (uintptr_t)effect.type.id * 13;
+        hash ^= ((uintptr_t)effect.type.id + 7) * 17;
     }
 
     std::unique_ptr<effect_impl::ShaderMonitor>& ptr = effect_impl::shaderHandles[hash];
@@ -103,7 +103,7 @@ Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>&
     for (Effect::Handle effect : effects) {
         builder.newContext();
         slots.push_back(builder.orderedState());
-        Effect::typeData[effect.type.id].addToFunction(builder);
+        Effect::data(effect.type).addToFunction(builder);
     }
     shaders[id].initialize(builder);
     shaders[id].slots = std::move(slots);

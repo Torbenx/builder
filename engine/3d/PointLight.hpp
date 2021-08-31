@@ -19,7 +19,7 @@ public:
     int width, height;
 
     PointLight(Vec3 position, int width, int height, Vec3 color, float near, float far);
-    virtual void applyTo(OrderedShader) override;
+    void applyTo(OrderedShader) override;
     void addObject(id_t);
     void draw(GraphicsObjectCollection&);
     void updateViewProjectionMatrix();

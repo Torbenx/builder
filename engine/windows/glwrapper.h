@@ -190,7 +190,8 @@ void glwrapper_init();
     GL_FUNCTION(PFNGLGETSHADERIVPROC, glGetShaderiv)                                       \
                                                                                            \
     GL_FUNCTION(PFNGLBUFFERSTORAGEPROC, glBufferStorage)                                   \
-    GL_FUNCTION(PFNGLMAPBUFFERRANGEPROC, glMapBufferRange)
+    GL_FUNCTION(PFNGLMAPBUFFERRANGEPROC, glMapBufferRange)                                 \
+    GL_FUNCTION(PFNGLBINDBUFFERRANGEPROC, glBindBufferRange)
 
 #define GL_FUNCTION(type, name) extern type name;
 ENUMERATE_GL_FUNCTIONS;

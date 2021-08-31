@@ -123,7 +123,8 @@ TestRenderer<G>::TestRenderer()
     textComp.noBreaks = true;
 
     cubeComp.farDepth = 1.0f;
-    cubeComp.texture = &spotLight.depthMap;
+    cubeComp.cubeMap = &pointLight.depthMap;
+    cubeComp.positiveX(Rect::bltr(-1, -1, 1, 1));
     refComp.texture = &reflection.texture;
 
     uiScene.layout(&textComp)
@@ -412,6 +413,7 @@ void TestRenderer<G>::drawFrame() {
     // cubeComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
     // refComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
     textComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
+    //VDUMP(Effect::data(PointLight::effectType).textures.size());
 
     /*constexpr uint32_t N = 4;
     LinearProgramming<N> lp;

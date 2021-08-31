@@ -36,8 +36,8 @@ void SpotLight::addTo(EffectShaderBuilder& s) {
     std::string positionVarying = s.uniqueName("v_position");
     std::string lightPosUniform = s.uniqueName("u_lightPos");
     s.addFragmentUniform("sampler2DShadow", textureUniform);
-    s.addVertexUniform("mat4", mvpUniform);
     s.nextTextureSlot();
+    s.addVertexUniform("mat4", mvpUniform);
     s.addFragmentUniform("vec3", colorUniform);
     s.addFragmentUniform("vec3", lightPosUniform);
     s.addVarying("vec3", positionVarying);

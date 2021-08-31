@@ -53,12 +53,12 @@ Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string n
 }
 
 Shader::LocationHandle ShaderBuilder::beginUniformBuffer(std::string name, bool vertex) {
-    (vertex ? vInit : fInit) << "layout(binding=" << state.uniformBufferIndex << ") uniform " << name << "{\n";
+    (vertex ? vInit : fInit) << "layout(std140, binding=" << state.uniformBufferIndex << ") uniform " << name << "{\n";
     return { state.uniformBufferIndex++ };
 }
 
 void ShaderBuilder::endUniformBuffer(bool vertex) {
-    (vertex ? vInit : fInit) << "}\n";
+    (vertex ? vInit : fInit) << "};\n";
 }
 
 void ShaderBuilder::addVarying(std::string type, std::string name, std::string qualifiers) {
@@ -75,7 +75,7 @@ int ShaderBuilder::nextTextureSlot() {
     if constexpr (Tag::GL::verifyEnabled) {
         GLint maxTextures;
         glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
-        VERIFY(GL, state.textureSlot < (GLint)maxTextures);
+        VERIFY(GL, (GLint)state.textureSlot < maxTextures);
     }
     return state.textureSlot++;
 }
@@ -119,6 +119,7 @@ void Shader::initialize(ShaderBuilder& builder) {
             printSource(std::string(source));
             log<Tag::GL>("--------------ERROR---------------\n{}\n", message.data());
         }
+        printSource(std::string(source));
         glDeleteShader(shader);
     };
 

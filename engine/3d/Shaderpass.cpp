@@ -96,6 +96,8 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
             Effect::TypeData data = Effect::data(entry.effects[j].type);
             stream.writeN(data.textures.view(entry.effects[j].ptr));
             stream.writeN(data.vertexBuffers.view(entry.effects[j].ptr));
+            if (data.fragmentUniformDesc.size > 0)
+                stream.write(data.fragmentUniformPtr.get(entry.effects[j].ptr));
         }
     }
 }
@@ -112,6 +114,7 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
     std::array<sid_t, N> prev;
     auto readers = createReaderArray_helper(levels, std::make_index_sequence<N>());
+    GAllocator allocator;
     prev.fill(std::numeric_limits<sid_t>::max());
     for (Entry& entry : entries) {
         int_t i = 0;
@@ -131,6 +134,8 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
                 state.uniformTexture(reader.read<Texture>());
             for (int_t c = 0; c < data.vertexBuffers.size(); c++)
                 state.attribPointer(reader.read<VertexBuffer>());
+            if (data.fragmentUniformDesc.size > 0)
+                state.uniformBuffer(allocator.buffer(reader.read<GPtr>(), data.fragmentUniformDesc.size));
 
             entry.effects[j]->applyTo(state);
         }

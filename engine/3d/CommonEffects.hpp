@@ -12,11 +12,12 @@ public:
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
-    UniformBufferDestination fragmentUniformDestination;
+    GPtr fragmentUniformBuffer;
     AmbientLight(Vec3 color);
+    ~AmbientLight();
 
-    virtual void applyTo(OrderedShader s) override {
-        s.uniformVec3(color);
+    void applyTo(OrderedShader) override {
+        //s.uniformVec3(color);
     }
 };
 
@@ -28,10 +29,9 @@ public:
     static void addTo(EffectShaderBuilder&);
 
     Vec3 color;
-    UniformBufferDestination fragmentUniformDestination;
     UniformColor(Vec3 color);
 
-    virtual void applyTo(OrderedShader s) override {
+    void applyTo(OrderedShader s) override {
         s.uniformVec3(color);
     }
 };
@@ -40,13 +40,11 @@ class TextureColor : public EffectImpl<TextureColor> {
 public:
     static void addTo(EffectShaderBuilder&);
 
-    static inline const TextureDescription textureDescriptions[] = { { "u_texture", TextureDescription::SamplerType::Sampler2D } };
     union {
         const Texture texture;
         const Texture textures[1];
     };
 
-    static inline const VertexBufferDescription vertexBufferDescriptions[] = { { "a_texPosition", VertexBufferDescription::Format::Vec2 } };
     union {
         const VertexBuffer texCoords;
         const VertexBuffer vertexBuffers[1];
@@ -54,5 +52,5 @@ public:
 
     TextureColor(Texture texture, VertexBuffer texCoords);
 
-    virtual void applyTo(OrderedShader s) override { }
+    void applyTo(OrderedShader) override { }
 };
