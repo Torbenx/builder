@@ -52,6 +52,15 @@ Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string n
     return { state.uniformIndex++ };
 }
 
+Shader::LocationHandle ShaderBuilder::beginUniformBuffer(std::string name, bool vertex) {
+    (vertex ? vInit : fInit) << "layout(binding=" << state.uniformBufferIndex << ") uniform " << name << "{\n";
+    return { state.uniformBufferIndex++ };
+}
+
+void ShaderBuilder::endUniformBuffer(bool vertex) {
+    (vertex ? vInit : fInit) << "}\n";
+}
+
 void ShaderBuilder::addVarying(std::string type, std::string name, std::string qualifiers) {
     vInit << qualifiers << "out " << type << " " << name << ";\n";
     fInit << qualifiers << "in " << type << " " << name << ";\n";
@@ -63,11 +72,11 @@ void ShaderBuilder::requireExtension(std::string extension) {
 }
 
 int ShaderBuilder::nextTextureSlot() {
-#ifdef VALIDATE_GL
-    GLint maxTextures;
-    glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
-    VERIFY(GL, state.textureSlot < maxTextures);
-#endif
+    if constexpr (Tag::GL::verifyEnabled) {
+        GLint maxTextures;
+        glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
+        VERIFY(GL, state.textureSlot < (GLint)maxTextures);
+    }
     return state.textureSlot++;
 }
 
@@ -122,158 +131,4 @@ void Shader::initialize(ShaderBuilder& builder) {
     }
 
     glLinkProgram(glId);
-}
-
-void Shader::release() {
-    log<Tag::GL>("release glId={}", glId);
-    if (glId != 0) {
-        glDeleteProgram(glId);
-        glId = 0;
-    }
-}
-
-bool Shader::isValid() const {
-    return glId != 0;
-}
-
-void Shader::use() const {
-    VERIFY(GL, glIsProgram(glId));
-    glUseProgram(glId);
-}
-
-GLuint Shader::getAttrib(Shader::LocationHandle attrib) const {
-    return attrib.handle;
-}
-
-GLuint Shader::getAndEnableAttrib(Shader::LocationHandle attrib) const {
-    GLuint a = getAttrib(attrib);
-    glEnableVertexAttribArray(a);
-    return a;
-}
-
-GLint Shader::getUniform(Shader::LocationHandle uniform) const {
-    return uniform.handle;
-}
-
-void Shader::uniform1f(Shader::LocationHandle uniform, float u) const {
-    glUniform1f(getUniform(uniform), u);
-}
-
-void Shader::uniform1i(Shader::LocationHandle uniform, int u) const {
-    glUniform1i(getUniform(uniform), u);
-}
-
-void Shader::uniform2f(Shader::LocationHandle uniform, float u1, float u2) const {
-    glUniform2f(getUniform(uniform), u1, u2);
-}
-
-void Shader::uniform2f(Shader::LocationHandle uniform, const float* u) const {
-    glUniform2fv(getUniform(uniform), 1, u);
-}
-
-void Shader::uniform2i(Shader::LocationHandle uniform, int u1, int u2) const {
-    glUniform2i(getUniform(uniform), u1, u2);
-}
-
-void Shader::uniform2i(Shader::LocationHandle uniform, const int* u) const {
-    glUniform2iv(getUniform(uniform), 1, u);
-}
-
-void Shader::uniform3f(Shader::LocationHandle uniform, float u1, float u2, float u3) const {
-    glUniform3f(getUniform(uniform), u1, u2, u3);
-}
-
-void Shader::uniform3f(Shader::LocationHandle uniform, const float* u) const {
-    glUniform3fv(getUniform(uniform), 1, u);
-}
-
-void Shader::uniform3i(Shader::LocationHandle uniform, int u1, int u2, int u3) const {
-    glUniform3i(getUniform(uniform), u1, u2, u3);
-}
-
-void Shader::uniform3i(Shader::LocationHandle uniform, const int* u) const {
-    glUniform3iv(getUniform(uniform), 1, u);
-}
-
-void Shader::uniform4f(Shader::LocationHandle uniform, float u1, float u2, float u3, float u4) const {
-    glUniform4f(getUniform(uniform), u1, u2, u3, u4);
-}
-
-void Shader::uniform4f(Shader::LocationHandle uniform, const float* u) const {
-    glUniform4fv(getUniform(uniform), 1, u);
-}
-
-void Shader::uniform4i(Shader::LocationHandle uniform, int u1, int u2, int u3, int u4) const {
-    glUniform4i(getUniform(uniform), u1, u2, u3, u4);
-}
-
-void Shader::uniform4i(Shader::LocationHandle uniform, const int* u) const {
-    glUniform4iv(getUniform(uniform), 1, u);
-}
-
-void Shader::uniformMatrix2f(Shader::LocationHandle uniform, const float* u) const {
-    glUniformMatrix2fv(getUniform(uniform), 1, GL_FALSE, u);
-}
-
-void Shader::uniformMatrix3f(Shader::LocationHandle uniform, const float* u) const {
-    glUniformMatrix3fv(getUniform(uniform), 1, GL_FALSE, u);
-}
-
-void Shader::uniformMatrix4f(Shader::LocationHandle uniform, const float* u) const {
-    glUniformMatrix4fv(getUniform(uniform), 1, GL_FALSE, u);
-}
-
-void Shader::uniformVec2(Shader::LocationHandle uniform, Vec2 u) const {
-    uniform2f(uniform, u.x, u.y);
-}
-
-void Shader::uniformVec3(Shader::LocationHandle uniform, Vec3 u) const {
-    uniform3f(uniform, u.x, u.y, u.z);
-}
-
-void Shader::uniformVec4(Shader::LocationHandle uniform, Vec4 u) const {
-    uniform4f(uniform, u.x, u.y, u.z, u.w);
-}
-
-void Shader::uniformMat4x4(Shader::LocationHandle uniform, const Mat4x4& u) const {
-    uniformMatrix4f(uniform, u.matrix);
-}
-
-void Shader::attribPointer(Shader::LocationHandle attrib, int size, const void* a) const {
-    attribPointer(attrib, size, 0, a);
-}
-
-void Shader::attribPointer(Shader::LocationHandle attrib, int size, int stride, const void* a) const {
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glVertexAttribPointer(getAndEnableAttrib(attrib), size, GL_FLOAT, GL_FALSE, stride, a);
-}
-
-void Shader::attribPointer(Shader::LocationHandle attrib, const VertexBuffer& a) const {
-    attribPointer(attrib, 0, a);
-}
-
-void Shader::attribPointer(Shader::LocationHandle attrib, int stride, const VertexBuffer& a) const {
-    a.bind(GL_ARRAY_BUFFER);
-    glVertexAttribPointer(getAndEnableAttrib(attrib), a.elementSize(), GL_FLOAT, GL_FALSE, stride, a.data());
-}
-
-void Shader::attribPointer(LocationHandle attrib, GBuffer buffer) const {
-    buffer.bind(GL_ARRAY_BUFFER);
-    glVertexAttribPointer(getAndEnableAttrib(attrib), 2, GL_FLOAT, GL_FALSE, 0, 0);
-}
-
-void Shader::uniformTexture(Shader::LocationHandle uniform, const Texture& u, GLuint slot) const {
-    glActiveTexture(GL_TEXTURE0 + slot);
-    u.bind();
-    uniform1i(uniform, slot);
-}
-
-void Shader::uniformCubeMap(Shader::LocationHandle uniform, const CubeMap& u, GLuint slot) const {
-    glActiveTexture(GL_TEXTURE0 + slot);
-    u.bind();
-    uniform1i(uniform, slot);
-}
-
-OrderedShader Shader::ordered(OrderedShaderState state) {
-    return OrderedShader(*this, state);
 }
