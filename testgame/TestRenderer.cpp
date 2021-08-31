@@ -48,7 +48,12 @@ TestRenderer<G>::TestRenderer()
     , reflection(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f)
     , look(up, isAndroid())
     , pos(7, 1, 0)
-    , renderpass(&Framebuffer::DEFAULT) {
+    , renderpass(&Framebuffer::DEFAULT)
+    , col1(Vec3(1, 0, 0) * 0.5f)
+    , col2(Vec3(0, 1, 0) * 0.5f)
+    , col3(Vec3(1, 1, 1) * 0.1f)
+    , col4(Vec3(1, 1, 0) * 0.5f)
+    , col5(Vec3(0, 0, 1) * 0.5f) {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     reflection.framebuffer.clearColor(0, 0, 0, 1);
@@ -67,11 +72,11 @@ TestRenderer<G>::TestRenderer()
     id_t id4 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4) });
     id_t id5 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4) });
 
-    std::vector<Effect::Handle> effects1 { (new UniformColor(Vec3(1, 0, 0) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-    std::vector<Effect::Handle> effects2 { (new UniformColor(Vec3(0, 1, 0) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-    std::vector<Effect::Handle> effects3 { (new UniformColor(Vec3(1, 1, 1) * 0.1f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle(), reflection.handle() };
-    std::vector<Effect::Handle> effects4 { (new UniformColor(Vec3(1, 1, 0) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-    std::vector<Effect::Handle> effects5 { (new UniformColor(Vec3(0, 0, 1) * 0.5f))->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects1 { col1.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects2 { col2.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects3 { col3.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle(), reflection.handle() };
+    std::vector<Effect::Handle> effects4 { col4.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects5 { col5.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
 
     renderpass.addObject(id1, effects1);
     renderpass.addObject(id2, effects2);
@@ -181,7 +186,7 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
 
-    textComp.updateContent(metrics);
+    textComp.updateContent(metrics, uiScene.allocator);
     uiScene.metrics = metrics;
     uiScene.build();
 
@@ -338,7 +343,7 @@ void TestRenderer<G>::drawFrame() {
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
         textComp.text = ss.str();
-        textComp.updateContent(uiScene.metrics);
+        textComp.updateContent(uiScene.metrics, uiScene.allocator);
         uiScene.build();
 
         lsecond = now;
@@ -397,18 +402,18 @@ void TestRenderer<G>::drawFrame() {
     // glDisable(GL_CULL_FACE);
 
     if (navPointerId != POINTER_ID_INVALID) {
-        Vec2 center(navBaseX * 2.0f / uiScene.metrics.width() - 1.0f, navBaseY * -2.0f / uiScene.metrics.height() + 1.0f);
-        Vec2 radius(maxSpeed / navMult * 2.0f / uiScene.metrics.width(), maxSpeed / navMult * 2.0f / uiScene.metrics.height());
+        Vec2 center = { navBaseX * 2.0f / uiScene.metrics.width() - 1.0f, navBaseY * -2.0f / uiScene.metrics.height() + 1.0f };
+        Vec2 radius = { maxSpeed / navMult * 2.0f / uiScene.metrics.width(), maxSpeed / navMult * 2.0f / uiScene.metrics.height() };
         // util_drawCircle(center, radius, Vec4(0.7f, 0.7f, 0.7f, 1.0f));
 
-        center.set((navBaseX + navD.x / navMult) * 2.0f / uiScene.metrics.width() - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / uiScene.metrics.height() + 1.0f);
+        center = {( navBaseX + navD.x / navMult) * 2.0f / uiScene.metrics.width() - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / uiScene.metrics.height() + 1.0f };
         radius *= 0.25f;
         // util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    // cubeComp.draw(Framebuffer::DEFAULT);
-    // refComp.draw(Framebuffer::DEFAULT);
-    textComp.draw(Framebuffer::DEFAULT);
+    // cubeComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
+    // refComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
+    textComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
 
     /*constexpr uint32_t N = 4;
     LinearProgramming<N> lp;

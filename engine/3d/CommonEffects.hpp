@@ -54,8 +54,5 @@ public:
 
     TextureColor(Texture texture, VertexBuffer texCoords);
 
-    virtual void applyTo(OrderedShader s) override {
-        s.attribPointer(texCoords);
-        s.uniformTexture(texture);
-    }
+    virtual void applyTo(OrderedShader s) override { }
 };

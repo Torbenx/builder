@@ -32,6 +32,7 @@ public:
     SpotLight spotLight;
     AmbientLight ambientLight;
     Reflection reflection;
+    UniformColor col1, col2, col3, col4, col5;
     Resource<VertexBuffer> f1;
     Resource<VertexBuffer> f2;
     Resource<VertexBuffer> f3;

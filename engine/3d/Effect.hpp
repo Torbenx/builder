@@ -5,6 +5,7 @@
 #include "GL/std140.hpp"
 #include "containers/ArrayView.hpp"
 #include "containers/IdAllocator.hpp"
+#include "containers/InstructureVariable.hpp"
 #include "resource/Resource.hpp"
 #include "util/Shaders.hpp"
 #include <memory>
@@ -70,6 +71,8 @@ public:
 
         AddToFunc addToFunction;
     };
+
+    static TypeData data(Type type) { return typeData[type.id]; }
 
     struct Handle {
         Effect::Type type;

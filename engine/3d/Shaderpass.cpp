@@ -1,6 +1,7 @@
 #include "3d/Shaderpass.hpp"
 #include "3d/Renderpass.hpp"
 #include "containers/BitSet.hpp"
+#include "containers/DataStream.hpp"
 
 template<uint32_t N>
 class ShaderpassImpl : public Shaderpass {
@@ -12,6 +13,7 @@ public:
     std::vector<Entry> entries;
     std::array<std::unordered_map<uintptr_t, int_t>, N> counts;
     std::array<int_t, N> indices;
+    std::array<DataStream, N> levels;
 
     ShaderpassImpl(Resource<id_t> shaderHandle);
 
@@ -54,9 +56,11 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
         }
         it->second++;
     }
-    Entry& entry = entries.emplace_back();
-    entry.objectId = objectId;
-    std::memcpy(entry.effects.data(), effects.data(), N * sizeof(Effect::Handle));
+    {
+        Entry& entry = entries.emplace_back();
+        entry.objectId = objectId;
+        std::memcpy(entry.effects.data(), effects.data(), N * sizeof(Effect::Handle));
+    }
 
     std::stable_sort(indices.begin(), indices.end(), [&](const int_t& a, const int_t& b) {
         return counts[a].size() < counts[b].size();
@@ -73,22 +77,32 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
         return false;
     });
 
-    std::array<BitSet, N> binds;
-    std::array<Effect::Handle, N> prev;
-    for (int_t k = 0; k < (int_t)entries.size(); k++) {
+    for (auto& stream : levels) {
+        stream.clear();
+    }
+    std::array<sid_t, N> prev;
+    for (Entry& entry : entries) {
         int_t i = 0;
         for (; i < N; i++) {
             int_t j = indices[i];
-            if (prev[j].id != entry.effects[j].id) {
-                binds[i].setBit(k);
+            if (prev[j] != entry.effects[j].id)
                 break;
-            }
         }
         for (; i < N; i++) {
             int_t j = indices[i];
-            prev[j] = entries[k].effects[j];
+            prev[j] = entry.effects[j].id;
+
+            auto& stream = levels[j];
+            Effect::TypeData data = Effect::data(entry.effects[j].type);
+            stream.writeN(data.textures.view(entry.effects[j].ptr));
+            stream.writeN(data.vertexBuffers.view(entry.effects[j].ptr));
         }
     }
+}
+
+template<size_t N, size_t... indices>
+std::array<DataStream::Reader, N> createReaderArray_helper(const std::array<DataStream, N>& streams, std::index_sequence<indices...>) {
+    return { streams[indices].beginRead()... };
 }
 
 template<uint32_t N>
@@ -97,6 +111,7 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
     std::array<sid_t, N> prev;
+    auto readers = createReaderArray_helper(levels, std::make_index_sequence<N>());
     prev.fill(std::numeric_limits<sid_t>::max());
     for (Entry& entry : entries) {
         int_t i = 0;
@@ -107,8 +122,17 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
         }
         for (; i < N; i++) {
             int_t j = indices[i];
-            entry.effects[j]->applyTo(shader.ordered(shader.slots[j]));
             prev[j] = entry.effects[j].id;
+
+            DataStream::Reader& reader = readers[j];
+            Effect::TypeData data = Effect::data(entry.effects[j].type);
+            auto state = shader.ordered(shader.slots[j]);
+            for (int_t c = 0; c < data.textures.size(); c++)
+                state.uniformTexture(reader.read<Texture>());
+            for (int_t c = 0; c < data.vertexBuffers.size(); c++)
+                state.attribPointer(reader.read<VertexBuffer>());
+
+            entry.effects[j]->applyTo(state);
         }
         GraphicsObject& object = objects[entry.objectId];
         shader.uniformMat4x4(shader.modelUniform, object.modelMatrix);
