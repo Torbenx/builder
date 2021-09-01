@@ -13,7 +13,7 @@ public:
 
     Vec3 color;
     GPtr fragmentUniformBuffer;
-    AmbientLight(Vec3 color);
+    AmbientLight(Vec3 color, GAllocator&);
     ~AmbientLight();
 
     void applyTo(OrderedShader) override {

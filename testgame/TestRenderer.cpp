@@ -27,7 +27,8 @@
 
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
-    : up(0, 1, 0)
+    : allocator(0)
+    , up(0, 1, 0)
     , pointLight(
           Vec3(0, 1, -2),
           1024, 1024,
@@ -44,7 +45,7 @@ TestRenderer<G>::TestRenderer()
           Vec3(1, 1, 1) * 8.0f,
           0.7f,
           30)
-    , ambientLight(Vec3(1, 1, 1) * 1.0f)
+    , ambientLight(Vec3(1, 1, 1) * 1.0f, allocator)
     , reflection(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f)
     , look(up, isAndroid())
     , pos(7, 1, 0)
@@ -185,9 +186,9 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
 
-    textComp.updateContent(metrics, uiScene.allocator);
+    textComp.updateContent(metrics, allocator);
     uiScene.metrics = metrics;
-    uiScene.build();
+    uiScene.build(allocator);
 
     CacheMap<uint32_t, 2> map;
     uint16_t count = 50;
@@ -342,8 +343,8 @@ void TestRenderer<G>::drawFrame() {
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
         textComp.text = ss.str();
-        textComp.updateContent(uiScene.metrics, uiScene.allocator);
-        uiScene.build();
+        textComp.updateContent(uiScene.metrics, allocator);
+        uiScene.build(allocator);
 
         lsecond = now;
         frameCounter = 0;
@@ -395,8 +396,8 @@ void TestRenderer<G>::drawFrame() {
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     pointLight.draw(objects);
-    reflection.draw(objects);
-    renderpass.draw(objects);
+    reflection.draw(objects, allocator);
+    renderpass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
 
@@ -410,9 +411,9 @@ void TestRenderer<G>::drawFrame() {
         // util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    // cubeComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
-    // refComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
-    textComp.draw(Framebuffer::DEFAULT, uiScene.allocator);
+    // cubeComp.draw(Framebuffer::DEFAULT, allocator);
+    // refComp.draw(Framebuffer::DEFAULT, allocator);
+    textComp.draw(Framebuffer::DEFAULT, allocator);
     //VDUMP(Effect::data(PointLight::effectType).textures.size());
 
     /*constexpr uint32_t N = 4;

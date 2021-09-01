@@ -17,11 +17,11 @@ void DepthRenderpass::addObject(id_t objectId) {
     objectIds.push_back(objectId);
 }
 
-void Renderpass::draw(GraphicsObjectCollection& objects) {
+void Renderpass::draw(GraphicsObjectCollection& objects, GAllocator& allocator) {
     framebuffer->bind();
     framebuffer->clear();
     for (std::unique_ptr<Shaderpass>& pass : passes) {
-        pass->draw(objects, *this);
+        pass->draw(objects, *this, allocator);
     }
 }
 

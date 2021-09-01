@@ -9,12 +9,18 @@
 #define UI_VAR_LEFT 2
 #define UI_VAR_RIGHT 3
 
+namespace Tag {
+    struct UI {
+        static constexpr char tag[] = "ui";
+        static constexpr bool verifyEnabled = true;
+    };
+}
+
 class UiSceneBuilder;
 
 class UiScene{
     public:
         ScreenMetrics metrics;
-        GAllocator allocator;
         Rect parent = Rect::bltr(-1.0f, -1.0f, 1.0f, 1.0f);
         std::vector<UiComponent*> components;
         UiSolver solver;
@@ -22,8 +28,8 @@ class UiScene{
         UiScene();
         void setParent(Rect rect);
         UiSceneBuilder layout(UiComponent* comp);
-        void build();
-        void clear();
+        void build(GAllocator&);
+        void clear(GAllocator&);
         ~UiScene();
 };
 

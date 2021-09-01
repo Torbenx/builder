@@ -18,5 +18,5 @@ public:
     void updateRect(ScreenMetrics&, GAllocator&) override;
     void draw(Framebuffer&, GAllocator&) override { }
     virtual void pointer(PointerEvent event);
-    virtual void onClick([[maybe_unused]] int id) { }
+    virtual void onClick(int) { }
 };

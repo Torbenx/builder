@@ -12,10 +12,8 @@ UiScene::UiScene() {
 }
 
 UiScene::~UiScene() {
-    for (auto* comp : components) {
-        comp->detach(allocator);
-    }
-    delete solver.fixed;
+    VERIFY(UI, components.empty());
+    delete[] solver.fixed;
 }
 
 UiSceneBuilder UiScene::layout(UiComponent* comp) {
@@ -38,7 +36,7 @@ void UiScene::setParent(Rect rect) {
     this->parent = rect;
 }
 
-void UiScene::build() {
+void UiScene::build(GAllocator& allocator) {
 
     solver.fixed[UI_VAR_TOP] = parent.top;
     solver.fixed[UI_VAR_BOTTOM] = parent.bottom;
@@ -61,7 +59,7 @@ void UiScene::build() {
     solver.freeSolution();
 }
 
-void UiScene::clear() {
+void UiScene::clear(GAllocator& allocator) {
     for (auto* comp : components) {
         comp->detach(allocator);
     }

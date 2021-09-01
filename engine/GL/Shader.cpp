@@ -119,7 +119,6 @@ void Shader::initialize(ShaderBuilder& builder) {
             printSource(std::string(source));
             log<Tag::GL>("--------------ERROR---------------\n{}\n", message.data());
         }
-        printSource(std::string(source));
         glDeleteShader(shader);
     };
 

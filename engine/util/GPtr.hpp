@@ -9,6 +9,9 @@ struct GPtr {
 
 class GAllocator {
 public:
+    GAllocator(int) { }
+    GAllocator(const GAllocator&) = delete;
+
     void* staticData(GPtr* ptr, int_t size) {
         GBuffer buffer { ptr->bufferId };
         if (buffer.glId != 0)
@@ -20,7 +23,6 @@ public:
     }
 
     void dynamicData(GPtr*, int_t) {
-
     }
 
     GBuffer buffer(uint8_t bufferId) {

@@ -24,7 +24,7 @@ public:
     Renderpass(Framebuffer* framebuffer)
         : framebuffer(framebuffer) { }
 
-    void draw(GraphicsObjectCollection&);
+    void draw(GraphicsObjectCollection&, GAllocator&);
     void addObject(id_t objectId, std::vector<Effect::Handle> effects);
 
 private:
