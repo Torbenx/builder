@@ -7,7 +7,7 @@
 #include "containers/IdAllocator.hpp"
 #include "containers/InstructureVariable.hpp"
 #include "resource/Resource.hpp"
-#include "util/GPtr.hpp"
+#include "graphics/GAllocator.hpp"
 #include "util/Shaders.hpp"
 #include <memory>
 #include <unordered_map>

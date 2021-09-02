@@ -5,7 +5,7 @@ TestComponent::TestComponent()
 
 void TestComponent::draw(Framebuffer& framebuffer, GAllocator& allocator) {
     shader->use();
-    shader->attribPointer(shader->positionAttrib, coords(allocator));
+    //shader->attribPointer(shader->positionAttrib, coords(allocator));
     shader->uniformVec4(shader->colorUniform, color);
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }

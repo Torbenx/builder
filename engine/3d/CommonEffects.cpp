@@ -1,4 +1,5 @@
 #include "3d/CommonEffects.hpp"
+#include "graphics/GData.hpp"
 
 // AmbientLight
 

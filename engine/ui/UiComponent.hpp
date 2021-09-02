@@ -4,7 +4,7 @@
 #include "math/Rect.hpp"
 #include "ui/TypedSize.hpp"
 #include "ui/UiSolver.hpp"
-#include "util/GPtr.hpp"
+#include "graphics/GData.hpp"
 #include <cmath>
 
 class UiComponent {
