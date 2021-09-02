@@ -31,8 +31,10 @@ public:
     };
 
     struct TypeData {
-        InstructureArray<Effect, const VertexBuffer> vertexBuffers;
-        InstructureArray<Effect, const Texture> textures;
+        ArrayView<const int_t> vertexBufferElementSizes;
+        InstructureArray<Effect, GPtr> vertexBuffers;
+
+        InstructureArray<Effect, Texture> textures;
 
         UniformBufferDescription fragmentUniformDesc;
         InstructureVariable<Effect, GPtr> fragmentUniformPtr;
@@ -52,7 +54,7 @@ public:
         Effect* operator->() { return ptr; }
     };
 
-    virtual void applyTo(OrderedShader) = 0;
+    virtual void applyTo(OrderedShader) { };
     virtual ~Effect() {
         // deallocated type id!
     }
@@ -92,16 +94,16 @@ struct ArraySize<T, T[N]> {
 };
 
 template<typename T>
-concept HasVertexBuffers = ArraySize<const VertexBuffer, decltype(T::vertexBuffers)>::n >= 0;
+concept HasVertexBuffers = ArraySize<GPtr, decltype(T::vertexBuffers)>::n == ArraySize<const int_t, decltype(T::vertexBufferElementSizes)>::n;
 
 template<typename T>
-concept HasTextures = ArraySize<const Texture, decltype(T::textures)>::n >= 0;
+concept HasTextures = ArraySize<Texture, decltype(T::textures)>::n >= 0;
 
 template<typename T>
-concept HasFragmentUniform = std140::Struct<typename T::FragmentUniformBuffer> && std::is_same_v<decltype(T::fragmentUniformBuffer), GPtr>;
+concept HasFragmentUniform = std140::Struct<typename T::FragmentUniform> && std::is_same_v<decltype(T::fragmentUniform), TypedGPtr<typename T::FragmentUniform>>;
 
 template<typename T>
-concept HasVertexUniform = std140::Struct<typename T::VertexUniformBuffer> && std::is_same_v<decltype(T::vertexUniformBuffer), GPtr>;
+concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), TypedGPtr<typename T::VertexUniform>>;
 }
 
 template<typename T>
@@ -115,14 +117,15 @@ public:
     static Type registerEffectType() {
         Effect::TypeData data;
         if constexpr (effect_impl::HasVertexBuffers<T>) {
+            data.vertexBufferElementSizes = T::vertexBufferElementSizes;
             data.vertexBuffers = &T::vertexBuffers;
         }
         if constexpr (effect_impl::HasTextures<T>) {
             data.textures = &T::textures;
         }
         if constexpr (effect_impl::HasFragmentUniform<T>) {
-            data.fragmentUniformDesc = { sizeof(typename T::FragmentUniformBuffer) };
-            data.fragmentUniformPtr = &T::fragmentUniformBuffer;
+            data.fragmentUniformDesc = { sizeof(typename T::FragmentUniform) };
+            data.fragmentUniformPtr = &T::fragmentUniform;
         }
         if constexpr (effect_impl::HasVertexUniform<T>) {
             data.vertexUniformDesc = { sizeof(typename T::VertexUniformBuffer) };

@@ -3,10 +3,20 @@
 #include "GL/Shader.hpp"
 #include "containers/RangeAllocator.hpp"
 
+namespace Tag {
+struct Graphics {
+    static constexpr char tag[] = "graphic";
+    static constexpr bool verifyEnabled = true;
+};
+}
+
 struct GPtr {
     uint32_t bufferId : 8 = 0;
     uint32_t offset : 24 = 0; // in 16 bytes
 };
+
+template<typename T>
+struct TypedGPtr : GPtr { };
 
 class GAllocator {
 public:
@@ -21,7 +31,7 @@ public:
         gBuffer.initializeWriteOnly(size);
         mapped = (std::byte*)gBuffer.mapWritable(0, size);
         glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniformAlignment);
-        log<Tag::GL>("uniform alignment: {}", uniformAlignment);
+        log<Tag::Graphics>("uniform alignment: {}", uniformAlignment);
     }
     GAllocator(const GAllocator&) = delete;
 
@@ -46,7 +56,7 @@ public:
     }
 
     void free(GPtr* ptr) {
-        EXPECT(GL, ptr->bufferId, (uint32_t)1);
+        EXPECT(Graphics, ptr->bufferId, (uint32_t)1);
         allocator.free(ptr->offset);
         ptr->bufferId = 0;
         ptr->offset = 0;

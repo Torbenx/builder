@@ -11,6 +11,7 @@ struct ObjParserIndex {
 };
 
 void ObjParser::parse(std::istream& in) {
+    clear();
     std::vector<float> vertex;
     std::vector<float> normals;
     std::vector<float> texCoords;
@@ -42,9 +43,9 @@ void ObjParser::parse(std::istream& in) {
                     }
                     if (r == 1)
                         v.x = f;
-                    if(r == 2)
+                    if (r == 2)
                         v.y = f;
-                    if(r == 3)
+                    if (r == 3)
                         v.z = f;
                     vertex.push_back(f);
                 }
@@ -151,61 +152,55 @@ void ObjParser::parse(std::istream& in) {
     n = ni * tri * 3;
     if (false) {
         vertexCount = n;
-        float* out_vertex = new float[n * dim];
-        float* out_normals = new float[n * dim];
-        float* out_texCoords = new float[n * 2];
+        this->vertex = new float[n * dim];
+        this->normals = new float[n * dim];
+        this->texCoords = new float[n * 2];
         for (int_t i = 0; i < ni; i++) {
             for (int_t j = 0; j < tri; j++) {
                 for (int_t k = 0; k < dim; k++) {
                     // clang-format off
-                    out_vertex[((i*tri+j)*3  )*dim+k] = vertex[index[i*polyType    ].v*dim+k];
-                    out_vertex[((i*tri+j)*3+1)*dim+k] = vertex[index[i*polyType+j+1].v*dim+k];
-                    out_vertex[((i*tri+j)*3+2)*dim+k] = vertex[index[i*polyType+j+2].v*dim+k];
-                    out_normals[((i*tri+j)*3  )*dim+k] = normals[index[i*polyType    ].n*dim+k];
-                    out_normals[((i*tri+j)*3+1)*dim+k] = normals[index[i*polyType+j+1].n*dim+k];
-                    out_normals[((i*tri+j)*3+2)*dim+k] = normals[index[i*polyType+j+2].n*dim+k];
+                    this->vertex[((i*tri+j)*3  )*dim+k] = vertex[index[i*polyType    ].v*dim+k];
+                    this->vertex[((i*tri+j)*3+1)*dim+k] = vertex[index[i*polyType+j+1].v*dim+k];
+                    this->vertex[((i*tri+j)*3+2)*dim+k] = vertex[index[i*polyType+j+2].v*dim+k];
+                    this->normals[((i*tri+j)*3  )*dim+k] = normals[index[i*polyType    ].n*dim+k];
+                    this->normals[((i*tri+j)*3+1)*dim+k] = normals[index[i*polyType+j+1].n*dim+k];
+                    this->normals[((i*tri+j)*3+2)*dim+k] = normals[index[i*polyType+j+2].n*dim+k];
                     // clang-format on
                 }
                 // clang-format off
-                out_texCoords[((i*tri+j)*3  )*2+0] = texCoords[index[i*polyType    ].t*2+0];
-                out_texCoords[((i*tri+j)*3+1)*2+0] = texCoords[index[i*polyType+j+1].t*2+0];
-                out_texCoords[((i*tri+j)*3+2)*2+0] = texCoords[index[i*polyType+j+2].t*2+0];
-                out_texCoords[((i*tri+j)*3  )*2+1] = 1.0f - texCoords[index[i*polyType    ].t*2+1];
-                out_texCoords[((i*tri+j)*3+1)*2+1] = 1.0f - texCoords[index[i*polyType+j+1].t*2+1];
-                out_texCoords[((i*tri+j)*3+2)*2+1] = 1.0f - texCoords[index[i*polyType+j+2].t*2+1];
+                this->texCoords[((i*tri+j)*3  )*2+0] = texCoords[index[i*polyType    ].t*2+0];
+                this->texCoords[((i*tri+j)*3+1)*2+0] = texCoords[index[i*polyType+j+1].t*2+0];
+                this->texCoords[((i*tri+j)*3+2)*2+0] = texCoords[index[i*polyType+j+2].t*2+0];
+                this->texCoords[((i*tri+j)*3  )*2+1] = 1.0f - texCoords[index[i*polyType    ].t*2+1];
+                this->texCoords[((i*tri+j)*3+1)*2+1] = 1.0f - texCoords[index[i*polyType+j+1].t*2+1];
+                this->texCoords[((i*tri+j)*3+2)*2+1] = 1.0f - texCoords[index[i*polyType+j+2].t*2+1];
                 // clang-format on
             }
         }
-        this->vertex = VertexBuffer::upload(out_vertex, dim, vertexCount);
-        this->normals = VertexBuffer::upload(out_normals, dim, vertexCount);
-        this->texCoords = VertexBuffer::upload(out_texCoords, 2, vertexCount);
-        this->indices.clear();
     } else {
         vertexCount = texCoords.size() / 2;
-        GLuint* out_indices = new GLuint[n];
-        float* out_vertex = new float[vertexCount * dim];
-        float* out_normals = new float[vertexCount * dim];
-        for (int_t i = 1; i < (int_t)texCoords.size(); i += 2) {
-            texCoords[i] = 1.0f - texCoords[i];
+        this->indices = new GLuint[n];
+        this->vertex = new float[vertexCount * dim];
+        this->normals = new float[vertexCount * dim];
+        this->texCoords = new float[vertexCount * 2];
+        for (int_t i = 0; i < (int_t)texCoords.size(); i += 2) {
+            this->texCoords[i] = texCoords[i];
+            this->texCoords[i + 1] = 1.0f - texCoords[i + 1];
         }
         for (int_t i = 0; i < (int_t)index.size(); i++) {
             for (int_t j = 0; j < dim; j++) {
-                out_vertex[index[i].t * dim + j] = vertex[index[i].v * dim + j];
-                out_normals[index[i].t * dim + j] = normals[index[i].n * dim + j];
+                this->vertex[index[i].t * dim + j] = vertex[index[i].v * dim + j];
+                this->normals[index[i].t * dim + j] = normals[index[i].n * dim + j];
             }
         }
         for (int_t i = 0; i < ni; i++) {
             for (int_t j = 0; j < tri; j++) {
                 // clang-format off
-                out_indices[(i*tri+j)*3  ] = index[i*polyType    ].t;
-                out_indices[(i*tri+j)*3+1] = index[i*polyType+j+1].t;
-                out_indices[(i*tri+j)*3+2] = index[i*polyType+j+2].t;
+                this->indices[(i*tri+j)*3  ] = index[i*polyType    ].t;
+                this->indices[(i*tri+j)*3+1] = index[i*polyType+j+1].t;
+                this->indices[(i*tri+j)*3+2] = index[i*polyType+j+2].t;
                 // clang-format on
             }
         }
-        this->vertex = VertexBuffer::upload(out_vertex, dim, vertexCount);
-        this->normals = VertexBuffer::upload(out_normals, dim, vertexCount);
-        this->texCoords = VertexBuffer::upload(texCoords.data(), 2, vertexCount);
-        this->indices = IndexBuffer::upload(out_indices, n);
     }
 }

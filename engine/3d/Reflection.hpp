@@ -11,7 +11,7 @@ public:
     Framebuffer framebuffer;
     union {
         Texture texture;
-        const Texture textures[1];
+        Texture textures[1];
     };
     Resource<Texture> depthAttachment;
     Vec3 reflection, position;

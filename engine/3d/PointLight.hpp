@@ -9,7 +9,7 @@ public:
 
     union {
         CubeMap depthMap;
-        const Texture textures[1];
+        Texture textures[1];
     };
     Framebuffer framebuffers[6];
     DepthRenderpass passes[6];

@@ -132,7 +132,7 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
             for (int_t c = 0; c < data.textures.size(); c++)
                 state.uniformTexture(reader.read<Texture>());
             for (int_t c = 0; c < data.vertexBuffers.size(); c++)
-                state.attribPointer(reader.read<VertexBuffer>());
+                state.attribPointer(allocator.attrib(reader.read<GPtr>(), data.vertexBufferElementSizes[c]));
             if (data.fragmentUniformDesc.size > 0)
                 state.uniformBuffer(allocator.uniform(reader.read<GPtr>(), data.fragmentUniformDesc.size));
 

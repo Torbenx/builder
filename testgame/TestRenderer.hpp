@@ -29,11 +29,17 @@ public:
     int_t frameCounter = 0;
     Vec3 obj5_coords[4];
     Vec3 up;
+
     PointLight pointLight;
     SpotLight spotLight;
     AmbientLight ambientLight;
     Reflection reflection;
     UniformColor col1, col2, col3, col4, col5;
+    TextureColor pawnCol;
+    StaticUniformHelper<AmbientLight::FragmentUniform> ambientLightU;
+    StaticUniformHelper<UniformColor::FragmentUniform> col1U, col2U, col3U, col4U, col5U;
+    GAllocationHelper<> pawnTexCoords;
+
     Resource<VertexBuffer> f1;
     Resource<VertexBuffer> f2;
     Resource<VertexBuffer> f3;
@@ -41,10 +47,10 @@ public:
     Resource<VertexBuffer> f5;
     Resource<VertexBuffer> fNormal;
     Resource<VertexBuffer> pawnVertex;
-    Resource<VertexBuffer> pawnTexCoords;
     Resource<VertexBuffer> pawnNormals;
     Resource<IndexBuffer> pawnIndices;
     Resource<Texture> pawnTexture;
+
     Mat4x4 projection;
     Look3d look;
     uint32_t w = -1, a = -1, s = -1, d = -1, fullscreen = -1, exitKey = -1, upKey = -1, downKey = -1;

@@ -87,7 +87,6 @@ void ShaderBuilder::disableFragmentShader() {
 void Shader::initialize(ShaderBuilder& builder) {
     VERIFY(GL, !glIsProgram(glId));
     glId = glCreateProgram();
-    log<Tag::GL>("initalize glId={}", glId);
 
     auto printSource = [](std::string source) {
         std::istringstream stream(source);

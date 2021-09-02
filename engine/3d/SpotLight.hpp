@@ -9,7 +9,7 @@ public:
 
     union {
         Texture depthMap;
-        const Texture textures[1];
+        Texture textures[1];
     };
 
     SpotLight(Vec3 position, Vec3 direction, float fov, int width, int height, Vec3 color, float near, float far);

@@ -9,7 +9,6 @@ RangeAllocator::RangeAllocator(size_type size) {
 
 RangeAllocator::size_type RangeAllocator::allocate(size_type alignment, size_type size) {
     VERIFY(Containers, std::has_single_bit(alignment));
-    EXPECT(Containers, size & ~(alignment - 1), size);
     size_type start = 0;
     for (auto it = ranges.begin(); it != ranges.end(); start = it->end(), it++) {
         if (!it->free())

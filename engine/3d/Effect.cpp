@@ -30,7 +30,6 @@ std::vector<sIdAllocator> effectIdAllocators;
 }
 
 sid_t Effect::allocateEffectId(Effect::Type type) {
-    VDUMP(type.id);
     if (effect_impl::effectIdAllocators.size() <= type.id) {
         effect_impl::effectIdAllocators.resize(type.id + 1);
     }
@@ -39,8 +38,6 @@ sid_t Effect::allocateEffectId(Effect::Type type) {
 
 Effect::Type Effect::registerEffectType(TypeData data) {
     static sid_t nextId = 0;
-    VDUMP(nextId);
-    //EXPECT(Default, data.textures.size(), (int_t)0);
     typeData.data[nextId] = data;
     return { nextId++ };
 }

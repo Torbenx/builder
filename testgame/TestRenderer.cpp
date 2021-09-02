@@ -1,6 +1,7 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <containers/RangeAllocator.hpp>
+#include <events/EventLogic.hpp>
 #include <events/ExecutionContext.hpp>
 #include <events/Task.hpp>
 #include <fstream>
@@ -18,7 +19,6 @@
 #include <util/log.hpp>
 #include <util/target.hpp>
 #include <util/time.hpp>
-#include <events/EventLogic.hpp>
 
 #ifdef PLATFORM_WINDOWS
 #include <windows/fullscreen.hpp>
@@ -43,19 +43,26 @@ TestRenderer<G>::TestRenderer()
           Vec3(1, 1, 1) * 8.0f,
           0.7f,
           30)
-    , ambientLight(Vec3(1, 1, 1) * 1.0f, allocator)
     , reflection(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f)
     , look(up, isAndroid())
     , pos(7, 1, 0)
-    , renderpass(&Framebuffer::DEFAULT)
-    , col1(Vec3(1, 0, 0) * 0.5f)
-    , col2(Vec3(0, 1, 0) * 0.5f)
-    , col3(Vec3(1, 1, 1) * 0.1f)
-    , col4(Vec3(1, 1, 0) * 0.5f)
-    , col5(Vec3(0, 0, 1) * 0.5f) {
+    , renderpass(&Framebuffer::DEFAULT) {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     reflection.framebuffer.clearColor(0, 0, 0, 1);
+
+    ambientLightU.update(allocator).color = Vec3(1, 1, 1) * 1.0f;
+    col1U.update(allocator).color = Vec3(1, 0, 0) * 0.5f;
+    col2U.update(allocator).color = Vec3(0, 1, 0) * 0.5f;
+    col3U.update(allocator).color = Vec3(1, 1, 1) * 0.1f;
+    col4U.update(allocator).color = Vec3(1, 1, 0) * 0.5f;
+    col5U.update(allocator).color = Vec3(0, 0, 1) * 0.5f;
+    ambientLight.fragmentUniform = ambientLightU.ptr;
+    col1.fragmentUniform = col1U.ptr;
+    col2.fragmentUniform = col2U.ptr;
+    col3.fragmentUniform = col3U.ptr;
+    col4.fragmentUniform = col4U.ptr;
+    col5.fragmentUniform = col5U.ptr;
 
     float f1Scale = 0.5f;
     f1 = VertexBuffer::upload({ Vec3(-1, -1, 0) * f1Scale, Vec3(-1, 1, 0) * f1Scale, Vec3(1, -1, 0) * f1Scale, Vec3(1, 1, 0) * f1Scale });
@@ -139,10 +146,12 @@ TestRenderer<G>::TestRenderer()
     ObjParser parser;
     asset_istream file("QueenSideB/piece.obj");
     parser.parse(file);
-    pawnVertex = parser.vertex;
-    pawnTexCoords = parser.texCoords;
-    pawnNormals = parser.normals;
-    pawnIndices = parser.indices;
+    pawnVertex = VertexBuffer::upload(parser.vertex, parser.dim, parser.vertexCount);
+    pawnNormals = VertexBuffer::upload(parser.normals, parser.dim, parser.vertexCount);
+    pawnIndices = IndexBuffer::upload(parser.indices, parser.n);
+
+    void* addr = allocator.staticAttrib(&pawnTexCoords.ptr, 2 * sizeof(float) * parser.vertexCount);
+    std::memcpy(addr, parser.texCoords, 2 * sizeof(float) * parser.vertexCount);
 
     asset_istream jpegFile("QueenSideB/piece.jpg");
     JpegDecoder decoder;
@@ -150,12 +159,13 @@ TestRenderer<G>::TestRenderer()
     pawnTexture = decoder.texture;
 
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
-    Effect* textureEffect = new TextureColor(pawnTexture, pawnTexCoords);
+    pawnCol.texture = *pawnTexture;
+    pawnCol.texCoords = pawnTexCoords.ptr;
 
     for (int_t i = -0; i <= 0; i++) {
         id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
-        renderpass.addObject(id, { textureEffect->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
-        reflection.addObject(id, { textureEffect->handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
+        renderpass.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
+        reflection.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
         spotLight.addObject(id);
         pointLight.addObject(id);
     }
@@ -188,15 +198,7 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiScene.metrics = metrics;
     uiScene.build(allocator);
 
-    RangeAllocator alloc(1000);
-    alloc.debug();
-    int_t offset = alloc.allocate(1, 17);
-    int_t offset2 = alloc.allocate(16, 16*3);
-    alloc.debug();
-    alloc.free(offset);
-    alloc.debug();
-    alloc.free(offset2);
-    alloc.debug();
+    allocator.allocator.debug();
 }
 
 class MyTask : public Task {
@@ -388,7 +390,7 @@ void TestRenderer<G>::drawFrame() {
         Vec2 radius = { maxSpeed / navMult * 2.0f / uiScene.metrics.width(), maxSpeed / navMult * 2.0f / uiScene.metrics.height() };
         // util_drawCircle(center, radius, Vec4(0.7f, 0.7f, 0.7f, 1.0f));
 
-        center = {( navBaseX + navD.x / navMult) * 2.0f / uiScene.metrics.width() - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / uiScene.metrics.height() + 1.0f };
+        center = { (navBaseX + navD.x / navMult) * 2.0f / uiScene.metrics.width() - 1.0f, (navBaseY + navD.y / navMult) * -2.0f / uiScene.metrics.height() + 1.0f };
         radius *= 0.25f;
         // util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
@@ -430,6 +432,16 @@ void TestRenderer<G>::drawFrame() {
 }
 
 template<Gapi G>
-TestRenderer<G>::~TestRenderer() { }
+TestRenderer<G>::~TestRenderer() {
+    uiScene.clear(allocator);
+    ambientLightU.release(allocator);
+    col1U.release(allocator);
+    col2U.release(allocator);
+    col3U.release(allocator);
+    col4U.release(allocator);
+    col5U.release(allocator);
+    pawnTexCoords.release(allocator);
+    allocator.allocator.debug();
+}
 
 INSTANTIATE_G_API_CLASS(TestRenderer);

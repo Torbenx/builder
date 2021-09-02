@@ -6,51 +6,39 @@
 
 class AmbientLight : public EffectImpl<AmbientLight> {
 public:
-    struct FragmentUniformBuffer {
+    struct FragmentUniform {
         std140::vec3 color;
     };
+    TypedGPtr<FragmentUniform> fragmentUniform;
+
+    AmbientLight();
     static void addTo(EffectShaderBuilder&);
-
-    Vec3 color;
-    GPtr fragmentUniformBuffer;
-    AmbientLight(Vec3 color, GAllocator&);
-    ~AmbientLight();
-
-    void applyTo(OrderedShader) override {
-        //s.uniformVec3(color);
-    }
 };
 
 class UniformColor : public EffectImpl<UniformColor> {
 public:
-    struct FragmentUniformBuffer {
+    struct FragmentUniform {
         std140::vec3 color;
     };
+    TypedGPtr<FragmentUniform> fragmentUniform;
+
+    UniformColor();
     static void addTo(EffectShaderBuilder&);
-
-    Vec3 color;
-    UniformColor(Vec3 color);
-
-    void applyTo(OrderedShader s) override {
-        s.uniformVec3(color);
-    }
 };
 
 class TextureColor : public EffectImpl<TextureColor> {
 public:
+    union {
+        Texture texture;
+        Texture textures[1];
+    };
+
+    union {
+        GPtr texCoords;
+        GPtr vertexBuffers[1];
+    };
+    static inline const int_t vertexBufferElementSizes[] = { 2 };
+
+    TextureColor();
     static void addTo(EffectShaderBuilder&);
-
-    union {
-        const Texture texture;
-        const Texture textures[1];
-    };
-
-    union {
-        const VertexBuffer texCoords;
-        const VertexBuffer vertexBuffers[1];
-    };
-
-    TextureColor(Texture texture, VertexBuffer texCoords);
-
-    void applyTo(OrderedShader) override { }
 };

@@ -108,6 +108,7 @@ public:
     void uniformBuffer(const UniformBuffer& u) { shader.uniformBuffer({ state.uniformBufferIndex++ }, u); }
 
     void attribPointer(const VertexBuffer& a) { shader.attribPointer({ state.attribIndex++ }, a); }
+    void attribPointer(const VertexAttribBuffer& a) { shader.attribPointer({ state.attribIndex++ }, a); }
 
     const Shader shader;
     OrderedShaderState state;
