@@ -26,8 +26,7 @@
 
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
-    : allocator(0)
-    , up(0, 1, 0)
+    : up(0, 1, 0)
     , pointLight(
           Vec3(0, 1, -2),
           1024, 1024,

@@ -9,7 +9,7 @@ struct GPtr {
 
 class GAllocator {
 public:
-    GAllocator(int) { }
+    GAllocator() { }
     GAllocator(const GAllocator&) = delete;
 
     void* staticData(GPtr* ptr, int_t size) {

@@ -31,14 +31,14 @@ void BuildRenderer<G>::change(int_t newWidth, int_t newHeight){
     metrics.y.size = newHeight;
     metrics.y.dpi = dpi;
     scene.metrics = metrics;
-    scene.build();
+    scene.build(allocator);
 }
 
 template<Gapi G>
 void BuildRenderer<G>::drawFrame(){
     Framebuffer::DEFAULT.clear();
-    explorer.draw(Framebuffer::DEFAULT, scene.allocator);
-    head.draw(Framebuffer::DEFAULT, scene.allocator);
+    explorer.draw(Framebuffer::DEFAULT, allocator);
+    head.draw(Framebuffer::DEFAULT, allocator);
 }
 
 template<Gapi G>

@@ -1,6 +1,8 @@
 #include "HeadBar.hpp"
+#include "BuildRenderer.hpp"
 
-HeadBar::HeadBar(void *renderer){
+HeadBar::HeadBar(void* renderer)
+    : allocator(((BuildRenderer<OpenGL>*)renderer)->allocator) {
     this->renderer = renderer;
     title.textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     title.textSize = TypedSize::windowsDIP(40);
@@ -11,17 +13,17 @@ HeadBar::HeadBar(void *renderer){
     subTitle.text = "Some Text";
 }
 
-void HeadBar::setPath(std::string path){
+void HeadBar::setPath(std::string path) {
     title.text = path;
-    if(hasMetrics){
-        updateRect(scene.metrics, scene.allocator);
+    if (hasMetrics) {
+        updateRect(scene.metrics, allocator);
     }
 }
 
-void HeadBar::updateRect(ScreenMetrics& metrics, GAllocator& allocator){
+void HeadBar::updateRect(ScreenMetrics& metrics, GAllocator& allocator) {
     hasMetrics = true;
 
-    scene.clear();
+    scene.clear(allocator);
     title.updateContent(metrics, allocator);
     subTitle.updateContent(metrics, allocator);
     /*if(title.textFormat->getWidth() > metrics.x.size){
@@ -52,12 +54,12 @@ void HeadBar::updateRect(ScreenMetrics& metrics, GAllocator& allocator){
     UiSceneComponent::updateRect(metrics, allocator);
 }
 
-void HeadBar::draw(Framebuffer& framebuffer, GAllocator& allocator){
+void HeadBar::draw(Framebuffer& framebuffer, GAllocator& allocator) {
     box.draw(framebuffer, allocator);
     subTitle.draw(framebuffer, allocator);
     title.draw(framebuffer, allocator);
 }
 
-HeadBar::~HeadBar(){
-    scene.clear();
+HeadBar::~HeadBar() {
+    scene.clear(allocator);
 }

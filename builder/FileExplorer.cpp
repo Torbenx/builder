@@ -2,7 +2,8 @@
 #include "BuildRenderer.hpp"
 #include <util/log.hpp>
 
-FileExplorer::FileExplorer(void* renderer) {
+FileExplorer::FileExplorer(void* renderer)
+    : allocator(((BuildRenderer<OpenGL>*)renderer)->allocator) {
     this->renderer = renderer;
 }
 
@@ -16,7 +17,7 @@ void FileExplorer::updateRect(ScreenMetrics& metrics, GAllocator& allocator) {
 
 void FileExplorer::setPath(std::string path) {
     this->path = path;
-    scene.clear();
+    scene.clear(allocator);
     scene.layout(&background)
         .alignTop()
         .alignLeft()
@@ -72,9 +73,9 @@ void FileExplorer::setPath(std::string path) {
     }
     if (hasMetrics) {
         for (auto* comp : fileNameComps) {
-            comp->updateContent(scene.metrics, scene.allocator);
+            comp->updateContent(scene.metrics, allocator);
         }
-        scene.build();
+        scene.build(allocator);
     }
 }
 
@@ -94,7 +95,7 @@ void FileExplorer::draw(Framebuffer& framebuffer, GAllocator& allocator) {
 }
 
 FileExplorer::~FileExplorer() {
-    scene.clear();
+    scene.clear(allocator);
     for (auto* comp : fileNameComps) {
         delete comp;
     }

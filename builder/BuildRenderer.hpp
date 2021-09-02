@@ -14,6 +14,7 @@ public:
     std::vector<std::string> files;
     bool isProject = false;
     UiScene scene;
+    GAllocator allocator;
 
     BuildRenderer();
     void pointer(PointerEvent pointer) override;

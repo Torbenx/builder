@@ -11,6 +11,7 @@ class HeadBar : public UiSceneComponent{
         TextComponent subTitle;
         TestComponent box;
         bool hasMetrics = false;
+        GAllocator& allocator;
 
         HeadBar(void *renderer);
         void setPath(std::string path);

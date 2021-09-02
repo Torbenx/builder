@@ -13,6 +13,7 @@ class FileExplorer : public UiSceneComponent{
         std::string path;
         void *renderer;
         TestComponent background;
+        GAllocator& allocator;
 
         FileExplorer(void *renderer);
         void setPath(std::string path);
