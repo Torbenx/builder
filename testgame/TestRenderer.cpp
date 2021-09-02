@@ -1,7 +1,6 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
-#include <containers/CacheMap.hpp>
-#include <containers/IdAllocator.hpp>
+#include <containers/RangeAllocator.hpp>
 #include <events/ExecutionContext.hpp>
 #include <events/Task.hpp>
 #include <fstream>
@@ -190,31 +189,15 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiScene.metrics = metrics;
     uiScene.build(allocator);
 
-    CacheMap<uint32_t, 2> map;
-    uint16_t count = 50;
-    uint16_t multX = 1;
-    uint16_t multY = 1;
-    for (int_t x = count - 1; x >= 0; x--) {
-        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY) % count) }, x);
-        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY + 3) % count) }, x);
-    }
-    map.insertOrAssign({ 27, 40 }, 10000);
-    map.remove({ 26, 26 });
-    map.remove({ 25, 23 });
-    map.remove({ 24, 1 });
-    std::stringstream ss;
-    for (uint16_t x = 0; x < count; x++) {
-        for (uint16_t y = 0; y < count; y++) {
-            auto hint = map.find({ x, y });
-            if (hint.isValid()) {
-                ss << *hint << ", ";
-            } else {
-                ss << "-, ";
-            }
-        }
-        ss << '\n';
-    }
-    log("{}", ss.str());
+    RangeAllocator alloc(1000);
+    alloc.debug();
+    int_t offset = alloc.allocate(1, 17);
+    int_t offset2 = alloc.allocate(16, 16*3);
+    alloc.debug();
+    alloc.free(offset2);
+    alloc.debug();
+    alloc.free(offset);
+    alloc.debug();
 }
 
 class MyTask : public Task {

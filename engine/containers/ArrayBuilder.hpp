@@ -1,15 +1,9 @@
 #pragma once
 
+#include "containers/ArrayView.hpp"
 #include "util/log.hpp"
 #include <atomic>
 #include <mutex>
-
-namespace Tag {
-struct Containers {
-    static constexpr char tag[] = "containers";
-    static constexpr bool verifyEnabled = true;
-};
-}
 
 template<typename T>
 class ArrayBuilder {

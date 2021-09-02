@@ -79,24 +79,43 @@ struct InitialHolder : Set<LogicSet { .indices = { id }, .offsets = { 0, 1 }, .s
     }
 };
 
-template<int_t I, typename... Types, int_t... ids>
-auto deduplicate_helper(std::tuple<Holder<ids, Types>...> tuple) {
-    if constexpr (I == 0) {
-        return std::make_tuple(std::get<0>(tuple));
+template<int_t N, std::array<int_t, N> ids, int_t b = 2>
+constexpr auto uniqueIdIndices() {
+    if constexpr (b == 0) {
+        return 0;
     } else {
-        constexpr std::array<int_t, sizeof...(ids)> idList { ids... };
-        auto r = deduplicate_helper<I - 1>(tuple);
-        if constexpr (std::find(idList.begin(), idList.begin() + I, std::get<I>(idList)) == idList.begin() + I) {
-            return std::tuple_cat(r, std::make_tuple(std::get<I>(tuple)));
-        } else {
-            return r;
+        std::array<int_t, uniqueIdIndices<N, ids, b - 1>()> out;
+        int_t offset = 0;
+        for (int_t i = 0; i < N; i++) {
+            int_t j = 0;
+            for (; j < i; j++) {
+                if (ids[j] == ids[i])
+                    break;
+            }
+            if (i == j) {
+                if constexpr (b == 2)
+                    out[offset] = i;
+                offset++;
+            }
         }
+        if constexpr (b == 2)
+            return out;
+        else
+            return offset;
     }
+}
+
+template<int_t n, std::array<int_t, n> indices, typename... Holders, size_t... I>
+constexpr auto deduplicate_helper(std::tuple<Holders...> tuple, std::index_sequence<I...>) {
+    return std::make_tuple(std::get<indices[I]>(tuple)...);
 }
 
 template<typename... Types, int_t... ids>
 auto deduplicate(std::tuple<Holder<ids, Types>...> tuple) {
-    return deduplicate_helper<sizeof...(Types) - 1>(tuple);
+    constexpr std::array<int_t, sizeof...(ids)> idList { ids... };
+    constexpr auto indices = uniqueIdIndices<sizeof...(ids), idList>();
+    constexpr int_t n = std::tuple_size<decltype(indices)>::value;
+    return deduplicate_helper<n, indices>(tuple, std::make_index_sequence<n>());
 }
 
 template<LogicSet ls, typename... Holders>

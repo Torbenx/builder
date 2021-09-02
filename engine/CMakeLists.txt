@@ -77,6 +77,7 @@ add_library(engine ${linkage}
     "events/ExecutionContext.cpp"
     "VK/VKmain.cpp"
     "VK/vk_mem_alloc.cpp"
+    "containers/RangeAllocator.cpp"
     ${platform_source}
 )
 

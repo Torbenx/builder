@@ -4,6 +4,13 @@
 #include <concepts>
 #include <type_traits>
 
+namespace Tag {
+struct Containers {
+    static constexpr char tag[] = "contain";
+    static constexpr bool verifyEnabled = true;
+};
+}
+
 template<typename T>
 class ArrayView {
 public:
