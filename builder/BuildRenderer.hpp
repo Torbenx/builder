@@ -9,12 +9,12 @@
 template<Gapi G>
 class BuildRenderer : public Renderer<G> {
 public:
+    GAllocator allocator;
     FileExplorer explorer;
     HeadBar head;
     std::vector<std::string> files;
     bool isProject = false;
     UiScene scene;
-    GAllocator allocator;
 
     BuildRenderer();
     void pointer(PointerEvent pointer) override;

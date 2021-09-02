@@ -26,6 +26,12 @@ struct UniformBuffer {
     int_t size;
 };
 
+struct VertexAttribBuffer {
+    GBuffer buffer;
+    int_t offset;
+    int_t elementSize;
+};
+
 class Shader {
 public:
     struct LocationHandle {
@@ -78,9 +84,9 @@ public:
         a.bind(GL_ARRAY_BUFFER);
         glVertexAttribPointer(enableAttrib(attrib), a.elementSize(), GL_FLOAT, GL_FALSE, 0, a.data());
     }
-    void attribPointer(LocationHandle attrib, const GBuffer& buffer) const {
-        buffer.bind(GL_ARRAY_BUFFER);
-        glVertexAttribPointer(enableAttrib(attrib), 2, GL_FLOAT, GL_FALSE, 0, 0);
+    void attribPointer(LocationHandle attrib, const VertexAttribBuffer& a) const {
+        a.buffer.bind(GL_ARRAY_BUFFER);
+        glVertexAttribPointer(enableAttrib(attrib), a.elementSize, GL_FLOAT, GL_FALSE, 0, (void*)a.offset);
     }
 
     OrderedShader ordered(OrderedShaderState state);

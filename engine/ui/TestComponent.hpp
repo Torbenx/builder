@@ -9,8 +9,7 @@ class TestComponent : public UiComponent {
 public:
     Resource<SingleColorShader> shader;
     Vec4 color;
-    //Resource<VertexBuffer> coords;
-    StaticGData<std::array<Vec2, 4>> coords;
+    VertexAttribHelper<Vec2, 4> coords;
     TestComponent();
     void draw(Framebuffer&, GAllocator&) override;
     void updateRect(ScreenMetrics&, GAllocator&) override;

@@ -134,7 +134,7 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
             for (int_t c = 0; c < data.vertexBuffers.size(); c++)
                 state.attribPointer(reader.read<VertexBuffer>());
             if (data.fragmentUniformDesc.size > 0)
-                state.uniformBuffer(allocator.buffer(reader.read<GPtr>(), data.fragmentUniformDesc.size));
+                state.uniformBuffer(allocator.uniform(reader.read<GPtr>(), data.fragmentUniformDesc.size));
 
             entry.effects[j]->applyTo(state);
         }

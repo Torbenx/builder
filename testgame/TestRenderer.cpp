@@ -193,9 +193,9 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     int_t offset = alloc.allocate(1, 17);
     int_t offset2 = alloc.allocate(16, 16*3);
     alloc.debug();
-    alloc.free(offset2);
-    alloc.debug();
     alloc.free(offset);
+    alloc.debug();
+    alloc.free(offset2);
     alloc.debug();
 }
 

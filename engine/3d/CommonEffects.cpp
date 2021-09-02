@@ -1,5 +1,5 @@
 #include "3d/CommonEffects.hpp"
-#include "graphics/GData.hpp"
+#include "graphics/helpers.hpp"
 
 // AmbientLight
 
@@ -8,7 +8,7 @@ const Effect::Type EffectImpl<AmbientLight>::effectType = registerEffectType();
 
 AmbientLight::AmbientLight(Vec3 color, GAllocator& allocator)
     : color(color) {
-    StaticGData<FragmentUniformBuffer> w;
+    StaticUniformHelper<FragmentUniformBuffer> w;
     w.update(allocator).color = color;
     fragmentUniformBuffer = w.ptr;
 }
