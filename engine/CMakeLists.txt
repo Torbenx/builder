@@ -33,6 +33,15 @@ else()
     message(FATAL_ERROR "Unsupported system: " ${CMAKE_SYSTEM_NAME})
 endif()
 
+set(vulkan_source)
+if(${Vulkan_FOUND})
+    set(vulkan_source
+        "VK/VKmain.cpp"
+        "VK/vk_mem_alloc.cpp"
+    )
+    set_source_files_properties("VK/vk_mem_alloc.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-all;-Wno-extra;-Wno-suggest-override")
+endif()
+
 set(linkage STATIC)
 if(ENGINE_LINK_DYNAMIC)
     set(linkage SHARED)
@@ -75,15 +84,13 @@ add_library(engine ${linkage}
     "3d/Shaderpass.cpp"
     "3d/Renderpass.cpp"
     "events/ExecutionContext.cpp"
-    "VK/VKmain.cpp"
-    "VK/vk_mem_alloc.cpp"
     "containers/RangeAllocator.cpp"
     "graphics/GAllocator.cpp"
     ${platform_source}
+    ${vulkan_source}
 )
 
 set_source_files_properties("events/ExecutionContext.cpp" PROPERTIES COMPILE_OPTIONS "-fomit-frame-pointer")
-set_source_files_properties("VK/vk_mem_alloc.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-all;-Wno-extra;-Wno-suggest-override")
 
 #set_target_properties(engine PROPERTIES UNITY_BUILD ON)
 target_compile_options(engine PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")

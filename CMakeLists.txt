@@ -106,7 +106,7 @@ endif()
 
 
 find_package(Threads REQUIRED)
-find_package(Vulkan REQUIRED)
+find_package(Vulkan)
 
 include_directories(libs/libjpeg-turbo)
 include_directories(libs/fmt/include)
