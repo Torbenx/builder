@@ -40,6 +40,7 @@ public:
     StaticUniformHelper<UniformColor::FragmentUniform> col1U, col2U, col3U, col4U, col5U;
     StaticUniformHelper<SpotLight::FragmentUniform> spotLightFU;
     StaticUniformHelper<SpotLight::VertexUniform> spotLightVU;
+    StaticUniformHelper<Reflection::FragmentUniform> reflectionU;
     GAllocationHelper<> pawnTexCoords;
 
     Resource<VertexBuffer> f1;
@@ -53,9 +54,13 @@ public:
     Resource<IndexBuffer> pawnIndices;
     Resource<Texture> pawnTexture;
     Resource<Texture> spotLightDepthMap;
+    Resource<Texture> reflectionTexture;
+    Resource<Texture> reflectionDepthBuffer;
 
     Framebuffer spotLightFB;
     DepthRenderpass spotLightDepthPass;
+    Framebuffer reflectionFB;
+    Renderpass reflectionPass;
 
     Mat4x4 projection;
     Look3d look;

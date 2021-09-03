@@ -5,20 +5,18 @@
 #include "GL/Framebuffer.hpp"
 #include "resource/Resource.hpp"
 
-class Reflection : public EffectImpl<Reflection>, public Renderpass {
+class Reflection : public EffectImpl<Reflection> {
 public:
-    static void addTo(EffectShaderBuilder&);
-    Framebuffer framebuffer;
     union {
         Texture texture;
         Texture textures[1];
     };
-    Resource<Texture> depthAttachment;
-    Vec3 reflection, position;
-    float factor;
-    Reflection(Vec3 reflection, Vec3 position, int width, int height, float factor);
-    ~Reflection();
-    Mat4x4 getReflectionMatrix();
-    void updateViewProjectionMatrix(Mat4x4&);
-    virtual void applyTo(OrderedShader) override;
+
+    struct alignas(16) FragmentUniform {
+        float factor;
+    };
+    TypedGPtr<FragmentUniform> fragmentUniform;
+
+    Reflection();
+    static void addTo(EffectShaderBuilder&);
 };
