@@ -37,10 +37,10 @@ public:
         InstructureArray<Effect, Texture> textures;
 
         UniformBufferDescription fragmentUniformDesc;
-        InstructureVariable<Effect, GPtr> fragmentUniformPtr;
+        InstructureVariable<Effect, GPtr*> fragmentUniformPtr;
 
         UniformBufferDescription vertexUniformDesc;
-        InstructureVariable<Effect, GPtr> vertexUniformPtr;
+        InstructureVariable<Effect, GPtr*> vertexUniformPtr;
 
         AddToFunc addToFunction;
     };
@@ -100,10 +100,10 @@ template<typename T>
 concept HasTextures = ArraySize<Texture, decltype(T::textures)>::n >= 0;
 
 template<typename T>
-concept HasFragmentUniform = std140::Struct<typename T::FragmentUniform> && std::is_same_v<decltype(T::fragmentUniform), TypedGPtr<typename T::FragmentUniform>>;
+concept HasFragmentUniform = std140::Struct<typename T::FragmentUniform> && std::is_same_v<decltype(T::fragmentUniform), TypedGPtr<typename T::FragmentUniform>*>;
 
 template<typename T>
-concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), TypedGPtr<typename T::VertexUniform>>;
+concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), TypedGPtr<typename T::VertexUniform>*>;
 }
 
 template<typename T>

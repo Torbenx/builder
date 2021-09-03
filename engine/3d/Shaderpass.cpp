@@ -81,6 +81,7 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
         stream.clear();
     }
     std::array<sid_t, N> prev;
+    prev.fill(std::numeric_limits<sid_t>::max());
     for (Entry& entry : entries) {
         int_t i = 0;
         for (; i < N; i++) {
@@ -97,9 +98,9 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
             stream.writeN(data.vertexBuffers.view(entry.effects[j].ptr));
             stream.writeN(data.textures.view(entry.effects[j].ptr));
             if (data.vertexUniformDesc.size > 0)
-                stream.write(data.vertexUniformPtr.get(entry.effects[j].ptr));
+                stream.write(*data.vertexUniformPtr.get(entry.effects[j].ptr));
             if (data.fragmentUniformDesc.size > 0)
-                stream.write(data.fragmentUniformPtr.get(entry.effects[j].ptr));
+                stream.write(*data.fragmentUniformPtr.get(entry.effects[j].ptr));
         }
     }
 }
@@ -115,8 +116,8 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
     std::array<sid_t, N> prev;
-    auto readers = createReaderArray_helper(levels, std::make_index_sequence<N>());
     prev.fill(std::numeric_limits<sid_t>::max());
+    auto readers = createReaderArray_helper(levels, std::make_index_sequence<N>());
     for (Entry& entry : entries) {
         int_t i = 0;
         for (; i < N; i++) {

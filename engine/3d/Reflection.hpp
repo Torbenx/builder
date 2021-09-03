@@ -15,7 +15,7 @@ public:
     struct alignas(16) FragmentUniform {
         float factor;
     };
-    TypedGPtr<FragmentUniform> fragmentUniform;
+    TypedGPtr<FragmentUniform>* fragmentUniform;
 
     Reflection();
     static void addTo(EffectShaderBuilder&);

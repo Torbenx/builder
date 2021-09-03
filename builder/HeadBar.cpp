@@ -11,21 +11,24 @@ HeadBar::HeadBar(void* renderer)
     subTitle.textSize = TypedSize::windowsDIP(30);
     subTitle.noBreaks = true;
     subTitle.text = "Some Text";
+    scene.layout(&title)
+        .alignTop()
+        .wrapContentHeight()
+        .wrapContentWidth()
+        .centerHorizontal();
+    scene.layout(&subTitle)
+        .below(&title)
+        .wrapContentHeight()
+        .wrapContentWidth()
+        .centerHorizontal(&title, 0.75);
+    scene.layout(&box)
+        .align(&title);
 }
 
 void HeadBar::setPath(std::string path) {
     title.text = path;
-    if (hasMetrics) {
-        updateRect(scene.metrics, allocator);
-    }
-}
-
-void HeadBar::updateRect(ScreenMetrics& metrics, GAllocator& allocator) {
-    hasMetrics = true;
-
-    scene.clear(allocator);
-    title.updateContent(metrics, allocator);
-    subTitle.updateContent(metrics, allocator);
+    title.updateContent(scene.metrics, allocator);
+    subTitle.updateContent(scene.metrics, allocator);
     /*if(title.textFormat->getWidth() > metrics.x.size){
         scene.layout(&title)
             .alignParentTop()
@@ -39,19 +42,7 @@ void HeadBar::updateRect(ScreenMetrics& metrics, GAllocator& allocator) {
             .wrapContentWidth()
             .alignParentBottom();
     }*/
-    scene.layout(&title)
-        .alignTop()
-        .wrapContentHeight()
-        .wrapContentWidth()
-        .centerHorizontal();
-    scene.layout(&subTitle)
-        .below(&title)
-        .wrapContentHeight()
-        .wrapContentWidth()
-        .centerHorizontal(&title, 0.75);
-    scene.layout(&box)
-        .align(&title);
-    UiSceneComponent::updateRect(metrics, allocator);
+    scene.build(allocator);
 }
 
 void HeadBar::draw(Framebuffer& framebuffer, GAllocator& allocator) {

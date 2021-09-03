@@ -21,4 +21,5 @@ public:
     void change(int_t newWidth, int_t newHeight) override;
     void setPath(std::string path);
     void drawFrame() override;
+    ~BuildRenderer();
 };

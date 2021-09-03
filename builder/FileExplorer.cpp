@@ -7,14 +7,6 @@ FileExplorer::FileExplorer(void* renderer)
     this->renderer = renderer;
 }
 
-void FileExplorer::updateRect(ScreenMetrics& metrics, GAllocator& allocator) {
-    UiSceneComponent::updateRect(metrics, allocator);
-    if (!hasMetrics) {
-        hasMetrics = true;
-        setPath(path);
-    }
-}
-
 void FileExplorer::setPath(std::string path) {
     this->path = path;
     scene.clear(allocator);
@@ -71,12 +63,10 @@ void FileExplorer::setPath(std::string path) {
             .below(back);
         fileNameComps.push_back(text);
     }
-    if (hasMetrics) {
-        for (auto* comp : fileNameComps) {
-            comp->updateContent(scene.metrics, allocator);
-        }
-        scene.build(allocator);
+    for (auto* comp : fileNameComps) {
+        comp->updateContent(scene.metrics, allocator);
     }
+    scene.build(allocator);
 }
 
 void FileExplorer::onClick(int id) {

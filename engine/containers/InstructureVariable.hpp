@@ -18,6 +18,17 @@ public:
         m_offset = target - base;
     }
 
+    template<class V, typename S>
+    InstructureVariable(S V::*member) requires std::is_convertible_v<V*, U*> /*&& std::is_pointer_interconvertible_base_of<T, S>*/ {
+        V* v = nullptr;
+        U* u = (U*)v;
+        S* s = &(v->*member);
+        T* t = (T*)(void*)s;
+        std::byte* base = (std::byte*)u;
+        std::byte* target = (std::byte*)t;
+        m_offset = target - base;
+    }
+
     int_t offset() { return m_offset; }
 
     T& get(U* u) {

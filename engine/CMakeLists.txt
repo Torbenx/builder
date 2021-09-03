@@ -78,6 +78,7 @@ add_library(engine ${linkage}
     "VK/VKmain.cpp"
     "VK/vk_mem_alloc.cpp"
     "containers/RangeAllocator.cpp"
+    "graphics/GAllocator.cpp"
     ${platform_source}
 )
 

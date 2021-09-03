@@ -42,7 +42,7 @@ TestRenderer<G>::TestRenderer()
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
     ambientLightU.update(allocator).color = Vec3(1, 1, 1) * 1.0f;
-    ambientLight.fragmentUniform = ambientLightU.ptr;
+    ambientLight.fragmentUniform = &ambientLightU.ptr;
 
     spotLightDepthMap = Texture::depth(2048, 2048, Texture::DepthBits::D16);
     spotLightFB.bind();
@@ -51,8 +51,8 @@ TestRenderer<G>::TestRenderer()
     spotLightDepthPass.viewProjectionMatrix = Mat4x4::frustumVH(F_PI * 0.2f, F_PI * 0.4f, 0.7f, 30.0f) * Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
     spotLightFU.update(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
     spotLightVU.update(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
-    spotLight.fragmentUniform = spotLightFU.ptr;
-    spotLight.vertexUniform = spotLightVU.ptr;
+    spotLight.fragmentUniform = &spotLightFU.ptr;
+    spotLight.vertexUniform = &spotLightVU.ptr;
     spotLight.depthMap = *spotLightDepthMap;
 
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
@@ -62,7 +62,7 @@ TestRenderer<G>::TestRenderer()
     reflectionFB.attach(reflectionTexture);
     reflectionFB.viewport(2048, 2048);
     reflectionU.update(allocator).factor = 0.7f;
-    reflection.fragmentUniform = reflectionU.ptr;
+    reflection.fragmentUniform = &reflectionU.ptr;
     reflection.texture = *reflectionTexture;
     reflectionFB.clearColor(0, 0, 0, 1);
 
@@ -71,11 +71,11 @@ TestRenderer<G>::TestRenderer()
     col3U.update(allocator).color = Vec3(1, 1, 1) * 0.1f;
     col4U.update(allocator).color = Vec3(1, 1, 0) * 0.5f;
     col5U.update(allocator).color = Vec3(0, 0, 1) * 0.5f;
-    col1.fragmentUniform = col1U.ptr;
-    col2.fragmentUniform = col2U.ptr;
-    col3.fragmentUniform = col3U.ptr;
-    col4.fragmentUniform = col4U.ptr;
-    col5.fragmentUniform = col5U.ptr;
+    col1.fragmentUniform = &col1U.ptr;
+    col2.fragmentUniform = &col2U.ptr;
+    col3.fragmentUniform = &col3U.ptr;
+    col4.fragmentUniform = &col4U.ptr;
+    col5.fragmentUniform = &col5U.ptr;
 
     float f1Scale = 0.5f;
     f1 = VertexBuffer::upload({ Vec3(-1, -1, 0) * f1Scale, Vec3(-1, 1, 0) * f1Scale, Vec3(1, -1, 0) * f1Scale, Vec3(1, 1, 0) * f1Scale });
@@ -96,29 +96,6 @@ TestRenderer<G>::TestRenderer()
     std::vector<Effect::Handle> effects3 { col3.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle(), reflection.handle() };
     std::vector<Effect::Handle> effects4 { col4.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
     std::vector<Effect::Handle> effects5 { col5.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-
-    renderpass.addObject(id1, effects1);
-    renderpass.addObject(id2, effects2);
-    renderpass.addObject(id3, effects3);
-    renderpass.addObject(id4, effects4);
-    renderpass.addObject(id5, effects5);
-
-    reflectionPass.addObject(id1, effects1);
-    reflectionPass.addObject(id2, effects2);
-    reflectionPass.addObject(id4, effects4);
-    reflectionPass.addObject(id5, effects5);
-
-    spotLightDepthPass.addObject(id1);
-    spotLightDepthPass.addObject(id2);
-    spotLightDepthPass.addObject(id3);
-    spotLightDepthPass.addObject(id4);
-    spotLightDepthPass.addObject(id5);
-
-    pointLight.addObject(id1);
-    pointLight.addObject(id2);
-    pointLight.addObject(id3);
-    pointLight.addObject(id4);
-    pointLight.addObject(id5);
 
     look.dir = Vec3::normalize(Vec3(0, -1, 0) - pos);
     lframe = getNanos();
@@ -175,6 +152,31 @@ TestRenderer<G>::TestRenderer()
     pawnCol.texture = *pawnTexture;
     pawnCol.texCoords = pawnTexCoords.ptr;
 
+    allocator.stage();
+
+    renderpass.addObject(id1, effects1);
+    renderpass.addObject(id2, effects2);
+    renderpass.addObject(id3, effects3);
+    renderpass.addObject(id4, effects4);
+    renderpass.addObject(id5, effects5);
+
+    reflectionPass.addObject(id1, effects1);
+    reflectionPass.addObject(id2, effects2);
+    reflectionPass.addObject(id4, effects4);
+    reflectionPass.addObject(id5, effects5);
+
+    spotLightDepthPass.addObject(id1);
+    spotLightDepthPass.addObject(id2);
+    spotLightDepthPass.addObject(id3);
+    spotLightDepthPass.addObject(id4);
+    spotLightDepthPass.addObject(id5);
+
+    pointLight.addObject(id1);
+    pointLight.addObject(id2);
+    pointLight.addObject(id3);
+    pointLight.addObject(id4);
+    pointLight.addObject(id5);
+
     for (int_t i = -0; i <= 0; i++) {
         id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
         renderpass.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
@@ -211,7 +213,9 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiScene.metrics = metrics;
     uiScene.build(allocator);
 
-    allocator.allocator.debug();
+    allocator.debug();
+
+    allocator.stage();
 }
 
 class MyTask : public Task {
@@ -257,7 +261,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
     }
     trackPointerEvent(event);
 
-    do {
+    /*do {
         static Scheduler me;
         const int_t taskCount = 1000;
         const int_t extraThreadCount = 0;
@@ -274,9 +278,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
             Task::schedulingQueue.pushBack(&shutdownTasks[i]);
         }
         SchedulerThead threads[extraThreadCount];
-        /*for (volatile int_t i = 0; i < 100000; ++i) {
-
-        }*/
+        //for (volatile int_t i = 0; i < 100000; ++i) {}
 
         int_t start = getNanos();
         me.enter();
@@ -292,7 +294,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
         runs.erase(runs.begin());
         runs.push_back((end - start) / 1000);
         log("time: {} us, avg: {} us", (end - start) / 1000, std::accumulate(runs.begin(), runs.end(), 0) / (float)runs.size());
-    } while (false);
+    } while (false);*/
 }
 
 template<Gapi G>
@@ -457,7 +459,6 @@ TestRenderer<G>::~TestRenderer() {
     spotLightFU.release(allocator);
     spotLightVU.release(allocator);
     reflectionU.release(allocator);
-    allocator.allocator.debug();
 }
 
 INSTANTIATE_G_API_CLASS(TestRenderer);

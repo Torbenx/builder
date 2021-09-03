@@ -20,50 +20,39 @@ struct TypedGPtr : GPtr { };
 
 class GAllocator {
 public:
+    struct AllocationInfo {
+        GPtr* ptr;
+        int_t alignment;
+        int_t offset;
+        int_t size;
+    };
+
     GBuffer gBuffer;
     RangeAllocator allocator;
+    std::vector<AllocationInfo> allocations;
+
+    GBuffer staging;
     std::byte* mapped;
+    int_t stagingOffset = 0;
+
     GLint uniformAlignment = 0;
     GLint attribAlignment = 16;
 
-    GAllocator(int_t size = 1024 * 1024)
-        : allocator(size) {
-        gBuffer.initializeWriteOnly(size);
-        mapped = (std::byte*)gBuffer.mapWritable(0, size);
-        glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniformAlignment);
-        log<Tag::Graphics>("uniform alignment: {}", uniformAlignment);
-    }
+    GAllocator(int_t size = 1024 * 1024);
     GAllocator(const GAllocator&) = delete;
+    ~GAllocator();
 
     void* staticUniform(GPtr* ptr, int_t size) { return static_(ptr, uniformAlignment, size); }
-
     void* staticAttrib(GPtr* ptr, int_t size) { return static_(ptr, attribAlignment, size); }
 
-    void* static_(GPtr* ptr, int_t alignment, int_t size) {
-        if (ptr->bufferId != 0)
-            free(ptr);
-        ptr->bufferId = 1;
-        ptr->offset = allocator.allocate(alignment, size);
-        return mapped + ptr->offset;
-    }
+    void* static_(GPtr* ptr, int_t alignment, int_t size);
 
-    UniformBuffer uniform(GPtr ptr, int_t size) {
-        return { gBuffer, ptr.offset, size };
-    }
+    void stage();
 
-    VertexAttribBuffer attrib(GPtr ptr, int_t elementSize) {
-        return { gBuffer, ptr.offset, elementSize };
-    }
+    UniformBuffer uniform(GPtr ptr, int_t size) { return { gBuffer, ptr.offset, size }; }
+    VertexAttribBuffer attrib(GPtr ptr, int_t elementSize) { return { gBuffer, ptr.offset, elementSize }; }
 
-    void free(GPtr* ptr) {
-        EXPECT(Graphics, ptr->bufferId, (uint32_t)1);
-        allocator.free(ptr->offset);
-        ptr->bufferId = 0;
-        ptr->offset = 0;
-    }
+    void free(GPtr* ptr);
 
-    ~GAllocator() {
-        gBuffer.unmap();
-        gBuffer.release();
-    }
+    void debug();
 };
