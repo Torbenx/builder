@@ -38,6 +38,8 @@ public:
     TextureColor pawnCol;
     StaticUniformHelper<AmbientLight::FragmentUniform> ambientLightU;
     StaticUniformHelper<UniformColor::FragmentUniform> col1U, col2U, col3U, col4U, col5U;
+    StaticUniformHelper<SpotLight::FragmentUniform> spotLightFU;
+    StaticUniformHelper<SpotLight::VertexUniform> spotLightVU;
     GAllocationHelper<> pawnTexCoords;
 
     Resource<VertexBuffer> f1;
@@ -50,6 +52,10 @@ public:
     Resource<VertexBuffer> pawnNormals;
     Resource<IndexBuffer> pawnIndices;
     Resource<Texture> pawnTexture;
+    Resource<Texture> spotLightDepthMap;
+
+    Framebuffer spotLightFB;
+    DepthRenderpass spotLightDepthPass;
 
     Mat4x4 projection;
     Look3d look;

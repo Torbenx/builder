@@ -35,6 +35,13 @@ struct alignas(16) vec4 : Vec4 {
         : Vec4(v) { }
 };
 
+struct alignas(16) mat4 : Mat4x4 {
+    mat4()
+        : Mat4x4() { }
+    mat4(const Mat4x4& m)
+        : Mat4x4(m) { }
+};
+
 template<typename T>
 concept Struct = std::is_standard_layout_v<T>;
 

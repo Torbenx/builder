@@ -128,8 +128,8 @@ public:
             data.fragmentUniformPtr = &T::fragmentUniform;
         }
         if constexpr (effect_impl::HasVertexUniform<T>) {
-            data.vertexUniformDesc = { sizeof(typename T::VertexUniformBuffer) };
-            data.vertexUniformPtr = &T::vertexUniformBuffer;
+            data.vertexUniformDesc = { sizeof(typename T::VertexUniform) };
+            data.vertexUniformPtr = &T::vertexUniform;
         }
         data.addToFunction = &T::addTo;
         return Effect::registerEffectType(data);

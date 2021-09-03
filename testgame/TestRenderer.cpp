@@ -33,31 +33,34 @@ TestRenderer<G>::TestRenderer()
           Vec3(1, 0.3, 1) * 12.0f,
           0.3f,
           30)
-    , spotLight(
-          Vec3(0, 3.4, 0),
-          Vec3(0, -1, 0),
-          F_PI * 0.2f,
-          F_PI * 0.4f,
-          Vec3(1, 0, 0),
-          2048, 2048,
-          Vec3(1, 1, 1) * 8.0f,
-          0.7f,
-          30)
     , reflection(Vec3(0, 1, 0), Vec3(0, -2, 0), 2048, 2048, 0.7f)
     , look(up, isAndroid())
     , pos(7, 1, 0)
-    , renderpass(&Framebuffer::DEFAULT) {
+    , renderpass(&Framebuffer::DEFAULT)
+    , spotLightDepthPass(&spotLightFB) {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
     reflection.framebuffer.clearColor(0, 0, 0, 1);
 
     ambientLightU.update(allocator).color = Vec3(1, 1, 1) * 1.0f;
+    ambientLight.fragmentUniform = ambientLightU.ptr;
+
+    spotLightDepthMap = Texture::depth(2048, 2048, Texture::DepthBits::D16);
+    spotLightFB.bind();
+    spotLightFB.attach(spotLightDepthMap);
+    spotLightFB.viewport(2048, 2048);
+    spotLightDepthPass.viewProjectionMatrix = Mat4x4::frustumVH(F_PI * 0.2f, F_PI * 0.4f, 0.7f, 30.0f) * Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
+    spotLightFU.update(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
+    spotLightVU.update(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
+    spotLight.fragmentUniform = spotLightFU.ptr;
+    spotLight.vertexUniform = spotLightVU.ptr;
+    spotLight.depthMap = *spotLightDepthMap;
+
     col1U.update(allocator).color = Vec3(1, 0, 0) * 0.5f;
     col2U.update(allocator).color = Vec3(0, 1, 0) * 0.5f;
     col3U.update(allocator).color = Vec3(1, 1, 1) * 0.1f;
     col4U.update(allocator).color = Vec3(1, 1, 0) * 0.5f;
     col5U.update(allocator).color = Vec3(0, 0, 1) * 0.5f;
-    ambientLight.fragmentUniform = ambientLightU.ptr;
     col1.fragmentUniform = col1U.ptr;
     col2.fragmentUniform = col2U.ptr;
     col3.fragmentUniform = col3U.ptr;
@@ -95,11 +98,11 @@ TestRenderer<G>::TestRenderer()
     reflection.addObject(id4, effects4);
     reflection.addObject(id5, effects5);
 
-    spotLight.addObject(id1);
-    spotLight.addObject(id2);
-    spotLight.addObject(id3);
-    spotLight.addObject(id4);
-    spotLight.addObject(id5);
+    spotLightDepthPass.addObject(id1);
+    spotLightDepthPass.addObject(id2);
+    spotLightDepthPass.addObject(id3);
+    spotLightDepthPass.addObject(id4);
+    spotLightDepthPass.addObject(id5);
 
     pointLight.addObject(id1);
     pointLight.addObject(id2);
@@ -166,13 +169,13 @@ TestRenderer<G>::TestRenderer()
         id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
         renderpass.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
         reflection.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
-        spotLight.addObject(id);
+        spotLightDepthPass.addObject(id);
         pointLight.addObject(id);
     }
 
     glEnable(GL_DEPTH_TEST);
     pointLight.draw(objects);
-    spotLight.draw(objects);
+    spotLightDepthPass.draw(objects);
     glDisable(GL_DEPTH_TEST);
 
     event_logic::InitialHolder<__COUNTER__, int> a = 1;
