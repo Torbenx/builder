@@ -4,10 +4,11 @@
 
 #pragma once
 
+#include <Windows.h>
+//must include Windows.h first
 #include <GL/gl.h>
 #include <GL/glcorearb.h>
 #include <GL/wglext.h>
-#include <Windows.h>
 
 #ifdef __cplusplus
 extern "C" {

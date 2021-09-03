@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
    set(platform_source
-        "windows/glwrapper.c"
+        "windows/glwrapper.cpp"
         "windows/engine.cpp"
         "windows/fullscreen.cpp"
         "windows/Renderer.cpp"
@@ -12,7 +12,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         "resource/asset_istream.cpp"
     )
     set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite)
-    set_source_files_properties("windows/glwrapper.c" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
+    set_source_files_properties("windows/glwrapper.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
@@ -24,10 +24,10 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         "android/android_jni.cpp"
         "android/text.cpp"
         "android/keycodes.cpp"
-        "android/glwrapper.c"
+        "android/glwrapper.cpp"
     )
     set(platform_libs android log EGL GLESv3)
-    set_source_files_properties("android/glwrapper.c" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
+    set_source_files_properties("android/glwrapper.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
 
 else()
     message(FATAL_ERROR "Unsupported system: " ${CMAKE_SYSTEM_NAME})
