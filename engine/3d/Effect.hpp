@@ -7,15 +7,13 @@
 #include "containers/IdAllocator.hpp"
 #include "containers/InstructureVariable.hpp"
 #include "resource/Resource.hpp"
-#include "graphics/GAllocator.hpp"
+#include "graphics/helpers.hpp"
 #include "util/Shaders.hpp"
 #include <memory>
 #include <unordered_map>
 
 template<typename T>
 class EffectImpl;
-
-class Effect;
 
 struct UniformBufferDescription {
     int_t size = 0;
@@ -37,10 +35,10 @@ public:
         InstructureArray<Effect, Texture> textures;
 
         UniformBufferDescription fragmentUniformDesc;
-        InstructureVariable<Effect, GPtr*> fragmentUniformPtr;
+        InstructureVariable<Effect, GPtr> fragmentUniformPtr;
 
         UniformBufferDescription vertexUniformDesc;
-        InstructureVariable<Effect, GPtr*> vertexUniformPtr;
+        InstructureVariable<Effect, GPtr> vertexUniformPtr;
 
         AddToFunc addToFunction;
     };
@@ -100,10 +98,10 @@ template<typename T>
 concept HasTextures = ArraySize<Texture, decltype(T::textures)>::n >= 0;
 
 template<typename T>
-concept HasFragmentUniform = std140::Struct<typename T::FragmentUniform> && std::is_same_v<decltype(T::fragmentUniform), TypedGPtr<typename T::FragmentUniform>*>;
+concept HasFragmentUniform = std140::Struct<typename T::FragmentUniform> && std::is_same_v<decltype(T::fragmentUniform), UniformHelper<typename T::FragmentUniform>>;
 
 template<typename T>
-concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), TypedGPtr<typename T::VertexUniform>*>;
+concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), UniformHelper<typename T::VertexUniform>>;
 }
 
 template<typename T>
@@ -125,11 +123,11 @@ public:
         }
         if constexpr (effect_impl::HasFragmentUniform<T>) {
             data.fragmentUniformDesc = { sizeof(typename T::FragmentUniform) };
-            data.fragmentUniformPtr = &T::fragmentUniform;
+            data.fragmentUniformPtr = InstructureVariable { InstructureVariable { &T::fragmentUniform }, InstructureVariable { &UniformHelper<typename T::FragmentUniform>::ptr } };
         }
         if constexpr (effect_impl::HasVertexUniform<T>) {
             data.vertexUniformDesc = { sizeof(typename T::VertexUniform) };
-            data.vertexUniformPtr = &T::vertexUniform;
+            data.vertexUniformPtr = InstructureVariable { InstructureVariable { &T::vertexUniform }, InstructureVariable { &UniformHelper<typename T::VertexUniform>::ptr } };
         }
         data.addToFunction = &T::addTo;
         return Effect::registerEffectType(data);

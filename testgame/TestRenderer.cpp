@@ -41,18 +41,15 @@ TestRenderer<G>::TestRenderer()
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
-    ambientLightU.update(allocator).color = Vec3(1, 1, 1) * 1.0f;
-    ambientLight.fragmentUniform = &ambientLightU.ptr;
+    ambientLight.fragmentUniform.update(allocator).color = Vec3(1, 1, 1) * 1.0f;
 
     spotLightDepthMap = Texture::depth(2048, 2048, Texture::DepthBits::D16);
     spotLightFB.bind();
     spotLightFB.attach(spotLightDepthMap);
     spotLightFB.viewport(2048, 2048);
     spotLightDepthPass.viewProjectionMatrix = Mat4x4::frustumVH(F_PI * 0.2f, F_PI * 0.4f, 0.7f, 30.0f) * Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
-    spotLightFU.update(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
-    spotLightVU.update(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
-    spotLight.fragmentUniform = &spotLightFU.ptr;
-    spotLight.vertexUniform = &spotLightVU.ptr;
+    spotLight.fragmentUniform.update(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
+    spotLight.vertexUniform.update(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
     spotLight.depthMap = *spotLightDepthMap;
 
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
@@ -61,21 +58,15 @@ TestRenderer<G>::TestRenderer()
     reflectionFB.attach(reflectionDepthBuffer);
     reflectionFB.attach(reflectionTexture);
     reflectionFB.viewport(2048, 2048);
-    reflectionU.update(allocator).factor = 0.7f;
-    reflection.fragmentUniform = &reflectionU.ptr;
+    reflection.fragmentUniform.update(allocator).factor = 0.7f;
     reflection.texture = *reflectionTexture;
     reflectionFB.clearColor(0, 0, 0, 1);
 
-    col1U.update(allocator).color = Vec3(1, 0, 0) * 0.5f;
-    col2U.update(allocator).color = Vec3(0, 1, 0) * 0.5f;
-    col3U.update(allocator).color = Vec3(1, 1, 1) * 0.1f;
-    col4U.update(allocator).color = Vec3(1, 1, 0) * 0.5f;
-    col5U.update(allocator).color = Vec3(0, 0, 1) * 0.5f;
-    col1.fragmentUniform = &col1U.ptr;
-    col2.fragmentUniform = &col2U.ptr;
-    col3.fragmentUniform = &col3U.ptr;
-    col4.fragmentUniform = &col4U.ptr;
-    col5.fragmentUniform = &col5U.ptr;
+    col1.fragmentUniform.update(allocator).color = Vec3(1, 0, 0) * 0.5f;
+    col2.fragmentUniform.update(allocator).color = Vec3(0, 1, 0) * 0.5f;
+    col3.fragmentUniform.update(allocator).color = Vec3(1, 1, 1) * 0.1f;
+    col4.fragmentUniform.update(allocator).color = Vec3(1, 1, 0) * 0.5f;
+    col5.fragmentUniform.update(allocator).color = Vec3(0, 0, 1) * 0.5f;
 
     float f1Scale = 0.5f;
     f1 = VertexBuffer::upload({ Vec3(-1, -1, 0) * f1Scale, Vec3(-1, 1, 0) * f1Scale, Vec3(1, -1, 0) * f1Scale, Vec3(1, 1, 0) * f1Scale });
@@ -150,9 +141,10 @@ TestRenderer<G>::TestRenderer()
 
     Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     pawnCol.texture = *pawnTexture;
-    pawnCol.texCoords = pawnTexCoords.ptr;
 
     allocator.stage();
+    
+    pawnCol.texCoords = pawnTexCoords.ptr;
 
     renderpass.addObject(id1, effects1);
     renderpass.addObject(id2, effects2);
@@ -449,7 +441,7 @@ void TestRenderer<G>::drawFrame() {
 template<Gapi G>
 TestRenderer<G>::~TestRenderer() {
     uiScene.clear(allocator);
-    ambientLightU.release(allocator);
+    /*ambientLightU.release(allocator);
     col1U.release(allocator);
     col2U.release(allocator);
     col3U.release(allocator);
@@ -458,7 +450,7 @@ TestRenderer<G>::~TestRenderer() {
     pawnTexCoords.release(allocator);
     spotLightFU.release(allocator);
     spotLightVU.release(allocator);
-    reflectionU.release(allocator);
+    reflectionU.release(allocator);*/
 }
 
 INSTANTIATE_G_API_CLASS(TestRenderer);

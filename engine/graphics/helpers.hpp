@@ -17,7 +17,7 @@ struct GAllocationHelper {
 };
 
 template<typename T>
-struct StaticUniformHelper : GAllocationHelper<T> {
+struct UniformHelper : GAllocationHelper<T> {
     UniformBuffer operator()(GAllocator& allocator) {
         return allocator.uniform(this->ptr, sizeof(T));
     }

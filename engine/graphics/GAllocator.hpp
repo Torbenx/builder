@@ -49,8 +49,14 @@ public:
 
     void stage();
 
-    UniformBuffer uniform(GPtr ptr, int_t size) { return { gBuffer, ptr.offset, size }; }
-    VertexAttribBuffer attrib(GPtr ptr, int_t elementSize) { return { gBuffer, ptr.offset, elementSize }; }
+    UniformBuffer uniform(GPtr ptr, int_t size) {
+        EXPECT(Graphics, ptr.bufferId, (uint32_t)2);
+        return { gBuffer, ptr.offset, size };
+    }
+    VertexAttribBuffer attrib(GPtr ptr, int_t elementSize) {
+        EXPECT(Graphics, ptr.bufferId, (uint32_t)2);
+        return { gBuffer, ptr.offset, elementSize };
+    }
 
     void free(GPtr* ptr);
 

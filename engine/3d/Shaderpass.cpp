@@ -98,9 +98,9 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
             stream.writeN(data.vertexBuffers.view(entry.effects[j].ptr));
             stream.writeN(data.textures.view(entry.effects[j].ptr));
             if (data.vertexUniformDesc.size > 0)
-                stream.write(*data.vertexUniformPtr.get(entry.effects[j].ptr));
+                stream.write(data.vertexUniformPtr.get(entry.effects[j].ptr));
             if (data.fragmentUniformDesc.size > 0)
-                stream.write(*data.fragmentUniformPtr.get(entry.effects[j].ptr));
+                stream.write(data.fragmentUniformPtr.get(entry.effects[j].ptr));
         }
     }
 }

@@ -36,11 +36,6 @@ public:
     Reflection reflection;
     UniformColor col1, col2, col3, col4, col5;
     TextureColor pawnCol;
-    StaticUniformHelper<AmbientLight::FragmentUniform> ambientLightU;
-    StaticUniformHelper<UniformColor::FragmentUniform> col1U, col2U, col3U, col4U, col5U;
-    StaticUniformHelper<SpotLight::FragmentUniform> spotLightFU;
-    StaticUniformHelper<SpotLight::VertexUniform> spotLightVU;
-    StaticUniformHelper<Reflection::FragmentUniform> reflectionU;
     GAllocationHelper<> pawnTexCoords;
 
     Resource<VertexBuffer> f1;

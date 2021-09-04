@@ -9,7 +9,7 @@ public:
     struct FragmentUniform {
         std140::vec3 color;
     };
-    TypedGPtr<FragmentUniform>* fragmentUniform;
+    UniformHelper<FragmentUniform> fragmentUniform;
 
     AmbientLight();
     static void addTo(EffectShaderBuilder&);
@@ -20,7 +20,7 @@ public:
     struct FragmentUniform {
         std140::vec3 color;
     };
-    TypedGPtr<FragmentUniform>* fragmentUniform;
+    UniformHelper<FragmentUniform> fragmentUniform;
 
     UniformColor();
     static void addTo(EffectShaderBuilder&);

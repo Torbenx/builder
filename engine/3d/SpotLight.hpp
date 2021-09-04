@@ -14,12 +14,12 @@ public:
         std140::vec3 color;
         std140::vec3 lightPos;
     };
-    TypedGPtr<FragmentUniform>* fragmentUniform;
+    UniformHelper<FragmentUniform> fragmentUniform;
 
     struct VertexUniform {
         std140::mat4 mvpMatrix;
     };
-    TypedGPtr<VertexUniform>* vertexUniform;
+    UniformHelper<VertexUniform> vertexUniform;
 
     SpotLight();
     static void addTo(EffectShaderBuilder&);
