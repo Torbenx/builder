@@ -4,43 +4,10 @@
 
 namespace std140 {
 
-struct alignas(8) vec2 : Vec2 {
-    vec2()
-        : Vec2() { }
-    vec2(float x, float y)
-        : Vec2(x, y) { }
-    vec2(float xy)
-        : Vec2(xy) { }
-    vec2(Vec2 v)
-        : Vec2(v) { }
-};
-
-struct alignas(16) vec3 : Vec3 {
-    vec3()
-        : Vec3() { }
-    vec3(float x, float y, float z)
-        : Vec3(x, y, z) { }
-    vec3(float xyz)
-        : Vec3(xyz) { }
-    vec3(Vec3 v)
-        : Vec3(v) { }
-};
-
-struct alignas(16) vec4 : Vec4 {
-    vec4()
-        : Vec4() { }
-    vec4(float x, float y, float z, float w)
-        : Vec4(x, y, z, w) { }
-    vec4(Vec4 v)
-        : Vec4(v) { }
-};
-
-struct alignas(16) mat4 : Mat4x4 {
-    mat4()
-        : Mat4x4() { }
-    mat4(const Mat4x4& m)
-        : Mat4x4(m) { }
-};
+using vec2 __attribute__((aligned(8))) = Vec4;
+using vec3 __attribute__((aligned(16))) = Vec3;
+using vec4 __attribute__((aligned(16))) = Vec4;
+using mat4 __attribute__((aligned(16))) = Mat4x4;
 
 template<typename T>
 concept Struct = std::is_standard_layout_v<T>;

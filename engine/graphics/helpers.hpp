@@ -28,7 +28,7 @@ template<typename T>
 struct UniformHelper : GAllocationHelper<T> {
 
     UniformBuffer uniformBuffer(GAllocator& allocator) {
-        return { this->ptr, sizeof(T) };
+        return { allocator.buffer(this->ptr), sizeof(T) };
     }
 
     T& allocateDynamic(GAllocator& allocator) {

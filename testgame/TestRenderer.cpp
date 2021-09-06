@@ -27,16 +27,11 @@
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
     : up(0, 1, 0)
-    , pointLight(
-          Vec3(0, 1, -2),
-          1024, 1024,
-          Vec3(1, 0.3, 1) * 12.0f,
-          0.3f,
-          30)
     , look(up, isAndroid())
     , pos(7, 1, 0)
     , renderpass(&Framebuffer::DEFAULT)
     , spotLightDepthPass(&spotLightFB)
+    , pointLightDepthPasses { &pointLightFBs[0], &pointLightFBs[1], &pointLightFBs[2], &pointLightFBs[3], &pointLightFBs[4], &pointLightFBs[5] }
     , reflectionPass(&reflectionFB) {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
@@ -51,6 +46,48 @@ TestRenderer<G>::TestRenderer()
     spotLight.fragmentUniform.staticUpdate(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
     spotLight.vertexUniform.staticUpdate(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
     spotLight.depthMap = *spotLightDepthMap;
+
+    float m_near = 1.0f;
+    float m_far = 15.0f;
+    Vec3 pointLightPos = Vec3(0, 1, -2);
+    pointLightDepthMap = CubeMap::depth(1024, 1024, Texture::DepthBits::D16);
+    for (int_t i = 0; i < 6; i++) {
+        pointLightFBs[i].bind();
+        pointLightFBs[i].attach(pointLightDepthMap, CubeMap::Faces[i]);
+        pointLightFBs[i].viewport(1024, 1024);
+    }
+    pointLight.fragmentUniform.staticUpdate(allocator) = {
+        .color = Vec3(1, 0.3, 1) * 16.0f,
+        .lightPos = pointLightPos,
+        .a = (m_near + m_far) / (m_far - m_near),
+        .b = 2.0f * m_near * m_far / (m_far - m_near)
+    };
+    pointLightProjection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
+    for (int_t i = 0; i < 6; i++) {
+        Mat4x4 view;
+        switch (CubeMap::Faces[i]) {
+        case CubeMap::PosX:
+            view = Mat4x4::look(pointLightPos, Vec3(+1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegX:
+            view = Mat4x4::look(pointLightPos, Vec3(-1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::PosY:
+            view = Mat4x4::look(pointLightPos, Vec3(0, +1, 0), Vec3(0, 0, +1));
+            break;
+        case CubeMap::NegY:
+            view = Mat4x4::look(pointLightPos, Vec3(0, -1, 0), Vec3(0, 0, -1));
+            break;
+        case CubeMap::PosZ:
+            view = Mat4x4::look(pointLightPos, Vec3(0, 0, +1), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegZ:
+            view = Mat4x4::look(pointLightPos, Vec3(0, 0, -1), Vec3(0, -1, 0));
+            break;
+        }
+        pointLightDepthPasses[i].viewProjectionMatrix = pointLightProjection * view;
+    }
+    pointLight.depthMap = *pointLightDepthMap;
 
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
     reflectionTexture = Texture::color(2048, 2048, Texture::Format::RGBA8888);
@@ -69,7 +106,7 @@ TestRenderer<G>::TestRenderer()
     col5.fragmentUniform.staticUpdate(allocator).color = Vec3(0, 0, 1) * 0.5f;
 
     float f1Scale = 0.5f;
-    f1 = VertexBuffer::upload({ Vec3(-1, -1, 0) * f1Scale, Vec3(-1, 1, 0) * f1Scale, Vec3(1, -1, 0) * f1Scale, Vec3(1, 1, 0) * f1Scale });
+    f1 = VertexBuffer::upload({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale });
     f2 = VertexBuffer::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
     f3 = VertexBuffer::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
     f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
@@ -111,7 +148,7 @@ TestRenderer<G>::TestRenderer()
 
     cubeComp.farDepth = 1.0f;
     cubeComp.cubeMap = &pointLight.depthMap;
-    cubeComp.positiveX(Rect::bltr(-1, -1, 1, 1));
+    cubeComp.positiveZ(Rect::bltr(-1, -1, 1, 1));
     refComp.texture = &reflection.texture;
 
     uiScene.layout(&textComp)
@@ -163,22 +200,28 @@ TestRenderer<G>::TestRenderer()
     spotLightDepthPass.addObject(id4);
     spotLightDepthPass.addObject(id5);
 
-    pointLight.addObject(id1);
-    pointLight.addObject(id2);
-    pointLight.addObject(id3);
-    pointLight.addObject(id4);
-    pointLight.addObject(id5);
+    for (int_t i = 0; i < 6; i++) {
+        pointLightDepthPasses[i].addObject(id1);
+        pointLightDepthPasses[i].addObject(id2);
+        pointLightDepthPasses[i].addObject(id3);
+        pointLightDepthPasses[i].addObject(id4);
+        pointLightDepthPasses[i].addObject(id5);
+    }
 
     for (int_t i = -0; i <= 0; i++) {
         id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
         renderpass.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
         reflectionPass.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
         spotLightDepthPass.addObject(id);
-        pointLight.addObject(id);
+        for (int_t i = 0; i < 6; i++) {
+            pointLightDepthPasses[i].addObject(id);
+        }
     }
 
     glEnable(GL_DEPTH_TEST);
-    pointLight.draw(objects);
+    for (int_t i = 0; i < 6; i++) {
+        pointLightDepthPasses[i].draw(objects);
+    }
     spotLightDepthPass.draw(objects);
     glDisable(GL_DEPTH_TEST);
 
@@ -373,20 +416,20 @@ void TestRenderer<G>::drawFrame() {
     pos += navD.x * dt * Vec3::cross(dirX, up);
     pos -= navD.y * dt * dirX;
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
-    Vec3& plp = pointLight.position;
+    /*Vec3& plp = pointLight.position;
     plp += Vec3(plp.z * dt, plp.z * dt / 2.0, -plp.x * dt);
-    pointLight.updateViewProjectionMatrix();
+    ointLight.updateViewProjectionMatrix();
     obj5_coords[0] = Vec3(plp.x - 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
-    f5->update(obj5_coords);
+    f5->update(obj5_coords);*/
 
     renderpass.viewProjectionMatrix = projection * view;
     reflectionPass.viewProjectionMatrix = renderpass.viewProjectionMatrix * Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    pointLight.draw(objects);
+    //pointLight.draw(objects);
     reflectionPass.draw(objects, allocator);
     renderpass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);

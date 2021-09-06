@@ -5,23 +5,19 @@
 
 class PointLight : public EffectImpl<PointLight> {
 public:
-    static void addTo(EffectShaderBuilder&);
-
     union {
         CubeMap depthMap;
         Texture textures[1];
     };
-    Framebuffer framebuffers[6];
-    DepthRenderpass passes[6];
-    Vec3 position;
-    Vec3 color;
-    float m_near, m_far;
-    int width, height;
 
-    PointLight(Vec3 position, int width, int height, Vec3 color, float near, float far);
-    void applyTo(OrderedShader) override;
-    void addObject(id_t);
-    void draw(GraphicsObjectCollection&);
-    void updateViewProjectionMatrix();
-    ~PointLight();
+    struct FragmentUniform {
+        std140::vec3 color;
+        std140::vec3 lightPos;
+        float a;
+        float b;
+    };
+    UniformHelper<FragmentUniform> fragmentUniform;
+
+    static void addTo(EffectShaderBuilder&);
+    PointLight();
 };
