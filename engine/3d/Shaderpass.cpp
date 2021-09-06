@@ -133,13 +133,13 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
             Effect::TypeData data = Effect::data(entry.effects[j].type);
             auto state = shader.ordered(shader.slots[j]);
             for (int_t c = 0; c < data.vertexBuffers.size(); c++)
-                state.attribPointer(allocator.attrib(reader.read<GPtr>(), data.vertexBufferElementSizes[c]));
+                state.attribPointer({ allocator.buffer(reader.read<GPtr>()), data.vertexBufferElementSizes[c] });
             for (int_t c = 0; c < data.textures.size(); c++)
                 state.uniformTexture(reader.read<Texture>());
             if (data.vertexUniformDesc.size > 0)
-                state.uniformBuffer(allocator.uniform(reader.read<GPtr>(), data.vertexUniformDesc.size));
+                state.uniformBuffer({ allocator.buffer(reader.read<GPtr>()), data.vertexUniformDesc.size });
             if (data.fragmentUniformDesc.size > 0)
-                state.uniformBuffer(allocator.uniform(reader.read<GPtr>(), data.fragmentUniformDesc.size));
+                state.uniformBuffer({ allocator.buffer(reader.read<GPtr>()), data.fragmentUniformDesc.size });
 
             entry.effects[j]->applyTo(state);
         }

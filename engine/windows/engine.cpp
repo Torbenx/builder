@@ -5,7 +5,6 @@
 #include "input/keycodes.hpp"
 #include "util/log.hpp"
 #include "windows/fullscreen.hpp"
-#include "windows/redirect.hpp"
 #include <Windows.h>
 #include <Windowsx.h>
 #include <ctime>
@@ -286,13 +285,13 @@ void RendererState::exit() {
 }
 
 void log_print(const std::string& tag, const std::string& msg) {
-    std::cout << '[' << tag << "] " << msg << '\n';
+    OutputDebugStringA(('[' + tag + "] " + msg).c_str());
+    //std::cout << '[' << tag << "] " << msg << '\n';
 }
 
 int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPSTR lpCmdLine, [[maybe_unused]] int nCmdShow) {
     createFunctions = functions;
     engine_hinstance = hInstance;
-    redirectToConsole();
     init_time();
     init_textureFormats();
 

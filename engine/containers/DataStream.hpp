@@ -4,18 +4,37 @@
 #include "util/types.hpp"
 #include <vector>
 
+namespace Tag {
+struct DataStream {
+    static constexpr char tag[] = "DStream";
+    static constexpr bool verifyEnabled = true;
+};
+}
+
 template<typename T>
 concept StreamCopyable = std::is_trivially_copyable_v<T>;
 
 class DataStream {
 public:
     template<StreamCopyable T>
-    void writeN(T* t, int_t n) {
-        std::memcpy(growBy(n * sizeof(T)), t, n * sizeof(T));
+    void writeN(const T* t, int_t n) {
+        if constexpr (Tag::DataStream::verifyEnabled) {
+            std::hash<std::string_view> hasher;
+            size_t hash = hasher(typeid(T).name());
+            std::byte* addr = growBy(n * (sizeof(size_t) + sizeof(T)));
+            for (int_t i = 0; i < n; i++) {
+                *(size_t*)addr = hash;
+                addr += sizeof(size_t);
+                *(T*)addr = t[i];
+                addr += sizeof(T);
+            }
+        } else {
+            std::memcpy(growBy(n * sizeof(T)), t, n * sizeof(T));
+        }
     }
 
     template<StreamCopyable T>
-    void write(T& t) { writeN<T>(&t, 1); }
+    void write(const T& t) { writeN<T>(&t, 1); }
 
     template<StreamCopyable T>
     void writeN(ArrayView<T> array) { writeN<T>(array.data(), array.size()); }
@@ -29,8 +48,21 @@ public:
 
         template<StreamCopyable T>
         void readN(T* t, int_t n) {
-            std::memcpy(t, stream.m_data.data() + offset, n * sizeof(T));
-            offset += n * sizeof(T);
+            if constexpr (Tag::DataStream::verifyEnabled) {
+                std::hash<std::string_view> hasher;
+                size_t hash = hasher(typeid(T).name());
+                const std::byte* addr = stream.m_data.data() + offset;
+                for (int_t i = 0; i < n; i++) {
+                    EXPECT(DataStream, *(const size_t*)addr, hash);
+                    addr += sizeof(size_t);
+                    t[i] = *(const T*)addr;
+                    addr += sizeof(T);
+                }
+                offset += n * (sizeof(size_t) + sizeof(T));
+            } else {
+                std::memcpy(t, stream.m_data.data() + offset, n * sizeof(T));
+                offset += n * sizeof(T);
+            }
         }
 
         template<StreamCopyable T>
@@ -49,8 +81,9 @@ public:
 
 private:
     std::byte* growBy(int_t size) {
-        m_data.resize(m_data.size() + size);
-        return m_data.data() + (int_t)m_data.size() - size;
+        int_t offset = m_data.size();
+        m_data.resize(offset + size);
+        return m_data.data() + offset;
     }
 
     std::vector<std::byte> m_data;

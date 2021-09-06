@@ -27,38 +27,44 @@ public:
         int_t size;
     };
 
-    GBuffer gBuffer;
-    RangeAllocator allocator;
-    std::vector<AllocationInfo> allocations;
+    union {
+        struct {
+            GBuffer staging, dynamicBuffer, staticBuffer, dynamicCPU;
+        };
+        GBuffer buffers[4];
+    };
+    RangeAllocator dynamicAllocator, staticAllocator;
+    std::vector<AllocationInfo> dynamicAllocations, staticAllocations;
 
-    GBuffer staging;
-    std::byte* mapped;
+    std::byte* dynamicMapped;
+    std::byte* stagingMapped;
     int_t stagingOffset = 0;
 
-    GLint uniformAlignment = 0;
-    GLint attribAlignment = 16;
+    int_t dynamicSize, staticSize, stagingSize;
 
-    GAllocator(int_t size = 1024 * 1024);
+    GAllocator(int_t dynamicSize = 1024, int_t staticSize = 1024 * 1024, int_t stagingSize = 1024 * 1024);
     GAllocator(const GAllocator&) = delete;
     ~GAllocator();
 
-    void* staticUniform(GPtr* ptr, int_t size) { return static_(ptr, uniformAlignment, size); }
-    void* staticAttrib(GPtr* ptr, int_t size) { return static_(ptr, attribAlignment, size); }
-
-    void* static_(GPtr* ptr, int_t alignment, int_t size);
+    void* allocateDynamic(GPtr* ptr, int_t alignment, int_t size) { return queueForAllocation(ptr, alignment, size, dynamicAllocations); }
+    void* allocateStatic(GPtr* ptr, int_t alignment, int_t size) { return queueForAllocation(ptr, alignment, size, staticAllocations); }
 
     void stage();
+    void pumpDynamicData();
 
-    UniformBuffer uniform(GPtr ptr, int_t size) {
-        EXPECT(Graphics, ptr.bufferId, (uint32_t)2);
-        return { gBuffer, ptr.offset, size };
+    std::pair<GBuffer, int_t> buffer(GPtr ptr) {
+        VERIFY(Graphics, ptr.bufferId == 1 || ptr.bufferId == 2);
+        return { buffers[ptr.bufferId], (uint32_t)ptr.offset };
     }
-    VertexAttribBuffer attrib(GPtr ptr, int_t elementSize) {
-        EXPECT(Graphics, ptr.bufferId, (uint32_t)2);
-        return { gBuffer, ptr.offset, elementSize };
+    void* dynamicMapping(GPtr ptr) {
+        VERIFY(Graphics, ptr.bufferId == 1);
+        return dynamicMapped + ptr.offset;
     }
 
     void free(GPtr* ptr);
 
     void debug();
+
+private:
+    void* queueForAllocation(GPtr* ptr, int_t alignment, int_t size, std::vector<AllocationInfo>& queue);
 };

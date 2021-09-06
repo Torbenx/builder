@@ -41,15 +41,15 @@ TestRenderer<G>::TestRenderer()
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
-    ambientLight.fragmentUniform.update(allocator).color = Vec3(1, 1, 1) * 1.0f;
+    ambientLight.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 1) * 1.0f;
 
     spotLightDepthMap = Texture::depth(2048, 2048, Texture::DepthBits::D16);
     spotLightFB.bind();
     spotLightFB.attach(spotLightDepthMap);
     spotLightFB.viewport(2048, 2048);
     spotLightDepthPass.viewProjectionMatrix = Mat4x4::frustumVH(F_PI * 0.2f, F_PI * 0.4f, 0.7f, 30.0f) * Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
-    spotLight.fragmentUniform.update(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
-    spotLight.vertexUniform.update(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
+    spotLight.fragmentUniform.staticUpdate(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
+    spotLight.vertexUniform.staticUpdate(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
     spotLight.depthMap = *spotLightDepthMap;
 
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
@@ -58,15 +58,15 @@ TestRenderer<G>::TestRenderer()
     reflectionFB.attach(reflectionDepthBuffer);
     reflectionFB.attach(reflectionTexture);
     reflectionFB.viewport(2048, 2048);
-    reflection.fragmentUniform.update(allocator).factor = 0.7f;
+    reflection.fragmentUniform.staticUpdate(allocator).factor = 0.7f;
     reflection.texture = *reflectionTexture;
     reflectionFB.clearColor(0, 0, 0, 1);
 
-    col1.fragmentUniform.update(allocator).color = Vec3(1, 0, 0) * 0.5f;
-    col2.fragmentUniform.update(allocator).color = Vec3(0, 1, 0) * 0.5f;
-    col3.fragmentUniform.update(allocator).color = Vec3(1, 1, 1) * 0.1f;
-    col4.fragmentUniform.update(allocator).color = Vec3(1, 1, 0) * 0.5f;
-    col5.fragmentUniform.update(allocator).color = Vec3(0, 0, 1) * 0.5f;
+    col1.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 0, 0) * 0.5f;
+    col2.fragmentUniform.staticUpdate(allocator).color = Vec3(0, 1, 0) * 0.5f;
+    col3.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 1) * 0.1f;
+    col4.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 0) * 0.5f;
+    col5.fragmentUniform.staticUpdate(allocator).color = Vec3(0, 0, 1) * 0.5f;
 
     float f1Scale = 0.5f;
     f1 = VertexBuffer::upload({ Vec3(-1, -1, 0) * f1Scale, Vec3(-1, 1, 0) * f1Scale, Vec3(1, -1, 0) * f1Scale, Vec3(1, 1, 0) * f1Scale });
@@ -131,7 +131,7 @@ TestRenderer<G>::TestRenderer()
     pawnNormals = VertexBuffer::upload(parser.normals, parser.dim, parser.vertexCount);
     pawnIndices = IndexBuffer::upload(parser.indices, parser.n);
 
-    void* addr = allocator.staticAttrib(&pawnTexCoords.ptr, 2 * sizeof(float) * parser.vertexCount);
+    void* addr = allocator.allocateStatic(&pawnTexCoords.ptr, 16, 2 * sizeof(float) * parser.vertexCount);
     std::memcpy(addr, parser.texCoords, 2 * sizeof(float) * parser.vertexCount);
 
     asset_istream jpegFile("QueenSideB/piece.jpg");
@@ -143,7 +143,7 @@ TestRenderer<G>::TestRenderer()
     pawnCol.texture = *pawnTexture;
 
     allocator.stage();
-    
+
     pawnCol.texCoords = pawnTexCoords.ptr;
 
     renderpass.addObject(id1, effects1);

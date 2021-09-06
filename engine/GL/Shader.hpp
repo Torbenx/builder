@@ -21,12 +21,24 @@ struct OrderedShaderState {
 };
 
 struct UniformBuffer {
+    UniformBuffer(GBuffer buffer, int_t offset, int_t size)
+        : buffer(buffer), offset(offset), size(size) { }
+
+    UniformBuffer(std::pair<GBuffer, int_t> p, int_t size)
+        : buffer(p.first), offset(p.second), size(size) { }
+
     GBuffer buffer;
     int_t offset;
     int_t size;
 };
 
 struct VertexAttribBuffer {
+    VertexAttribBuffer(GBuffer buffer, int_t offset, int_t elementSize)
+        : buffer(buffer), offset(offset), elementSize(elementSize) { }
+
+    VertexAttribBuffer(std::pair<GBuffer, int_t> p, int_t elementSize)
+        : buffer(p.first), offset(p.second), elementSize(elementSize) { }
+
     GBuffer buffer;
     int_t offset;
     int_t elementSize;
@@ -91,7 +103,7 @@ public:
 
     OrderedShader ordered(OrderedShaderState state);
 
-//private:
+    //private:
     GLuint glId = 0;
 };
 
@@ -112,6 +124,7 @@ public:
 
     const Shader shader;
     OrderedShaderState state;
+
 private:
     OrderedShader(Shader shader, OrderedShaderState state)
         : shader(shader), state(state) { }
