@@ -194,7 +194,10 @@ void glwrapper_init();
     GL_FUNCTION(PFNGLMAPBUFFERRANGEPROC, glMapBufferRange)                                 \
     GL_FUNCTION(PFNGLBINDBUFFERRANGEPROC, glBindBufferRange)                               \
     GL_FUNCTION(PFNGLCOPYBUFFERSUBDATAPROC, glCopyBufferSubData)                           \
-    GL_FUNCTION(PFNGLMEMORYBARRIERPROC, glMemoryBarrier)
+    GL_FUNCTION(PFNGLMEMORYBARRIERPROC, glMemoryBarrier)                                   \
+    GL_FUNCTION(PFNGLFLUSHMAPPEDBUFFERRANGEPROC, glFlushMappedBufferRange)                 \
+    GL_FUNCTION(PFNGLFENCESYNCPROC, glFenceSync)                                           \
+    GL_FUNCTION(PFNGLWAITSYNCPROC, glWaitSync)
 
 #define GL_FUNCTION(type, name) extern type name;
 ENUMERATE_GL_FUNCTIONS;

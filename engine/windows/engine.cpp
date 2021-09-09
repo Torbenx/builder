@@ -39,7 +39,7 @@ void gl_debug_callback(
     [[maybe_unused]] GLsizei length,
     [[maybe_unused]] const GLchar* message,
     [[maybe_unused]] const void* userParam) {
-    //if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
         log<Tag::GL>("[{}] glDebug: {}", severity, message);
 }
 
@@ -48,9 +48,9 @@ void initializeGL(const HDC& hdc) {
     wglMakeCurrent(hdc, hglrc_initial);
     glwrapper_init();
 
-    /*if(wglSwapIntervalEXT(0)){
+    if(wglSwapIntervalEXT(0)){
         log<Tag::GL>("disabled vsync");
-    }*/
+    }
 
     wglDeleteContext(hglrc_initial);
     int context_attribs[] = {

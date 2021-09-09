@@ -27,7 +27,7 @@ public:
         int i = 0;
         for (uint64_t t : laps) {
             // std::cout << (t - prev) / 1000.0 << ", ";
-            log("%u: {} us,", i++, (t - prev) / 1000.0);
+            log("{}: {} us,", i++, (t - prev) / 1000.0);
             prev = t;
         }
         log("----------------------");

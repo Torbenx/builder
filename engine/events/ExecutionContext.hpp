@@ -3,7 +3,7 @@
 #include "util/target.hpp"
 #include <cstddef>
 
-#if __has_include(<coroutine>)
+/*#if __has_include(<coroutine>)
 
 #include <coroutine>
 namespace stdx = std;
@@ -13,7 +13,7 @@ namespace stdx = std;
 #include <experimental/coroutine>
 namespace stdx = std::experimental;
 
-#endif
+#endif*/
 
 #ifdef PLATFORM_WINDOWS
 #define MIGHT_YIELD __attribute__((sysv_abi))

@@ -27,20 +27,18 @@ public:
         int_t size;
     };
 
-    union {
-        struct {
-            GBuffer staging, dynamicBuffer, staticBuffer, dynamicCPU;
-        };
-        GBuffer buffers[4];
-    };
+    GBuffer staging, staticBuffer;
+    GBuffer dynamicBuffers[2];
+    GBuffer dynamicCPU[2];
     RangeAllocator dynamicAllocator, staticAllocator;
     std::vector<AllocationInfo> dynamicAllocations, staticAllocations;
 
-    std::byte* dynamicMapped;
+    std::byte* dynamicMapped[2];
     std::byte* stagingMapped;
     int_t stagingOffset = 0;
 
     int_t dynamicSize, staticSize, stagingSize;
+    int_t pumpCount = 0;
 
     GAllocator(int_t dynamicSize = 1024, int_t staticSize = 1024 * 1024, int_t stagingSize = 1024 * 1024);
     GAllocator(const GAllocator&) = delete;
@@ -54,11 +52,14 @@ public:
 
     std::pair<GBuffer, int_t> buffer(GPtr ptr) {
         VERIFY(Graphics, ptr.bufferId == 1 || ptr.bufferId == 2);
-        return { buffers[ptr.bufferId], (uint32_t)ptr.offset };
+        if (ptr.bufferId == 1) {
+            return { dynamicBuffers[readableDynamicIndex()], (uint32_t)ptr.offset };
+        }
+        return { staticBuffer, (uint32_t)ptr.offset };
     }
     void* dynamicMapping(GPtr ptr) {
         VERIFY(Graphics, ptr.bufferId == 1);
-        return dynamicMapped + ptr.offset;
+        return dynamicMapped[writableDynamicIndex()] + ptr.offset;
     }
 
     void free(GPtr* ptr);
@@ -67,4 +68,6 @@ public:
 
 private:
     void* queueForAllocation(GPtr* ptr, int_t alignment, int_t size, std::vector<AllocationInfo>& queue);
+    int_t writableDynamicIndex() { return pumpCount & 1; }
+    int_t readableDynamicIndex() { return (pumpCount + 1) & 1; }
 };

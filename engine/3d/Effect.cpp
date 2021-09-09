@@ -82,7 +82,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
 Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>& effects) {
     uintptr_t hash = 0;
     for (Effect::Handle effect : effects) {
-        hash ^= ((uintptr_t)effect.type.id + 7) * 17;
+        hash ^= ((uintptr_t)effect.type.id + 5711) * 7727;
     }
 
     std::unique_ptr<effect_impl::ShaderMonitor>& ptr = effect_impl::shaderHandles[hash];

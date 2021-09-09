@@ -60,8 +60,9 @@ public:
     Framebuffer reflectionFB;
     Renderpass reflectionPass;
 
+    GLsync lastSync;
+    Vec3 pointLightPosition;
     Mat4x4 projection;
-    Mat4x4 pointLightProjection;
     Look3d look;
     uint32_t w = -1, a = -1, s = -1, d = -1, fullscreen = -1, exitKey = -1, upKey = -1, downKey = -1;
     Vec3 pos;
@@ -82,5 +83,6 @@ public:
     void rawPointer(int_t dx, int_t dy);
     void rawKey(uint32_t keycode, bool down);
     void drawFrame();
+    void updatePointLightData();
     ~TestRenderer();
 };

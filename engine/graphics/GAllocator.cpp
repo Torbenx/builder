@@ -6,9 +6,13 @@ GAllocator::GAllocator(int_t dynamicSize, int_t staticSize, int_t stagingSize)
     staging.initializeWriteOnly(stagingSize);
     stagingMapped = (std::byte*)staging.mapWritable(0, stagingSize);
 
-    dynamicCPU.initializeWriteOnly(dynamicSize);
-    dynamicMapped = (std::byte*)dynamicCPU.mapWritable(0, dynamicSize);
-    dynamicBuffer.initializeStatic(dynamicSize);
+    dynamicCPU[0].initializeWriteOnly(dynamicSize);
+    dynamicMapped[0] = (std::byte*)dynamicCPU[0].mapWritable(0, dynamicSize);
+    dynamicBuffers[0].initializeStatic(dynamicSize);
+
+    dynamicCPU[1].initializeWriteOnly(dynamicSize);
+    dynamicMapped[1] = (std::byte*)dynamicCPU[1].mapWritable(0, dynamicSize);
+    dynamicBuffers[1].initializeStatic(dynamicSize);
 
     staticBuffer.initializeStatic(staticSize);
 }
@@ -29,12 +33,12 @@ void GAllocator::stage() {
     staging.bind(GL_COPY_READ_BUFFER);
     int_t stagedSize = 0;
 
-    dynamicBuffer.bind(GL_COPY_WRITE_BUFFER);
+    //dynamicBuffer.bind(GL_COPY_WRITE_BUFFER);
     for (AllocationInfo alloc : dynamicAllocations) {
         int_t offset = dynamicAllocator.allocate(alloc.alignment, alloc.size);
         alloc.ptr->bufferId = 1;
         alloc.ptr->offset = offset;
-        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, alloc.offset, offset, alloc.size);
+        //glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, alloc.offset, offset, alloc.size);
 
         stagedSize += alloc.size;
     }
@@ -58,9 +62,10 @@ void GAllocator::stage() {
 }
 
 void GAllocator::pumpDynamicData() {
-    dynamicCPU.bind(GL_COPY_READ_BUFFER);
-    dynamicBuffer.bind(GL_COPY_READ_BUFFER);
+    dynamicCPU[writableDynamicIndex()].bind(GL_COPY_READ_BUFFER);
+    dynamicBuffers[writableDynamicIndex()].bind(GL_COPY_WRITE_BUFFER);
     glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, dynamicSize);
+    pumpCount++;
 }
 
 void GAllocator::free(GPtr* ptr) {
@@ -86,9 +91,13 @@ void GAllocator::debug() {
 GAllocator::~GAllocator() {
     staging.unmap();
     staging.release();
-    dynamicCPU.unmap();
-    dynamicCPU.release();
-    dynamicBuffer.release();
-    dynamicBuffer.release();
+    dynamicCPU[0].unmap();
+    dynamicCPU[0].release();
+    dynamicBuffers[0].release();
+    dynamicBuffers[0].release();
+    dynamicCPU[1].unmap();
+    dynamicCPU[1].release();
+    dynamicBuffers[1].release();
+    dynamicBuffers[1].release();
     debug();
 }

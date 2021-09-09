@@ -32,7 +32,8 @@ TestRenderer<G>::TestRenderer()
     , renderpass(&Framebuffer::DEFAULT)
     , spotLightDepthPass(&spotLightFB)
     , pointLightDepthPasses { &pointLightFBs[0], &pointLightFBs[1], &pointLightFBs[2], &pointLightFBs[3], &pointLightFBs[4], &pointLightFBs[5] }
-    , reflectionPass(&reflectionFB) {
+    , reflectionPass(&reflectionFB)
+    , pointLightPosition(0, 1, -2) {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
@@ -47,47 +48,15 @@ TestRenderer<G>::TestRenderer()
     spotLight.vertexUniform.staticUpdate(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
     spotLight.depthMap = *spotLightDepthMap;
 
-    float m_near = 1.0f;
-    float m_far = 15.0f;
-    Vec3 pointLightPos = Vec3(0, 1, -2);
     pointLightDepthMap = CubeMap::depth(1024, 1024, Texture::DepthBits::D16);
     for (int_t i = 0; i < 6; i++) {
         pointLightFBs[i].bind();
         pointLightFBs[i].attach(pointLightDepthMap, CubeMap::Faces[i]);
         pointLightFBs[i].viewport(1024, 1024);
     }
-    pointLight.fragmentUniform.staticUpdate(allocator) = {
-        .color = Vec3(1, 0.3, 1) * 16.0f,
-        .lightPos = pointLightPos,
-        .a = (m_near + m_far) / (m_far - m_near),
-        .b = 2.0f * m_near * m_far / (m_far - m_near)
-    };
-    pointLightProjection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
-    for (int_t i = 0; i < 6; i++) {
-        Mat4x4 view;
-        switch (CubeMap::Faces[i]) {
-        case CubeMap::PosX:
-            view = Mat4x4::look(pointLightPos, Vec3(+1, 0, 0), Vec3(0, -1, 0));
-            break;
-        case CubeMap::NegX:
-            view = Mat4x4::look(pointLightPos, Vec3(-1, 0, 0), Vec3(0, -1, 0));
-            break;
-        case CubeMap::PosY:
-            view = Mat4x4::look(pointLightPos, Vec3(0, +1, 0), Vec3(0, 0, +1));
-            break;
-        case CubeMap::NegY:
-            view = Mat4x4::look(pointLightPos, Vec3(0, -1, 0), Vec3(0, 0, -1));
-            break;
-        case CubeMap::PosZ:
-            view = Mat4x4::look(pointLightPos, Vec3(0, 0, +1), Vec3(0, -1, 0));
-            break;
-        case CubeMap::NegZ:
-            view = Mat4x4::look(pointLightPos, Vec3(0, 0, -1), Vec3(0, -1, 0));
-            break;
-        }
-        pointLightDepthPasses[i].viewProjectionMatrix = pointLightProjection * view;
-    }
     pointLight.depthMap = *pointLightDepthMap;
+    pointLight.fragmentUniform.allocateDynamic(allocator);
+    updatePointLightData();
 
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
     reflectionTexture = Texture::color(2048, 2048, Texture::Format::RGBA8888);
@@ -123,7 +92,7 @@ TestRenderer<G>::TestRenderer()
     std::vector<Effect::Handle> effects2 { col2.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
     std::vector<Effect::Handle> effects3 { col3.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle(), reflection.handle() };
     std::vector<Effect::Handle> effects4 { col4.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-    std::vector<Effect::Handle> effects5 { col5.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
+    std::vector<Effect::Handle> effects5 { col5.handle(), ambientLight.handle(), spotLight.handle() };
 
     look.dir = Vec3::normalize(Vec3(0, -1, 0) - pos);
     lframe = getNanos();
@@ -205,7 +174,6 @@ TestRenderer<G>::TestRenderer()
         pointLightDepthPasses[i].addObject(id2);
         pointLightDepthPasses[i].addObject(id3);
         pointLightDepthPasses[i].addObject(id4);
-        pointLightDepthPasses[i].addObject(id5);
     }
 
     for (int_t i = -0; i <= 0; i++) {
@@ -232,6 +200,45 @@ TestRenderer<G>::TestRenderer()
     //event_logic::Result<c> r { 0 };
     auto tuple2 = event_logic::deduplicate(r.tuple);
     log("a={}, b={}, c={}, size={}, size_dedup={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size<decltype(r.tuple)>(), std::tuple_size<decltype(tuple2)>());
+}
+
+template<Gapi G>
+void TestRenderer<G>::updatePointLightData() {
+    float m_near = 0.2f;
+    float m_far = 15.0f;
+
+    pointLight.fragmentUniform.dynamicUpdate(allocator) = {
+        .color = Vec3(1, 0.3, 1) * 16.0f,
+        .lightPos = pointLightPosition,
+        .a = (m_near + m_far) / (m_far - m_near),
+        .b = 2.0f * m_near * m_far / (m_far - m_near)
+    };
+
+    Mat4x4 pointLightProjection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
+    for (int_t i = 0; i < 6; i++) {
+        Mat4x4 view;
+        switch (CubeMap::Faces[i]) {
+        case CubeMap::PosX:
+            view = Mat4x4::look(pointLightPosition, Vec3(+1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegX:
+            view = Mat4x4::look(pointLightPosition, Vec3(-1, 0, 0), Vec3(0, -1, 0));
+            break;
+        case CubeMap::PosY:
+            view = Mat4x4::look(pointLightPosition, Vec3(0, +1, 0), Vec3(0, 0, +1));
+            break;
+        case CubeMap::NegY:
+            view = Mat4x4::look(pointLightPosition, Vec3(0, -1, 0), Vec3(0, 0, -1));
+            break;
+        case CubeMap::PosZ:
+            view = Mat4x4::look(pointLightPosition, Vec3(0, 0, +1), Vec3(0, -1, 0));
+            break;
+        case CubeMap::NegZ:
+            view = Mat4x4::look(pointLightPosition, Vec3(0, 0, -1), Vec3(0, -1, 0));
+            break;
+        }
+        pointLightDepthPasses[i].viewProjectionMatrix = pointLightProjection * view;
+    }
 }
 
 template<Gapi G>
@@ -370,6 +377,8 @@ void TestRenderer<G>::rawKey(uint32_t keycode, bool down) {
 
 template<Gapi G>
 void TestRenderer<G>::drawFrame() {
+    LogTimer timer;
+    timer.disarm();
     uint64_t now = getNanos();
     if (now - lsecond >= NANOS_PER_SECOND) {
         log("FPS: {}", frameCounter);
@@ -416,20 +425,28 @@ void TestRenderer<G>::drawFrame() {
     pos += navD.x * dt * Vec3::cross(dirX, up);
     pos -= navD.y * dt * dirX;
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
-    /*Vec3& plp = pointLight.position;
-    plp += Vec3(plp.z * dt, plp.z * dt / 2.0, -plp.x * dt);
-    ointLight.updateViewProjectionMatrix();
+    renderpass.viewProjectionMatrix = projection * view;
+    reflectionPass.viewProjectionMatrix = renderpass.viewProjectionMatrix * Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
+
+    Vec3& plp = pointLightPosition;
+    plp += Vec3(plp.z * dt, plp.z * dt * 0.5f, -plp.x * dt);
     obj5_coords[0] = Vec3(plp.x - 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
-    f5->update(obj5_coords);*/
+    f5->update(obj5_coords);
+    updatePointLightData();
+    timer();
+    glWaitSync(lastSync, 0, GL_TIMEOUT_IGNORED);
+    timer();
+    lastSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    allocator.pumpDynamicData();
 
-    renderpass.viewProjectionMatrix = projection * view;
-    reflectionPass.viewProjectionMatrix = renderpass.viewProjectionMatrix * Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    //pointLight.draw(objects);
+    for (int_t i = 0; i < 6; i++) {
+        pointLightDepthPasses[i].draw(objects);
+    }
     reflectionPass.draw(objects, allocator);
     renderpass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);
