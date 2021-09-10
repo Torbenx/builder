@@ -36,7 +36,7 @@ struct UniformHelper : GAllocationHelper<T> {
     }
 
     T& dynamicUpdate(GAllocator& allocator) {
-        return *(T*)allocator.dynamicMapping(this->ptr);
+        return *(T*)allocator.mapping(this->ptr);
     }
 
     T& staticUpdate(GAllocator& allocator) {

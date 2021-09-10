@@ -3,11 +3,13 @@
 #include "GL/glwrapper.hpp"
 #include "Renderer.hpp"
 #include "input/keycodes.hpp"
+#include "util/LogTimer.hpp"
 #include "util/log.hpp"
 #include "windows/fullscreen.hpp"
 #include <Windows.h>
 #include <Windowsx.h>
 #include <ctime>
+#include <iostream>
 #include <list>
 #include <map>
 #include <stdio.h>
@@ -48,7 +50,7 @@ void initializeGL(const HDC& hdc) {
     wglMakeCurrent(hdc, hglrc_initial);
     glwrapper_init();
 
-    if(wglSwapIntervalEXT(0)){
+    if (wglSwapIntervalEXT(0)) {
         log<Tag::GL>("disabled vsync");
     }
 
@@ -74,7 +76,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         PIXELFORMATDESCRIPTOR pfd = {
             sizeof(PIXELFORMATDESCRIPTOR),
             1,
-            PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER, //Flags
+            PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, //Flags
             PFD_TYPE_RGBA, //The kind of framebuffer. RGBA or palette.
             32, //Colordepth of the framebuffer.
             0, 0, 0, 0, 0, 0,
@@ -93,6 +95,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
 
         initializeGL(hdc);
+
+        ReleaseDC(hwnd, hdc);
 
         /*VulkanState::initialize(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 
@@ -158,8 +162,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_PAINT:
         if (rendererState != RENDERER_STATE_INVISIBLE) {
+
             renderer->drawFrame();
-            SwapBuffers(GetDC(hwnd));
+
+            HDC hdc = GetDC(hwnd);
+            SwapBuffers(hdc);
+            ReleaseDC(hwnd, hdc);
             return 0;
         } else {
             return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -286,7 +294,7 @@ void RendererState::exit() {
 
 void log_print(const std::string& tag, const std::string& msg) {
     OutputDebugStringA(('[' + tag + "] " + msg).c_str());
-    //std::cout << '[' << tag << "] " << msg << '\n';
+    std::cout << '[' << tag << "] " << msg << '\n';
 }
 
 int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPSTR lpCmdLine, [[maybe_unused]] int nCmdShow) {

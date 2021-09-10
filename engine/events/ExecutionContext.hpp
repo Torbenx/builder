@@ -3,18 +3,6 @@
 #include "util/target.hpp"
 #include <cstddef>
 
-/*#if __has_include(<coroutine>)
-
-#include <coroutine>
-namespace stdx = std;
-
-#else
-
-#include <experimental/coroutine>
-namespace stdx = std::experimental;
-
-#endif*/
-
 #ifdef PLATFORM_WINDOWS
 #define MIGHT_YIELD __attribute__((sysv_abi))
 #else

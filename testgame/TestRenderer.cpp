@@ -396,6 +396,7 @@ void TestRenderer<G>::drawFrame() {
 
     float maxSpeed = 2.0f;
     float dt = (now - lframe) / (float)NANOS_PER_SECOND;
+
     lframe = now;
     Vec3 dirX = Vec3::normalize(look.dir - Vec3::dot(look.dir, up) * up);
     if (wd) {
@@ -436,9 +437,7 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
     f5->update(obj5_coords);
     updatePointLightData();
-    timer();
     glWaitSync(lastSync, 0, GL_TIMEOUT_IGNORED);
-    timer();
     lastSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     allocator.pumpDynamicData();
 

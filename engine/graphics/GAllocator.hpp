@@ -20,6 +20,10 @@ struct TypedGPtr : GPtr { };
 
 class GAllocator {
 public:
+    static constexpr int_t DYNAMIC_BUFFER_ID = 1;
+    static constexpr int_t STATIC_BUFFER_ID = 2;
+    static constexpr int_t STAGING_BUFFER_ID = 3;
+
     struct AllocationInfo {
         GPtr* ptr;
         int_t alignment;
@@ -51,15 +55,18 @@ public:
     void pumpDynamicData();
 
     std::pair<GBuffer, int_t> buffer(GPtr ptr) {
-        VERIFY(Graphics, ptr.bufferId == 1 || ptr.bufferId == 2);
-        if (ptr.bufferId == 1) {
+        VERIFY(Graphics, ptr.bufferId == DYNAMIC_BUFFER_ID || ptr.bufferId == STATIC_BUFFER_ID);
+        if (ptr.bufferId == DYNAMIC_BUFFER_ID) {
             return { dynamicBuffers[readableDynamicIndex()], (uint32_t)ptr.offset };
         }
         return { staticBuffer, (uint32_t)ptr.offset };
     }
-    void* dynamicMapping(GPtr ptr) {
-        VERIFY(Graphics, ptr.bufferId == 1);
-        return dynamicMapped[writableDynamicIndex()] + ptr.offset;
+    void* mapping(GPtr ptr) {
+        VERIFY(Graphics, ptr.bufferId == DYNAMIC_BUFFER_ID || ptr.bufferId == STAGING_BUFFER_ID);
+        if (ptr.bufferId == DYNAMIC_BUFFER_ID) {
+            return dynamicMapped[writableDynamicIndex()] + ptr.offset;
+        }
+        return stagingMapped + ptr.offset;
     }
 
     void free(GPtr* ptr);

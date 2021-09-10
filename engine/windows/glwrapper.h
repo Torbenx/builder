@@ -21,6 +21,7 @@ void glwrapper_init();
     GL_FUNCTION(PFNWGLCREATECONTEXTATTRIBSARBPROC, wglCreateContextAttribsARB)             \
     GL_FUNCTION(PFNGLDEBUGMESSAGECALLBACKARBPROC, glDebugMessageCallbackARB)               \
                                                                                            \
+    GL_FUNCTION(PFNWGLGETSWAPINTERVALEXTPROC, wglGetSwapIntervalEXT)                       \
     GL_FUNCTION(PFNWGLSWAPINTERVALEXTPROC, wglSwapIntervalEXT)                             \
                                                                                            \
     GL_FUNCTION(PFNWGLDXOPENDEVICENVPROC, wglDXOpenDeviceNV)                               \

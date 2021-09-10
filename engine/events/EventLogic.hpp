@@ -2,12 +2,28 @@
 
 #include <tuple>
 
+/*#if __has_include(<coroutine>)
+
+#include <coroutine>
+namespace stdx = std;
+
+#else
+
+#include <experimental/coroutine>
+namespace stdx = std::experimental;
+
+#endif*/
+
 namespace event_logic {
 
 struct LogicSet {
     int_t indices[64] = {};
     int_t offsets[65] = {};
     int_t size = 0;
+
+    constexpr LogicSet() { }
+    constexpr LogicSet(int_t id)
+        : indices { id }, offsets { 0, 1 }, size(1) { }
 
     constexpr uint64_t bitmask(int_t index) const {
         int_t varCount = offsets[size];
@@ -72,7 +88,7 @@ struct Holder {
 };
 
 template<int_t id, typename T>
-struct InitialHolder : Set<LogicSet { .indices = { id }, .offsets = { 0, 1 }, .size = 1 }, Holder<id, T>> {
+struct InitialHolder : Set<LogicSet(id), Holder<id, T>> {
     static constexpr int_t ID = id;
     InitialHolder(T t) {
         this->tuple = std::make_tuple(Holder<id, T> { t });

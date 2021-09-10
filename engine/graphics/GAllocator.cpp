@@ -21,11 +21,11 @@ void* GAllocator::queueForAllocation(GPtr* ptr, int_t alignment, int_t size, std
     if (ptr->bufferId != 0) {
         free(ptr);
     }
-    ptr->bufferId = 0xff;
-    ptr->offset = 0;
     int_t offset = stagingOffset;
     stagingOffset += size;
     queue.push_back({ ptr, alignment, offset, size });
+    ptr->bufferId = STAGING_BUFFER_ID;
+    ptr->offset = offset;
     return stagingMapped + offset;
 }
 
@@ -33,12 +33,12 @@ void GAllocator::stage() {
     staging.bind(GL_COPY_READ_BUFFER);
     int_t stagedSize = 0;
 
-    //dynamicBuffer.bind(GL_COPY_WRITE_BUFFER);
+    dynamicBuffers[writableDynamicIndex()].bind(GL_COPY_WRITE_BUFFER);
     for (AllocationInfo alloc : dynamicAllocations) {
         int_t offset = dynamicAllocator.allocate(alloc.alignment, alloc.size);
-        alloc.ptr->bufferId = 1;
+        alloc.ptr->bufferId = DYNAMIC_BUFFER_ID;
         alloc.ptr->offset = offset;
-        //glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, alloc.offset, offset, alloc.size);
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, alloc.offset, offset, alloc.size);
 
         stagedSize += alloc.size;
     }
@@ -47,7 +47,7 @@ void GAllocator::stage() {
     staticBuffer.bind(GL_COPY_WRITE_BUFFER);
     for (AllocationInfo alloc : staticAllocations) {
         int_t offset = staticAllocator.allocate(alloc.alignment, alloc.size);
-        alloc.ptr->bufferId = 2;
+        alloc.ptr->bufferId = STATIC_BUFFER_ID;
         alloc.ptr->offset = offset;
         glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, alloc.offset, offset, alloc.size);
 
@@ -69,9 +69,9 @@ void GAllocator::pumpDynamicData() {
 }
 
 void GAllocator::free(GPtr* ptr) {
-    if (ptr->bufferId == 1) {
+    if (ptr->bufferId == DYNAMIC_BUFFER_ID) {
         dynamicAllocator.free(ptr->offset);
-    } else if (ptr->bufferId == 2) {
+    } else if (ptr->bufferId == STATIC_BUFFER_ID) {
         staticAllocator.free(ptr->offset);
     } else {
         log<Tag::Graphics>("free with buffer id {}", (uint32_t)ptr->bufferId);
