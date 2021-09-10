@@ -1,14 +1,14 @@
 #include "3d/Renderpass.hpp"
 #include <algorithm>
 
-void DepthRenderpass::draw(GraphicsObjectCollection& objects) {
+void DepthRenderpass::draw(GraphicsObjectCollection& objects, GAllocator& allocator) {
     depthShader->use();
     framebuffer->bind();
     framebuffer->clear();
     for (id_t id : objectIds) {
-        GraphicsObject& object = objects[id];
+        const GraphicsObject& object = objects[id];
         depthShader->uniformMat4x4(depthShader->mvpUniform, viewProjectionMatrix * object.modelMatrix);
-        depthShader->attribPointer(depthShader->positionAttrib, object.vertices);
+        depthShader->attribPointer(depthShader->positionAttrib, object.vertices.vertexBuffer(allocator));
         framebuffer->draw(object.drawMode, object.indices);
     }
 }

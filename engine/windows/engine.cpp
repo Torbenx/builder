@@ -50,9 +50,9 @@ void initializeGL(const HDC& hdc) {
     wglMakeCurrent(hdc, hglrc_initial);
     glwrapper_init();
 
-    if (wglSwapIntervalEXT(0)) {
+    /*if (wglSwapIntervalEXT(0)) {
         log<Tag::GL>("disabled vsync");
-    }
+    }*/
 
     wglDeleteContext(hglrc_initial);
     int context_attribs[] = {

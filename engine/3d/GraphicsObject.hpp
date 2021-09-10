@@ -8,8 +8,8 @@
 struct GraphicsObject {
     Mat4x4 modelMatrix;
     DrawMode drawMode;
-    VertexBuffer vertices;
-    VertexBuffer normals;
+    VertexAttribHelper<Vec3> vertices;
+    VertexAttribHelper<Vec3> normals;
     IndexBuffer indices;
 };
 
@@ -23,17 +23,17 @@ public:
         return id;
     }
 
-    GraphicsObject& operator[](id_t id) { return objects[id]; }
+    const GraphicsObject& operator[](id_t id) { return *objects[id]; }
 
-    id_t insertObject(GraphicsObject obj) {
+    id_t insertObject(const GraphicsObject& obj) {
         id_t id = idAllocator.allocateId();
         if (id == objects.size()) {
-            objects.emplace_back(obj);
+            objects.emplace_back(&obj);
         }
         return id;
     }
 
 private:
     IdAllocator<> idAllocator;
-    std::vector<GraphicsObject> objects;
+    std::vector<const GraphicsObject*> objects;
 };

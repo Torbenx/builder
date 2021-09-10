@@ -143,10 +143,10 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
 
             entry.effects[j]->applyTo(state);
         }
-        GraphicsObject& object = objects[entry.objectId];
+        const GraphicsObject& object = objects[entry.objectId];
         shader.uniformMat4x4(shader.modelUniform, object.modelMatrix);
-        shader.attribPointer(shader.positionAttrib, object.vertices);
-        shader.attribPointer(shader.normalAttrib, object.normals);
+        shader.attribPointer(shader.positionAttrib, object.vertices.vertexBuffer(allocator));
+        shader.attribPointer(shader.normalAttrib, object.normals.vertexBuffer(allocator));
         renderpass.framebuffer->draw(object.drawMode, object.indices);
     }
 }

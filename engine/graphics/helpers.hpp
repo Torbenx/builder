@@ -27,7 +27,7 @@ static inline int_t uniformAlignment() {
 template<typename T>
 struct UniformHelper : GAllocationHelper<T> {
 
-    UniformBuffer uniformBuffer(GAllocator& allocator) {
+    UniformBuffer uniformBuffer(GAllocator& allocator) const {
         return { allocator.buffer(this->ptr), sizeof(T) };
     }
 
@@ -44,13 +44,27 @@ struct UniformHelper : GAllocationHelper<T> {
     }
 };
 
-template<typename T, int_t N>
-struct VertexAttribHelper : GAllocationHelper<> {
-    VertexAttribBuffer vertexBuffer(GAllocator& allocator) {
-        return { allocator.buffer(ptr), VectorTraits<T>::length };
+template<typename T>
+struct VertexAttribHelper : GAllocationHelper<T*> {
+    VertexAttribBuffer vertexBuffer(GAllocator& allocator) const {
+        return { allocator.buffer(this->ptr), VectorTraits<T>::length };
     }
 
-    std::array<T, N>& staticUpdate(GAllocator& allocator) {
-        return *(std::array<T, N>*)allocator.allocateStatic(&ptr, alignof(T), sizeof(T) * N);
+    T* staticUpdate(GAllocator& allocator, int_t n) {
+        return (T*)allocator.allocateStatic(&this->ptr, alignof(T), sizeof(T) * n);
+    }
+
+    void staticUpdate(GAllocator& allocator, const T* data, int_t n) {
+        std::memcpy(staticUpdate(allocator, n), data, sizeof(T) * n);
+    }
+
+    template<int_t N>
+    void staticUpdate(GAllocator& allocator, const T (&data)[N]) {
+        staticUpdate(allocator, data, N);
+    }
+
+    template<size_t N>
+    void staticUpdate(GAllocator& allocator, const std::array<T, N>& data) {
+        staticUpdate(allocator, data.data(), N);
     }
 };

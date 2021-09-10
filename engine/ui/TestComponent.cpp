@@ -11,7 +11,7 @@ void TestComponent::draw(Framebuffer& framebuffer, GAllocator& allocator) {
 }
 
 void TestComponent::updateRect(ScreenMetrics&, GAllocator& allocator) {
-    coords.staticUpdate(allocator) = rect.corners();
+    coords.staticUpdate(allocator, rect.corners());
 }
 
 void TestComponent::detach(GAllocator& allocator) {

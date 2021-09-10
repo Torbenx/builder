@@ -33,7 +33,12 @@ TestRenderer<G>::TestRenderer()
     , spotLightDepthPass(&spotLightFB)
     , pointLightDepthPasses { &pointLightFBs[0], &pointLightFBs[1], &pointLightFBs[2], &pointLightFBs[3], &pointLightFBs[4], &pointLightFBs[5] }
     , reflectionPass(&reflectionFB)
-    , pointLightPosition(0, 1, -2) {
+    , pointLightPosition(0, 1, -2)
+    , f1 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
+    , f2 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
+    , f3 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
+    , f4 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
+    , f5 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) } {
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
@@ -75,18 +80,22 @@ TestRenderer<G>::TestRenderer()
     col5.fragmentUniform.staticUpdate(allocator).color = Vec3(0, 0, 1) * 0.5f;
 
     float f1Scale = 0.5f;
-    f1 = VertexBuffer::upload({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale });
-    f2 = VertexBuffer::upload({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
-    f3 = VertexBuffer::upload({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
-    f4 = VertexBuffer::upload({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
-    f5 = VertexBuffer::upload(obj5_coords, WriteFrequency::Often);
-    fNormal = VertexBuffer::upload({ up, up, up, up });
+    f1.vertices.staticUpdate(allocator, { Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale });
+    f1.normals.staticUpdate(allocator, { up, up, up, up });
+    f2.vertices.staticUpdate(allocator, { Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
+    f2.normals.staticUpdate(allocator, { up, up, up, up });
+    f3.vertices.staticUpdate(allocator, { Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
+    f3.normals.staticUpdate(allocator, { up, up, up, up });
+    f4.vertices.staticUpdate(allocator, { Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
+    f4.normals.staticUpdate(allocator, { up, up, up, up });
+    f5.vertices.staticUpdate(allocator, obj5_coords);
+    f5.normals.staticUpdate(allocator, { up, up, up, up });
 
-    id_t id1 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f1, fNormal, IndexBuffer::withoutData(4) });
-    id_t id2 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f2, fNormal, IndexBuffer::withoutData(4) });
-    id_t id3 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f3, fNormal, IndexBuffer::withoutData(4) });
-    id_t id4 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f4, fNormal, IndexBuffer::withoutData(4) });
-    id_t id5 = objects.insertObject({ Mat4x4::Id, DrawMode::TriangleStrip, f5, fNormal, IndexBuffer::withoutData(4) });
+    id_t id1 = objects.insertObject(f1);
+    id_t id2 = objects.insertObject(f2);
+    id_t id3 = objects.insertObject(f3);
+    id_t id4 = objects.insertObject(f4);
+    id_t id5 = objects.insertObject(f5);
 
     std::vector<Effect::Handle> effects1 { col1.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
     std::vector<Effect::Handle> effects2 { col2.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
@@ -133,8 +142,6 @@ TestRenderer<G>::TestRenderer()
     ObjParser parser;
     asset_istream file("QueenSideB/piece.obj");
     parser.parse(file);
-    pawnVertex = VertexBuffer::upload(parser.vertex, parser.dim, parser.vertexCount);
-    pawnNormals = VertexBuffer::upload(parser.normals, parser.dim, parser.vertexCount);
     pawnIndices = IndexBuffer::upload(parser.indices, parser.n);
 
     void* addr = allocator.allocateStatic(&pawnTexCoords.ptr, 16, 2 * sizeof(float) * parser.vertexCount);
@@ -145,8 +152,14 @@ TestRenderer<G>::TestRenderer()
     decoder.decode(jpegFile);
     pawnTexture = decoder.texture;
 
-    Mat4x4 base = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     pawnCol.texture = *pawnTexture;
+
+    pawn.modelMatrix = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
+    pawn.drawMode = DrawMode::Triangles;
+    pawn.vertices.staticUpdate(allocator, (Vec3*)parser.vertex, parser.vertexCount);
+    pawn.normals.staticUpdate(allocator, (Vec3*)parser.normals, parser.vertexCount);
+    pawn.indices = *pawnIndices;
+    id_t pawnId = objects.insertObject(pawn);
 
     allocator.stage();
 
@@ -176,21 +189,18 @@ TestRenderer<G>::TestRenderer()
         pointLightDepthPasses[i].addObject(id4);
     }
 
-    for (int_t i = -0; i <= 0; i++) {
-        id_t id = objects.insertObject({ Mat4x4::translate(Vec3(i * 0.5f, -1.5, 0)) * base, DrawMode::Triangles, pawnVertex, pawnNormals, pawnIndices });
-        renderpass.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
-        reflectionPass.addObject(id, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
-        spotLightDepthPass.addObject(id);
-        for (int_t i = 0; i < 6; i++) {
-            pointLightDepthPasses[i].addObject(id);
-        }
+    renderpass.addObject(pawnId, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
+    reflectionPass.addObject(pawnId, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
+    spotLightDepthPass.addObject(pawnId);
+    for (int_t i = 0; i < 6; i++) {
+        pointLightDepthPasses[i].addObject(pawnId);
     }
 
     glEnable(GL_DEPTH_TEST);
     for (int_t i = 0; i < 6; i++) {
-        pointLightDepthPasses[i].draw(objects);
+        pointLightDepthPasses[i].draw(objects, allocator);
     }
-    spotLightDepthPass.draw(objects);
+    spotLightDepthPass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);
 
     event_logic::InitialHolder<__COUNTER__, int> a = 1;
@@ -435,7 +445,7 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
-    f5->update(obj5_coords);
+    //f5->update(obj5_coords);
     updatePointLightData();
     glWaitSync(lastSync, 0, GL_TIMEOUT_IGNORED);
     lastSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
@@ -444,7 +454,7 @@ void TestRenderer<G>::drawFrame() {
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     for (int_t i = 0; i < 6; i++) {
-        pointLightDepthPasses[i].draw(objects);
+        pointLightDepthPasses[i].draw(objects, allocator);
     }
     reflectionPass.draw(objects, allocator);
     renderpass.draw(objects, allocator);

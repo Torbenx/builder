@@ -44,7 +44,7 @@ public:
     int_t dynamicSize, staticSize, stagingSize;
     int_t pumpCount = 0;
 
-    GAllocator(int_t dynamicSize = 1024, int_t staticSize = 1024 * 1024, int_t stagingSize = 1024 * 1024);
+    GAllocator(int_t dynamicSize = 1024, int_t staticSize = 16 * 1024 * 1024, int_t stagingSize = 16 * 1024 * 1024);
     GAllocator(const GAllocator&) = delete;
     ~GAllocator();
 

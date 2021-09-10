@@ -11,7 +11,7 @@ struct DepthRenderpass {
     DepthRenderpass(Framebuffer* framebuffer)
         : framebuffer(framebuffer) { }
 
-    void draw(GraphicsObjectCollection& objects);
+    void draw(GraphicsObjectCollection&, GAllocator&);
     void addObject(id_t objectId);
 };
 

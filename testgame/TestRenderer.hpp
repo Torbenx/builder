@@ -38,14 +38,12 @@ public:
     TextureColor pawnCol;
     GAllocationHelper<> pawnTexCoords;
 
-    Resource<VertexBuffer> f1;
-    Resource<VertexBuffer> f2;
-    Resource<VertexBuffer> f3;
-    Resource<VertexBuffer> f4;
-    Resource<VertexBuffer> f5;
-    Resource<VertexBuffer> fNormal;
-    Resource<VertexBuffer> pawnVertex;
-    Resource<VertexBuffer> pawnNormals;
+    GraphicsObject f1;
+    GraphicsObject f2;
+    GraphicsObject f3;
+    GraphicsObject f4;
+    GraphicsObject f5;
+    GraphicsObject pawn;
     Resource<IndexBuffer> pawnIndices;
     Resource<Texture> pawnTexture;
     Resource<Texture> spotLightDepthMap;
