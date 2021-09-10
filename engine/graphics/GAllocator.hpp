@@ -2,6 +2,7 @@
 
 #include "GL/Shader.hpp"
 #include "containers/RangeAllocator.hpp"
+#include "containers/ArrayView.hpp"
 
 namespace Tag {
 struct Graphics {

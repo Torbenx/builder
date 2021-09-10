@@ -54,17 +54,19 @@ struct VertexAttribHelper : GAllocationHelper<T*> {
         return (T*)allocator.allocateStatic(&this->ptr, alignof(T), sizeof(T) * n);
     }
 
-    void staticUpdate(GAllocator& allocator, const T* data, int_t n) {
-        std::memcpy(staticUpdate(allocator, n), data, sizeof(T) * n);
+    T* allocateDynamic(GAllocator& allocator, int_t n) {
+        return (T*)allocator.allocateDynamic(&this->ptr, alignof(T), sizeof(T) * n);
     }
 
-    template<int_t N>
-    void staticUpdate(GAllocator& allocator, const T (&data)[N]) {
-        staticUpdate(allocator, data, N);
+    T* dynamicUpdate(GAllocator& allocator) {
+        return (T*)allocator.mapping(this->ptr);
     }
 
-    template<size_t N>
-    void staticUpdate(GAllocator& allocator, const std::array<T, N>& data) {
-        staticUpdate(allocator, data.data(), N);
+    void dynamicUpdate(GAllocator& allocator, const ArrayView<const T>& data) {
+        std::memcpy(dynamicUpdate(allocator), data.data(), sizeof(T) * data.size());
+    }
+
+    void staticUpdate(GAllocator& allocator, const ArrayView<const T>& data) {
+        std::memcpy(staticUpdate(allocator, data.size()), data.data(), sizeof(T) * data.size());
     }
 };

@@ -88,7 +88,7 @@ TestRenderer<G>::TestRenderer()
     f3.normals.staticUpdate(allocator, { up, up, up, up });
     f4.vertices.staticUpdate(allocator, { Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
     f4.normals.staticUpdate(allocator, { up, up, up, up });
-    f5.vertices.staticUpdate(allocator, obj5_coords);
+    f5.vertices.allocateDynamic(allocator, 4);
     f5.normals.staticUpdate(allocator, { up, up, up, up });
 
     id_t id1 = objects.insertObject(f1);
@@ -156,8 +156,8 @@ TestRenderer<G>::TestRenderer()
 
     pawn.modelMatrix = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     pawn.drawMode = DrawMode::Triangles;
-    pawn.vertices.staticUpdate(allocator, (Vec3*)parser.vertex, parser.vertexCount);
-    pawn.normals.staticUpdate(allocator, (Vec3*)parser.normals, parser.vertexCount);
+    pawn.vertices.staticUpdate(allocator, { (Vec3*)parser.vertex, parser.vertexCount });
+    pawn.normals.staticUpdate(allocator, { (Vec3*)parser.normals, parser.vertexCount });
     pawn.indices = *pawnIndices;
     id_t pawnId = objects.insertObject(pawn);
 
@@ -445,7 +445,7 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
-    //f5->update(obj5_coords);
+    f5.vertices.dynamicUpdate(allocator, obj5_coords);
     updatePointLightData();
     glWaitSync(lastSync, 0, GL_TIMEOUT_IGNORED);
     lastSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
