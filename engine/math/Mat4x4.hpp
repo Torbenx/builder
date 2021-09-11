@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/Vec3.hpp"
+#include <array>
 
 /*
 
@@ -31,6 +32,11 @@ public:
     static Mat4x4 ortho(float left, float right, float bottom, float top, float _near, float _far);
     static Mat4x4 invert(Mat4x4 matrix);
     static Mat4x4 diagonal(Vec3 v);
+    static Mat4x4 make(const std::array<float, 16>& arr) {
+        Mat4x4 re;
+        std::memcpy(re.matrix, arr.data(), 16 * sizeof(float));
+        return re;
+    }
     Mat4x4& operator*=(Mat4x4 right);
     Mat4x4& operator*=(float right);
     void debug();

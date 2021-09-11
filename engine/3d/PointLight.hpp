@@ -10,9 +10,13 @@ public:
         Texture textures[1];
     };
 
+    struct VertexUniform {
+        std140::vec3 lightPos;
+    };
+    UniformHelper<VertexUniform> vertexUniform;
+
     struct FragmentUniform {
         std140::vec3 color;
-        std140::vec3 lightPos;
         float a;
         float b;
     };

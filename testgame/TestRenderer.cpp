@@ -48,9 +48,14 @@ TestRenderer<G>::TestRenderer()
     spotLightFB.bind();
     spotLightFB.attach(spotLightDepthMap);
     spotLightFB.viewport(2048, 2048);
+    Mat4x4 mat = Mat4x4::make({
+        0.5f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.5f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.5f, 0.0f,
+        0.5f, 0.5f, 0.5f - 0.001f, 1.0f });
     spotLightDepthPass.viewProjectionMatrix = Mat4x4::frustumVH(F_PI * 0.2f, F_PI * 0.4f, 0.7f, 30.0f) * Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
     spotLight.fragmentUniform.staticUpdate(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
-    spotLight.vertexUniform.staticUpdate(allocator) = { .mvpMatrix = spotLightDepthPass.viewProjectionMatrix };
+    spotLight.vertexUniform.staticUpdate(allocator) = { .mvpMatrix = mat * spotLightDepthPass.viewProjectionMatrix };
     spotLight.depthMap = *spotLightDepthMap;
 
     pointLightDepthMap = CubeMap::depth(1024, 1024, Texture::DepthBits::D16);
@@ -61,6 +66,7 @@ TestRenderer<G>::TestRenderer()
     }
     pointLight.depthMap = *pointLightDepthMap;
     pointLight.fragmentUniform.allocateDynamic(allocator);
+    pointLight.vertexUniform.allocateDynamic(allocator);
     updatePointLightData();
 
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
@@ -87,7 +93,7 @@ TestRenderer<G>::TestRenderer()
     f3.vertices.staticUpdate(allocator, { Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
     f3.normals.staticUpdate(allocator, { up, up, up, up });
     f4.vertices.staticUpdate(allocator, { Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
-    f4.normals.staticUpdate(allocator, { up, up, up, up });
+    f4.normals.staticUpdate(allocator, { -up, -up, -up, -up });
     f5.vertices.allocateDynamic(allocator, 4);
     f5.normals.staticUpdate(allocator, { up, up, up, up });
 
@@ -219,12 +225,13 @@ void TestRenderer<G>::updatePointLightData() {
 
     pointLight.fragmentUniform.dynamicUpdate(allocator) = {
         .color = Vec3(1, 0.3, 1) * 16.0f,
-        .lightPos = pointLightPosition,
-        .a = (m_near + m_far) / (m_far - m_near),
-        .b = 2.0f * m_near * m_far / (m_far - m_near)
+        .a = ((m_near + m_far) / (m_far - m_near) + 1.0f) * 0.5f - 0.001f,
+        .b = 2.0f * m_near * m_far / (m_far - m_near) * 0.5f
     };
+    pointLight.vertexUniform.dynamicUpdate(allocator) = { .lightPos = pointLightPosition };
 
-    Mat4x4 pointLightProjection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
+    Mat4x4 pointLightProjection
+        = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
     for (int_t i = 0; i < 6; i++) {
         Mat4x4 view;
         switch (CubeMap::Faces[i]) {
