@@ -81,7 +81,7 @@ private:
     friend class EffectImpl;
 };
 
-namespace effect_impl {
+namespace effect_detail {
 
 template<typename T, typename ArrayType>
 struct ArraySize;
@@ -114,18 +114,18 @@ public:
 
     static Type registerEffectType() {
         Effect::TypeData data;
-        if constexpr (effect_impl::HasVertexBuffers<T>) {
+        if constexpr (effect_detail::HasVertexBuffers<T>) {
             data.vertexBufferElementSizes = T::vertexBufferElementSizes;
             data.vertexBuffers = &T::vertexBuffers;
         }
-        if constexpr (effect_impl::HasTextures<T>) {
+        if constexpr (effect_detail::HasTextures<T>) {
             data.textures = &T::textures;
         }
-        if constexpr (effect_impl::HasFragmentUniform<T>) {
+        if constexpr (effect_detail::HasFragmentUniform<T>) {
             data.fragmentUniformDesc = { sizeof(typename T::FragmentUniform) };
             data.fragmentUniformPtr = InstructureVariable { InstructureVariable { &T::fragmentUniform }, InstructureVariable { &UniformHelper<typename T::FragmentUniform>::ptr } };
         }
-        if constexpr (effect_impl::HasVertexUniform<T>) {
+        if constexpr (effect_detail::HasVertexUniform<T>) {
             data.vertexUniformDesc = { sizeof(typename T::VertexUniform) };
             data.vertexUniformPtr = InstructureVariable { InstructureVariable { &T::vertexUniform }, InstructureVariable { &UniformHelper<typename T::VertexUniform>::ptr } };
         }
@@ -176,7 +176,7 @@ private:
     using Shader::initialize;
 };
 
-namespace effect_impl {
+namespace effect_detail {
 struct ShaderMonitor;
 }
 
@@ -188,5 +188,5 @@ public:
 
 private:
     static std::vector<EffectShader> shaders;
-    friend struct effect_impl::ShaderMonitor;
+    friend struct effect_detail::ShaderMonitor;
 };

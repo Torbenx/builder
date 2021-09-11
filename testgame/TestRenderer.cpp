@@ -1,9 +1,7 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <containers/RangeAllocator.hpp>
-#include <events/EventLogic.hpp>
-#include <events/ExecutionContext.hpp>
-#include <events/Task.hpp>
+#include <events/Script.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
@@ -23,6 +21,25 @@
 #ifdef PLATFORM_WINDOWS
 #include <windows/fullscreen.hpp>
 #endif
+
+struct Test {
+    void registerEvent(EventReceiver*, uint64_t bitmask) {
+        log("bitmask: {:#b}", bitmask);
+    }
+
+    void cancelEvent(EventReceiver*) { }
+};
+
+Script test() {
+    auto a = waitable(Test {});
+    auto b = waitable(Test {});
+    auto c = waitable(Test {});
+    auto r = (a && c) || (b && c);
+
+    //log("a={}, b={}, c={}, size={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size_v<decltype(r.tuple)>);
+
+    await r;
+}
 
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
@@ -209,13 +226,11 @@ TestRenderer<G>::TestRenderer()
     spotLightDepthPass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);
 
-    event_logic::InitialHolder<__COUNTER__, int> a = 1;
-    event_logic::InitialHolder<__COUNTER__, int> b = 2;
-    event_logic::InitialHolder<__COUNTER__, int> c = 3;
-    auto r = (a && c) || (b && c);
-    //event_logic::Result<c> r { 0 };
-    auto tuple2 = event_logic::deduplicate(r.tuple);
-    log("a={}, b={}, c={}, size={}, size_dedup={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size<decltype(r.tuple)>(), std::tuple_size<decltype(tuple2)>());
+    ScheduleItem item;
+    item.handle = stdx::noop_coroutine();
+    scheduling::schedulingQueue.pushBack(&item);
+    auto handle = test();
+    //handle.resume();
 }
 
 template<Gapi G>
@@ -277,20 +292,6 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     allocator.stage();
 }
 
-class MyTask : public Task {
-public:
-    Task* sched;
-    void MIGHT_YIELD run() {
-        while (true) {
-            // Task::schedulingQueue.pushBack(sched);
-            /*for (volatile int_t i = 0; i < 100000; ++i) {
-
-            }*/
-            yield();
-        }
-    }
-};
-
 template<Gapi G>
 void TestRenderer<G>::pointer(PointerEvent event) {
     if (!rawInput()) {
@@ -319,41 +320,6 @@ void TestRenderer<G>::pointer(PointerEvent event) {
         }
     }
     trackPointerEvent(event);
-
-    /*do {
-        static Scheduler me;
-        const int_t taskCount = 1000;
-        const int_t extraThreadCount = 0;
-        MyTask* tasks = new MyTask[taskCount];
-        Task::schedulingQueue.clear();
-
-        for (int_t i = 0; i < taskCount; i++) {
-            tasks[i].sched = &tasks[(taskCount + i - 1) % taskCount];
-            Task::schedulingQueue.pushBack(&tasks[i]);
-        }
-
-        ShutdownTask* shutdownTasks = new ShutdownTask[extraThreadCount + 1];
-        for (int_t i = 0; i < extraThreadCount + 1; i++) {
-            Task::schedulingQueue.pushBack(&shutdownTasks[i]);
-        }
-        SchedulerThead threads[extraThreadCount];
-        //for (volatile int_t i = 0; i < 100000; ++i) {}
-
-        int_t start = getNanos();
-        me.enter();
-        int_t end = getNanos();
-
-        for (int_t i = 0; i < extraThreadCount; i++) {
-            threads[i].join();
-        }
-
-        delete[] tasks;
-
-        static std::vector<int_t> runs(100);
-        runs.erase(runs.begin());
-        runs.push_back((end - start) / 1000);
-        log("time: {} us, avg: {} us", (end - start) / 1000, std::accumulate(runs.begin(), runs.end(), 0) / (float)runs.size());
-    } while (false);*/
 }
 
 template<Gapi G>

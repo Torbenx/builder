@@ -2,20 +2,6 @@
 
 #include <tuple>
 
-/*#if __has_include(<coroutine>)
-
-#include <coroutine>
-namespace stdx = std;
-
-#else
-
-#include <experimental/coroutine>
-namespace stdx = std::experimental;
-
-#endif*/
-
-namespace event_logic {
-
 struct LogicSet {
     int_t indices[64] = {};
     int_t offsets[65] = {};
@@ -32,6 +18,14 @@ struct LogicSet {
             if (indices[i] == index) {
                 r |= 1 << i;
             }
+        }
+        return r;
+    }
+
+    constexpr uint64_t key() const {
+        uint64_t r = 0;
+        for (int_t i = 0; i < size + 1; i++) {
+            r |= 1 << offsets[i];
         }
         return r;
     }
@@ -75,24 +69,12 @@ constexpr LogicSet operator&&(const LogicSet& a, const LogicSet& b) {
     return r;
 }
 
-template<LogicSet ls, typename... Holders>
-struct Set {
-    static constexpr LogicSet LS = ls;
-    std::tuple<Holders...> tuple;
-};
+namespace event_detail {
 
-template<int_t id, typename T>
+template<typename T, int_t id>
 struct Holder {
     static constexpr int_t ID = id;
     T t;
-};
-
-template<int_t id, typename T>
-struct InitialHolder : Set<LogicSet(id), Holder<id, T>> {
-    static constexpr int_t ID = id;
-    InitialHolder(T t) {
-        this->tuple = std::make_tuple(Holder<id, T> { t });
-    }
 };
 
 template<int_t N, std::array<int_t, N> ids, int_t b = 2>
@@ -127,30 +109,51 @@ constexpr auto deduplicate_helper(std::tuple<Holders...> tuple, std::index_seque
 }
 
 template<typename... Types, int_t... ids>
-auto deduplicate(std::tuple<Holder<ids, Types>...> tuple) {
+auto deduplicate(std::tuple<Holder<Types, ids>...> tuple) {
     constexpr std::array<int_t, sizeof...(ids)> idList { ids... };
     constexpr auto indices = uniqueIdIndices<sizeof...(ids), idList>();
     constexpr int_t n = std::tuple_size<decltype(indices)>::value;
     return deduplicate_helper<n, indices>(tuple, std::make_index_sequence<n>());
 }
 
+}
+
 template<LogicSet ls, typename... Holders>
-auto makeSet(std::tuple<Holders...> tuple) {
-    return Set<ls, Holders...> { tuple };
+struct WaitExpression {
+    static constexpr LogicSet LS = ls;
+    std::tuple<Holders...> tuple;
+};
+
+template<typename T, int_t id>
+struct SimpleWaitExpression : WaitExpression<LogicSet(id), event_detail::Holder<T, id>> {
+    static constexpr int_t ID = id;
+    SimpleWaitExpression(T t) {
+        this->tuple = std::make_tuple(event_detail::Holder<T, id> { t });
+    }
+};
+
+template<LogicSet ls, typename... Holders>
+auto makeWaitExpression(std::tuple<Holders...> tuple) {
+    return WaitExpression<ls, Holders...> { tuple };
 }
 
+template<int_t id, typename T>
+auto makeSimpleWaitExpression(T t) {
+    return SimpleWaitExpression<T, id> { t };
+}
+
+#define waitable makeSimpleWaitExpression<__COUNTER__>
+
 template<LogicSet ls1, typename... Holders1, LogicSet ls2, typename... Holders2>
-auto operator||(const Set<ls1, Holders1...>& s1, const Set<ls2, Holders2...>& s2) {
+auto operator||(const WaitExpression<ls1, Holders1...>& s1, const WaitExpression<ls2, Holders2...>& s2) {
     constexpr LogicSet ls = ls1 || ls2;
-    auto tuple = deduplicate(std::tuple_cat(s1.tuple, s2.tuple));
-    return makeSet<ls>(tuple);
+    auto tuple = event_detail::deduplicate(std::tuple_cat(s1.tuple, s2.tuple));
+    return makeWaitExpression<ls>(tuple);
 }
 
 template<LogicSet ls1, typename... Holders1, LogicSet ls2, typename... Holders2>
-auto operator&&(const Set<ls1, Holders1...>& s1, const Set<ls2, Holders2...>& s2) {
+auto operator&&(const WaitExpression<ls1, Holders1...>& s1, const WaitExpression<ls2, Holders2...>& s2) {
     constexpr LogicSet ls = ls1 && ls2;
     auto tuple = deduplicate(std::tuple_cat(s1.tuple, s2.tuple));
-    return makeSet<ls>(tuple);
-}
-
+    return makeWaitExpression<ls>(tuple);
 }

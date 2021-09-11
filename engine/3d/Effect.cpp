@@ -5,7 +5,7 @@ std::vector<EffectShader> EffectShaderFactory::shaders;
 
 Effect::Helper Effect::typeData;
 
-namespace effect_impl {
+namespace effect_detail {
 
 IdAllocator<> shaderIdAllocator;
 std::unordered_map<uintptr_t, std::unique_ptr<ShaderMonitor>> shaderHandles;
@@ -30,10 +30,10 @@ std::vector<sIdAllocator> effectIdAllocators;
 }
 
 sid_t Effect::allocateEffectId(Effect::Type type) {
-    if (effect_impl::effectIdAllocators.size() <= type.id) {
-        effect_impl::effectIdAllocators.resize(type.id + 1);
+    if (effect_detail::effectIdAllocators.size() <= type.id) {
+        effect_detail::effectIdAllocators.resize(type.id + 1);
     }
-    return effect_impl::effectIdAllocators[type.id].allocateId();
+    return effect_detail::effectIdAllocators[type.id].allocateId();
 }
 
 Effect::Type Effect::registerEffectType(TypeData data) {
@@ -85,12 +85,12 @@ Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>&
         hash ^= ((uintptr_t)effect.type.id + 5711) * 7727;
     }
 
-    std::unique_ptr<effect_impl::ShaderMonitor>& ptr = effect_impl::shaderHandles[hash];
+    std::unique_ptr<effect_detail::ShaderMonitor>& ptr = effect_detail::shaderHandles[hash];
     if (ptr) {
         return Resource<id_t>(ptr->id, &*ptr);
     }
-    id_t id = effect_impl::shaderIdAllocator.allocateId();
-    ptr.reset(new effect_impl::ShaderMonitor(id, hash));
+    id_t id = effect_detail::shaderIdAllocator.allocateId();
+    ptr.reset(new effect_detail::ShaderMonitor(id, hash));
     if (id == shaders.size()) {
         shaders.resize(id + 1);
     }

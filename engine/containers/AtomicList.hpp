@@ -1,6 +1,7 @@
 #pragma once
 
-//T should have a field next of type std::atomic<T*>
+#include <atomic>
+
 template<class T>
 struct AtomicListItem {
     std::atomic<T*> next = nullptr;

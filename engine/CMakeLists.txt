@@ -83,7 +83,6 @@ add_library(engine ${linkage}
     "3d/CommonEffects.cpp"
     "3d/Shaderpass.cpp"
     "3d/Renderpass.cpp"
-    "events/ExecutionContext.cpp"
     "containers/RangeAllocator.cpp"
     "graphics/GAllocator.cpp"
     ${platform_source}
