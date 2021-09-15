@@ -2,6 +2,7 @@
 #include <Renderer.hpp>
 #include <containers/RangeAllocator.hpp>
 #include <events/Script.hpp>
+#include <events/events.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
@@ -23,14 +24,15 @@
 #endif
 
 struct Test {
-    void registerEvent(EventReceiver*, uint64_t bitmask) {
+    int_t registerEvent(EventReceiver*, uint64_t bitmask) {
         log("bitmask: {:#b}", bitmask);
+        return 0;
     }
 
-    void cancelEvent(EventReceiver*) { }
+    void cancelEvent(EventReceiver*, int_t) { }
 };
 
-Script test() {
+Script<> test() {
     auto a = waitable(Test {});
     auto b = waitable(Test {});
     auto c = waitable(Test {});
