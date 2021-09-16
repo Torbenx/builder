@@ -32,11 +32,19 @@ struct Test {
     void cancelEvent(EventReceiver*, int_t) { }
 };
 
-Script<> test() {
+Script<float> test2() {
+    co_return;
+}
+
+Script<int> test() {
+    auto& self = await get_self;
     auto a = waitable(Test {});
     auto b = waitable(Test {});
     auto c = waitable(Test {});
     auto r = (a && c) || (b && c);
+
+    future_script<float> ref = self.acquire_future(test2());
+    float& inf = ref.interface();
 
     //log("a={}, b={}, c={}, size={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size_v<decltype(r.tuple)>);
 

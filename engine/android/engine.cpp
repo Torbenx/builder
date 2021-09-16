@@ -211,7 +211,7 @@ void android_runThread(){
                                 break;
                             case AMOTION_EVENT_ACTION_MOVE:
                                 pEvent.event = POINTER_EVENT_MOVE;
-                                for(int i=0;i<AMotionEvent_getPointerCount(event);i++){
+                                for(int i=0;i<(int)AMotionEvent_getPointerCount(event);i++){
                                     pEvent.pointerId = AMotionEvent_getPointerId(event, i);
                                     pEvent.x = AMotionEvent_getX(event, i);
                                     pEvent.y = AMotionEvent_getY(event, i);

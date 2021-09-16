@@ -19,8 +19,7 @@ public:
     template<StreamCopyable T>
     void writeN(const T* t, int_t n) {
         if constexpr (Tag::DataStream::verifyEnabled) {
-            std::hash<std::string_view> hasher;
-            size_t hash = hasher(typeid(T).name());
+            size_t hash = typeid(T).hash_code();
             std::byte* addr = growBy(n * (sizeof(size_t) + sizeof(T)));
             for (int_t i = 0; i < n; i++) {
                 *(size_t*)addr = hash;
@@ -49,8 +48,7 @@ public:
         template<StreamCopyable T>
         void readN(T* t, int_t n) {
             if constexpr (Tag::DataStream::verifyEnabled) {
-                std::hash<std::string_view> hasher;
-                size_t hash = hasher(typeid(T).name());
+                size_t hash = typeid(T).hash_code();
                 const std::byte* addr = stream.m_data.data() + offset;
                 for (int_t i = 0; i < n; i++) {
                     EXPECT(DataStream, *(const size_t*)addr, hash);
