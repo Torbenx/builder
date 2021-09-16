@@ -21,8 +21,6 @@ struct Events {
 };
 }
 
-#define await co_await
-
 struct ScheduleItem : AtomicListItem<ScheduleItem> {
     stdx::coroutine_handle<> handle;
 };

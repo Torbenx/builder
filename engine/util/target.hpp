@@ -1,5 +1,7 @@
 #pragma once
 
+#include "util/types.hpp"
+
 #ifdef _WIN32
 #define PLATFORM_WINDOWS 1
 #endif
@@ -15,6 +17,10 @@
 #ifdef __aarch64__
 #define ARCHITECTURE_ARM_64
 #endif
+
+namespace platform {
+
+static constexpr int_t CACHELINE_SIZE = 64;
 
 constexpr bool isWindows() {
 #ifdef PLATFORM_WINDOWS
@@ -38,4 +44,6 @@ constexpr bool rawInput() {
 
 constexpr bool usingGLES() {
     return isAndroid();
+}
+
 }

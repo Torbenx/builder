@@ -5,7 +5,7 @@
 const std::string Shader::FRAGMENT_COLOR = "_fragmentColor";
 
 ShaderBuilder::ShaderBuilder() {
-    if (usingGLES()) {
+    if (platform::usingGLES()) {
         vExt << "#version 310 es\n";
         fExt << "#version 310 es\n";
         fInit << "precision mediump float;\n";
@@ -124,7 +124,7 @@ void Shader::initialize(ShaderBuilder& builder) {
     std::string vSource = builder.buildVertexSource();
     compileShader(true, vSource.c_str());
 
-    if (usingGLES() || !builder.fragmentShaderDisabled) {
+    if (platform::usingGLES() || !builder.fragmentShaderDisabled) {
         std::string fSource = builder.buildFragmentSource();
         compileShader(false, fSource.c_str());
     }

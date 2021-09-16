@@ -155,7 +155,7 @@ public:
     void addVarying(std::string type, std::string name, std::string qualifiers = "");
     void requireExtension(std::string extension);
     void requireLinearInterpolation() {
-        if (usingGLES())
+        if (platform::usingGLES())
             requireExtension("GL_NV_shader_noperspective_interpolation");
     }
     int nextTextureSlot();

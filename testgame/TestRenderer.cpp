@@ -37,7 +37,7 @@ Script<float> test2() {
 }
 
 Script<int> test() {
-    auto& self = await get_self;
+    ScriptPromise<int>& self = co_await get_self;
     auto a = waitable(Test {});
     auto b = waitable(Test {});
     auto c = waitable(Test {});
@@ -48,13 +48,13 @@ Script<int> test() {
 
     //log("a={}, b={}, c={}, size={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size_v<decltype(r.tuple)>);
 
-    await r;
+    co_await r;
 }
 
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
     : up(0, 1, 0)
-    , look(up, isAndroid())
+    , look(up, platform::isAndroid())
     , pos(7, 1, 0)
     , renderpass(&Framebuffer::DEFAULT)
     , spotLightDepthPass(&spotLightFB)
@@ -304,7 +304,7 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
 
 template<Gapi G>
 void TestRenderer<G>::pointer(PointerEvent event) {
-    if (!rawInput()) {
+    if (!platform::rawInput()) {
         if (event.event == POINTER_EVENT_DOWN && navPointerId == POINTER_ID_INVALID) {
             navPointerId = event.pointerId;
             navBaseX = event.x;

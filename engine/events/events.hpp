@@ -1,7 +1,7 @@
 #pragma once
 
-#include "events/Scheduler.hpp"
 #include "events/WaitExpression.hpp"
+#include "events/Script.hpp"
 #include <atomic>
 
 template<LogicSet ls>
@@ -61,7 +61,8 @@ struct EventAwaitable : EventReceiver {
         (std::get<I>(tuple).t.cancelEvent(this, indices[I]), ...);
     }
 
-    stdx::coroutine_handle<> await_suspend(stdx::coroutine_handle<> handle) {
+    template<typename Interface>
+    stdx::coroutine_handle<> await_suspend(stdx::coroutine_handle<ScriptPromise<Interface>> handle) {
         registerEvents(std::index_sequence_for<Holders...>());
         item.handle = handle;
         return scheduling::schedulingQueue.popFront()->handle;
