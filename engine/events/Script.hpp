@@ -1,7 +1,7 @@
 #pragma once
 
-#include "events/Scheduler.hpp"
 #include "containers/AtomicArrayBuilder.hpp"
+#include "events/Scheduler.hpp"
 #include <type_traits>
 
 #ifdef interface
@@ -57,9 +57,7 @@ private:
     ScriptPromise<>* base = nullptr;
     ScriptPromise<Interface>* target = nullptr;
 
-    void free() {
-
-    }
+    void free() { }
 };
 
 template<typename Interface = void>
@@ -73,29 +71,20 @@ struct past_script : script_handle<Interface> {
 
 class ScriptRef {
 public:
+    static constexpr size_t MAX_REF_COUNT = 256;
     ScriptRef() { }
-    ScriptRef(ScriptPromise<>* ptr, bool heldByMe, bool heldByOther)
-        : data(((uintptr_t)ptr) | (heldByMe ? HELD_BY_ME_BIT : 0) | (heldByOther ? HELD_BY_OTHER_BIT : 0)) { }
+    ScriptRef(ScriptPromise<>* ptr, uintptr_t initialRefCount = 1)
+        : data((uintptr_t)ptr | (uintptr_t)initialRefCount) { }
 
-    static ScriptRef heldByMe(ScriptPromise<>* ptr) { return { ptr, true, false }; }
-    static ScriptRef heldByOther(ScriptPromise<>* ptr) { return { ptr, false, true }; }
-    static ScriptRef heldByBoth(ScriptPromise<>* ptr) { return { ptr, true, true }; }
-
-    ScriptPromise<>* ptr() { return (ScriptPromise<>*)(data & ~EXTRA_BITS); }
-    bool heldByMe() { return data & HELD_BY_ME_BIT; }
-    bool heldByOther() { return data & HELD_BY_OTHER_BIT; }
-    bool held() { return data & HELD_BITS; }
-    void acquireByMe() { data |= HELD_BY_ME_BIT; }
-    void acquireByOther() { data |= HELD_BY_OTHER_BIT; }
-    void releaseByMe() { data &= ~HELD_BY_ME_BIT; }
-    void releaseByOther() { data &= ~HELD_BY_OTHER_BIT; }
+    ScriptPromise<>* ptr() { return (ScriptPromise<>*)(data.load(std::memory_order_relaxed) & PTR_MASK); }
+    size_t refCount() { return data.load(std::memory_order_relaxed) & REF_COUNT_MASK; }
+    size_t ref(size_t count = 1) { return data.fetch_add(count, std::memory_order_relaxed) & REF_COUNT_MASK; }
+    size_t unref(size_t count = 1) { return data.fetch_sub(count, std::memory_order_relaxed) & REF_COUNT_MASK; }
 
 private:
-    static constexpr uintptr_t HELD_BY_ME_BIT = 0x1;
-    static constexpr uintptr_t HELD_BY_OTHER_BIT = 0x2;
-    static constexpr uintptr_t HELD_BITS = HELD_BY_OTHER_BIT | HELD_BY_ME_BIT;
-    static constexpr uintptr_t EXTRA_BITS = HELD_BITS;
-    uintptr_t data = 0;
+    static constexpr uintptr_t REF_COUNT_MASK = MAX_REF_COUNT - 1;
+    static constexpr uintptr_t PTR_MASK = ~REF_COUNT_MASK;
+    std::atomic<uintptr_t> data = 0;
 };
 
 template<>
@@ -124,11 +113,11 @@ public:
     void unhandled_exception() {
         VERIFY_NOT_REACHED(Events);
         std::abort();
-        dependencies.pushBack(ScriptRef::heldByMe(nullptr));
     }
 
 private:
-    AtomicArrayBuilder<ScriptRef> dependencies;
+    static_assert(AtomicArrayBuilder<ScriptPromise<>*>::BLOCK_ALIGNMENT == ScriptRef::MAX_REF_COUNT);
+    AtomicArrayBuilder<ScriptPromise<>*> insertions;
 };
 
 template<typename Interface>

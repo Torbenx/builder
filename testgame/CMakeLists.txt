@@ -44,9 +44,6 @@ set(assets
 
 add_assets(testgame SOURCES ${assets})
 
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
-
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(ANDROID_APP_PACKAGE com.tt.testgame)
     set(ANDROID_APP_NAME "TestGame")
