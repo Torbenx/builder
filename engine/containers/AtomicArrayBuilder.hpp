@@ -5,7 +5,7 @@
 #include <atomic>
 #include <mutex>
 
-template<typename T, size_t block_capacity = (2 * platform::CACHELINE_SIZE - sizeof(void*)) / sizeof(T)>
+template<typename T, size_t block_capacity = (3 * platform::CACHELINE_SIZE - sizeof(void*)) / sizeof(T)>
 class AtomicArrayBuilder {
 public:
     static_assert(sizeof(void*) == sizeof(std::atomic<uintptr_t>));
@@ -29,9 +29,10 @@ private:
     static constexpr uintptr_t PTR_MASK = ~OFFSET_MASK;
 
     struct Block {
-        alignas(BLOCK_ALIGNMENT) T data[block_capacity];
+        T data[block_capacity];
         Block* next = nullptr;
     };
+    typedef ALIGN_AS(BLOCK_ALIGNMENT) Block AlignedBlock;
 
     alignas(BLOCK_ALIGNMENT) T inline_storage[block_capacity];
     std::atomic<uintptr_t> position = (uintptr_t)inline_storage;
@@ -44,8 +45,9 @@ private:
         if ((position.load(std::memory_order_relaxed) & OFFSET_MASK) < block_capacity) {
             return;
         }
-        Block* newBlock = new Block;
+        Block* newBlock = new AlignedBlock;
         *nextPtr = newBlock;
+        nextPtr = &newBlock->next;
         position.store((uintptr_t)(&newBlock->data));
     }
 };

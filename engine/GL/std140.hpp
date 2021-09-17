@@ -4,10 +4,10 @@
 
 namespace std140 {
 
-using vec2 __attribute__((aligned(8))) = Vec4;
-using vec3 __attribute__((aligned(16))) = Vec3;
-using vec4 __attribute__((aligned(16))) = Vec4;
-using mat4 __attribute__((aligned(16))) = Mat4x4;
+typedef ALIGN_AS(8) Vec2 vec2;
+typedef ALIGN_AS(16) Vec3 vec3;
+typedef ALIGN_AS(16) Vec4 vec4;
+typedef ALIGN_AS(16) Mat4x4 mat4;
 
 template<typename T>
 concept Struct = std::is_standard_layout_v<T>;

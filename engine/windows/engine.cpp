@@ -293,8 +293,9 @@ void RendererState::exit() {
 }
 
 void log_print(const std::string& tag, const std::string& msg) {
-    OutputDebugStringA(('[' + tag + "] " + msg).c_str());
-    std::cout << '[' << tag << "] " << msg << '\n';
+    std::string str = '[' + tag + "] " + msg + '\n';
+    OutputDebugStringA(str.c_str());
+    std::cout << str;
 }
 
 int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPSTR lpCmdLine, [[maybe_unused]] int nCmdShow) {

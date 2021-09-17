@@ -43,8 +43,8 @@ void initializeSurface(vk::SurfaceKHR newSurface) {
     surface = newSurface;
     uint32_t familyCount = 0;
     physicalDevice.getQueueFamilyProperties(&familyCount, nullptr);
-    vk::QueueFamilyProperties familyProperties[familyCount];
-    physicalDevice.getQueueFamilyProperties(&familyCount, familyProperties);
+    std::vector<vk::QueueFamilyProperties> familyProperties(familyCount);
+    physicalDevice.getQueueFamilyProperties(&familyCount, familyProperties.data());
 
     for (queueFamilyIndex = 0; queueFamilyIndex < familyCount; queueFamilyIndex++) {
         vk::Bool32 supportsPresent = VK_FALSE;
@@ -120,8 +120,8 @@ void updateSurface(vk::SurfaceKHR newSurface) {
 
     uint32_t formatCount = 0;
     VULKAN_VERIFY(physicalDevice.getSurfaceFormatsKHR(surface, &formatCount, nullptr));
-    vk::SurfaceFormatKHR formats[formatCount];
-    VULKAN_VERIFY(physicalDevice.getSurfaceFormatsKHR(surface, &formatCount, formats));
+    std::vector<vk::SurfaceFormatKHR> formats(formatCount);
+    VULKAN_VERIFY(physicalDevice.getSurfaceFormatsKHR(surface, &formatCount, formats.data()));
     log<Tag::VK>("  formats: {}", formatCount);
 
     vk::Format targetFormat = vk::Format::eB8G8R8A8Unorm;
