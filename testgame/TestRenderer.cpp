@@ -1,7 +1,7 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <containers/RangeAllocator.hpp>
-#include <events/Script.hpp>
+#include <events/ScriptPromise.hpp>
 #include <events/events.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
