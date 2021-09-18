@@ -3,7 +3,26 @@
 
 std::vector<EffectShader> EffectShaderFactory::shaders;
 
-Effect::Helper Effect::typeData;
+Effect::TypeData* Effect::typeData;
+
+DECLARE_SECTION_START_STOP(Effect::TypeData, effect);
+
+void init_effect() {
+    Effect::TypeData* it = &__start_effect;
+    for (; it != &__stop_effect; it++) {
+        if (it->magic == Effect::TypeData::NOT_EMPTY_MAGIC) {
+            break;
+        }
+    }
+    Effect::typeData = it - 1;
+    for (; it != &__stop_effect; it++) {
+        if (it->magic != Effect::TypeData::NOT_EMPTY_MAGIC) {
+            break;
+        }
+        it->type = { (sid_t)(it - Effect::typeData) };
+    }
+    log("registered {} effects", (it - Effect::typeData) - 1);
+}
 
 namespace effect_detail {
 
@@ -34,12 +53,6 @@ sid_t Effect::allocateEffectId(Effect::Type type) {
         effect_detail::effectIdAllocators.resize(type.id + 1);
     }
     return effect_detail::effectIdAllocators[type.id].allocateId();
-}
-
-Effect::Type Effect::registerEffectType(TypeData data) {
-    static sid_t nextId = 0;
-    typeData.data[nextId] = data;
-    return { nextId++ };
 }
 
 EffectShaderBuilder::EffectShaderBuilder(AttributeList attributes)

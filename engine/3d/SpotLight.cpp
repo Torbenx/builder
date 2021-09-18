@@ -2,7 +2,7 @@
 #include "util/log.hpp"
 
 template<>
-const Effect::Type EffectImpl<SpotLight>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<SpotLight>::effectType = registerEffectType();
 SpotLight::SpotLight() { }
 
 void SpotLight::addTo(EffectShaderBuilder& s) {

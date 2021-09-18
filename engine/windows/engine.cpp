@@ -33,6 +33,7 @@ void init_text();
 void init_time();
 void init_platform();
 void init_script();
+void init_effect();
 void init_textureFormats();
 
 void gl_debug_callback(
@@ -292,6 +293,7 @@ int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]]
     init_time();
     init_platform();
     init_script();
+    init_effect();
     init_textureFormats();
 
     const int_t rawInputDeviceCount = 2;

@@ -4,6 +4,7 @@
 #include "containers/MemoryAllocator32.hpp"
 #include "events/Scheduler.hpp"
 #include "util/log.hpp"
+#include "util/uninitialized.hpp"
 #include <type_traits>
 
 #ifdef interface
@@ -30,61 +31,71 @@ struct get_self_t { };
 static constexpr get_self_t get_self = {};
 
 namespace script_detail {
-union helper_union {
-    MemoryAllocator32 allocator;
-    struct {
-    } dummy;
-
-    helper_union()
-        : dummy() { }
-
-    ~helper_union() {
-        allocator.~MemoryAllocator32();
-    }
-};
-inline helper_union allocator;
+inline uninitialized<MemoryAllocator32> g_allocator;
+inline MemoryAllocator32& allocator() { return g_allocator.value; }
 }
 
-template<typename Interface = void>
-class Script;
 template<typename Interface = void>
 class ScriptPromise;
 
 template<typename Interface = void>
-class script_handle {
+class Script {
+public:
+    using promise_type = ScriptPromise<Interface>;
+
+    Script() { }
+    operator Script<void>() { return { offset }; }
+    ScriptPromise<Interface>* operator->() { return (ScriptPromise<Interface>*)script_detail::allocator().address(offset); }
+    ScriptPromise<Interface>& operator*() { return *(ScriptPromise<Interface>*)script_detail::allocator().address(offset); }
+    explicit operator bool() { return offset != 0; }
+
+private:
+    template<typename Inf>
+    friend class Script;
+    template<typename Inf>
+    friend class ScriptPromise;
+
+    uint32_t offset = 0;
+
+    Script(uint32_t offset)
+        : offset(offset) { }
+};
+
+template<typename Interface = void>
+class dependent_script {
 public:
     std::add_lvalue_reference_t<Interface> interface() requires(!std::is_same_v<Interface, void>) {
         return target->interface;
     }
-    script_handle() { }
-    script_handle(ScriptPromise<>* base, ScriptPromise<Interface>* target)
+    dependent_script() { }
+    dependent_script(Script<> base, Script<Interface> target)
         : base(base), target(target) { }
-    script_handle(const script_handle&) = delete;
-    script_handle(script_handle&& other) {
+    dependent_script(const dependent_script&) = delete;
+    dependent_script(dependent_script&& other) {
         free();
         base = other.base;
         target = other.target;
         other.base = nullptr;
         other.target = nullptr;
     }
-    ~script_handle() { free(); }
+    ~dependent_script() { free(); }
 
-    operator script_handle<void>() { return { base, target }; }
+    operator dependent_script<void>() { return { base, target }; }
 
 private:
-    ScriptPromise<>* base = 0;
-    ScriptPromise<Interface>* target = 0;
+    Script<> base = {};
+    Script<Interface> target = {};
 
     void free() { }
 };
 
 template<typename Interface = void>
-struct future_script : script_handle<Interface> {
-    using script_handle<Interface>::script_handle;
+struct future_script : dependent_script<Interface> {
+    using dependent_script<Interface>::dependent_script;
 };
 template<typename Interface = void>
-struct past_script : script_handle<Interface> {
-    using script_handle<Interface>::script_handle;
+struct past_script : dependent_script<Interface> {
+    using dependent_script<Interface>::dependent_script;
 };
 
 class ScriptRef {
@@ -109,14 +120,14 @@ template<>
 class ScriptPromise<void> {
 public:
     void* operator new(size_t size) {
-        MemoryAllocator32& alloc = allocator();
+        MemoryAllocator32& alloc = script_detail::allocator();
         void* addr = alloc.address(alloc.allocate(decltype(insertions)::BLOCK_ALIGNMENT, size));
         alloc.debug();
         return addr;
     }
 
     void operator delete(void* addr) {
-        MemoryAllocator32& alloc = allocator();
+        MemoryAllocator32& alloc = script_detail::allocator();
         VERIFY(Script, alloc.ownsAddress(addr));
         alloc.free(alloc.offset(addr));
     }
@@ -126,18 +137,27 @@ public:
     ScriptPromise(const ScriptPromise&) = delete;
     ScriptPromise(ScriptPromise&&) = delete;
 
+    Script<> script() { return { script_detail::allocator().offset(this) }; }
+
     template<typename Inf>
     future_script<Inf> acquire_future(Script<Inf> script) {
-        return { this, script.promise };
+        return { this->script(), script };
     }
     template<typename Inf>
     past_script<Inf> acquire_past(Script<Inf> script) {
-        return { this, script.promise };
+        return { this->script(), script };
     }
 
     template<typename T>
     decltype(auto) await_transform(T&& t) { return std::forward<T>(t); }
 
+    void validateAllocation() {
+        VERIFY(Script, script_detail::allocator().ownsAddress(this));
+    }
+    Script<> get_return_object() {
+        validateAllocation();
+        return script();
+    }
     auto initial_suspend() { return stdx::suspend_never(); }
     auto final_suspend() noexcept { return stdx::suspend_never(); }
     void return_void() { }
@@ -147,20 +167,8 @@ public:
     }
 
 private:
-    static MemoryAllocator32& allocator() {
-        return script_detail::allocator.allocator;
-    }
-
-    static_assert(AtomicArrayBuilder<ScriptPromise<>*>::BLOCK_ALIGNMENT == ScriptRef::MAX_REF_COUNT);
     AtomicArrayBuilder<ScriptPromise<>*> insertions;
 };
-
-template<typename Interface>
-struct ScriptInterfaceHolder {
-    Interface interface;
-};
-template<>
-struct ScriptInterfaceHolder<void> { };
 
 template<typename Interface>
 class ScriptPromise : public ScriptPromise<void> {
@@ -170,8 +178,12 @@ public:
     using ScriptPromise<void>::ScriptPromise;
     using ScriptPromise<void>::await_transform;
 
+    Script<Interface> script() { return { script_detail::allocator().offset(this) }; }
     auto await_transform(get_self_t) { return await_value<ScriptPromise&> { *this }; }
-    Script<Interface> get_return_object() { return { this }; }
+    Script<Interface> get_return_object() {
+        validateAllocation();
+        return script();
+    }
 
     future_script<Interface> flip(past_script<> script) {
         VERIFY(Script, script.base == this);
@@ -181,19 +193,4 @@ public:
         VERIFY(Script, script.base == this);
         return { script.target, this };
     }
-};
-
-template<typename Interface>
-class Script {
-public:
-    using promise_type = ScriptPromise<Interface>;
-    operator Script<void>() { return { promise }; }
-
-private:
-    template<typename Inf>
-    friend class ScriptPromise;
-
-    Script(ScriptPromise<Interface>* promise)
-        : promise(promise) { }
-    ScriptPromise<Interface>* promise;
 };

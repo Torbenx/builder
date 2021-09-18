@@ -3,7 +3,7 @@
 #include <cmath>
 
 template<>
-const Effect::Type EffectImpl<PointLight>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<PointLight>::effectType = registerEffectType();
 PointLight::PointLight() { }
 
 void PointLight::addTo(EffectShaderBuilder& s) {

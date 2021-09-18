@@ -6,8 +6,8 @@
 #include "containers/ArrayView.hpp"
 #include "containers/IdAllocator.hpp"
 #include "containers/InstructureVariable.hpp"
-#include "resource/Resource.hpp"
 #include "graphics/helpers.hpp"
+#include "resource/Resource.hpp"
 #include "util/Shaders.hpp"
 #include <memory>
 #include <unordered_map>
@@ -21,7 +21,6 @@ struct UniformBufferDescription {
 
 class Effect {
 public:
-    static constexpr int_t MAX_TYPES = 128;
     using AddToFunc = void (*)(EffectShaderBuilder&);
 
     struct Type {
@@ -29,6 +28,10 @@ public:
     };
 
     struct TypeData {
+        static constexpr uint16_t NOT_EMPTY_MAGIC = 0xc0de;
+        Type type { 0 };
+        uint16_t magic = NOT_EMPTY_MAGIC;
+
         ArrayView<const int_t> vertexBufferElementSizes;
         InstructureArray<Effect, GPtr> vertexBuffers;
 
@@ -43,7 +46,7 @@ public:
         AddToFunc addToFunction;
     };
 
-    static TypeData data(Type type) { return typeData.data[type.id]; }
+    static TypeData data(Type type) { return typeData[type.id]; }
 
     struct Handle {
         Effect::Type type;
@@ -52,9 +55,9 @@ public:
         Effect* operator->() { return ptr; }
     };
 
-    virtual void applyTo(OrderedShader) { };
+    virtual void applyTo(OrderedShader) { }
     virtual ~Effect() {
-        // deallocated type id!
+        // deallocated effect id!
     }
 
     Effect(Type type)
@@ -63,22 +66,15 @@ public:
     Handle handle() { return m_handle; }
 
 private:
-    struct Helper {
-        union {
-            TypeData data[MAX_TYPES];
-        };
-        Helper() { }
-    };
-    static Helper typeData;
-
-    static Type registerEffectType(TypeData);
     static sid_t allocateEffectId(Type);
+    static TypeData* typeData;
 
     Handle m_handle;
 
     friend class EffectShaderFactory;
     template<typename T>
     friend class EffectImpl;
+    friend void init_effect();
 };
 
 namespace effect_detail {
@@ -104,15 +100,17 @@ template<typename T>
 concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), UniformHelper<typename T::VertexUniform>>;
 }
 
+DEFINE_SECTION(effect)
+
 template<typename T>
 class EffectImpl : public Effect {
 public:
-    static const Type effectType;
+    static TypeData effectType;
 
     EffectImpl()
-        : Effect(effectType) { }
+        : Effect(effectType.type) { }
 
-    static Type registerEffectType() {
+    static TypeData registerEffectType() {
         Effect::TypeData data;
         if constexpr (effect_detail::HasVertexBuffers<T>) {
             data.vertexBufferElementSizes = T::vertexBufferElementSizes;
@@ -130,7 +128,7 @@ public:
             data.vertexUniformPtr = InstructureVariable { InstructureVariable { &T::vertexUniform }, InstructureVariable { &UniformHelper<typename T::VertexUniform>::ptr } };
         }
         data.addToFunction = &T::addTo;
-        return Effect::registerEffectType(data);
+        return data;
     }
 };
 

@@ -22,14 +22,43 @@
 #define ARCHITECTURE_ARM_64
 #endif
 
-// ALIGNMENT
+// COMPILER STUFF
 
 #if defined(__GNUC__)
+
 #define ALIGN_AS(al) __attribute__((aligned(al)))
+
+#define DEFINE_SECTION(name)
+
+#define IN_SECTION(name) __attribute__((section(#name)))
+
+#define DECLARE_SECTION_START_STOP(type, name) \
+    extern type __start_##name;                \
+    extern type __stop_##name;
+
 #elif defined(_MSC_VER)
+
 #define ALIGN_AS(al) __declspec(align(al))
+
+#define SECTION_POSTFIX_HELPER(s) #s
+#define SECTION_POSTFIX(name, postfix) SECTION_POSTFIX_HELPER(name##$##postfix)
+
+#define DEFINE_SECTION(name)                    \
+    __pragma(data_seg(SECTION_POSTFIX(name, a))) \
+    __pragma(data_seg(SECTION_POSTFIX(name, m))) \
+    __pragma(data_seg(SECTION_POSTFIX(name, z)))
+
+#define IN_SECTION_P(name, postfix) __declspec(allocate(SECTION_POSTFIX(name, postfix)))
+#define IN_SECTION(name) IN_SECTION_P(name, m)
+
+#define DECLARE_SECTION_START_STOP(type, name) \
+    type IN_SECTION_P(name, a) __start_##name; \
+    type IN_SECTION_P(name, z) __stop_##name;
+
 #else
+
 #error Unsupported compiler
+
 #endif
 
 namespace platform {

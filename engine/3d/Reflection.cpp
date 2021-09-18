@@ -1,7 +1,7 @@
 #include "3d/Reflection.hpp"
 
 template<>
-const Effect::Type EffectImpl<Reflection>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<Reflection>::effectType = registerEffectType();
 Reflection::Reflection() { }
 
 void Reflection::addTo(EffectShaderBuilder& s) {
