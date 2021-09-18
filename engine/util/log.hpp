@@ -33,7 +33,7 @@ template<VerifyTag tag>
 void verify(bool, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
 
 template<VerifyTag tag, typename T>
-void expect(T, T, const char*, const char*, const char*, int, const char*) requires((std::is_floating_point_v<T> || std::is_integral_v<T>)&&(!tag::verifyEnabled)) { }
+void expect(T, T, const char*, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
 
 template<VerifyTag tag>
 void verify(bool cond, const char* condStr, const char* file, int line, const char* func) requires tag::verifyEnabled {
@@ -50,7 +50,7 @@ void expect(F lhs, F rhs, const char* lhsStr, const char* rhsStr, const char* fi
 }
 
 template<VerifyTag tag, typename T>
-void expect(T lhs, T rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_integral_v<T> && tag::verifyEnabled {
+void expect(const T& lhs, const T& rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires tag::verifyEnabled &&(!std::is_floating_point_v<T>) {
     if (lhs != rhs) {
         log<tag>("EXPECT failed {}:{}: {}(): {} {{{:#x}}} == {} {{{:#x}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
     }

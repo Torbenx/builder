@@ -31,6 +31,8 @@ int_t lastMouseY = std::numeric_limits<int_t>::max();
 
 void init_text();
 void init_time();
+void init_platform();
+void init_script();
 void init_textureFormats();
 
 void gl_debug_callback(
@@ -284,24 +286,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 }
 
-int_t RendererState::getState() {
-    return rendererState;
-}
-
-void RendererState::exit() {
-    DestroyWindow(engine_hwnd);
-}
-
-void log_print(const std::string& tag, const std::string& msg) {
-    std::string str = '[' + tag + "] " + msg + '\n';
-    OutputDebugStringA(str.c_str());
-    std::cout << str;
-}
-
 int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPSTR lpCmdLine, [[maybe_unused]] int nCmdShow) {
     createFunctions = functions;
     engine_hinstance = hInstance;
     init_time();
+    init_platform();
+    init_script();
     init_textureFormats();
 
     const int_t rawInputDeviceCount = 2;

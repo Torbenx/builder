@@ -4,8 +4,9 @@
 #include "util/target.hpp"
 #include <atomic>
 #include <mutex>
+#include <bit>
 
-template<typename T, size_t block_capacity = (3 * platform::CACHELINE_SIZE - sizeof(void*)) / sizeof(T)>
+template<typename T, size_t block_capacity = (3 * platform::cachelineSize() - sizeof(void*)) / sizeof(T)>
 class AtomicArrayBuilder {
 public:
     static_assert(sizeof(void*) == sizeof(std::atomic<uintptr_t>));
@@ -85,7 +86,7 @@ public:
 private:
     alignas(BLOCK_ALIGNMENT) T inline_storage[block_capacity];
     std::atomic<uintptr_t> position = (uintptr_t)inline_storage;
-    alignas(platform::CACHELINE_SIZE) std::mutex allocationLock;
+    alignas(platform::cachelineSize()) std::mutex allocationLock;
     AlignedBlock* nextBlock = nullptr;
     AlignedBlock** nextPtr = &nextBlock;
 

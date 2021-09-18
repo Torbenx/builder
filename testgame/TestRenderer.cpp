@@ -69,6 +69,8 @@ TestRenderer<G>::TestRenderer()
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
+    log("pageSize: {}", platform::pageSize());
+
     ambientLight.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 1) * 1.0f;
 
     spotLightDepthMap = Texture::depth(2048, 2048, Texture::DepthBits::D16);

@@ -14,5 +14,6 @@ struct Windows {
 extern HWND engine_hwnd;
 extern ID3D11Device* dxDevice;
 extern HANDLE hDxDevice;
+extern int_t rendererState;
 
 int engine_main(CreateFunctions functions, HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow);

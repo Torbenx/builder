@@ -16,7 +16,7 @@ struct LogicSet {
         uint64_t r = 0;
         for (int_t i = 0; i < varCount; i++) {
             if (indices[i] == index) {
-                r |= 1 << i;
+                r |= (uint64_t)1 << i;
             }
         }
         return r;
@@ -25,7 +25,7 @@ struct LogicSet {
     constexpr uint64_t key() const {
         uint64_t r = 0;
         for (int_t i = 0; i < size + 1; i++) {
-            r |= 1 << offsets[i];
+            r |= (uint64_t)1 << offsets[i];
         }
         return r;
     }

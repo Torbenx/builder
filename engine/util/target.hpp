@@ -34,7 +34,15 @@
 
 namespace platform {
 
-static constexpr int_t CACHELINE_SIZE = 64;
+namespace detail {
+    extern size_t pageSize;
+}
+
+static consteval size_t cachelineSize() { return 64; }
+inline size_t pageSize() { return detail::pageSize; }
+
+void* reserveAddressSpace(size_t size);
+void commitMemory(void* addr, size_t size);
 
 constexpr bool isWindows() {
 #ifdef PLATFORM_WINDOWS

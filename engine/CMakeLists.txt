@@ -9,6 +9,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         "windows/Renderer.cpp"
         "windows/text.cpp"
         "windows/keycodes.cpp"
+        "windows/platform.cpp"
         "resource/asset_istream.cpp"
     )
     set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite)
@@ -88,7 +89,9 @@ add_library(engine ${linkage}
     "3d/Shaderpass.cpp"
     "3d/Renderpass.cpp"
     "containers/RangeAllocator.cpp"
+    "containers/MemoryAllocator32.cpp"
     "graphics/GAllocator.cpp"
+    "events/Script.cpp"
     ${platform_source}
     ${vulkan_source}
 )

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "containers/AtomicArrayBuilder.hpp"
+#include "containers/MemoryAllocator32.hpp"
 #include "events/Scheduler.hpp"
+#include "util/log.hpp"
 #include <type_traits>
 
 #ifdef interface
@@ -26,6 +28,22 @@ struct await_value {
 
 struct get_self_t { };
 static constexpr get_self_t get_self = {};
+
+namespace script_detail {
+union helper_union {
+    MemoryAllocator32 allocator;
+    struct {
+    } dummy;
+
+    helper_union()
+        : dummy() { }
+
+    ~helper_union() {
+        allocator.~MemoryAllocator32();
+    }
+};
+inline helper_union allocator;
+}
 
 template<typename Interface = void>
 class Script;
@@ -54,8 +72,8 @@ public:
     operator script_handle<void>() { return { base, target }; }
 
 private:
-    ScriptPromise<>* base = nullptr;
-    ScriptPromise<Interface>* target = nullptr;
+    ScriptPromise<>* base = 0;
+    ScriptPromise<Interface>* target = 0;
 
     void free() { }
 };
@@ -90,6 +108,19 @@ private:
 template<>
 class ScriptPromise<void> {
 public:
+    void* operator new(size_t size) {
+        MemoryAllocator32& alloc = allocator();
+        void* addr = alloc.address(alloc.allocate(decltype(insertions)::BLOCK_ALIGNMENT, size));
+        alloc.debug();
+        return addr;
+    }
+
+    void operator delete(void* addr) {
+        MemoryAllocator32& alloc = allocator();
+        VERIFY(Script, alloc.ownsAddress(addr));
+        alloc.free(alloc.offset(addr));
+    }
+
     template<typename... Args>
     explicit ScriptPromise(Args&... args) { }
     ScriptPromise(const ScriptPromise&) = delete;
@@ -116,6 +147,10 @@ public:
     }
 
 private:
+    static MemoryAllocator32& allocator() {
+        return script_detail::allocator.allocator;
+    }
+
     static_assert(AtomicArrayBuilder<ScriptPromise<>*>::BLOCK_ALIGNMENT == ScriptRef::MAX_REF_COUNT);
     AtomicArrayBuilder<ScriptPromise<>*> insertions;
 };
