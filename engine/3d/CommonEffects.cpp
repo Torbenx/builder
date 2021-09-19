@@ -4,7 +4,7 @@
 // AmbientLight
 
 template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<AmbientLight>::effectType = registerEffectType();
+Effect::TypeData EffectImpl<AmbientLight>::effectType = registerEffectType();
 AmbientLight::AmbientLight() { }
 
 void AmbientLight::addTo(EffectShaderBuilder& s) {
@@ -18,7 +18,7 @@ void AmbientLight::addTo(EffectShaderBuilder& s) {
 // UniformColor
 
 template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<UniformColor>::effectType = registerEffectType();
+Effect::TypeData EffectImpl<UniformColor>::effectType = registerEffectType();
 UniformColor::UniformColor() { }
 
 void UniformColor::addTo(EffectShaderBuilder& s) {
@@ -32,7 +32,7 @@ void UniformColor::addTo(EffectShaderBuilder& s) {
 // TextureColor
 
 template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<TextureColor>::effectType = registerEffectType();
+Effect::TypeData EffectImpl<TextureColor>::effectType = registerEffectType();
 TextureColor::TextureColor() { }
 
 void TextureColor::addTo(EffectShaderBuilder& s) {

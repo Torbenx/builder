@@ -89,6 +89,11 @@ public:
     operator dependent_script<void>() { return { base, target }; }
 
 private:
+    template<typename Inf>
+    friend class ScriptPromise;
+    template<typename Inf>
+    friend class ScriptPromiseBase;
+
     Script<> base = {};
     Script<Interface> target = {};
 

@@ -21,9 +21,12 @@ ALooper *looper;
 
 CreateFunctions createFunctions;
 Renderer<OpenGL> *renderer = nullptr;
-int rendererState = RENDERER_STATE_INVISIBLE;
+int_t rendererState = RENDERER_STATE_INVISIBLE;
 AChoreographer *choreographer;
 
+void init_platform();
+void init_script();
+void init_effect();
 void init_textureFormats();
 
 void engine_setRenderer(CreateFunctions functions){
@@ -62,6 +65,9 @@ void android_runThread(){
     FrameCallbackData callbackData = {false, &display, &surface};
     ANativeWindow *window;
 
+    init_platform();
+    init_script();
+    init_effect();
     init_textureFormats();
 
     while(running){
@@ -249,12 +255,4 @@ void android_runThread(){
 
 void RendererState::exit(){
     android_exit();
-}
-
-int_t RendererState::getState(){
-    return rendererState;
-}
-
-void log_print(const std::string& tag, const std::string& msg) {
-    __android_log_write(ANDROID_LOG_DEBUG, tag.c_str(), msg.c_str());
 }

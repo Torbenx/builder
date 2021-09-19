@@ -28,7 +28,6 @@ public:
     void* operator new(size_t size) {
         MemoryAllocator32& alloc = script_detail::allocator();
         void* addr = alloc.address(alloc.allocate(decltype(insertions)::BLOCK_ALIGNMENT, size));
-        alloc.debug();
         return addr;
     }
 
@@ -89,11 +88,11 @@ struct ScriptPromise : ScriptPromiseBase<Interface> {
     }
 
     future_script<Interface> flip(past_script<> script) {
-        VERIFY(Script, script.base == this);
-        return { script.target, this };
+        VERIFY(Script, script.base == this->script());
+        return { script.target, this->script() };
     }
     past_script<Interface> flip(future_script<> script) {
-        VERIFY(Script, script.base == this);
-        return { script.target, this };
+        VERIFY(Script, script.base == this->script());
+        return { script.target, this->script() };
     }
 };

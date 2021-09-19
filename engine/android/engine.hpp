@@ -28,10 +28,12 @@ extern JavaVM* jvm;
 extern AAssetManager* assetManager;
 extern ALooper* looper;
 extern jobject activity;
+extern int_t rendererState;
 
 namespace Tag {
 struct Android {
     static constexpr char tag[] = "android" ;
+    static constexpr bool verifyEnabled = true;
 };
 }
 

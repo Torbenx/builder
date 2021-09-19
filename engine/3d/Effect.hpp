@@ -105,7 +105,7 @@ DEFINE_SECTION(effect)
 template<typename T>
 class EffectImpl : public Effect {
 public:
-    static TypeData effectType;
+    static IN_SECTION(effect) TypeData effectType;
 
     EffectImpl()
         : Effect(effectType.type) { }

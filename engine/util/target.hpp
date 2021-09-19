@@ -43,10 +43,10 @@
 #define SECTION_POSTFIX_HELPER(s) #s
 #define SECTION_POSTFIX(name, postfix) SECTION_POSTFIX_HELPER(name##$##postfix)
 
-#define DEFINE_SECTION(name)                    \
-    __pragma(data_seg(SECTION_POSTFIX(name, a))) \
-    __pragma(data_seg(SECTION_POSTFIX(name, m))) \
-    __pragma(data_seg(SECTION_POSTFIX(name, z)))
+#define DEFINE_SECTION(name)                         \
+    __pragma(data_seg(SECTION_POSTFIX(name, a)))     \
+        __pragma(data_seg(SECTION_POSTFIX(name, m))) \
+            __pragma(data_seg(SECTION_POSTFIX(name, z)))
 
 #define IN_SECTION_P(name, postfix) __declspec(allocate(SECTION_POSTFIX(name, postfix)))
 #define IN_SECTION(name) IN_SECTION_P(name, m)
@@ -69,6 +69,8 @@ namespace detail {
 
 static consteval size_t cachelineSize() { return 64; }
 inline size_t pageSize() { return detail::pageSize; }
+inline bool isPageAligned(uintptr_t addr) { return (addr & (pageSize() - 1)) == 0; }
+inline bool isPageAligned(void* addr) { return isPageAligned((uintptr_t)addr); }
 
 void* reserveAddressSpace(size_t size);
 void commitMemory(void* addr, size_t size);

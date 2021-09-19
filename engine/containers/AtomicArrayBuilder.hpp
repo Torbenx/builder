@@ -11,7 +11,7 @@ class AtomicArrayBuilder {
 public:
     static_assert(sizeof(void*) == sizeof(std::atomic<uintptr_t>));
 
-    static constexpr uintptr_t BLOCK_ALIGNMENT = std::bit_ceil(block_capacity * sizeof(T));
+    static constexpr uintptr_t BLOCK_ALIGNMENT = 4 * platform::cachelineSize();
     static constexpr uintptr_t OFFSET_MASK = BLOCK_ALIGNMENT - 1;
     static constexpr uintptr_t PTR_MASK = ~OFFSET_MASK;
     static constexpr size_t BLOCK_CAPACITY = block_capacity;

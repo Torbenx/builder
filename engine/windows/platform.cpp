@@ -20,15 +20,15 @@ void log_print(const std::string& tag, const std::string& msg) {
 }
 
 void* platform::reserveAddressSpace(size_t size) {
-    VERIFY(Windows, size % pageSize() == 0);
+    VERIFY(Windows, isPageAligned(size));
     void* addr = VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
     VERIFY(Windows, addr != nullptr);
     return addr;
 }
 
 void platform::commitMemory(void* addr, size_t size) {
-    VERIFY(Windows, (uintptr_t)addr % pageSize() == 0);
-    VERIFY(Windows, size % pageSize() == 0);
+    VERIFY(Windows, isPageAligned(addr));
+    VERIFY(Windows, isPageAligned(size));
     void* ret = VirtualAlloc(addr, size, MEM_COMMIT, PAGE_READWRITE);
     VERIFY(Windows, ret == addr);
 }

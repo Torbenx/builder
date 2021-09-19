@@ -4,10 +4,10 @@
 #include <vector>
 #include <concepts>
 
-template<std::equality_comparable T>
+template<typename /*std::equality_comparable*/ T>
 class FlatSet {
 public:
-    using Iterator = std::vector<T>::iterator;
+    using Iterator = typename std::vector<T>::iterator;
 
     Iterator begin() { return m_data.begin(); }
     Iterator end() { return m_data.end(); }
