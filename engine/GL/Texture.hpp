@@ -6,13 +6,13 @@
 
 class Texture {
 public:
-    enum Type {
+    enum class Type {
         Color = 0,
         Depth = 1,
         Stencil = 2,
     };
 
-    enum Format {
+    enum class Format {
         RGBA8888,
         Count = RGBA8888 + 1
     };

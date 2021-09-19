@@ -87,12 +87,12 @@ public:
     }
 
     template<typename T>
-    static Buffer<BaseType> allocUp(int size, WriteFrequency wf = Normal) {
+    static Buffer<BaseType> allocUp(int size, WriteFrequency wf = WriteFrequency::Normal) {
         return upload<T>(nullptr, size, wf);
     }
 
     template<typename T>
-    static Buffer<BaseType> upload(T* data, int size, WriteFrequency wf = Normal) {
+    static Buffer<BaseType> upload(T* data, int size, WriteFrequency wf = WriteFrequency::Normal) {
         Buffer<BaseType> b = Buffer::wrap<T>(data, size);
         return Buffer<BaseType>::upload(b, wf);
     }
@@ -103,7 +103,7 @@ public:
     }
 
     template<typename T, int N>
-    static Buffer<BaseType> upload(T (&data)[N], WriteFrequency wf = Normal) {
+    static Buffer<BaseType> upload(T (&data)[N], WriteFrequency wf = WriteFrequency::Normal) {
         Buffer<BaseType> b = construct<T>(data, N);
         return Buffer<BaseType>::upload(b, wf);
     }
@@ -114,7 +114,7 @@ public:
     }
 
     template<typename T, std::size_t N>
-    static Buffer<BaseType> upload(std::array<T, N>& data, WriteFrequency wf = Normal) {
+    static Buffer<BaseType> upload(std::array<T, N>& data, WriteFrequency wf = WriteFrequency::Normal) {
         Buffer<BaseType> b = construct<T>(data.data(), N);
         return Buffer<BaseType>::upload(b, wf);
     }
@@ -125,7 +125,7 @@ public:
     }
 
     template<typename T, int N>
-    static Buffer<BaseType> upload(T(&&data)[N], WriteFrequency wf = Normal) {
+    static Buffer<BaseType> upload(T(&&data)[N], WriteFrequency wf = WriteFrequency::Normal) {
         Buffer<BaseType> b = construct<T>(data, N);
         return Buffer<BaseType>::upload(b, wf);
     }
@@ -134,12 +134,12 @@ public:
         return Buffer<BaseType>(data, elementSize, size);
     }
 
-    static Buffer<BaseType> upload(BaseType* data, int elementSize, int size, WriteFrequency wf = Normal) {
+    static Buffer<BaseType> upload(BaseType* data, int elementSize, int size, WriteFrequency wf = WriteFrequency::Normal) {
         Buffer<BaseType> b(data, elementSize, size);
         return Buffer<BaseType>::upload(b, wf);
     }
 
-    static Buffer<BaseType> upload(Buffer<BaseType>& in, WriteFrequency wf = Normal) {
+    static Buffer<BaseType> upload(Buffer<BaseType>& in, WriteFrequency wf = WriteFrequency::Normal) {
         VERIFY(GL, !in.isGL());
         Buffer<BaseType> out(in);
         glGenBuffers(1, &out.glId);

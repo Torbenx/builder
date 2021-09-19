@@ -52,6 +52,11 @@ Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string n
     return { state.uniformIndex++ };
 }
 
+Shader::LocationHandle ShaderBuilder::addTextureUniform(std::string type, std::string name, std::string qualifiers) {
+    fInit << "layout(binding=" << state.textureSlot << ") " << qualifiers << "uniform " << type << " " << name << ";\n";
+    return { state.textureSlot++ };
+}
+
 Shader::LocationHandle ShaderBuilder::beginUniformBuffer(std::string name, bool vertex) {
     (vertex ? vInit : fInit) << "layout(std140, binding=" << state.uniformBufferIndex << ") uniform " << name << "{\n";
     return { state.uniformBufferIndex++ };
@@ -71,17 +76,13 @@ void ShaderBuilder::requireExtension(std::string extension) {
     fExt << "#extension " << extension << " : require\n";
 }
 
-int ShaderBuilder::nextTextureSlot() {
-    if constexpr (Tag::GL::verifyEnabled) {
-        GLint maxTextures;
-        glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
-        VERIFY(GL, (GLint)state.textureSlot < maxTextures);
-    }
-    return state.textureSlot++;
-}
-
 void ShaderBuilder::disableFragmentShader() {
     fragmentShaderDisabled = true;
+}
+
+void ShaderBuilder::makeCompute(int_t localSizeX, int_t localSizeY, int_t localSizeZ) {
+    fragmentShaderDisabled = true;
+    vInit << "layout(local_size_x=" << localSizeX << ", local_size_y=" << localSizeY << ", local_size_z=" << localSizeZ << ") in;\n";
 }
 
 void Shader::initialize(ShaderBuilder& builder) {

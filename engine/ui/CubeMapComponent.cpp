@@ -9,7 +9,7 @@ void CubeMapComponent::draw(Framebuffer& framebuffer, GAllocator&){
     shader->use();
     shader->attribPointer(shader->positionAttrib, coords.value);
     shader->attribPointer(shader->texCoordAttrib, texCoords.value);
-    shader->uniformCubeMap(shader->cubeMapUniform, *cubeMap, 0);
+    shader->uniformCubeMap(shader->cubeMapUniform, *cubeMap);
     doUniforms();
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }

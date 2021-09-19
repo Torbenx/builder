@@ -82,12 +82,11 @@ public:
     void uniformVec4(LocationHandle uniform, Vec4 u) const { glUniform4f(getUniform(uniform), u.x, u.y, u.z, u.w); }
     void uniformMat4x4(LocationHandle uniform, const Mat4x4& u) const { glUniformMatrix4fv(getUniform(uniform), 1, GL_FALSE, u.matrix); }
 
-    void uniformTexture(LocationHandle uniform, const Texture& u, GLuint slot) const {
-        glActiveTexture(GL_TEXTURE0 + slot);
+    void uniformTexture(LocationHandle uniform, const Texture& u) const {
+        glActiveTexture(GL_TEXTURE0 + uniform.handle);
         u.bind();
-        uniform1i(uniform, slot);
     }
-    void uniformCubeMap(LocationHandle uniform, const CubeMap& u, GLuint slot) const { uniformTexture(uniform, u, slot); }
+    void uniformCubeMap(LocationHandle uniform, const CubeMap& u) const { uniformTexture(uniform, u); }
     void uniformBuffer(LocationHandle binding, const UniformBuffer& u) const {
         glBindBufferRange(GL_UNIFORM_BUFFER, binding.handle, u.buffer.glId, u.offset, u.size);
     }
@@ -115,8 +114,8 @@ public:
     void uniformVec3(Vec3 u) { shader.uniformVec3({ state.uniformIndex++ }, u); }
     void uniformVec4(Vec4 u) { shader.uniformVec4({ state.uniformIndex++ }, u); }
     void uniformMat4x4(const Mat4x4& u) { shader.uniformMat4x4({ state.uniformIndex++ }, u); }
-    void uniformTexture(const Texture& u) { shader.uniformTexture({ state.uniformIndex++ }, u, state.textureSlot++); }
-    void uniformCubeMap(const CubeMap& u) { shader.uniformCubeMap({ state.uniformIndex++ }, u, state.textureSlot++); }
+    void uniformTexture(const Texture& u) { shader.uniformTexture({ state.textureSlot++ }, u); }
+    void uniformCubeMap(const CubeMap& u) { shader.uniformCubeMap({ state.textureSlot++ }, u); }
     void uniformBuffer(const UniformBuffer& u) { shader.uniformBuffer({ state.uniformBufferIndex++ }, u); }
 
     void attribPointer(const VertexBuffer& a) { shader.attribPointer({ state.attribIndex++ }, a); }
@@ -143,23 +142,29 @@ public:
     void newContext();
     std::string uniqueName(std::string name);
     Shader::LocationHandle addAttrib(std::string type, std::string name, std::string qualifiers = "");
+
     Shader::LocationHandle addUniform(std::string type, std::string name, std::string qualifiers, bool vertex);
     Shader::LocationHandle addVertexUniform(std::string type, std::string name, std::string qualifiers = "") { return addUniform(type, name, qualifiers, true); }
     Shader::LocationHandle addFragmentUniform(std::string type, std::string name, std::string qualifiers = "") { return addUniform(type, name, qualifiers, false); }
+
+    Shader::LocationHandle addTextureUniform(std::string type, std::string name, std::string qualifiers = "");
+
     Shader::LocationHandle beginUniformBuffer(std::string name, bool vertex);
     Shader::LocationHandle beginVertexUniformBuffer(std::string name) { return beginUniformBuffer(name, true); }
     Shader::LocationHandle beginFragmentUniformBuffer(std::string name) { return beginUniformBuffer(name, false); }
     void endUniformBuffer(bool vertex);
     void endVertexUniformBuffer() { endUniformBuffer(true); }
     void endFragmentUniformBuffer() { endUniformBuffer(false); }
+
     void addVarying(std::string type, std::string name, std::string qualifiers = "");
+
     void requireExtension(std::string extension);
     void requireLinearInterpolation() {
         if (platform::usingGLES())
             requireExtension("GL_NV_shader_noperspective_interpolation");
     }
-    int nextTextureSlot();
     void disableFragmentShader();
+    void makeCompute(int_t localSizeX, int_t localSizeY = 1, int_t localSizeZ = 1);
     OrderedShaderState orderedState() { return state; }
 
 protected:

@@ -2,7 +2,7 @@
 #include "util/log.hpp"
 
 template<>
-Effect::TypeData EffectImpl<SpotLight>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<SpotLight>::effectType = registerEffectType();
 SpotLight::SpotLight() { }
 
 void SpotLight::addTo(EffectShaderBuilder& s) {
@@ -11,8 +11,7 @@ void SpotLight::addTo(EffectShaderBuilder& s) {
     std::string colorUniform = s.uniqueName("u_color");
     std::string positionVarying = s.uniqueName("v_position");
     std::string lightPosUniform = s.uniqueName("u_lightPos");
-    s.addFragmentUniform("sampler2DShadow", textureUniform);
-    s.nextTextureSlot();
+    s.addTextureUniform("sampler2DShadow", textureUniform);
     s.beginVertexUniformBuffer("SpotLightVert");
     s.vInit << "mat4 " << mvpUniform << ";\n";
     s.endVertexUniformBuffer();

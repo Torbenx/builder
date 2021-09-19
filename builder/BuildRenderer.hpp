@@ -5,6 +5,7 @@
 #include <Renderer.hpp>
 #include <string>
 #include <vector>
+#include "3d/CommonEffects.hpp"
 
 template<Gapi G>
 class BuildRenderer : public Renderer<G> {
@@ -15,6 +16,7 @@ public:
     std::vector<std::string> files;
     bool isProject = false;
     UiScene scene;
+    AmbientLight amb;
 
     BuildRenderer();
     void pointer(PointerEvent pointer) override;

@@ -92,7 +92,7 @@ TextFormat::~TextFormat() {
 }
 
 TextTexture::TextTexture(int width, int height)
-    : Texture(Color, false) {
+    : Texture(Type::Color, false) {
     DxTextTextureImpl* impl = new DxTextTextureImpl();
     internal = impl;
 

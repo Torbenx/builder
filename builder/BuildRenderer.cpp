@@ -33,7 +33,7 @@ void BuildRenderer<G>::change(int_t newWidth, int_t newHeight) {
     scene.metrics = metrics;
     scene.build(allocator);
     allocator.stage();
-    setPath(isAndroid() ? "/data/data/com.tt.builder" : "C:/Users/Torben/Documents/dev/c++");
+    setPath(platform::isAndroid() ? "/data/data/com.tt.builder" : "C:/Users/Torben/Documents/dev/c++");
 }
 
 template<Gapi G>

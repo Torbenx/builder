@@ -16,7 +16,7 @@ public:
     void debug() { allocator.debug(); }
 
 private:
+    RangeAllocator allocator;
     std::byte* baseAddr;
     uint32_t maxSize;
-    RangeAllocator allocator;
 };

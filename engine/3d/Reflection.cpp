@@ -1,15 +1,14 @@
 #include "3d/Reflection.hpp"
 
 template<>
-Effect::TypeData EffectImpl<Reflection>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<Reflection>::effectType = registerEffectType();
 Reflection::Reflection() { }
 
 void Reflection::addTo(EffectShaderBuilder& s) {
     std::string textureUniform = s.uniqueName("u_texture");
     std::string positionVarying = s.uniqueName("v_position");
     std::string factorUniform = s.uniqueName("u_factor");
-    s.addFragmentUniform("sampler2D", textureUniform);
-    s.nextTextureSlot();
+    s.addTextureUniform("sampler2D", textureUniform);
     s.beginFragmentUniformBuffer(s.uniqueName("Reflection"));
     s.fInit << "float " << factorUniform << ";\n";
     s.endFragmentUniformBuffer();

@@ -4,7 +4,7 @@
 // AmbientLight
 
 template<>
-Effect::TypeData EffectImpl<AmbientLight>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<AmbientLight>::effectType = registerEffectType();
 AmbientLight::AmbientLight() { }
 
 void AmbientLight::addTo(EffectShaderBuilder& s) {
@@ -18,7 +18,7 @@ void AmbientLight::addTo(EffectShaderBuilder& s) {
 // UniformColor
 
 template<>
-Effect::TypeData EffectImpl<UniformColor>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<UniformColor>::effectType = registerEffectType();
 UniformColor::UniformColor() { }
 
 void UniformColor::addTo(EffectShaderBuilder& s) {
@@ -32,7 +32,7 @@ void UniformColor::addTo(EffectShaderBuilder& s) {
 // TextureColor
 
 template<>
-Effect::TypeData EffectImpl<TextureColor>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<TextureColor>::effectType = registerEffectType();
 TextureColor::TextureColor() { }
 
 void TextureColor::addTo(EffectShaderBuilder& s) {
@@ -40,8 +40,7 @@ void TextureColor::addTo(EffectShaderBuilder& s) {
     std::string textureUniform = s.uniqueName("u_texture");
     std::string texPositionVarying = s.uniqueName("v_texPosition");
     s.addAttrib("vec2", texPositionAttrib);
-    s.addFragmentUniform("sampler2D", textureUniform);
-    s.nextTextureSlot();
+    s.addTextureUniform("sampler2D", textureUniform);
     s.addVarying("vec2", texPositionVarying);
     s.vMain << texPositionVarying << " = " << texPositionAttrib << ";\n";
     s.fMain << EffectShader::FRAGMENT_DIFFUSE_COLOR << " += texture(" << textureUniform << ", " << texPositionVarying << ").rgb;\n";

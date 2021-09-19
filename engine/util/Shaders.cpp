@@ -3,7 +3,7 @@
 void SimpleTextureShader::applySimpleTextureShader(ShaderBuilder& b, const std::string& sampler){
     positionAttrib = b.addAttrib("vec4", "a_position");
     texCoordAttrib = b.addAttrib("vec2", "a_texCoord");
-    textureUniform = b.addFragmentUniform(sampler, "u_texture");
+    textureUniform = b.addTextureUniform(sampler, "u_texture");
     b.addVarying("vec2", "v_texCoord");
     b.vMain <<
     "   v_texCoord = a_texCoord;\n"
@@ -36,7 +36,7 @@ void SingleColorShader::applySingleColorShader(ShaderBuilder& b){
 void SimpleCubeMapShader::applySimpleCubeMapShader(ShaderBuilder& b, const std::string& sampler){
     positionAttrib = b.addAttrib("vec4", "a_position");
     texCoordAttrib = b.addAttrib("vec3", "a_texCoord");
-    cubeMapUniform = b.addFragmentUniform(sampler, "u_cubeMap");
+    cubeMapUniform = b.addTextureUniform(sampler, "u_cubeMap");
     b.addVarying("vec3", "v_texCoord");
     b.vMain <<
     "   v_texCoord = a_texCoord;\n"

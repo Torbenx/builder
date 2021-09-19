@@ -80,11 +80,11 @@ void Framebuffer::attach(const CubeMap& cubeMap, CubeMap::Face face) {
 
 void Framebuffer::attachInteral(const Texture& texture, GLenum subTarget) {
     VERIFY(GL, isCurrent());
-    clearMask |= GL_BUFFER_BITS[texture.type];
+    clearMask |= GL_BUFFER_BITS[(GLint)texture.type];
     if (texture.isRenderbuffer)
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_ATTACHMENTS[texture.type], GL_RENDERBUFFER, texture.glId);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_ATTACHMENTS[(GLint)texture.type], GL_RENDERBUFFER, texture.glId);
     else
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_ATTACHMENTS[texture.type], subTarget, texture.glId, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_ATTACHMENTS[(GLint)texture.type], subTarget, texture.glId, 0);
 }
 
 void Framebuffer::clearColor(float r, float g, float b, float a) {

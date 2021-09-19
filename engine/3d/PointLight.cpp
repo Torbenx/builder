@@ -3,7 +3,7 @@
 #include <cmath>
 
 template<>
-Effect::TypeData EffectImpl<PointLight>::effectType = registerEffectType();
+Effect::TypeData IN_SECTION(effect) EffectImpl<PointLight>::effectType = registerEffectType();
 PointLight::PointLight() { }
 
 void PointLight::addTo(EffectShaderBuilder& s) {
@@ -12,8 +12,7 @@ void PointLight::addTo(EffectShaderBuilder& s) {
     std::string lightPosUniform = s.uniqueName("u_lightPos");
     std::string a = s.uniqueName("u_a");
     std::string b = s.uniqueName("u_b");
-    s.addFragmentUniform("samplerCubeShadow", textureUniform);
-    s.nextTextureSlot();
+    s.addTextureUniform("samplerCubeShadow", textureUniform);
 
     s.beginVertexUniformBuffer(s.uniqueName("PointlightVert"));
     s.vInit << "vec3 " << lightPosUniform << ";\n";

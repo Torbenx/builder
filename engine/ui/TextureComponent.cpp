@@ -13,7 +13,7 @@ void TextureComponent::draw(Framebuffer& framebuffer, GAllocator&) {
     shader->use();
     shader->attribPointer(shader->positionAttrib, coords.value);
     shader->attribPointer(shader->texCoordAttrib, texCoords.value);
-    shader->uniformTexture(shader->textureUniform, *texture, 0);
+    shader->uniformTexture(shader->textureUniform, *texture);
     doUniforms();
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
