@@ -13,7 +13,7 @@ struct Graphics {
 
 struct GPtr {
     uint32_t bufferId : 8 = 0;
-    uint32_t offset : 24 = 0; // in 16 bytes
+    uint32_t offset : 24 = 0;
 };
 
 template<typename T>
@@ -25,6 +25,8 @@ public:
     static constexpr int_t STATIC_BUFFER_ID = 2;
     static constexpr int_t STAGING_BUFFER_ID = 3;
 
+    static constexpr int_t dynamicQueueDepth = 4;
+
     struct AllocationInfo {
         GPtr* ptr;
         int_t alignment;
@@ -33,19 +35,19 @@ public:
     };
 
     GBuffer staging, staticBuffer;
-    GBuffer dynamicBuffers[2];
-    GBuffer dynamicCPU[2];
+    GBuffer dynamicBuffers[dynamicQueueDepth];
+    GBuffer dynamicCPU[dynamicQueueDepth];
     RangeAllocator dynamicAllocator, staticAllocator;
     std::vector<AllocationInfo> dynamicAllocations, staticAllocations;
 
-    std::byte* dynamicMapped[2];
+    std::byte* dynamicMapped[dynamicQueueDepth];
     std::byte* stagingMapped;
     int_t stagingOffset = 0;
 
     int_t dynamicSize, staticSize, stagingSize;
     int_t pumpCount = 0;
 
-    GAllocator(int_t dynamicSize = 1024, int_t staticSize = 16 * 1024 * 1024, int_t stagingSize = 16 * 1024 * 1024);
+    GAllocator(int_t dynamicSize = 200 * 1024, int_t staticSize = 16 * 1024 * 1024, int_t stagingSize = 16 * 1024 * 1024);
     GAllocator(const GAllocator&) = delete;
     ~GAllocator();
 
@@ -76,6 +78,7 @@ public:
 
 private:
     void* queueForAllocation(GPtr* ptr, int_t alignment, int_t size, std::vector<AllocationInfo>& queue);
-    int_t writableDynamicIndex() { return pumpCount & 1; }
-    int_t readableDynamicIndex() { return (pumpCount + 1) & 1; }
+    int_t writableDynamicIndex() { return pumpCount % dynamicQueueDepth; }
+    int_t readableDynamicIndex() { return (pumpCount + 2) % dynamicQueueDepth; }
+    int_t uploadDynamicIndex() { return writableDynamicIndex(); }
 };

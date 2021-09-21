@@ -19,6 +19,7 @@
 #include <ui/TextComponent.hpp>
 #include <ui/UiScene.hpp>
 #include <util/text.hpp>
+#include <ui/renderer/Renderer.hpp>
 
 template<Gapi G>
 class TestRenderer : public Renderer<G> {
@@ -74,6 +75,9 @@ public:
     UiScene uiScene;
     Renderpass renderpass;
     GraphicsObjectCollection objects;
+
+    std::unique_ptr<ui_renderer::Renderer> uiRenderer;
+    Resource<Texture> uiTexture;
 
     TestRenderer();
     void change(int_t width, int_t height);

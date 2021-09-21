@@ -56,9 +56,9 @@ public:
     // void subTexture(GLvoid *data, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum type);
     void release();
 
+    GLuint glId;
 protected:
     Texture(Type type, bool isRenderbuffer, GLenum target = GL_TEXTURE_2D, GLenum binding = GL_TEXTURE_BINDING_2D);
-    GLuint glId;
     GLenum target;
     GLenum binding;
     Type type;

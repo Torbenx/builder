@@ -55,9 +55,8 @@ public:
         Effect* operator->() { return ptr; }
     };
 
-    virtual void applyTo(OrderedShader) { }
-    virtual ~Effect() {
-        // deallocated effect id!
+    ~Effect() {
+        // deallocate effect id!
     }
 
     Effect(Type type)

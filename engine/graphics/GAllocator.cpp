@@ -6,13 +6,11 @@ GAllocator::GAllocator(int_t dynamicSize, int_t staticSize, int_t stagingSize)
     staging.initializeWriteOnly(stagingSize);
     stagingMapped = (std::byte*)staging.mapWritable(0, stagingSize);
 
-    dynamicCPU[0].initializeWriteOnly(dynamicSize);
-    dynamicMapped[0] = (std::byte*)dynamicCPU[0].mapWritable(0, dynamicSize);
-    dynamicBuffers[0].initializeStatic(dynamicSize);
-
-    dynamicCPU[1].initializeWriteOnly(dynamicSize);
-    dynamicMapped[1] = (std::byte*)dynamicCPU[1].mapWritable(0, dynamicSize);
-    dynamicBuffers[1].initializeStatic(dynamicSize);
+    for (int_t i = 0; i < dynamicQueueDepth; i++) {
+        dynamicCPU[i].initializeWriteOnly(dynamicSize);
+        dynamicMapped[i] = (std::byte*)dynamicCPU[i].mapWritable(0, dynamicSize);
+        dynamicBuffers[i].initializeStatic(dynamicSize);
+    }
 
     staticBuffer.initializeStatic(staticSize);
 }
@@ -36,6 +34,7 @@ void GAllocator::stage() {
     dynamicBuffers[writableDynamicIndex()].bind(GL_COPY_WRITE_BUFFER);
     for (AllocationInfo alloc : dynamicAllocations) {
         int_t offset = dynamicAllocator.allocate(alloc.alignment, alloc.size);
+        VERIFY(Graphics, RangeAllocator::isValid(offset));
         alloc.ptr->bufferId = DYNAMIC_BUFFER_ID;
         alloc.ptr->offset = offset;
         glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, alloc.offset, offset, alloc.size);
@@ -47,6 +46,7 @@ void GAllocator::stage() {
     staticBuffer.bind(GL_COPY_WRITE_BUFFER);
     for (AllocationInfo alloc : staticAllocations) {
         int_t offset = staticAllocator.allocate(alloc.alignment, alloc.size);
+        VERIFY(Graphics, RangeAllocator::isValid(offset));
         alloc.ptr->bufferId = STATIC_BUFFER_ID;
         alloc.ptr->offset = offset;
         glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, alloc.offset, offset, alloc.size);
@@ -62,8 +62,8 @@ void GAllocator::stage() {
 }
 
 void GAllocator::pumpDynamicData() {
-    dynamicCPU[writableDynamicIndex()].bind(GL_COPY_READ_BUFFER);
-    dynamicBuffers[writableDynamicIndex()].bind(GL_COPY_WRITE_BUFFER);
+    dynamicCPU[uploadDynamicIndex()].bind(GL_COPY_READ_BUFFER);
+    dynamicBuffers[uploadDynamicIndex()].bind(GL_COPY_WRITE_BUFFER);
     glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, dynamicSize);
     pumpCount++;
 }
@@ -91,13 +91,10 @@ void GAllocator::debug() {
 GAllocator::~GAllocator() {
     staging.unmap();
     staging.release();
-    dynamicCPU[0].unmap();
-    dynamicCPU[0].release();
-    dynamicBuffers[0].release();
-    dynamicBuffers[0].release();
-    dynamicCPU[1].unmap();
-    dynamicCPU[1].release();
-    dynamicBuffers[1].release();
-    dynamicBuffers[1].release();
+    for (int_t i = 0; i < dynamicQueueDepth; i++) {
+        dynamicCPU[i].unmap();
+        dynamicCPU[i].release();
+        dynamicBuffers[i].release();
+    }
     debug();
 }

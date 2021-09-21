@@ -52,8 +52,8 @@ Shader::LocationHandle ShaderBuilder::addUniform(std::string type, std::string n
     return { state.uniformIndex++ };
 }
 
-Shader::LocationHandle ShaderBuilder::addTextureUniform(std::string type, std::string name, std::string qualifiers) {
-    fInit << "layout(binding=" << state.textureSlot << ") " << qualifiers << "uniform " << type << " " << name << ";\n";
+Shader::LocationHandle ShaderBuilder::addTextureUniform(std::string type, std::string name, std::string qualifiers, std::string layout) {
+    (isComputeShader ? vInit : fInit) << "layout(" << layout << (layout.empty() ? "" : ",") << "binding=" << state.textureSlot << ") " << qualifiers << "uniform " << type << " " << name << ";\n ";
     return { state.textureSlot++ };
 }
 
@@ -81,7 +81,7 @@ void ShaderBuilder::disableFragmentShader() {
 }
 
 void ShaderBuilder::makeCompute(int_t localSizeX, int_t localSizeY, int_t localSizeZ) {
-    fragmentShaderDisabled = true;
+    isComputeShader = true;
     vInit << "layout(local_size_x=" << localSizeX << ", local_size_y=" << localSizeY << ", local_size_z=" << localSizeZ << ") in;\n";
 }
 
@@ -99,8 +99,11 @@ void Shader::initialize(ShaderBuilder& builder) {
         }
     };
 
-    auto compileShader = [&](bool vertex, const char* source) {
-        GLuint shader = glCreateShader(vertex ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER);
+    constexpr const char* shaderName[] = { "Vertex", "Fragment", "Compute" };
+    constexpr GLenum shaderGLEnum[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER, GL_COMPUTE_SHADER };
+
+    auto compileShader = [&](int shaderType, const char* source) {
+        GLuint shader = glCreateShader(shaderGLEnum[shaderType]);
         glShaderSource(shader, 1, &source, 0);
         glCompileShader(shader);
         GLint success = GL_FALSE;
@@ -115,7 +118,7 @@ void Shader::initialize(ShaderBuilder& builder) {
             log<Tag::GL>("\n"
                  "{} Shader failed to compile:\n"
                  "--------------SOURCE--------------\n",
-                vertex ? "Vertex" : "Fragment");
+                shaderName[shaderType]);
             printSource(std::string(source));
             log<Tag::GL>("--------------ERROR---------------\n{}\n", message.data());
         }
@@ -123,11 +126,11 @@ void Shader::initialize(ShaderBuilder& builder) {
     };
 
     std::string vSource = builder.buildVertexSource();
-    compileShader(true, vSource.c_str());
+    compileShader(builder.isComputeShader ? 2 : 0, vSource.c_str());
 
-    if (platform::usingGLES() || !builder.fragmentShaderDisabled) {
+    if ((platform::usingGLES() || !builder.fragmentShaderDisabled) && !builder.isComputeShader) {
         std::string fSource = builder.buildFragmentSource();
-        compileShader(false, fSource.c_str());
+        compileShader(1, fSource.c_str());
     }
 
     glLinkProgram(glId);

@@ -140,8 +140,6 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
                 state.uniformBuffer({ allocator.buffer(reader.read<GPtr>()), data.vertexUniformDesc.size });
             if (data.fragmentUniformDesc.size > 0)
                 state.uniformBuffer({ allocator.buffer(reader.read<GPtr>()), data.fragmentUniformDesc.size });
-
-            entry.effects[j]->applyTo(state);
         }
         const GraphicsObject& object = objects[entry.objectId];
         shader.uniformMat4x4(shader.modelUniform, object.modelMatrix);

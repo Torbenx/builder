@@ -297,6 +297,14 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiScene.metrics = metrics;
     uiScene.build(allocator);
 
+    if (uiRenderer)
+        uiRenderer->release(allocator);
+    uiRenderer = std::make_unique<ui_renderer::Renderer>(4, newWidth, newHeight, allocator);
+    uiRenderer->add(1, { 0, 300, 0, 200 });
+    uiRenderer->add(1, { 100, 350, 100, 250 });
+    uiTexture = Texture::color(newWidth, newHeight, Texture::Format::RGBA8888);
+    refComp.texture = &uiTexture.value;
+
     allocator.debug();
 
     allocator.stage();
@@ -430,9 +438,11 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
     f5.vertices.dynamicUpdate(allocator, obj5_coords);
     updatePointLightData();
+    uiRenderer->update(allocator);
+
+    allocator.pumpDynamicData();
     glWaitSync(lastSync, 0, GL_TIMEOUT_IGNORED);
     lastSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    allocator.pumpDynamicData();
 
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
@@ -455,39 +465,10 @@ void TestRenderer<G>::drawFrame() {
     }
 
     // cubeComp.draw(Framebuffer::DEFAULT, allocator);
-    // refComp.draw(Framebuffer::DEFAULT, allocator);
+
+    uiRenderer->draw(uiTexture, allocator);
+    refComp.draw(Framebuffer::DEFAULT, allocator);
     textComp.draw(Framebuffer::DEFAULT, allocator);
-    //VDUMP(Effect::data(PointLight::effectType).textures.size());
-
-    /*constexpr uint32_t N = 4;
-    LinearProgramming<N> lp;
-    uint32_t numConstraints = 200;
-    uint32_t constraint[N];
-    for (uint32_t i = 0; i < numConstraints; i++) {
-        for (uint32_t j = 0; j < N; j++) {
-            lp.addVariable();
-            constraint[j] = i * N + j;
-        }
-        lp.addConstraint(constraint);
-    }
-    uint32_t constrains[] = {
-        0, 3, 4, 5,
-        1, 3, 4, 5,
-        2, 3, 4, 5,
-     };
-
-    lp.addVariable();
-    lp.addVariable();
-    lp.addVariable();
-    lp.addVariable();
-    lp.addVariable();
-    lp.addVariable();
-    lp.addConstraint(&constrains[0]);
-    lp.addConstraint(&constrains[4]);
-    lp.addConstraint(&constrains[8]);*/
-    //LogTimer timer;
-    //lp.relaxed();
-    //lp.dual.debug();
 }
 
 template<Gapi G>

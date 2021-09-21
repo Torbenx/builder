@@ -147,7 +147,7 @@ public:
     Shader::LocationHandle addVertexUniform(std::string type, std::string name, std::string qualifiers = "") { return addUniform(type, name, qualifiers, true); }
     Shader::LocationHandle addFragmentUniform(std::string type, std::string name, std::string qualifiers = "") { return addUniform(type, name, qualifiers, false); }
 
-    Shader::LocationHandle addTextureUniform(std::string type, std::string name, std::string qualifiers = "");
+    Shader::LocationHandle addTextureUniform(std::string type, std::string name, std::string qualifiers = "", std::string layout = "");
 
     Shader::LocationHandle beginUniformBuffer(std::string name, bool vertex);
     Shader::LocationHandle beginVertexUniformBuffer(std::string name) { return beginUniformBuffer(name, true); }
@@ -175,6 +175,7 @@ private:
     int contextCount = 0;
     OrderedShaderState state;
     bool fragmentShaderDisabled = false;
+    bool isComputeShader = false;
 
     friend Shader;
 };
