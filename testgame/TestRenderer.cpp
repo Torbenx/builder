@@ -1,8 +1,8 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <containers/RangeAllocator.hpp>
-#include <events/ScriptPromise.hpp>
-#include <events/events.hpp>
+#include <tasking/TaskPromise.hpp>
+#include <scripting/events.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
@@ -23,7 +23,7 @@
 #include <windows/fullscreen.hpp>
 #endif
 
-struct Test {
+/*struct Test {
     int_t registerEvent(EventReceiver*, uint64_t bitmask) {
         log("bitmask: {:#b}", bitmask);
         return 0;
@@ -49,7 +49,7 @@ Script<int> test() {
     //log("a={}, b={}, c={}, size={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size_v<decltype(r.tuple)>);
 
     co_await r;
-}
+}*/
 
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
@@ -75,8 +75,7 @@ TestRenderer<G>::TestRenderer()
     spotLightFB.bind();
     spotLightFB.attach(spotLightDepthMap);
     spotLightFB.viewport(2048, 2048);
-    Mat4x4 mat = Mat4x4::make({
-        0.5f, 0.0f, 0.0f, 0.0f,
+    Mat4x4 mat = Mat4x4::make({ 0.5f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.5f, 0.0f, 0.0f,
         0.0f, 0.0f, 0.5f, 0.0f,
         0.5f, 0.5f, 0.5f - 0.001f, 1.0f });
@@ -236,10 +235,8 @@ TestRenderer<G>::TestRenderer()
     spotLightDepthPass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);
 
-    ScheduleItem item;
-    item.handle = stdx::noop_coroutine();
-    scheduling::schedulingQueue.pushBack(&item);
-    auto handle = test();
+    
+    //auto handle = test();
     //handle.resume();
 }
 
@@ -255,8 +252,7 @@ void TestRenderer<G>::updatePointLightData() {
     };
     pointLight.vertexUniform.dynamicUpdate(allocator) = { .lightPos = pointLightPosition };
 
-    Mat4x4 pointLightProjection
-        = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
+    Mat4x4 pointLightProjection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
     for (int_t i = 0; i < 6; i++) {
         Mat4x4 view;
         switch (CubeMap::Faces[i]) {
@@ -299,7 +295,7 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
 
     if (uiRenderer)
         uiRenderer->release(allocator);
-    uiRenderer = std::make_unique<ui_renderer::Renderer>(4, newWidth, newHeight, allocator);
+    uiRenderer = std::make_unique<ui_renderer::Renderer>(3, newWidth, newHeight, allocator);
     uiRenderer->add(1, { 0, 300, 0, 200 });
     uiRenderer->add(1, { 100, 350, 100, 250 });
     uiTexture = Texture::color(newWidth, newHeight, Texture::Format::RGBA8888);
@@ -438,7 +434,7 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
     f5.vertices.dynamicUpdate(allocator, obj5_coords);
     updatePointLightData();
-    uiRenderer->update(allocator);
+    //uiRenderer->update(allocator);
 
     allocator.pumpDynamicData();
     glWaitSync(lastSync, 0, GL_TIMEOUT_IGNORED);
@@ -466,8 +462,8 @@ void TestRenderer<G>::drawFrame() {
 
     // cubeComp.draw(Framebuffer::DEFAULT, allocator);
 
-    uiRenderer->draw(uiTexture, allocator);
-    refComp.draw(Framebuffer::DEFAULT, allocator);
+    //uiRenderer->draw(uiTexture, allocator);
+    //refComp.draw(Framebuffer::DEFAULT, allocator);
     textComp.draw(Framebuffer::DEFAULT, allocator);
 }
 

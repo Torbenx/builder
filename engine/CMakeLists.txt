@@ -92,7 +92,7 @@ add_library(engine ${linkage}
     "containers/RangeAllocator.cpp"
     "containers/MemoryAllocator32.cpp"
     "graphics/GAllocator.cpp"
-    "events/Script.cpp"
+    "tasking/Task.cpp"
     "ui/renderer/ComputeShader.cpp"
     ${platform_source}
     ${vulkan_source}

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "events/WaitExpression.hpp"
-#include "events/Script.hpp"
+#include "scripting/WaitExpression.hpp"
+#include "util/coroutines.hpp"
 #include <atomic>
 
 template<LogicSet ls>
@@ -21,7 +21,7 @@ struct EventResult {
 struct EventReceiver {
     const uint64_t key;
     std::atomic<uint64_t> events = 0;
-    ScheduleItem item;
+    //ScheduleItem item;
 
     EventReceiver(uint64_t key)
         : key(key) { }
@@ -29,7 +29,7 @@ struct EventReceiver {
     void event(uint64_t mask) {
         uint64_t ev = events.fetch_or(mask, std::memory_order_relaxed);
         if (shoudSchedule(ev | mask) && !shoudSchedule(ev)) {
-            scheduling::schedulingQueue.pushBack(&item);
+            // schedule it...
         }
     }
 
@@ -62,10 +62,8 @@ struct EventAwaitable : EventReceiver {
     }
 
     template<typename Interface>
-    stdx::coroutine_handle<> await_suspend(stdx::coroutine_handle<ScriptPromise<Interface>> handle) {
+    void await_suspend(stdx::coroutine_handle<TaskPromise<Interface>> handle) {
         registerEvents(std::index_sequence_for<Holders...>());
-        item.handle = handle;
-        return scheduling::schedulingQueue.popFront()->handle;
     }
 
     EventResult<ls> await_resume() {

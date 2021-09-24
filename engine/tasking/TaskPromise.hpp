@@ -2,9 +2,9 @@
 
 #include "containers/AtomicArrayBuilder.hpp"
 #include "containers/FlatSet.hpp"
-#include "events/Script.hpp"
+#include "tasking/Task.hpp"
 
-class ScriptDependency {
+/*class ScriptDependency {
 public:
     ScriptDependency() { }
     ScriptDependency(Script<> script, size_t initialRefCount = 1)
@@ -20,79 +20,79 @@ public:
 private:
     static constexpr uint64_t REF_COUNT_MASK = std::numeric_limits<uint32_t>::max();
     std::atomic<uint64_t> data = 0;
-};
+};*/
 
 template<>
-class ScriptPromiseBase<void> {
+class TaskPromiseBase<void> {
 public:
     void* operator new(size_t size) {
-        MemoryAllocator32& alloc = script_detail::allocator();
+        MemoryAllocator32& alloc = task_detail::allocator();
         void* addr = alloc.address(alloc.allocate(decltype(insertions)::BLOCK_ALIGNMENT, size));
         return addr;
     }
 
     void operator delete(void* addr) {
-        MemoryAllocator32& alloc = script_detail::allocator();
-        VERIFY(Script, alloc.ownsAddress(addr));
+        MemoryAllocator32& alloc = task_detail::allocator();
+        VERIFY(Tasking, alloc.ownsAddress(addr));
         alloc.free(alloc.offset(addr));
     }
 
     template<typename... Args>
-    explicit ScriptPromiseBase(Args&... args) { }
-    ScriptPromiseBase(const ScriptPromiseBase&) = delete;
-    ScriptPromiseBase(ScriptPromiseBase&&) = delete;
+    explicit TaskPromiseBase(Args&... args) { }
+    TaskPromiseBase(const TaskPromiseBase&) = delete;
+    TaskPromiseBase(TaskPromiseBase&&) = delete;
 
     auto initial_suspend() { return stdx::suspend_never(); }
     auto final_suspend() noexcept { return stdx::suspend_never(); }
     void return_void() { }
     void unhandled_exception() {
-        VERIFY_NOT_REACHED(Events);
+        VERIFY_NOT_REACHED(Tasking);
         std::abort();
     }
 
 protected:
-    AtomicArrayBuilder<Script<>> insertions;
-    FlatSet<ScriptDependency> dependencies;
+    AtomicArrayBuilder<Task<>> insertions;
+    //FlatSet<ScriptDependency> dependencies;
 };
 
 template<typename Interface>
-class ScriptPromiseBase : public ScriptPromiseBase<void> {
+class TaskPromiseBase : public TaskPromiseBase<void> {
 public:
     Interface interface;
 
-    using ScriptPromiseBase<void>::ScriptPromiseBase;
+    using TaskPromiseBase<void>::TaskPromiseBase;
 };
 
 template<typename Interface>
-struct ScriptPromise : ScriptPromiseBase<Interface> {
-    using ScriptPromiseBase<Interface>::ScriptPromiseBase;
+struct TaskPromise : TaskPromise<Interface> {
+    using TaskPromise<Interface>::TaskPromise;
 
-    Script<Interface> script() { return { script_detail::allocator().offset(this) }; }
+    Task<Interface> task() { return { task_detail::allocator().offset(this) }; }
 
-    await_value<ScriptPromise&> await_transform(get_self_t) { return { *this }; }
+    await_value<TaskPromise&> await_transform(get_self_t) { return { *this }; }
     template<typename T>
     decltype(auto) await_transform(T&& t) { return std::forward<T>(t); }
 
-    Script<Interface> get_return_object() {
-        VERIFY(Script, script_detail::allocator().ownsAddress(this));
-        return script();
+    Task<Interface> get_return_object() {
+        VERIFY(Tasking, task_detail::allocator().ownsAddress(this));
+        return task();
     }
 
     template<typename Inf>
-    future_script<Inf> acquire_future(Script<Inf> script) {
-        return { this->script(), script };
+    future_task<Inf> acquire_future(Task<Inf> task) {
+        return { this->task(), task };
     }
     template<typename Inf>
-    past_script<Inf> acquire_past(Script<Inf> script) {
-        return { this->script(), script };
+    past_task<Inf> acquire_past(Task<Inf> task) {
+        return { this->task(), task };
     }
 
-    future_script<Interface> flip(past_script<> script) {
-        VERIFY(Script, script.base == this->script());
-        return { script.target, this->script() };
+    future_task<Interface> flip(past_task<> task) {
+        VERIFY(Tasking, task.base == this->task());
+        return { task.target, this->task() };
     }
-    past_script<Interface> flip(future_script<> script) {
-        VERIFY(Script, script.base == this->script());
-        return { script.target, this->script() };
+    past_task<Interface> flip(future_task<> task) {
+        VERIFY(Tasking, task.base == this->task());
+        return { task.target, this->task() };
     }
 };
