@@ -4,37 +4,41 @@
 #include "containers/FlatSet.hpp"
 #include "tasking/Task.hpp"
 
-/*class ScriptDependency {
+class TaskDependency {
 public:
-    ScriptDependency() { }
-    ScriptDependency(Script<> script, size_t initialRefCount = 1)
-        : data(((uint64_t)script.offset << 32) | initialRefCount) { }
+    TaskDependency() { }
+    TaskDependency(Task<> task, size_t initialRefCount = 1)
+        : m_task(task), m_refCount(initialRefCount) { }
 
-    Script<> script() const { return { (uint32_t)(data.load(std::memory_order_relaxed) >> 32) }; }
-    size_t refCount() const { return data.load(std::memory_order_relaxed) & REF_COUNT_MASK; }
-    size_t ref(size_t count = 1) { return data.fetch_add(count, std::memory_order_relaxed) & REF_COUNT_MASK; }
-    size_t unref(size_t count = 1) { return data.fetch_sub(count, std::memory_order_relaxed) & REF_COUNT_MASK; }
+    Task<> task() const { return m_task; }
+    size_t refCount() const { return m_refCount.load(std::memory_order_relaxed); }
+    size_t ref(size_t count = 1) { return m_refCount.fetch_add(count, std::memory_order_relaxed); }
+    size_t unref(size_t count = 1) { return m_refCount.fetch_sub(count, std::memory_order_relaxed); }
 
-    bool operator==(const ScriptDependency& other) const { return script() == other.script(); }
+    bool operator==(const TaskDependency& other) const { return task() == other.task(); }
 
 private:
-    static constexpr uint64_t REF_COUNT_MASK = std::numeric_limits<uint32_t>::max();
-    std::atomic<uint64_t> data = 0;
-};*/
+    Task<> m_task;
+    std::atomic<int32_t> m_refCount;
+};
+
+struct GetGlobalAllocator {
+    MemoryAllocator32& operator()() { return task_detail::allocator(); }
+};
 
 template<>
 class TaskPromiseBase<void> {
 public:
     void* operator new(size_t size) {
         MemoryAllocator32& alloc = task_detail::allocator();
-        void* addr = alloc.address(alloc.allocate(decltype(insertions)::BLOCK_ALIGNMENT, size));
+        void* addr = alloc.address(alloc.allocate32(alignof(TaskPromiseBase<void>), size));
         return addr;
     }
 
     void operator delete(void* addr) {
         MemoryAllocator32& alloc = task_detail::allocator();
         VERIFY(Tasking, alloc.ownsAddress(addr));
-        alloc.free(alloc.offset(addr));
+        alloc.free32(alloc.offset(addr));
     }
 
     template<typename... Args>
@@ -51,8 +55,8 @@ public:
     }
 
 protected:
-    AtomicArrayBuilder<Task<>> insertions;
-    //FlatSet<ScriptDependency> dependencies;
+    AtomicArrayBuilder<Task<>, Allocator32BitWrapper<GetGlobalAllocator>> insertions;
+    FlatSet<TaskDependency> dependencies;
 };
 
 template<typename Interface>

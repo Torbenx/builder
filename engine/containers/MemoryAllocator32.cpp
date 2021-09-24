@@ -13,7 +13,7 @@ MemoryAllocator32::MemoryAllocator32(uint32_t maxSize)
     allocator.allocate(1, platform::pageSize());
 }
 
-uint32_t MemoryAllocator32::allocate(uint32_t alignment, uint32_t size) {
+uint32_t MemoryAllocator32::allocate32(uint32_t alignment, uint32_t size) {
     uint32_t offset = allocator.allocate(alignment, size);
     if (allocator.isValid(offset)) {
         return offset;
@@ -25,6 +25,6 @@ uint32_t MemoryAllocator32::allocate(uint32_t alignment, uint32_t size) {
     return allocator.allocate(alignment, size);
 }
 
-void MemoryAllocator32::free(uint32_t offset) {
+void MemoryAllocator32::free32(uint32_t offset) {
     allocator.free(offset);
 }

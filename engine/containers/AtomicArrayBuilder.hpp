@@ -1,63 +1,66 @@
 #pragma once
 
+#include "containers/Allocator32Bit.hpp"
 #include "containers/ArrayView.hpp"
 #include "util/target.hpp"
 #include <atomic>
-#include <mutex>
 #include <bit>
+#include <mutex>
 
-template<typename T, size_t block_capacity = (3 * platform::cachelineSize() - sizeof(void*)) / sizeof(T)>
+template<typename T, Allocator32Bit Allocator, size_t inline_capacity = (3 * platform::cachelineSize() - sizeof(uint64_t)) / sizeof(T)>
 class AtomicArrayBuilder {
 public:
-    static_assert(sizeof(void*) == sizeof(std::atomic<uintptr_t>));
-
-    static constexpr uintptr_t BLOCK_ALIGNMENT = 4 * platform::cachelineSize();
-    static constexpr uintptr_t OFFSET_MASK = BLOCK_ALIGNMENT - 1;
-    static constexpr uintptr_t PTR_MASK = ~OFFSET_MASK;
-    static constexpr size_t BLOCK_CAPACITY = block_capacity;
+    static constexpr size_t INLINE_CAPACITY = inline_capacity;
+    static constexpr uint64_t OFFSET_MASK = std::numeric_limits<uint32_t>::max();
 
     struct Block {
-        T data[block_capacity];
-        Block* next = nullptr;
+        Ptr32<Block> next = nullptr;
+        T data[inline_capacity];
     };
-    typedef ALIGN_AS(BLOCK_ALIGNMENT) Block AlignedBlock;
 
     struct EndSentinel { };
     template<bool Delete>
     struct BlockIterator {
+        Allocator allocator;
         T* data;
-        AlignedBlock* current;
-        AlignedBlock* next;
+        Ptr32<Block> current;
+        Ptr32<Block> next;
         int_t finalBlockSize;
 
         BlockIterator& operator++() {
             if constexpr (Delete) {
-                delete current;
+                allocator.free32(current.offset);
             }
-            if (next != nullptr) {
-                data = next->data;
+            if (next) {
+                data = next.get(allocator)->data;
                 current = next;
-                next = next->next;
+                next = next.get(allocator)->next;
             } else {
                 data = nullptr;
             }
         }
 
         ArrayView<T> operator*() {
-            return { data, isFinal() ? finalBlockSize : block_capacity };
+            return { data, isFinal() ? finalBlockSize : inline_capacity };
         }
 
         bool isFinal() { return next == nullptr; }
         bool operator!=(EndSentinel) { return data != nullptr; }
     };
 
+    AtomicArrayBuilder(Allocator allocator)
+        : allocator(allocator) {
+        VERIFY(Containers, allocator.ownsAddress(this));
+        reset();
+    }
+
     void pushBack(T item) {
         while (true) {
-            uintptr_t pos = position.fetch_add(1, std::memory_order_relaxed);
-            uintptr_t offset = pos & OFFSET_MASK;
-            if (offset < block_capacity) {
-                T* ptr = (T*)(pos & PTR_MASK);
-                ptr[offset] = item;
+            uint64_t pos = position.fetch_add(1, std::memory_order_relaxed);
+            uint32_t storage = pos >> 32;
+            size_t offset = pos & OFFSET_MASK;
+            if (offset < inline_capacity) {
+                ((T*)allocator.address(storage))[offset] = item;
                 return;
             }
             allocate();
@@ -66,17 +69,16 @@ public:
 
     template<bool Delete>
     auto blocksUnsafe() {
-        AlignedBlock* next = nextBlock;
+        Ptr32<Block> next = nextBlock;
         int_t finalSize = position.load(std::memory_order_relaxed) & OFFSET_MASK;
         if constexpr (Delete) {
-            nextBlock = nullptr;
-            position.store((uintptr_t)inline_storage);
+            reset();
         }
         struct {
             BlockIterator<Delete> it;
             BlockIterator<Delete> begin() { return it; }
             EndSentinel end() { return {}; }
-        } r { { inline_storage, nullptr, next, finalSize } };
+        } r { { allocator, inline_storage, nullptr, next, finalSize } };
         return r;
     }
 
@@ -84,20 +86,29 @@ public:
     auto takeBlocksUnsafe() { return blocksUnsafe<true>(); } // must iterate through all blocks to deallocate them!
 
 private:
-    alignas(BLOCK_ALIGNMENT) T inline_storage[block_capacity];
-    std::atomic<uintptr_t> position = (uintptr_t)inline_storage;
+    std::atomic<uint64_t> position = 0;
+    T inline_storage[inline_capacity];
     alignas(platform::cachelineSize()) std::mutex allocationLock;
-    AlignedBlock* nextBlock = nullptr;
-    AlignedBlock** nextPtr = &nextBlock;
+    Ptr32<Block> nextBlock;
+    Ptr32<Ptr32<Block>> nextPtr;
 
     void allocate() {
         std::lock_guard<std::mutex> g(allocationLock);
-        if ((position.load(std::memory_order_relaxed) & OFFSET_MASK) < block_capacity) {
+        if ((position.load(std::memory_order_relaxed) & OFFSET_MASK) < inline_capacity) {
             return;
         }
-        AlignedBlock* newBlock = new AlignedBlock;
+        Ptr32<Block> newBlock = allocator.allocate32(sizeof(Block));
         *nextPtr = newBlock;
-        nextPtr = &newBlock->next;
-        position.store((uintptr_t)(&newBlock->data));
+        nextPtr = newBlock.offset + offsetof(Block, next);
+        position.store((uint64_t)(newBlock.offset + offsetof(Block, data)) << 32);
     }
+
+    void reset() {
+        nextBlock = nullptr;
+        nextPtr = allocator.offset(&nextBlock);
+        position.store((uint64_t)allocator.offset(&inline_storage) << 32);
+    }
+
+public:
+    Allocator allocator;
 };

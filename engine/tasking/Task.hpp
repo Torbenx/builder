@@ -39,7 +39,7 @@ public:
     TaskPromise<Interface>* operator->() { return (TaskPromise<Interface>*)task_detail::allocator().address(offset); }
     TaskPromise<Interface>& operator*() { return *(TaskPromise<Interface>*)task_detail::allocator().address(offset); }
     explicit operator bool() const { return offset != 0; }
-    bool operator==(const Task& other) { return offset == other.offset; }
+    bool operator==(const Task& other) const { return offset == other.offset; }
 
 private:
     template<typename Inf>
