@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scripting/WaitExpression.hpp"
+#include "script/WaitExpression.hpp"
 #include "util/coroutines.hpp"
 #include <atomic>
 

@@ -106,7 +106,7 @@ private:
     void reset() {
         nextBlock = nullptr;
         nextPtr = allocator.offset(&nextBlock);
-        position.store((uint64_t)allocator.offset(&inline_storage) << 32);
+        position.store((uint64_t)allocator.offset(&inline_storage) << 32, std::memory_order_relaxed);
     }
 
 public:

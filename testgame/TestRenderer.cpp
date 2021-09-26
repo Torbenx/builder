@@ -1,8 +1,8 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <containers/RangeAllocator.hpp>
-#include <tasking/TaskPromise.hpp>
-#include <scripting/events.hpp>
+#include <task/TaskPromise.hpp>
+#include <script/events.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>

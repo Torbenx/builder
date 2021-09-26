@@ -12,7 +12,7 @@
 #endif
 
 namespace Tag {
-struct Tasking {
+struct Task {
     static constexpr char tag[] = "task";
     static constexpr bool verifyEnabled = true;
 };
@@ -27,33 +27,47 @@ template<typename Interface = void>
 class TaskPromise;
 template<typename Interface = void>
 class TaskPromiseBase;
-class TaskDependency;
 
 template<typename Interface = void>
 class Task {
 public:
     using promise_type = TaskPromise<Interface>;
 
-    Task() { }
-    operator Task<void>() const { return { offset }; }
-    TaskPromise<Interface>* operator->() { return (TaskPromise<Interface>*)task_detail::allocator().address(offset); }
-    TaskPromise<Interface>& operator*() { return *(TaskPromise<Interface>*)task_detail::allocator().address(offset); }
-    explicit operator bool() const { return offset != 0; }
-    bool operator==(const Task& other) const { return offset == other.offset; }
+    ~Task() {
+        VERIFY(Task, ptr == nullptr);
+    }
 
 private:
-    template<typename Inf>
-    friend class Task;
+    TaskPromise<Interface>* ptr;
+
+    TaskPromise<Interface>* take() {
+        TaskPromise<Interface>* r = ptr;
+        ptr = nullptr;
+        return r;
+    }
+
     template<typename Inf>
     friend class TaskPromise;
     template<typename Inf>
     friend class TaskPromiseBase;
-    friend class TaskDependency;
+};
+
+template<typename Interface = void>
+class TaskRef {
+public:
+
+    TaskRef() { }
+    TaskRef(uint32_t offset)
+        : offset(offset) { }
+
+    operator TaskRef<void>() const { return { offset }; }
+    TaskPromise<Interface>* operator->() { return (TaskPromise<Interface>*)task_detail::allocator().address(offset); }
+    TaskPromise<Interface>& operator*() { return *(TaskPromise<Interface>*)task_detail::allocator().address(offset); }
+    stdx::coroutine_handle<TaskPromise<Interface>> coroutine() { return stdx::coroutine_handle<TaskPromise<Interface>>::from_promise(&(*this)); }
+    explicit operator bool() const { return offset != 0; }
+    bool operator==(const TaskRef& other) const { return offset == other.offset; }
 
     uint32_t offset = 0;
-
-    Task(uint32_t offset)
-        : offset(offset) { }
 };
 
 template<typename Interface = void>
@@ -63,7 +77,7 @@ public:
         return target->interface;
     }
     dependent_task() { }
-    dependent_task(Task<> base, Task<Interface> target)
+    dependent_task(TaskRef<> base, TaskRef<Interface> target)
         : base(base), target(target) { }
     dependent_task(const dependent_task&) = delete;
     dependent_task(dependent_task&& other) {
@@ -83,8 +97,8 @@ private:
     template<typename Inf>
     friend class TaskPromiseBase;
 
-    Task<> base = {};
-    Task<Interface> target = {};
+    TaskRef<> base = {};
+    TaskRef<Interface> target = {};
 
     void free() { }
 };
