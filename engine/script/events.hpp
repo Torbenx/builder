@@ -61,8 +61,7 @@ struct EventAwaitable : EventReceiver {
         (std::get<I>(tuple).t.cancelEvent(this, indices[I]), ...);
     }
 
-    template<typename Interface>
-    void await_suspend(stdx::coroutine_handle<TaskPromise<Interface>> handle) {
+    void await_suspend(stdx::coroutine_handle<> handle) {
         registerEvents(std::index_sequence_for<Holders...>());
     }
 

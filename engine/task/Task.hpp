@@ -1,8 +1,8 @@
 #pragma once
 
 #include "containers/MemoryAllocator32.hpp"
-#include "util/log.hpp"
 #include "util/coroutines.hpp"
+#include "util/log.hpp"
 #include "util/uninitialized.hpp"
 #include <type_traits>
 
@@ -18,96 +18,64 @@ struct Task {
 };
 }
 
-namespace task_detail {
-inline uninitialized<MemoryAllocator32> g_allocator;
-inline MemoryAllocator32& allocator() { return g_allocator.value; }
+namespace task {
+
+template<typename T>
+struct interface_t {
+    static constexpr bool is_interface = true;
+    static constexpr bool is_data = false;
+};
+template<typename T>
+constexpr interface_t<T> interface = {};
+
+template<typename T>
+struct data_t {
+    static constexpr bool is_interface = false;
+    static constexpr bool is_data = true;
+};
+template<typename T>
+constexpr data_t<T> data = {};
+
+template<typename... Types>
+struct description {
+
+    static constexpr auto interfaces = std::tuple_cat(std::conditional_t<Types::is_interface, std::tuple<Types>, std::tuple<>> {}...);
+    static constexpr auto data = std::tuple_cat(std::conditional_t<Types::is_data, std::tuple<Types>, std::tuple<>> {}...);
+
+    constexpr description(Types...) { }
+};
+
+namespace detail {
+    inline uninitialized<MemoryAllocator32> g_allocator;
+    inline MemoryAllocator32& allocator() { return g_allocator.value; }
 }
 
-template<typename Interface = void>
-class TaskPromise;
-template<typename Interface = void>
-class TaskPromiseBase;
+template<description desc = description {}>
+class Promise;
+template<description desc = description {}>
+class PromiseBase;
 
-template<typename Interface = void>
+template<description desc = description {}>
 class Task {
 public:
-    using promise_type = TaskPromise<Interface>;
+    using promise_type = Promise<desc>;
 
     ~Task() {
         VERIFY(Task, ptr == nullptr);
     }
 
 private:
-    TaskPromise<Interface>* ptr;
+    Promise<desc>* ptr;
 
-    TaskPromise<Interface>* take() {
-        TaskPromise<Interface>* r = ptr;
+    Promise<desc>* take() {
+        Promise<desc>* r = ptr;
         ptr = nullptr;
         return r;
     }
 
-    template<typename Inf>
-    friend class TaskPromise;
-    template<typename Inf>
-    friend class TaskPromiseBase;
+    template<description d>
+    friend class Promise;
+    template<description d>
+    friend class PromiseBase;
 };
-
-template<typename Interface = void>
-class TaskRef {
-public:
-
-    TaskRef() { }
-    TaskRef(uint32_t offset)
-        : offset(offset) { }
-
-    operator TaskRef<void>() const { return { offset }; }
-    TaskPromise<Interface>* operator->() { return (TaskPromise<Interface>*)task_detail::allocator().address(offset); }
-    TaskPromise<Interface>& operator*() { return *(TaskPromise<Interface>*)task_detail::allocator().address(offset); }
-    stdx::coroutine_handle<TaskPromise<Interface>> coroutine() { return stdx::coroutine_handle<TaskPromise<Interface>>::from_promise(&(*this)); }
-    explicit operator bool() const { return offset != 0; }
-    bool operator==(const TaskRef& other) const { return offset == other.offset; }
-
-    uint32_t offset = 0;
-};
-
-template<typename Interface = void>
-class dependent_task {
-public:
-    std::add_lvalue_reference_t<Interface> interface() requires(!std::is_same_v<Interface, void>) {
-        return target->interface;
-    }
-    dependent_task() { }
-    dependent_task(TaskRef<> base, TaskRef<Interface> target)
-        : base(base), target(target) { }
-    dependent_task(const dependent_task&) = delete;
-    dependent_task(dependent_task&& other) {
-        free();
-        base = other.base;
-        target = other.target;
-        other.base = nullptr;
-        other.target = nullptr;
-    }
-    ~dependent_task() { free(); }
-
-    operator dependent_task<void>() { return { base, target }; }
-
-private:
-    template<typename Inf>
-    friend class TaskPromise;
-    template<typename Inf>
-    friend class TaskPromiseBase;
-
-    TaskRef<> base = {};
-    TaskRef<Interface> target = {};
-
-    void free() { }
-};
-
-template<typename Interface = void>
-struct future_task : dependent_task<Interface> {
-    using dependent_task<Interface>::dependent_task;
-};
-template<typename Interface = void>
-struct past_task : dependent_task<Interface> {
-    using dependent_task<Interface>::dependent_task;
-};
+}
