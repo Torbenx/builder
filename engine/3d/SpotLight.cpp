@@ -1,8 +1,6 @@
 #include "3d/SpotLight.hpp"
 #include "util/log.hpp"
 
-template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<SpotLight>::effectType = registerEffectType();
 SpotLight::SpotLight() { }
 
 void SpotLight::addTo(EffectShaderBuilder& s) {

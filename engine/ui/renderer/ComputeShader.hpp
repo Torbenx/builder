@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gl/Shader.hpp"
+#include "GL/Shader.hpp"
 
 namespace ui_renderer {
 

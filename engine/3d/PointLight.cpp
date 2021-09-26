@@ -2,8 +2,6 @@
 #include "util/log.hpp"
 #include <cmath>
 
-template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<PointLight>::effectType = registerEffectType();
 PointLight::PointLight() { }
 
 void PointLight::addTo(EffectShaderBuilder& s) {

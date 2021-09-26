@@ -11,7 +11,6 @@ public:
     };
     UniformHelper<FragmentUniform> fragmentUniform;
 
-    AmbientLight();
     static void addTo(EffectShaderBuilder&);
 };
 
@@ -22,7 +21,6 @@ public:
     };
     UniformHelper<FragmentUniform> fragmentUniform;
 
-    UniformColor();
     static void addTo(EffectShaderBuilder&);
 };
 
@@ -39,6 +37,7 @@ public:
     };
     static inline const int_t vertexBufferElementSizes[] = { 2 };
 
-    TextureColor();
+    TextureColor()
+        : texture(), texCoords() { }
     static void addTo(EffectShaderBuilder&);
 };

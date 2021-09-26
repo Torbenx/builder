@@ -5,8 +5,6 @@ std::vector<EffectShader> EffectShaderFactory::shaders;
 
 Effect::TypeData* Effect::typeData;
 
-DECLARE_SECTION_START_STOP(Effect::TypeData, effect);
-
 void init_effect() {
     Effect::TypeData* it = &__start_effect;
     for (; it != &__stop_effect; it++) {

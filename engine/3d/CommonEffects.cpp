@@ -3,10 +3,6 @@
 
 // AmbientLight
 
-template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<AmbientLight>::effectType = registerEffectType();
-AmbientLight::AmbientLight() { }
-
 void AmbientLight::addTo(EffectShaderBuilder& s) {
     std::string colorUniform = s.uniqueName("u_color");
     s.beginFragmentUniformBuffer(s.uniqueName("AmbientLight"));
@@ -17,10 +13,6 @@ void AmbientLight::addTo(EffectShaderBuilder& s) {
 
 // UniformColor
 
-template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<UniformColor>::effectType = registerEffectType();
-UniformColor::UniformColor() { }
-
 void UniformColor::addTo(EffectShaderBuilder& s) {
     std::string colorUniform = s.uniqueName("u_color");
     s.beginFragmentUniformBuffer(s.uniqueName("UniformColor"));
@@ -30,10 +22,6 @@ void UniformColor::addTo(EffectShaderBuilder& s) {
 }
 
 // TextureColor
-
-template<>
-Effect::TypeData IN_SECTION(effect) EffectImpl<TextureColor>::effectType = registerEffectType();
-TextureColor::TextureColor() { }
 
 void TextureColor::addTo(EffectShaderBuilder& s) {
     std::string texPositionAttrib = s.uniqueName("a_texPosition");

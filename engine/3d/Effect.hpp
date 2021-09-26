@@ -99,16 +99,11 @@ template<typename T>
 concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), UniformHelper<typename T::VertexUniform>>;
 }
 
-DEFINE_SECTION(effect)
+DEFINE_SECTION(Effect::TypeData, effect)
 
 template<typename T>
 class EffectImpl : public Effect {
 public:
-    static IN_SECTION(effect) TypeData effectType;
-
-    EffectImpl()
-        : Effect(effectType.type) { }
-
     static TypeData registerEffectType() {
         Effect::TypeData data;
         if constexpr (effect_detail::HasVertexBuffers<T>) {
@@ -129,6 +124,11 @@ public:
         data.addToFunction = &T::addTo;
         return data;
     }
+
+    static inline IN_SECTION(effect) TypeData effectType = registerEffectType();
+
+    EffectImpl()
+        : Effect(effectType.type) { }
 };
 
 class EffectShaderBuilder : public ShaderBuilder {
