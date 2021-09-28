@@ -1,16 +1,17 @@
 #pragma once
 
 #include <atomic>
+#include <concepts>
 
 template<class T>
-struct AtomicListItem {
+struct AtomicQueueItem {
     std::atomic<T*> next = nullptr;
 };
 
 template<class T>
-concept AtomicLinkable = std::is_convertible_v<const volatile T*, const volatile AtomicListItem<T>*>;
+concept AtomicQueueable = std::derived_from<T, AtomicListItem<T>>;
 
-template<AtomicLinkable T>
+template<AtomicQueueable T>
 class AtomicList {
 public:
     AtomicList()
@@ -19,7 +20,7 @@ public:
     T* popFront() {
         std::atomic<T*>* oldHead = head.load(std::memory_order_relaxed);
         while (true) {
-            T* t = oldHead->load(std::memory_order_acquire);
+            T* t = oldHead->load(std::memory_order_seq_cst);
             if (t && head.compare_exchange_weak(oldHead, &(t->next), std::memory_order_relaxed)) {
                 return t;
             }
@@ -29,7 +30,7 @@ public:
     void pushBack(T* t) {
         t->next.store(nullptr, std::memory_order_relaxed);
         std::atomic<T*>* oldTail = tail.exchange(&(t->next), std::memory_order_relaxed);
-        oldTail->store(t, std::memory_order_release);
+        oldTail->store(t, std::memory_order_seq_cst);
     }
 
     void pushBack(AtomicList<T>* l) {

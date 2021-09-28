@@ -98,9 +98,7 @@ add_library(engine ${linkage}
     ${vulkan_source}
 )
 
-set_source_files_properties("events/ExecutionContext.cpp" PROPERTIES COMPILE_OPTIONS "-fomit-frame-pointer")
-
-set_target_properties(engine PROPERTIES UNITY_BUILD ON)
+#set_target_properties(engine PROPERTIES UNITY_BUILD ON)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(engine PRIVATE "/W3;/wd4244;/wd4267")
 else()

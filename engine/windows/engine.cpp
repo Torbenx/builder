@@ -156,7 +156,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 rendererState = RENDERER_STATE_BACKGROUND;
                 renderer->background();
             }
-            bool visible = engine_goBackground();
+            bool visible = false;
+            engine_goBackground();
             if (((!visible) || minimized) && rendererState == RENDERER_STATE_BACKGROUND) {
                 rendererState = RENDERER_STATE_INVISIBLE;
                 renderer->invisible();

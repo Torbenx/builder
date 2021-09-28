@@ -8,3 +8,4 @@ typedef std::uint32_t id_t;
 typedef std::uint16_t sid_t;
 
 inline size_t alignmentCeil(size_t alignment, size_t in) { return (in + alignment - 1) & ~(alignment - 1); }
+inline bool isAligned(size_t alignment, size_t in) { return (in & (alignment - 1)) == 0; }

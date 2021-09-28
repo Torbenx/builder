@@ -43,10 +43,9 @@ public:
 
     //TaskRef<Interface> task() { return { task_detail::allocator().offset(this) }; }
 
-    await_value<Promise&> await_transform(get_self_t) { return { *this }; }
+    await_value<Promise> await_transform(get_self_t) { return { *this }; }
     template<typename T>
     decltype(auto) await_transform(T&& t) {
-        this->m_tick++;
         return std::forward<T>(t);
     }
 

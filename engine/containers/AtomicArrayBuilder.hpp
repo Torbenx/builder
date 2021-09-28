@@ -3,111 +3,142 @@
 #include "containers/Allocator32Bit.hpp"
 #include "containers/ArrayView.hpp"
 #include "util/target.hpp"
+#include "util/types.hpp"
 #include <atomic>
 #include <bit>
 #include <mutex>
 
-template<typename T, Allocator32Bit Allocator, size_t inline_capacity = (3 * platform::cachelineSize() - sizeof(uint64_t)) / sizeof(T)>
+namespace detail {
+template<typename T>
+constexpr size_t generationSize(size_t generation) {
+    if (generation == 0)
+        return 0;
+    return (1 << generation) * 2;
+}
+};
+
+template<typename T, Allocator32Bit Allocator>
 class AtomicArrayBuilder {
 public:
-    static constexpr size_t INLINE_CAPACITY = inline_capacity;
-    static constexpr uint64_t OFFSET_MASK = std::numeric_limits<uint32_t>::max();
+    static constexpr size_t GENERATION_BITS = 11;
+    static constexpr size_t MAX_GENERATION = ((size_t)1 << GENERATION_BITS) - 1;
+    static constexpr size_t GENERATION_SHIFT = 32 - GENERATION_BITS;
+    static constexpr uint64_t OFFSET_MASK = ((uint64_t)1 << GENERATION_SHIFT) - 1;
+    static constexpr uint64_t GENERATION_MASK = (((uint64_t)1 << 32) - 1) & ~OFFSET_MASK;
 
-    struct Block {
-        Ptr32<Block> next = nullptr;
-        T data[inline_capacity];
+    struct BlockHeader {
+        Ptr32<BlockHeader> next;
     };
+    static constexpr size_t BLOCK_HEADER_SIZE = alignmentCeil(alignof(T), sizeof(BlockHeader));
 
     struct EndSentinel { };
-    template<bool Delete>
     struct BlockIterator {
         Allocator allocator;
-        T* data;
-        Ptr32<Block> current;
-        Ptr32<Block> next;
+        Ptr32<BlockHeader> current;
         int_t finalBlockSize;
+        int_t generation = 0;
 
         BlockIterator& operator++() {
-            if constexpr (Delete) {
-                allocator.free32(current.offset);
-            }
-            if (next) {
-                data = next.get(allocator)->data;
-                current = next;
-                next = next.get(allocator)->next;
-            } else {
-                data = nullptr;
-            }
+            allocator.free32(current.offset);
+
+            current = current.get(allocator)->next;
+            generation = std::min(MAX_GENERATION, generation + 1);
         }
 
         ArrayView<T> operator*() {
-            return { data, isFinal() ? finalBlockSize : inline_capacity };
+            return { (T*)allocator.address(current.offset + BLOCK_HEADER_SIZE), isFinal() ? finalBlockSize : detail::generationSize(generation) };
         }
 
-        bool isFinal() { return next == nullptr; }
-        bool operator!=(EndSentinel) { return data != nullptr; }
+        bool isFinal() { return current.get(allocator)->next == nullptr; }
+        bool operator!=(EndSentinel) { return current != nullptr; }
     };
 
     AtomicArrayBuilder(Allocator allocator)
-        : allocator(allocator) {
-        VERIFY(Containers, allocator.ownsAddress(this));
-        reset();
-    }
+        : allocator(allocator) { }
 
     void pushBack(T item) {
         while (true) {
-            uint64_t pos = position.fetch_add(1, std::memory_order_relaxed);
-            uint32_t storage = pos >> 32;
-            size_t offset = pos & OFFSET_MASK;
-            if (offset < inline_capacity) {
-                ((T*)allocator.address(storage))[offset] = item;
+            Info i = position.fetch_add(1, std::memory_order_relaxed);
+            if (i.offset < detail::generationSize<T>(i.generation)) {
+                ((T*)allocator.address(i.storage))[i.offset] = item;
                 return;
             }
             allocate();
         }
     }
 
-    template<bool Delete>
-    auto blocksUnsafe() {
-        Ptr32<Block> next = nextBlock;
-        int_t finalSize = position.load(std::memory_order_relaxed) & OFFSET_MASK;
-        if constexpr (Delete) {
-            reset();
+    // must iterate through all blocks to deallocate them!
+    BlockIterator take() {
+        Ptr32<BlockHeader> headerPtr;
+        uint64_t pos;
+        {
+            std::lock_guard<std::mutex> g(allocationLock);
+            pos = position.exchange(initialPosition(), std::memory_order_relaxed);
+            headerPtr = firstHeader;
+            firstHeader = nullptr;
+            latestHeader = nullptr;
         }
         struct {
-            BlockIterator<Delete> it;
-            BlockIterator<Delete> begin() { return it; }
+            BlockIterator it;
+            BlockIterator begin() { return it; }
             EndSentinel end() { return {}; }
-        } r { { allocator, inline_storage, nullptr, next, finalSize } };
+        } r { { allocator, headerPtr, Info(pos).offset } };
         return r;
     }
 
-    auto getBlocksUnsafe() { return blocksUnsafe<false>(); }
-    auto takeBlocksUnsafe() { return blocksUnsafe<true>(); } // must iterate through all blocks to deallocate them!
+    void clear() {
+        for (auto _ : take()) { }
+    }
+
+    ~AtomicArrayBuilder() {
+        clear();
+    }
 
 private:
-    std::atomic<uint64_t> position = 0;
-    T inline_storage[inline_capacity];
-    alignas(platform::cachelineSize()) std::mutex allocationLock;
-    Ptr32<Block> nextBlock;
-    Ptr32<Ptr32<Block>> nextPtr;
+    struct Info {
+        Info(uint64_t pos)
+            : offset(pos & OFFSET_MASK)
+            , generation((pos & GENERATION_MASK) >> GENERATION_SHIFT)
+            , storage(pos >> 32) { }
+        size_t offset;
+        size_t generation;
+        uint32_t storage;
+
+        uint64_t pos() {
+            return ((uint64_t)storage << 32)
+                | ((uint64_t)generation << GENERATION_SHIFT)
+                | (uint64_t)offset;
+        }
+    };
+
+    std::atomic<uint64_t> position = initialPosition();
+    std::mutex allocationLock;
+    Ptr32<BlockHeader> firstHeader = nullptr;
+    Ptr32<BlockHeader> latestHeader = nullptr;
 
     void allocate() {
         std::lock_guard<std::mutex> g(allocationLock);
-        if ((position.load(std::memory_order_relaxed) & OFFSET_MASK) < inline_capacity) {
+        Info i = position.load(std::memory_order_relaxed);
+        if (i.offset < detail::generationSize<T>(i.generation)) {
             return;
         }
-        Ptr32<Block> newBlock = allocator.allocate32(sizeof(Block));
-        *nextPtr = newBlock;
-        nextPtr = newBlock.offset + offsetof(Block, next);
-        position.store((uint64_t)(newBlock.offset + offsetof(Block, data)) << 32);
+        i.generation = std::min(MAX_GENERATION, i.generation + 1);
+        i.offset = 0;
+        size_t dataSize = detail::generationSize<T>(i.generation) * sizeof(T);
+        size_t alignment = std::max(alignof(BlockHeader), alignof(T));
+        uint32_t newBlock = allocator.allocate32(alignment, BLOCK_HEADER_SIZE + dataSize);
+        i.storage = newBlock + BLOCK_HEADER_SIZE;
+        Ptr32<BlockHeader> newHeaderPtr = newBlock;
+        newHeaderPtr.get(allocator)->next = nullptr;
+        latestHeader.get(allocator)->next = newHeaderPtr;
+        latestHeader = newHeaderPtr;
+        if (!firstHeader) {
+            firstHeader = newHeaderPtr;
+        }
+        position.store(i.pos(), std::memory_order_relaxed);
     }
 
-    void reset() {
-        nextBlock = nullptr;
-        nextPtr = allocator.offset(&nextBlock);
-        position.store((uint64_t)allocator.offset(&inline_storage) << 32, std::memory_order_relaxed);
-    }
+    uint64_t initialPosition() { return 0; }
 
 public:
     Allocator allocator;

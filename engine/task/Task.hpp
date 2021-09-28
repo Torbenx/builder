@@ -21,26 +21,35 @@ struct Task {
 namespace task {
 
 template<typename T>
-struct interface_t {
-    static constexpr bool is_interface = true;
-    static constexpr bool is_data = false;
-};
+struct interface_t { };
 template<typename T>
 constexpr interface_t<T> interface = {};
-
 template<typename T>
-struct data_t {
-    static constexpr bool is_interface = false;
-    static constexpr bool is_data = true;
+struct is_interface {
+    static constexpr bool value = false;
 };
 template<typename T>
+struct is_interface<interface_t<T>> {
+    static constexpr bool value = true;
+};
+
+template<typename T>
+struct data_t { };
+template<typename T>
 constexpr data_t<T> data = {};
+template<typename T>
+struct is_data {
+    static constexpr bool value = false;
+};
+template<typename T>
+struct is_data<data_t<T>> {
+    static constexpr bool value = true;
+};
 
 template<typename... Types>
 struct description {
-
-    static constexpr auto interfaces = std::tuple_cat(std::conditional_t<Types::is_interface, std::tuple<Types>, std::tuple<>> {}...);
-    static constexpr auto data = std::tuple_cat(std::conditional_t<Types::is_data, std::tuple<Types>, std::tuple<>> {}...);
+    static constexpr auto interfaces = std::tuple_cat(std::conditional_t<is_interface<Types>::value, std::tuple<Types>, std::tuple<>> {}...);
+    static constexpr auto data = std::tuple_cat(std::conditional_t<is_data<Types>::value, std::tuple<Types>, std::tuple<>> {}...);
 
     constexpr description(Types...) { }
 };

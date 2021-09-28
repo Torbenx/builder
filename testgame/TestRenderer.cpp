@@ -359,8 +359,8 @@ void TestRenderer<G>::rawKey(uint32_t keycode, bool down) {
         if (down) {
             if (!isFullscreen()) {
 #ifdef PLATFORM_WINDOWS
-                goFullscreen(FullscreenConfig::DEFAULT);
-                // goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
+                // goFullscreen(FullscreenConfig::DEFAULT);
+                goFullscreen(getFullscreenConfig(getDisplayList().front(), 1920, 1080, 144));
 #endif
             } else {
                 exitFullscreen();
