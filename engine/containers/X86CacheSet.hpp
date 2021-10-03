@@ -4,19 +4,22 @@
 #include <bit>
 #include <immintrin.h>
 
-template<typename T, int_t D>
+template<typename T, int_t D, typename mask_t>
 class X86CacheSet {
-private:
+public:
+    static constexpr int_t N = sizeof(mask_t) * 8;
+
+protected:
     struct IteratorState {
-        uint16_t mask;
+        mask_t mask;
         uint8_t offset;
     };
 
-    uint8_t tags[D][16];
-    uint16_t used = 0;
-    T values[16];
+    uint8_t tags[D][N];
+    mask_t used = 0;
+    T values[N];
 
-    static uint16_t usedMask(uint8_t offset) { return 1 << offset; }
+    static mask_t usedMask(uint8_t offset) { return 1 << offset; }
 
     bool isUsed(uint8_t offset) { return used & usedMask(offset); }
 
@@ -58,7 +61,7 @@ public:
     // only called when *this is full
     std::array<uint8_t, D> determineGrowth(const uint8_t* tag) {
         std::array<uint8_t, D> mask { 0xff };
-        for (int_t i = 0; i < 16; i++) {
+        for (int_t i = 0; i < N; i++) {
             for (int_t j = 0; j < D; j++) {
                 mask[j] &= ~(tags[j][i] ^ tag[j]);
             }
@@ -78,13 +81,31 @@ public:
     }
 
     uint8_t matchEmpty() { return std::countr_one(used); }
+};
+
+template<typename T, int_t D>
+struct SSECacheSet : X86CacheSet<T, D, uint16_t> {
 
     uint8_t matchTag(const uint8_t* tag) {
-        uint16_t mask = used;
+        auto mask = this->used;
         for (int_t i = 0; i < D; i++) {
             auto v = _mm_set1_epi8(tag[i]);
-            auto w = _mm_loadu_si128((const __m128i*)&tags[i]);
+            auto w = _mm_loadu_si128((const __m128i*)&this->tags[i]);
             mask &= _mm_movemask_epi8(_mm_cmpeq_epi8(v, w));
+        }
+        return std::countr_zero(mask);
+    }
+};
+
+template<typename T, int_t D>
+struct AVX2CacheSet : X86CacheSet<T, D, uint32_t> {
+
+    uint8_t matchTag(const uint8_t* tag) {
+        auto mask = this->used;
+        for (int_t i = 0; i < D; i++) {
+            auto v = _mm256_set1_epi8(tag[i]);
+            auto w = _mm256_loadu_si256((const __m256i*)&this->tags[i]);
+            mask &= _mm256_movemask_epi8(_mm256_cmpeq_epi8(v, w));
         }
         return std::countr_zero(mask);
     }

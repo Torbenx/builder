@@ -36,7 +36,7 @@ public:
         Allocator allocator;
         Ptr32<BlockHeader> current;
         int_t finalBlockSize;
-        int_t generation = 0;
+        size_t generation = 0;
 
         BlockIterator& operator++() {
             allocator.free32(current.offset);
@@ -46,7 +46,7 @@ public:
         }
 
         ArrayView<T> operator*() {
-            return { (T*)allocator.address(current.offset + BLOCK_HEADER_SIZE), isFinal() ? finalBlockSize : detail::generationSize(generation) };
+            return { (T*)allocator.address(current.offset + BLOCK_HEADER_SIZE), isFinal() ? finalBlockSize : detail::generationSize<T>(generation) };
         }
 
         bool isFinal() { return current.get(allocator)->next == nullptr; }

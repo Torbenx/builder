@@ -14,11 +14,11 @@
 
 // ARCHITECTURE
 
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(_M_X64)
 #define ARCHITECTURE_X86_64
 #endif
 
-#ifdef __aarch64__
+#if defined(__aarch64__) || defined(_M_ARM64)
 #define ARCHITECTURE_ARM_64
 #endif
 
@@ -28,9 +28,11 @@
 
 #define ALIGN_AS(al) __attribute__((aligned(al)))
 
-#define DEFINE_SECTION(type, name) \
-    extern type __start_##name;    \
-    extern type __stop_##name;
+#define DEFINE_SECTION(type, name)                 \
+    extern type __start_##name;                    \
+    extern type __stop_##name;                     \
+    inline type* __begin_##name = &__start_##name; \
+    inline type* __end_##name = &__stop_##name;
 
 #define IN_SECTION(name) __attribute__((section(#name)))
 
@@ -45,12 +47,15 @@
 #define IN_SECTION(name) IN_SECTION_P(name, m)
 
 // clang-format off
-#define DEFINE_SECTION(type, name)                    \
-    __pragma(data_seg(SECTION_POSTFIX(name, a)))      \
-    __pragma(data_seg(SECTION_POSTFIX(name, m)))      \
-    __pragma(data_seg(SECTION_POSTFIX(name, z)))      \
-    inline type IN_SECTION_P(name, a) __start_##name; \
-    inline type IN_SECTION_P(name, z) __stop_##name;
+#define DEFINE_SECTION(type, name)                     \
+    __pragma(data_seg(SECTION_POSTFIX(name, a)))       \
+    __pragma(data_seg(SECTION_POSTFIX(name, m)))       \
+    __pragma(data_seg(SECTION_POSTFIX(name, z)))       \
+    inline type IN_SECTION_P(name, a) __start_##name;  \
+    inline type IN_SECTION_P(name, z) __stop_##name;   \
+    inline type* __begin_##name = &__start_##name + 1; \
+    inline type* __end_##name = &__stop_##name;
+
 // clang-format on
 
 #else
@@ -60,9 +65,10 @@
 #endif
 
 #define DEFINE_LINK_COUNTER(name) DEFINE_SECTION(char, name)
-#define LINK_COUNTER_IMPL(name)                               \
+#define LINK_COUNTER_IMPL(name)                                   \
     static inline char IN_SECTION(name) __link_counter_dummy = 0; \
     static inline int_t link_counter() { return &__link_counter_dummy - &__start_##name; }
+#define LINK_COUNTER_MAX(name) (&__stop_##name - &__start_##name)
 
 namespace platform {
 

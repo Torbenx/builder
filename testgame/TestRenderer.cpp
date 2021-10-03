@@ -1,8 +1,7 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
 #include <containers/RangeAllocator.hpp>
-#include <task/TaskPromise.hpp>
-#include <script/events.hpp>
+#include <containers/CacheMap.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
@@ -10,7 +9,9 @@
 #include <resource/JpegDecoder.hpp>
 #include <resource/ObjParser.hpp>
 #include <resource/asset_istream.hpp>
+#include <script/events.hpp>
 #include <string>
+#include <task/Promise.hpp>
 #include <thread>
 #include <util/LogTimer.hpp>
 #include <util/draw_util.hpp>
@@ -50,6 +51,11 @@ Script<int> test() {
 
     co_await r;
 }*/
+
+task::Task<> test() {
+    auto& self = co_await get_self;
+    co_return;
+}
 
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
@@ -235,8 +241,7 @@ TestRenderer<G>::TestRenderer()
     spotLightDepthPass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);
 
-    
-    //auto handle = test();
+    auto handle = test();
     //handle.resume();
 }
 
@@ -304,6 +309,33 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     allocator.debug();
 
     allocator.stage();
+
+    CacheMap<uint32_t, 2> map;
+    uint16_t count = 50;
+    uint16_t multX = 1;
+    uint16_t multY = 1;
+    for (int_t x = count - 1; x >= 0; x--) {
+        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY) % count) }, x);
+        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY + 3) % count) }, x);
+    }
+    map.insertOrAssign({ 27, 40 }, 10000);
+    VERIFY(Default, map.remove({ 26, 26 }) == true);
+    VERIFY(Default, map.remove({ 25, 23 }) == false);
+    VERIFY(Default, map.remove({ 24, 1 }) == false);
+    std::stringstream ss;
+    for (uint16_t x = 0; x < count; x++) {
+        for (uint16_t y = 0; y < count; y++) {
+            auto hint = map.find({ x, y });
+            if (hint.isValid()) {
+                ss << *hint << ", ";
+            } else {
+                ss << "-, ";
+            }
+        }
+        ss << '\n';
+    }
+    VDUMP(decltype(map)::N);
+    log("{}", ss.str());
 }
 
 template<Gapi G>

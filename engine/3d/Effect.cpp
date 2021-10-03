@@ -6,20 +6,12 @@ std::vector<EffectShader> EffectShaderFactory::shaders;
 Effect::TypeData* Effect::typeData;
 
 void init_effect() {
-    Effect::TypeData* it = &__start_effect;
-    for (; it != &__stop_effect; it++) {
-        if (it->magic == Effect::TypeData::NOT_EMPTY_MAGIC) {
-            break;
-        }
-    }
-    Effect::typeData = it - 1;
-    for (; it != &__stop_effect; it++) {
-        if (it->magic != Effect::TypeData::NOT_EMPTY_MAGIC) {
-            break;
-        }
+    auto* it = __begin_effect;
+    Effect::typeData = it;
+    for (; it != __end_effect; it++) {
         it->type = { (sid_t)(it - Effect::typeData) };
     }
-    log("registered {} effects", (it - Effect::typeData) - 1);
+    log("registered {} effects", it - Effect::typeData);
 }
 
 namespace effect_detail {

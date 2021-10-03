@@ -6,6 +6,9 @@
 
 template<typename T, int_t D>
 class ArmCacheSet {
+public:
+    static constexpr int_t N = 16;
+
 private:
     struct IteratorState {
         uint64_t mask;

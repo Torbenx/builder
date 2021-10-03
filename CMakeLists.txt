@@ -42,7 +42,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mbmi")
     endif()
 
     include_directories(libs/OpenGL/api)
@@ -109,7 +109,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 
 else()
-    message(FATAL_ERROR "Unsupported system:  ${CMAKE_SYSTEM_NAME}")
+    message(FATAL_ERROR "Unsupported system: ${CMAKE_SYSTEM_NAME}")
 endif()
 
 

@@ -10,11 +10,14 @@ private:
     uint8_t logSize[D];
 
 public:
+    static constexpr int_t N = Set::N;
+    using key_t = uint16_t;
+
     struct Hint {
         Set* set;
         uint8_t offset;
 
-        bool isValid() { return offset < 16; }
+        bool isValid() { return offset < N; }
         T& operator*() { return set->getValue(offset); }
     };
 
@@ -29,17 +32,17 @@ public:
         delete[] sets;
     }
 
-    Hint find(const uint16_t* key) {
+    Hint find(const key_t* key) {
         for (int_t i = 0; i < D; i++) {
-            if (16 - std::countl_zero(key[i]) > logSize[i] + 8) {
-                return { nullptr, 16 };
+            if (sizeof(key_t) * 8 - std::countl_zero(key[i]) > logSize[i] + 8) {
+                return { nullptr, N };
             }
         }
         return findUnchecked(key);
     }
-    Hint find(std::array<uint16_t, D> key) { return find(key.data()); }
+    Hint find(std::array<key_t, D> key) { return find(key.data()); }
 
-    Hint findUnchecked(const uint16_t* key) {
+    Hint findUnchecked(const key_t* key) {
         int_t index = key[0] & ((1 << logSize[0]) - 1);
         uint8_t tag[D];
         tag[0] = key[0] >> logSize[0];
@@ -51,15 +54,15 @@ public:
         Set& set = sets[index];
         return { &set, set.matchTag(tag) };
     }
-    Hint findUnchecked(std::array<uint16_t, D> key) { return findUnchecked(key.data); }
+    Hint findUnchecked(std::array<key_t, D> key) { return findUnchecked(key.data); }
 
-    void insertOrAssign(const uint16_t* key, T value) { insertOrAssignHint(find(key), key, value); }
-    void insertOrAssign(std::array<uint16_t, D> key, T value) { insertOrAssign(key.data(), value); }
+    void insertOrAssign(const key_t* key, T value) { insertOrAssignHint(find(key), key, value); }
+    void insertOrAssign(std::array<key_t, D> key, T value) { insertOrAssign(key.data(), value); }
 
-    bool has(const uint16_t* key) { return find(key).isValid(); }
-    bool has(std::array<uint16_t, D> key) { return has(key.data()); }
+    bool has(const key_t* key) { return find(key).isValid(); }
+    bool has(std::array<key_t, D> key) { return has(key.data()); }
 
-    bool remove(const uint16_t* key) {
+    bool remove(const key_t* key) {
         Hint hint = find(key);
         if (!hint.isValid()) {
             return false;
@@ -67,17 +70,17 @@ public:
         removeHint(hint);
         return true;
     }
-    bool remove(std::array<uint16_t, D> key) { return remove(key.data()); }
+    bool remove(std::array<key_t, D> key) { return remove(key.data()); }
 
-    void removeUnchecked(uint16_t key) { removeHint(findUnchecked(key)); }
-    bool removeUnchecked(std::array<uint16_t, D> key) { return removeUnchecked(key.data()); }
+    void removeUnchecked(const key_t* key) { removeHint(findUnchecked(key)); }
+    bool removeUnchecked(std::array<key_t, D> key) { return removeUnchecked(key.data()); }
 
     // hint must be valid
     void removeHint(Hint hint) {
         hint.set->remove(hint.offset);
     }
 
-    void insertOrAssignHint(Hint hint, const uint16_t* key, T value) {
+    void insertOrAssignHint(Hint hint, const key_t* key, T value) {
         if (hint.isValid()) {
             *hint = value;
             return;
@@ -85,7 +88,7 @@ public:
         if (hint.set == nullptr) {
             uint8_t n[D];
             for (int_t i = 0; i < D; i++) {
-                n[i] = (16 - std::countl_zero(key[i])) - (logSize[i] + 8);
+                n[i] = (sizeof(key_t) * 8 - std::countl_zero(key[i])) - (logSize[i] + 8);
             }
             grow(n);
             insertOrAssign(key, value);
@@ -96,17 +99,17 @@ public:
         for (int_t i = 0; i < D; i++) {
             tag[i] = key[i] >> logSize[i];
         }
-        if (offset >= 16) {
+        if (offset >= N) {
             grow(hint.set->determineGrowth(tag).data());
             insertOrAssign(key, value);
             return;
         }
         hint.set->insert(offset, tag, value);
     }
-    void insertOrAssignHint(Hint hint, std::array<uint16_t, D> key, T value) { insertOrAssignHint(hint, key, value); }
+    void insertOrAssignHint(Hint hint, std::array<key_t, D> key, T value) { insertOrAssignHint(hint, key, value); }
 
-    T& operator[](const uint16_t* key) { return *findUnchecked(key); }
-    T& operator[](std::array<uint16_t, D> key) { return (*this)[key.data()]; }
+    T& operator[](const key_t* key) { return *findUnchecked(key); }
+    T& operator[](std::array<key_t, D> key) { return (*this)[key.data()]; }
 
 private:
     // n = number of bits to grow
@@ -116,7 +119,6 @@ private:
         for (int_t i = 0; i < D; i++) {
             oldSize <<= logSize[i];
             newSize <<= logSize[i] + n[i];
-            ADUMP(n, i);
         }
         Set* newSets = new Set[newSize];
 
@@ -164,7 +166,7 @@ using CacheMap = CacheMapBase<T, ArmCacheSet<T, D>, D>;
 
 #include "containers/X86CacheSet.hpp"
 template<typename T, int_t D>
-using CacheMap = CacheMapBase<T, X86CacheSet<T, D>, D>;
+using CacheMap = CacheMapBase<T, AVX2CacheSet<T, D>, D>;
 
 #else
 

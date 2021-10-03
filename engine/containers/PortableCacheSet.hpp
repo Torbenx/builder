@@ -5,6 +5,9 @@
 
 template<typename T, int_t D>
 class PortableCacheSet {
+public:
+    static constexpr int_t N = 16;
+
 private:
     struct IteratorState {
         uint64_t mask;
