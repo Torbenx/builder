@@ -48,9 +48,9 @@
 
 // clang-format off
 #define DEFINE_SECTION(type, name)                     \
-    __pragma(data_seg(SECTION_POSTFIX(name, a)))       \
-    __pragma(data_seg(SECTION_POSTFIX(name, m)))       \
-    __pragma(data_seg(SECTION_POSTFIX(name, z)))       \
+    __pragma(section(SECTION_POSTFIX(name, a)))       \
+    __pragma(section(SECTION_POSTFIX(name, m)))       \
+    __pragma(section(SECTION_POSTFIX(name, z)))       \
     inline type IN_SECTION_P(name, a) __start_##name;  \
     inline type IN_SECTION_P(name, z) __stop_##name;   \
     inline type* __begin_##name = &__start_##name + 1; \

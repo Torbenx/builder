@@ -1,11 +1,12 @@
 #include "TestRenderer.hpp"
 #include <Renderer.hpp>
-#include <containers/RangeAllocator.hpp>
 #include <containers/CacheMap.hpp>
+#include <containers/RangeAllocator.hpp>
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
 #include <numeric>
+#include <random>
 #include <resource/JpegDecoder.hpp>
 #include <resource/ObjParser.hpp>
 #include <resource/asset_istream.hpp>
@@ -310,32 +311,32 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
 
     allocator.stage();
 
-    CacheMap<uint32_t, 2> map;
-    uint16_t count = 50;
-    uint16_t multX = 1;
-    uint16_t multY = 1;
-    for (int_t x = count - 1; x >= 0; x--) {
-        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY) % count) }, x);
-        map.insertOrAssign({ (uint16_t)((x * multX) % count), (uint16_t)((x * multY + 3) % count) }, x);
-    }
-    map.insertOrAssign({ 27, 40 }, 10000);
-    VERIFY(Default, map.remove({ 26, 26 }) == true);
-    VERIFY(Default, map.remove({ 25, 23 }) == false);
-    VERIFY(Default, map.remove({ 24, 1 }) == false);
-    std::stringstream ss;
-    for (uint16_t x = 0; x < count; x++) {
-        for (uint16_t y = 0; y < count; y++) {
-            auto hint = map.find({ x, y });
-            if (hint.isValid()) {
-                ss << *hint << ", ";
-            } else {
-                ss << "-, ";
+    std::mt19937 gen(0);
+
+    CacheMap<uint32_t, 3> map;
+    int_t step = 100;
+    int_t items = 0;
+    std::vector<std::pair<int_t, int_t>> v;
+    for (int_t i = 0; i < 80000; i += step) {
+        std::uniform_int_distribution<uint16_t> dist(0, 255);
+        for (int_t j = 0; j < step; j++) {
+            uint16_t key[3] { dist(gen), dist(gen), dist(gen) };
+            if (!map.insertOrAssign(key, 0)) {
+                items++;
             }
         }
-        ss << '\n';
+        v.push_back({ items, map.setCount() * map.N });
     }
-    VDUMP(decltype(map)::N);
-    log("{}", ss.str());
+    std::stringstream str1;
+    for (auto i : v) {
+        str1 << i.first << ",";
+    }
+    std::stringstream str2;
+    for (auto i : v) {
+        str2 << i.second << ",";
+    }
+    log("{}", str1.str());
+    log("{}", str2.str());
 }
 
 template<Gapi G>

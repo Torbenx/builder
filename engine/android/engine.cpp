@@ -25,7 +25,6 @@ int_t rendererState = RENDERER_STATE_INVISIBLE;
 AChoreographer *choreographer;
 
 void init_platform();
-void init_script();
 void init_effect();
 void init_textureFormats();
 
@@ -66,7 +65,6 @@ void android_runThread(){
     ANativeWindow *window;
 
     init_platform();
-    init_script();
     init_effect();
     init_textureFormats();
 

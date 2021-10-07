@@ -32,7 +32,6 @@ int_t lastMouseY = std::numeric_limits<int_t>::max();
 void init_text();
 void init_time();
 void init_platform();
-void init_script();
 void init_effect();
 void init_textureFormats();
 
@@ -294,7 +293,6 @@ int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]]
     engine_hinstance = hInstance;
     init_time();
     init_platform();
-    init_script();
     init_effect();
     init_textureFormats();
 

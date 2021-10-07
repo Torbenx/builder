@@ -43,6 +43,13 @@ public:
     }
     void remove(const T& t) { removeAt(find(t)); }
 
+    int_t getOrInsert(const T& t) {
+        int_t r = find(t);
+        if (r == size())
+            insert(t);
+        return r;
+    }
+
 private:
     std::vector<T> m_data;
 };

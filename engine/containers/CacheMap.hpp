@@ -56,8 +56,8 @@ public:
     }
     Hint findUnchecked(std::array<key_t, D> key) { return findUnchecked(key.data); }
 
-    void insertOrAssign(const key_t* key, T value) { insertOrAssignHint(find(key), key, value); }
-    void insertOrAssign(std::array<key_t, D> key, T value) { insertOrAssign(key.data(), value); }
+    bool insertOrAssign(const key_t* key, T value) { return insertOrAssignHint(find(key), key, value); }
+    bool insertOrAssign(std::array<key_t, D> key, T value) { return insertOrAssign(key.data(), value); }
 
     bool has(const key_t* key) { return find(key).isValid(); }
     bool has(std::array<key_t, D> key) { return has(key.data()); }
@@ -73,17 +73,17 @@ public:
     bool remove(std::array<key_t, D> key) { return remove(key.data()); }
 
     void removeUnchecked(const key_t* key) { removeHint(findUnchecked(key)); }
-    bool removeUnchecked(std::array<key_t, D> key) { return removeUnchecked(key.data()); }
+    void removeUnchecked(std::array<key_t, D> key) { removeUnchecked(key.data()); }
 
     // hint must be valid
     void removeHint(Hint hint) {
         hint.set->remove(hint.offset);
     }
 
-    void insertOrAssignHint(Hint hint, const key_t* key, T value) {
+    bool insertOrAssignHint(Hint hint, const key_t* key, T value) {
         if (hint.isValid()) {
             *hint = value;
-            return;
+            return true;
         }
         if (hint.set == nullptr) {
             uint8_t n[D];
@@ -91,8 +91,7 @@ public:
                 n[i] = (sizeof(key_t) * 8 - std::countl_zero(key[i])) - (logSize[i] + 8);
             }
             grow(n);
-            insertOrAssign(key, value);
-            return;
+            return insertOrAssign(key, value);
         }
         uint8_t offset = hint.set->matchEmpty();
         uint8_t tag[D];
@@ -101,15 +100,23 @@ public:
         }
         if (offset >= N) {
             grow(hint.set->determineGrowth(tag).data());
-            insertOrAssign(key, value);
-            return;
+            return insertOrAssign(key, value);
         }
         hint.set->insert(offset, tag, value);
+        return false;
     }
     void insertOrAssignHint(Hint hint, std::array<key_t, D> key, T value) { insertOrAssignHint(hint, key, value); }
 
     T& operator[](const key_t* key) { return *findUnchecked(key); }
     T& operator[](std::array<key_t, D> key) { return (*this)[key.data()]; }
+
+    int_t setCount() {
+        int_t r = 1;
+        for (int_t i = 0; i < D; i++) {
+            r <<= logSize[i];
+        }
+        return r;
+    }
 
 private:
     // n = number of bits to grow
@@ -159,19 +166,19 @@ private:
 #if defined(ARCHITECTURE_ARM_64)
 
 #include "containers/ArmCacheSet.hpp"
-template<typename T, int_t D>
+template<typename T, int_t D = 1>
 using CacheMap = CacheMapBase<T, ArmCacheSet<T, D>, D>;
 
 #elif defined(ARCHITECTURE_X86_64)
 
 #include "containers/X86CacheSet.hpp"
-template<typename T, int_t D>
+template<typename T, int_t D = 1>
 using CacheMap = CacheMapBase<T, AVX2CacheSet<T, D>, D>;
 
 #else
 
 #include "containers/PortableCacheSet.hpp"
-template<typename T, int_t D>
+template<typename T, int_t D = 1>
 using CacheMap = CacheMapBase<T, PortableCacheSet<T, D>, D>;
 
 #endif
