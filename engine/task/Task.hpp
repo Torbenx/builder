@@ -1,14 +1,13 @@
 #pragma once
 
 #include "containers/AtomicArrayBuilder.hpp"
+#include "containers/IdAllocator.hpp"
+#include "containers/RangeAllocator.hpp"
 #include "task/Description.hpp"
 #include "util/coroutines.hpp"
+#include <list>
 
 namespace task {
-
-namespace detail {
-    inline thread_local std::byte* heap = nullptr;
-}
 
 template<Description desc>
 class Promise;
@@ -22,7 +21,6 @@ public:
         VERIFY(Task, ptr == nullptr);
     }
 
-private:
     Task(Promise<desc>* ptr)
         : ptr(ptr) { }
 
@@ -44,9 +42,14 @@ struct TaskHandle {
     bool operator==(const TaskHandle& other) const { return id == other.id; }
     bool operator==(std::nullptr_t) const { return id == 0; }
 
-    TaskHandle& operator=(std::nullptr_t) { id = 0; }
+    TaskHandle& operator=(std::nullptr_t) {
+        id = 0;
+        return *this;
+    }
     TaskHandle(std::nullptr_t) { }
     TaskHandle() { }
+    TaskHandle(uint32_t id)
+        : id(id) { }
 
     explicit operator bool() { return id != 0; }
 };
@@ -54,12 +57,17 @@ struct TaskHandle {
 template<typename T = void>
 struct Ptr {
     uint32_t offset = 0;
-    T* get() { return (T*)(detail::heap + offset); }
+
+    template<typename S>
+    explicit operator Ptr<S>() {
+        return { offset };
+    }
+
+    T* getRel(int16_t ticksAhead);
 };
 
-struct Environment { };
-
-struct Global {
+class Global {
+public:
     struct Dependency {
         TaskHandle task;
         int16_t ticksAhead;
@@ -79,19 +87,79 @@ struct Global {
         }
     };
 
-    std::byte* heap(int_t tick);
+    Global() {
+        allocate(16, 16);
+    }
 
-    AtomicArrayBuilder<DependencyQueueItem>& dependencyQueue(TaskHandle);
-    stdx::coroutine_handle<>& coroutine(TaskHandle);
-    std::atomic<int16_t>& signal(int_t tick, TaskHandle);
-    std::atomic<int16_t>& signalDelta(int_t tick, TaskHandle);
+    TaskHandle newTask(stdx::coroutine_handle<> coro) {
+        TaskHandle task = { taskIdAllocator.allocateId() };
+        coroutines[task.id] = coro;
+        return task;
+    }
 
-    virtual void queue(stdx::coroutine_handle<>, int_t tick);
+    Ptr<> allocate(size_t alignment, size_t size) {
+        return { heapAllocator.allocate(alignment, size) };
+    }
+
+    std::byte* heap(int_t tick) { return data(tick).heap; }
+
+    AtomicArrayBuilder<DependencyQueueItem>& dependencyQueue(TaskHandle task) { return dependencyQueues[task.id]; }
+    stdx::coroutine_handle<>& coroutine(TaskHandle task) { return coroutines[task.id]; }
+    std::atomic<int16_t>& signal(int_t tick, TaskHandle task) { return data(tick).signals[task.id]; }
+    std::atomic<int16_t>& signalDelta(int_t tick, TaskHandle task) { return data(tick).signalDeltas[task.id]; }
+
+    void queue(stdx::coroutine_handle<> handle, int_t tick) {
+        if (tick >= MAX_TICKS)
+            return;
+        data(tick).queue.push_back(handle);
+    }
+
+    void enter() {
+    loop:
+        for (int_t i = 0; i < MAX_TICKS; i++) {
+            if (data(i).queue.size() > 0) {
+                auto coro = data(i).queue.front();
+                data(i).queue.pop_front();
+                coro.resume();
+                goto loop;
+            }
+        }
+    }
+
+private:
+    static constexpr int_t MAX_TASKS = 100;
+    static constexpr size_t MAX_TICKS = 16;
+    static constexpr size_t HEAP_SIZE = 1024;
+
+    struct TickData {
+        std::atomic<int16_t> signals[MAX_TASKS];
+        std::atomic<int16_t> signalDeltas[MAX_TASKS];
+        alignas(16) std::byte heap[HEAP_SIZE];
+        std::list<stdx::coroutine_handle<>> queue;
+    };
+
+    RangeAllocator heapAllocator { HEAP_SIZE };
+    IdAllocator<> taskIdAllocator;
+
+    stdx::coroutine_handle<> coroutines[MAX_TASKS];
+    AtomicArrayBuilder<DependencyQueueItem> dependencyQueues[MAX_TASKS];
+    TickData tickData[MAX_TICKS];
+
+    TickData& data(int_t tick) {
+        VERIFY(Default, tick < MAX_TICKS);
+        return tickData[tick & (MAX_TICKS - 1)];
+    }
 };
 
 namespace detail {
     inline thread_local Global* global = nullptr;
     inline thread_local TaskHandle currentTask = nullptr;
+    inline thread_local int_t tick = -1;
+}
+
+template<typename T>
+inline T* Ptr<T>::getRel(int16_t ticksAhead) {
+    return (T*)(detail::global->heap(detail::tick + ticksAhead) + offset);
 }
 
 }

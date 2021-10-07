@@ -9,7 +9,9 @@ namespace detail {
     // ticksAhead = number of ticks target is ahead of source
     inline void updateDependencyCount(TaskHandle target, TaskHandle source, int16_t ticksAhead, int16_t delta) {
         uint32_t tick = global->dependencyQueue(source).pushBack({ target, ticksAhead, delta });
+        global->signal(tick + ticksAhead, target).fetch_add(delta, std::memory_order_relaxed);
         global->signalDelta(tick + ticksAhead, target).fetch_add(delta, std::memory_order_relaxed);
+        log("updateDependencyCount: delta={}, ticksAhead={}, tick={}", delta, ticksAhead, tick);
     }
     inline void createDependency(TaskHandle target, TaskHandle source, int16_t ticksAhead) { updateDependencyCount(target, source, ticksAhead, 1); }
     inline void deleteDependency(TaskHandle target, TaskHandle source, int16_t ticksAhead) { updateDependencyCount(target, source, ticksAhead, -1); }
@@ -46,8 +48,7 @@ namespace detail {
         InterfaceWrapper& operator=(const InterfaceWrapper&) const = delete;
         InterfaceWrapper& operator=(InterfaceWrapper&&) const = delete;
         ~InterfaceWrapper() {
-            currentInterfaceTask = nullptr;
-            currentInterfaceTask.ticksAhead = 0;
+            currentInterfaceTask = { nullptr, 0 };
         }
     };
 }
@@ -61,6 +62,7 @@ public:
     InterfaceRef(const InterfaceRef<T>&) = delete;
     InterfaceRef& operator=(const InterfaceRef<T>&) = delete;
 
+    InterfaceRef() { }
     InterfaceRef(InterfaceRef<T>&& other)
         : task(other.task), interface(other.interface), ticksAhead(other.ticksAhead) {
         other.clearFields();
@@ -77,16 +79,24 @@ public:
         clearFields();
     }
 
-    detail::InterfaceWrapper<T> operator->() { return { task, interface.get() }; }
+    detail::InterfaceWrapper<T> operator->() { return { task, ticksAhead, interface.getRel(ticksAhead) }; }
 
     ~InterfaceRef() { deleteDependency(); }
 
-private:
+    static InterfaceRef<T> createFromCurrent(TaskHandle target, Ptr<T> interface, int16_t ticksAhead) {
+        detail::createDependency(target, detail::currentTask, ticksAhead);
+        return { target, interface, ticksAhead };
+    }
+
+public:
     TaskHandle task;
     Ptr<T> interface;
     int16_t ticksAhead = 0;
 
     friend class InterfaceParameter<T>;
+
+    InterfaceRef(TaskHandle task, Ptr<T> interface, int16_t ticksAhead)
+        : task(task), interface(interface), ticksAhead(ticksAhead) { }
 
     void clearFields() {
         task = nullptr;

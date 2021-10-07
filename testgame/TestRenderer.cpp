@@ -53,9 +53,32 @@ Script<int> test() {
     co_await r;
 }*/
 
-task::Task<> test() {
+struct MyInterface {
+    int i;
+};
+
+task::Task<task::Description { task::interface<MyInterface> }> testChild() {
     auto& self = co_await get_self;
-    co_return;
+
+    self.get<MyInterface>().i = 0;
+    while (true) {
+        log("tick={} i={}", task::detail::tick, self.get<MyInterface>().i);
+        co_yield 0;
+    }
+}
+
+task::Task<> testParent() {
+    auto& self = co_await get_self;
+
+    auto ext = self.spawnImmediate<testChild>();
+    auto ref = ext.get<MyInterface>(8);
+    int counter = 0;
+    while (true) {
+        log("tick={} c={}", task::detail::tick, counter);
+        ref->i = counter;
+        counter++;
+        co_yield 0;
+    }
 }
 
 template<Gapi G>
@@ -73,6 +96,10 @@ TestRenderer<G>::TestRenderer()
     , f3 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
     , f4 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
     , f5 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) } {
+
+    task::Global* global = new task::Global;
+    task::PromiseBase::spawnInternal(testParent, global, 0, true);
+    global->enter();
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
@@ -241,9 +268,6 @@ TestRenderer<G>::TestRenderer()
     }
     spotLightDepthPass.draw(objects, allocator);
     glDisable(GL_DEPTH_TEST);
-
-    auto handle = test();
-    //handle.resume();
 }
 
 template<Gapi G>

@@ -76,10 +76,10 @@ struct DataTuple<std::tuple<data_t<Types>...>> {
 template<typename... Types>
 struct Description {
     static constexpr auto interfaces = std::tuple_cat(std::conditional_t<is_interface<Types>::value, std::tuple<Types>, std::tuple<>> {}...);
-    using InterfaceTuple_t = typename InterfaceTuple<decltype(interfaces)>::type;
+    using InterfaceTuple_t = typename InterfaceTuple<std::remove_const_t<decltype(interfaces)>>::type;
 
     static constexpr auto data = std::tuple_cat(std::conditional_t<is_data<Types>::value, std::tuple<Types>, std::tuple<>> {}...);
-    using DataTuple_t = typename DataTuple<decltype(data)>::type;
+    using DataTuple_t = typename DataTuple<std::remove_const_t<decltype(data)>>::type;
 
     constexpr Description(Types...) { }
 

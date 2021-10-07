@@ -55,7 +55,6 @@
     inline type IN_SECTION_P(name, z) __stop_##name;   \
     inline type* __begin_##name = &__start_##name + 1; \
     inline type* __end_##name = &__stop_##name;
-
 // clang-format on
 
 #else
