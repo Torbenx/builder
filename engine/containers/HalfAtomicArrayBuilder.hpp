@@ -8,48 +8,43 @@
 #include <bit>
 #include <mutex>
 
-namespace detail {
 template<typename T>
-constexpr size_t generationSize(size_t generation) {
-    if (generation == 0)
-        return 0;
-    return (1 << generation) * 2;
-}
-};
+concept HalfAtomicArrayBuilderAllocator = Allocator32Bit<T> && Allocator32Bit<T::CopyType>;
 
-template<typename T, Allocator32Bit Allocator>
+template<typename T, HalfAtomicArrayBuilderAllocator Allocator>
 class HalfAtomicArrayBuilder {
 public:
-    static constexpr size_t GENERATION_BITS = 11;
-    static constexpr size_t MAX_GENERATION = ((size_t)1 << GENERATION_BITS) - 1;
-    static constexpr size_t GENERATION_SHIFT = 32 - GENERATION_BITS;
-    static constexpr uint64_t OFFSET_MASK = ((uint64_t)1 << GENERATION_SHIFT) - 1;
-    static constexpr uint64_t GENERATION_MASK = (((uint64_t)1 << 32) - 1) & ~OFFSET_MASK;
+    static constexpr uint64_t OFFSET_MASK = ((uint64_t)1 << 32) - 1;
 
-    struct BlockHeader {
-        Ptr32<BlockHeader> next;
+    struct alignas(std::max(alignof(uint32_t), alignof(T))) BlockHeader {
+        Ptr32<BlockHeader> prev;
+        uint32_t capacity;
     };
-    static constexpr size_t BLOCK_HEADER_SIZE = alignmentCeil(alignof(T), sizeof(BlockHeader));
 
     struct EndSentinel { };
     struct BlockIterator {
-        Allocator allocator;
+        Allocator::CopyType allocator;
         Ptr32<BlockHeader> current;
-        int_t finalBlockSize;
-        size_t generation = 0;
+        uint32_t capacity;
 
         BlockIterator& operator++() {
+            Ptr32<BlockHeader> prev = current.get(allocator)->prev;
             allocator.free32(current.offset);
 
-            current = current.get(allocator)->next;
-            generation = std::min(MAX_GENERATION, generation + 1);
+            current = prev;
+            if (current) {
+                capacity = current[allocator]->capacity;
+            } else {
+                capacity = 0;
+            }
+
+            return *this;
         }
 
         ArrayView<T> operator*() {
-            return { (T*)allocator.address(current.offset + BLOCK_HEADER_SIZE), isFinal() ? finalBlockSize : detail::generationSize<T>(generation) };
+            return { (T*)allocator.address(current.offset + sizeof(BlockHeader)), capacity };
         }
 
-        bool isFinal() { return current.get(allocator)->next == nullptr; }
         bool operator!=(EndSentinel) { return current != nullptr; }
     };
 
@@ -58,88 +53,78 @@ public:
 
     void pushBack(T item) {
         while (true) {
-            Info i = position.fetch_add(1, std::memory_order_relaxed);
-            if (i.offset < detail::generationSize<T>(i.generation)) {
-                ((T*)allocator.address(i.storage))[i.offset] = item;
-                return;
+            uint64_t pos = position.fetch_add(1, std::memory_order_acquire);
+            Info i { pos };
+            uint32_t newCapacity;
+            if (i.storage) {
+                BlockHeader* currentHeader = i.storage[allocator];
+                if (i.offset < currentHeader->capacity) {
+                    ((T*)allocator.address(i.storage.offset + sizeof(BlockHeader)))[i.offset] = item;
+                    return;
+                }
+                newCapacity = 2 * currentHeader->capacity;
+            } else {
+                newCapacity = 4;
             }
-            allocate();
+
+            Ptr32<BlockHeader> newStorage { allocator.allocate32(alignof(BlockHeader), sizeof(BlockHeader) + newCapacity * sizeof(T)) };
+            BlockHeader* newHeader = newStorage[allocator];
+            newHeader->capacity = newCapacity;
+            newHeader->prev = i.storage;
+
+            Info j { .offset = 0, .storage = newStorage };
+            bool success;
+            do {
+                success = position.compare_exchange_weak(pos, (uint64_t)j, std::memory_order_release);
+            } while (Info { pos }.storage == i.storage);
+            if (!success) {
+                allocator.free32(newStorage.offset);
+            }
         }
     }
 
     // must iterate through all blocks to deallocate them!
-    BlockIterator take() {
-        Ptr32<BlockHeader> headerPtr;
-        uint64_t pos;
-        {
-            std::lock_guard<std::mutex> g(allocationLock);
-            pos = position.exchange(initialPosition(), std::memory_order_relaxed);
-            headerPtr = firstHeader;
-            firstHeader = nullptr;
-            latestHeader = nullptr;
-        }
-        struct {
-            BlockIterator it;
-            BlockIterator begin() { return it; }
-            EndSentinel end() { return {}; }
-        } r { { allocator, headerPtr, Info(pos).offset } };
-        return r;
+    // blocks are in reverse order
+    auto takeUnsafe() {
+        uint64_t pos = position.read(std::memory_order_relaxed);
+        position.store(0, std::memory_order_relaxed);
+        return iterate(pos);
     }
 
     void clear() {
-        for (auto _ : take()) { }
+        uint64_t pos = position.exchange(0, std::memory_order_acquire);
+        for (auto _ : iterate(pos)) { }
     }
 
     ~HalfAtomicArrayBuilder() {
-        clear();
+        uint64_t pos = position.read(std::memory_order_relaxed);
+        for (auto _ : iterate(pos)) { }
     }
 
 private:
     struct Info {
         Info(uint64_t pos)
-            : offset(pos & OFFSET_MASK)
-            , generation((pos & GENERATION_MASK) >> GENERATION_SHIFT)
-            , storage(pos >> 32) { }
-        size_t offset;
-        size_t generation;
-        uint32_t storage;
+            : offset(pos & OFFSET_MASK), storage { pos >> 32 } { }
+        uint32_t offset;
+        Ptr32<BlockHeader> storage;
 
         uint64_t pos() {
-            return ((uint64_t)storage << 32)
-                | ((uint64_t)generation << GENERATION_SHIFT)
-                | (uint64_t)offset;
+            return ((uint64_t)storage.offset << 32) | (uint64_t)offset;
         }
     };
 
-    std::atomic<uint64_t> position = initialPosition();
-    std::mutex allocationLock;
-    Ptr32<BlockHeader> firstHeader = nullptr;
-    Ptr32<BlockHeader> latestHeader = nullptr;
-
-    void allocate() {
-        std::lock_guard<std::mutex> g(allocationLock);
-        Info i = position.load(std::memory_order_relaxed);
-        if (i.offset < detail::generationSize<T>(i.generation)) {
-            return;
-        }
-        i.generation = std::min(MAX_GENERATION, i.generation + 1);
-        i.offset = 0;
-        size_t dataSize = detail::generationSize<T>(i.generation) * sizeof(T);
-        size_t alignment = std::max(alignof(BlockHeader), alignof(T));
-        uint32_t newBlock = allocator.allocate32(alignment, BLOCK_HEADER_SIZE + dataSize);
-        i.storage = newBlock + BLOCK_HEADER_SIZE;
-        Ptr32<BlockHeader> newHeaderPtr = newBlock;
-        newHeaderPtr.get(allocator)->next = nullptr;
-        latestHeader.get(allocator)->next = newHeaderPtr;
-        latestHeader = newHeaderPtr;
-        if (!firstHeader) {
-            firstHeader = newHeaderPtr;
-        }
-        position.store(i.pos(), std::memory_order_relaxed);
+    auto iterate(uint64_t pos) {
+        Info i { pos };
+        struct {
+            BlockIterator it;
+            BlockIterator begin() { return it; }
+            EndSentinel end() { return {}; }
+        } r { BlockIterator { allocator, i.storage, i.offset } };
+        return r;
     }
 
-    uint64_t initialPosition() { return 0; }
+    std::atomic<uint64_t> position = 0;
 
 public:
-    Allocator allocator;
+    [[no_unique_address]] Allocator allocator;
 };

@@ -8,9 +8,9 @@ namespace detail {
     // make target depend on source
     // ticksAhead = number of ticks target is ahead of source
     inline void updateDependencyCount(TaskHandle target, TaskHandle source, int16_t ticksAhead, int16_t delta) {
-        uint32_t tick = global->dependencyQueue(source).pushBack({ target, ticksAhead, delta });
         global->signal(tick + ticksAhead, target).fetch_add(delta, std::memory_order_relaxed);
         global->signalDelta(tick + ticksAhead, target).fetch_add(delta, std::memory_order_relaxed);
+        uint32_t tick = global->dependencyQueue(source).pushBack({ target, ticksAhead, delta });
         log("updateDependencyCount: delta={}, ticksAhead={}, tick={}", delta, ticksAhead, tick);
     }
     inline void createDependency(TaskHandle target, TaskHandle source, int16_t ticksAhead) { updateDependencyCount(target, source, ticksAhead, 1); }
@@ -28,6 +28,7 @@ namespace detail {
                 int16_t ticksAhead = this->ticksAhead - sourceTicksAhead;
                 VERIFY(Task, ticksAhead >= 0);
                 detail::createDependency(this->task, source, ticksAhead);
+                return ticksAhead;
             }
         } currentInterfaceTask;
     }
@@ -79,23 +80,23 @@ public:
         clearFields();
     }
 
-    detail::InterfaceWrapper<T> operator->() { return { task, ticksAhead, interface.getRel(ticksAhead) }; }
+    detail::InterfaceWrapper<T> operator->() { return { task, ticksAhead, interface[detail::global->allocator(detail::tick + ticksAhead)] }; }
 
     ~InterfaceRef() { deleteDependency(); }
 
-    static InterfaceRef<T> createFromCurrent(TaskHandle target, Ptr<T> interface, int16_t ticksAhead) {
+    static InterfaceRef<T> createFromCurrent(TaskHandle target, Ptr32<T> interface, int16_t ticksAhead) {
         detail::createDependency(target, detail::currentTask, ticksAhead);
         return { target, interface, ticksAhead };
     }
 
 public:
     TaskHandle task;
-    Ptr<T> interface;
+    Ptr32<T> interface;
     int16_t ticksAhead = 0;
 
     friend class InterfaceParameter<T>;
 
-    InterfaceRef(TaskHandle task, Ptr<T> interface, int16_t ticksAhead)
+    InterfaceRef(TaskHandle task, Ptr32<T> interface, int16_t ticksAhead)
         : task(task), interface(interface), ticksAhead(ticksAhead) { }
 
     void clearFields() {
@@ -132,14 +133,14 @@ public:
 
 private:
     TaskHandle task;
-    Ptr<T> interface;
+    Ptr32<T> interface;
     int16_t ticksAhead = 0;
 };
 
 template<typename T>
 struct DataRef {
     TaskHandle task;
-    Ptr<T> data;
+    Ptr32<T> data;
     int16_t ticksBehind = 0;
 
     DataRef(const DataRef<T>&) = delete;

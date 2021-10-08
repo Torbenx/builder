@@ -1,6 +1,8 @@
 #pragma once
 
 #include "util/types.hpp"
+#include <type_traits>
+#include <tuple>
 
 template<typename Allocator>
 concept Allocator32Bit = requires(Allocator allocator, int_t alignment, int_t size, uint32_t offset, void* address) {
@@ -12,31 +14,82 @@ concept Allocator32Bit = requires(Allocator allocator, int_t alignment, int_t si
     { allocator.offset(address) } -> std::same_as<uint32_t>;
 };
 
-template<typename T = void>
-struct Ptr32 {
+struct Ptr32Raw {
     uint32_t offset = 0;
+};
+
+template<typename T>
+struct Ptr32Base : Ptr32Raw { };
+
+template<typename T = void>
+struct Ptr32 : Ptr32Base<T> {
 
     Ptr32() { }
     Ptr32(std::nullptr_t) { }
     Ptr32(uint32_t offset)
-        : offset(offset) { }
+        : Ptr32Base<T> { offset } { }
 
     Ptr32<T>& operator=(uint32_t offset) {
         this->offset = offset;
         return *this;
     }
     Ptr32<T>& operator=(std::nullptr_t) {
-        offset = 0;
+        this->offset = 0;
         return *this;
     }
 
-    bool operator==(const Ptr32<>& other) const { return offset == other.offset; }
-    explicit operator bool() { return offset != 0; }
-    operator Ptr32<>() const { return { offset }; }
+    bool operator==(const Ptr32<>& other) const { return this->offset == other.offset; }
+    explicit operator bool() { return this->offset != 0; }
+    template<typename S>
+    explicit operator Ptr32<S>() const { return { this->offset }; }
+
+    Ptr32<T> operator+(int32_t i) { return { this->offset + i * sizeof(T) }; }
+    Ptr32<T> operator-(int32_t i) { return { this->offset - i * sizeof(T) }; }
+    Ptr32<T>& operator+=(int32_t i) {
+        this->offset += i * sizeof(T);
+        return *this;
+    }
+    Ptr32<T>& operator-=(int32_t i) {
+        this->offset -= i * sizeof(T);
+        return *this;
+    }
 
     template<Allocator32Bit Allocator>
-    T* get(Allocator allocator) {
-        return (T*)allocator.address(offset);
+    T* operator[](Allocator allocator) {
+        return (T*)allocator.address(this->offset);
+    }
+};
+template<typename T>
+int32_t operator-(Ptr32<T> a, Ptr32<T> b) {
+    return (a.offset - b.offset) / sizeof(T);
+}
+
+template<typename T> requires std::is_class_v<T>
+struct Ptr32Base<T> : Ptr32Raw {
+
+    template<typename S>
+    Ptr32<S> operator->*(S T::*ptr) requires std::is_class_v<T> {
+        T* t = nullptr;
+        S* s = &(t->*ptr);
+        return { offset + (int32_t)((std::byte*)s - (std::byte*)t) };
+    }
+};
+
+template<typename... Types>
+struct Ptr32Base<std::tuple<Types...>> : Ptr32Raw {
+    
+    template<typename S>
+    Ptr32<S> get() {
+        std::tuple<Types...>* tuple;
+        S* s = &std::get<S>(*tuple);
+        return { offset + (int32_t)((std::byte*)s - (std::byte*)tuple) };
+    }
+
+    template<size_t I>
+    Ptr32<std::tuple_element_t<I, std::tuple<Types...>>> get() {
+        std::tuple<Types...>* tuple;
+        std::tuple_element_t<I, std::tuple<Types...>>* s = &std::get<I>(*tuple);
+        return { offset + (int32_t)((std::byte*)s - (std::byte*)tuple) };
     }
 };
 

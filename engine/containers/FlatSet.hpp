@@ -3,6 +3,7 @@
 #include "containers/ArrayView.hpp"
 #include <vector>
 #include <concepts>
+#include <cstring>
 
 template<typename /*std::equality_comparable*/ T>
 class FlatSet {

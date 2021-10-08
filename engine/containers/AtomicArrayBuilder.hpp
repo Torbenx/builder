@@ -45,9 +45,9 @@ public:
     ~AtomicArrayBuilder() { delete[] storage; }
 
 private:
-    T* storage;
-    std::atomic<uint16_t> exit;
-    std::atomic<uint64_t> enter;
+    T* storage = nullptr;
+    std::atomic<uint16_t> exit = 0;
+    std::atomic<uint64_t> enter = 0;
     std::mutex allocationLock;
 
     void waitFor(uint16_t waitFor) {

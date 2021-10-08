@@ -133,14 +133,8 @@ public:
     }
 
     template<typename T>
-    uint32_t instanceOffset() {
-        typename decltype(desc)::Instance* base = nullptr;
-        return (uint32_t)((std::byte*)&std::get<T>(base->interfaces) - (std::byte*)nullptr);
-    }
-
-    template<typename T>
-    Ptr<T> ptr() {
-        return { instance.offset + instanceOffset<T>() };
+    Ptr32<T> ptr() {
+        return (instance->*&decltype(desc)::Instance::interfaces).get<T>();
     }
 
     template<typename T>
@@ -149,7 +143,7 @@ public:
     }
 
 private:
-    Ptr<typename decltype(desc)::Instance> instance;
+    Ptr32<typename decltype(desc)::Instance> instance;
     friend class PromiseBase;
 };
 

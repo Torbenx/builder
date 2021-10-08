@@ -3,6 +3,7 @@
 #include "containers/AtomicArrayBuilder.hpp"
 #include "containers/IdAllocator.hpp"
 #include "containers/RangeAllocator.hpp"
+#include "containers/Allocator32Bit.hpp"
 #include "task/Description.hpp"
 #include "util/coroutines.hpp"
 #include <list>
@@ -54,17 +55,7 @@ struct TaskHandle {
     explicit operator bool() { return id != 0; }
 };
 
-template<typename T = void>
-struct Ptr {
-    uint32_t offset = 0;
-
-    template<typename S>
-    explicit operator Ptr<S>() {
-        return { offset };
-    }
-
-    T* getRel(int16_t ticksAhead);
-};
+class GlobalAllocator;
 
 class Global {
 public:
@@ -97,11 +88,12 @@ public:
         return task;
     }
 
-    Ptr<> allocate(size_t alignment, size_t size) {
+    Ptr32<> allocate(size_t alignment, size_t size) {
         return { heapAllocator.allocate(alignment, size) };
     }
 
     std::byte* heap(int_t tick) { return data(tick).heap; }
+    GlobalAllocator allocator(int_t tick);
 
     AtomicArrayBuilder<DependencyQueueItem>& dependencyQueue(TaskHandle task) { return dependencyQueues[task.id]; }
     stdx::coroutine_handle<>& coroutine(TaskHandle task) { return coroutines[task.id]; }
@@ -157,9 +149,19 @@ namespace detail {
     inline thread_local int_t tick = -1;
 }
 
-template<typename T>
-inline T* Ptr<T>::getRel(int16_t ticksAhead) {
-    return (T*)(detail::global->heap(detail::tick + ticksAhead) + offset);
+class GlobalAllocator {
+public:
+    int_t tick;
+    uint32_t allocate32(int_t size) { return detail::global->allocate(__STDCPP_DEFAULT_NEW_ALIGNMENT__, size).offset; }
+    uint32_t allocate32(int_t alignment, int_t size) { return detail::global->allocate(alignment, size).offset; }
+    void free32(uint32_t offset) { }
+    void* address(uint32_t offset) { return detail::global->heap(tick) + offset; }
+    bool ownsAddress(void* address);
+    uint32_t offset(void* address);
+};
+
+inline GlobalAllocator Global::allocator(int_t tick) {
+    return GlobalAllocator { tick };
 }
 
 }
