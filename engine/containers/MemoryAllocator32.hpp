@@ -6,6 +6,7 @@
 class MemoryAllocator32 {
 public:
     MemoryAllocator32(uint32_t maxSize = (uint32_t)1024 * (uint32_t)1024 * (uint32_t)1024 /* 1 GiB */);
+    ~MemoryAllocator32();
 
     [[nodiscard]] uint32_t allocate32(uint32_t alignment, uint32_t size);
     [[nodiscard]] uint32_t allocate32(uint32_t size) { return allocate32(__STDCPP_DEFAULT_NEW_ALIGNMENT__, size); }

@@ -80,8 +80,12 @@ inline size_t pageSize() { return detail::pageSize; }
 inline bool isPageAligned(uintptr_t addr) { return (addr & (pageSize() - 1)) == 0; }
 inline bool isPageAligned(void* addr) { return isPageAligned((uintptr_t)addr); }
 
-void* reserveAddressSpace(size_t size);
+// use alignment = 0 for default alignment
+void* reserveMemoryRegion(size_t size, size_t alignment = 0);
 void commitMemory(void* addr, size_t size);
+void decommitMemory(void* addr, size_t size);
+// can only release the entire region at once
+void releaseMemoryRegion(void* addr, size_t size);
 
 constexpr bool isWindows() {
 #ifdef PLATFORM_WINDOWS

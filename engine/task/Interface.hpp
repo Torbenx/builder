@@ -1,6 +1,6 @@
 #pragma once
 
-#include "task/Task.hpp"
+#include "task/Global.hpp"
 
 namespace task {
 
@@ -80,7 +80,7 @@ public:
         clearFields();
     }
 
-    detail::InterfaceWrapper<T> operator->() { return { task, ticksAhead, interface[detail::global->allocator(detail::tick + ticksAhead)] }; }
+    detail::InterfaceWrapper<T> operator->() { return { task, ticksAhead, interface[detail::global->instanceAllocator(detail::tick + ticksAhead)] }; }
 
     ~InterfaceRef() { deleteDependency(); }
 

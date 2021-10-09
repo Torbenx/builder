@@ -6,11 +6,9 @@
 
 template<typename Allocator>
 concept Allocator32Bit = requires(Allocator allocator, int_t alignment, int_t size, uint32_t offset, void* address) {
-    { allocator.allocate32(size) } -> std::same_as<uint32_t>; // allocate with __STDCPP_DEFAULT_NEW_ALIGNMENT__
     { allocator.allocate32(alignment, size) } -> std::same_as<uint32_t>;
     allocator.free32(offset);
     { allocator.address(offset) } -> std::same_as<void*>;
-    { allocator.ownsAddress(address) } -> std::same_as<bool>;
     { allocator.offset(address) } -> std::same_as<uint32_t>;
 };
 
@@ -80,14 +78,14 @@ struct Ptr32Base<std::tuple<Types...>> : Ptr32Raw {
     
     template<typename S>
     Ptr32<S> get() {
-        std::tuple<Types...>* tuple;
+        std::tuple<Types...>* tuple = nullptr;
         S* s = &std::get<S>(*tuple);
         return { offset + (int32_t)((std::byte*)s - (std::byte*)tuple) };
     }
 
     template<size_t I>
     Ptr32<std::tuple_element_t<I, std::tuple<Types...>>> get() {
-        std::tuple<Types...>* tuple;
+        std::tuple<Types...>* tuple = nullptr;
         std::tuple_element_t<I, std::tuple<Types...>>* s = &std::get<I>(*tuple);
         return { offset + (int32_t)((std::byte*)s - (std::byte*)tuple) };
     }
@@ -100,10 +98,22 @@ requires requires(Callback callback) {
 struct Allocator32BitWrapper {
     Callback callback;
 
-    uint32_t allocate32(int_t size) { return callback().allocate32(size); }
     uint32_t allocate32(int_t alignment, int_t size) { return callback().allocate32(alignment, size); }
     void free32(uint32_t offset) { callback().free32(offset); }
     void* address(uint32_t offset) { return callback().address(offset); }
-    bool ownsAddress(void* address) { return callback().ownsAddress(address); }
     uint32_t offset(void* address) { return callback().offset(address); }
 };
+
+template<Allocator32Bit Allocator>
+void* operator new(size_t size, std::align_val_t alignment, Allocator&& allocator) {
+    return allocator.address(allocator.allocate32((size_t)alignment, size));
+}
+template<Allocator32Bit Allocator>
+void* operator new(size_t size, Allocator&& allocator) { return operator new(size, __STDCPP_DEFAULT_NEW_ALIGNMENT__, std::forward<Allocator>(allocator)); }
+
+template<typename T, Allocator32Bit Allocator, typename... Args>
+Ptr32<T> make32(Allocator&& allocator, Args&&... args) {
+    uint32_t offset = allocator.allocate32(alignof(T), sizeof(T));
+    new (allocator.address(offset)) T(std::forward<Args>(args)...);
+    return { offset };
+}

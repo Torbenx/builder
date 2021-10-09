@@ -19,9 +19,24 @@ void log_print(const std::string& tag, const std::string& msg) {
     std::cout << str;
 }
 
-void* platform::reserveAddressSpace(size_t size) {
+void* platform::reserveMemoryRegion(size_t size, size_t alignment) {
+    VERIFY(Windows, isPageAligned(alignment));
     VERIFY(Windows, isPageAligned(size));
-    void* addr = VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
+
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+
+    MEM_ADDRESS_REQUIREMENTS requirements;
+    requirements.Alignment = alignment;
+    requirements.LowestStartingAddress = nullptr;
+    requirements.HighestEndingAddress = nullptr;
+
+    MEM_EXTENDED_PARAMETER parameter;
+    parameter.Type = MemExtendedParameterAddressRequirements;
+    parameter.Reserved = 0;
+    parameter.Pointer = &requirements;
+
+    void* addr = VirtualAlloc2(nullptr, nullptr, size, MEM_RESERVE, PAGE_READWRITE, &parameter, 1);
     VERIFY(Windows, addr != nullptr);
     return addr;
 }
@@ -31,6 +46,19 @@ void platform::commitMemory(void* addr, size_t size) {
     VERIFY(Windows, isPageAligned(size));
     void* ret = VirtualAlloc(addr, size, MEM_COMMIT, PAGE_READWRITE);
     VERIFY(Windows, ret == addr);
+}
+
+void platform::decommitMemory(void* addr, size_t size) {
+    VERIFY(Windows, isPageAligned(addr));
+    VERIFY(Windows, isPageAligned(size));
+    bool ret = VirtualFree(addr, size, MEM_DECOMMIT);
+    VERIFY(Windows, ret);
+}
+
+void platform::releaseMemoryRegion(void* addr, size_t) {
+    VERIFY(Windows, isPageAligned(addr));
+    bool ret = VirtualFree(addr, 0, MEM_RELEASE);
+    VERIFY(Windows, ret);
 }
 
 void init_platform() {

@@ -12,7 +12,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         "windows/platform.cpp"
         "resource/asset_istream.cpp"
     )
-    set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite)
+    set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite mincore)
     if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         set_source_files_properties("windows/glwrapper.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
     endif()

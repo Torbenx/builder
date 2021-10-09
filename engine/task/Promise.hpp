@@ -13,19 +13,14 @@ class InstanceExtractor {
 public:
     template<typename T>
     InterfaceRef<T> get(int16_t ticksAhead) {
-        VERIFY(Task, ticksAhead >= minTicksAhead);
         return InterfaceRef<T>::createFromCurrent(promise->task, promise->template ptr<T>(), ticksAhead);
     }
 
-    template<typename T>
-    InterfaceRef<T> get() { return get<T>(minTicksAhead); }
-
-    InstanceExtractor(Promise<desc>* promise, int16_t minTicksAhead)
-        : promise(promise), minTicksAhead(minTicksAhead) { }
+    InstanceExtractor(Promise<desc>* promise)
+        : promise(promise) { }
 
 private:
     Promise<desc>* promise;
-    int16_t minTicksAhead;
 };
 
 class PromiseBase {
@@ -63,14 +58,14 @@ public:
         promise->tick = tick;
 
         auto coro = stdx::coroutine_handle<Promise<d>>::from_promise(*promise);
-        TaskHandle task = global->newTask(coro);
-        promise->instance = (decltype(promise->instance))global->allocate(alignof(decltype(promise->instance)), sizeof(decltype(promise->instance)));
+        TaskHandle task = global->newTask(coro, tick);
+        promise->instance = make32<typename Promise<d>::Instance_t>(global->instanceAllocator(tick));
         promise->task = task;
 
         if (immediate)
             coro.resume();
 
-        return { promise, immediate ? 1 : 0 };
+        return { promise };
     }
 
     template<auto f, typename... Args>
@@ -115,6 +110,8 @@ public:
 template<Description desc>
 class Promise : public PromiseBase {
 public:
+    using Instance_t = typename decltype(desc)::Instance;
+
     template<typename... Args>
     explicit Promise(Args&... args) { }
 
@@ -134,16 +131,16 @@ public:
 
     template<typename T>
     Ptr32<T> ptr() {
-        return (instance->*&decltype(desc)::Instance::interfaces).get<T>();
+        return (instance->*&Instance_t::interfaces).template get<T>();
     }
 
     template<typename T>
     T& get() {
-        return *(T*)(global->heap(tick) + ptr<T>().offset);
+        return *(T*)(global->tickBase(tick) + ptr<T>().offset);
     }
 
 private:
-    Ptr32<typename decltype(desc)::Instance> instance;
+    Ptr32<Instance_t> instance;
     friend class PromiseBase;
 };
 

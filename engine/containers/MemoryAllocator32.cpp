@@ -9,8 +9,12 @@ MemoryAllocator32::MemoryAllocator32(uint32_t maxSize)
     : allocator(platform::pageSize()), maxSize(maxSize) {
     VERIFY(Containers, maxSize % platform::pageSize() == 0);
     VERIFY(Containers, maxSize > platform::pageSize());
-    baseAddr = (std::byte*)platform::reserveAddressSpace(maxSize);
+    baseAddr = (std::byte*)platform::reserveMemoryRegion(maxSize);
     allocator.allocate(1, platform::pageSize());
+}
+
+MemoryAllocator32::~MemoryAllocator32() {
+    platform::releaseMemoryRegion(baseAddr, maxSize);
 }
 
 uint32_t MemoryAllocator32::allocate32(uint32_t alignment, uint32_t size) {

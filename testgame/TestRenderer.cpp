@@ -101,6 +101,24 @@ TestRenderer<G>::TestRenderer()
     task::PromiseBase::spawnInternal(testParent, global, 0, true);
     global->enter();
 
+    /*HANDLE token;
+    VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));
+    LUID luid;
+    VERIFY(Default, LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid));
+    struct {
+        DWORD count = 1;
+        LUID_AND_ATTRIBUTES array[1];
+    } info;
+    info.array[0] = { luid, SE_PRIVILEGE_ENABLED };
+    VERIFY(Default, AdjustTokenPrivileges(token, FALSE, (PTOKEN_PRIVILEGES)&info, 0, NULL, NULL));
+    log("lastError = {}, ERROR_SUCCESS = {}, ERROR_NOT_ALL_ASSIGNED = {}", GetLastError(), ERROR_SUCCESS, ERROR_NOT_ALL_ASSIGNED);
+    CloseHandle(token);
+
+    ULONG_PTR pages = 1;
+    ULONG_PTR pagesOut[1];
+    VERIFY(Default, AllocateUserPhysicalPages(GetCurrentProcess(), &pages, pagesOut));
+    log("lastError = {}, ERROR_PRIVILEGE_NOT_HELD = {}", GetLastError(), ERROR_PRIVILEGE_NOT_HELD);*/
+
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
 
     ambientLight.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 1) * 1.0f;

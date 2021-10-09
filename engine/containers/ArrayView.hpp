@@ -2,6 +2,7 @@
 
 #include "util/types.hpp"
 #include <array>
+#include <compare>
 #include <concepts>
 #include <type_traits>
 
