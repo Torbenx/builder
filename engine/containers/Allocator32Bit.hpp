@@ -4,12 +4,16 @@
 #include <type_traits>
 #include <tuple>
 
+template<typename Map>
+concept Mapping32Bit = requires(Map map, uint32_t offset, void* address) {
+    { map.address(offset) } -> std::same_as<void*>;
+    { map.offset(address) } -> std::same_as<uint32_t>;
+};
+
 template<typename Allocator>
-concept Allocator32Bit = requires(Allocator allocator, int_t alignment, int_t size, uint32_t offset, void* address) {
+concept Allocator32Bit = Mapping32Bit<Allocator> && requires(Allocator allocator, int_t alignment, int_t size, uint32_t offset, void* address) {
     { allocator.allocate32(alignment, size) } -> std::same_as<uint32_t>;
     allocator.free32(offset);
-    { allocator.address(offset) } -> std::same_as<void*>;
-    { allocator.offset(address) } -> std::same_as<uint32_t>;
 };
 
 struct Ptr32Raw {
@@ -52,9 +56,9 @@ struct Ptr32 : Ptr32Base<T> {
         return *this;
     }
 
-    template<Allocator32Bit Allocator>
-    T* operator[](Allocator allocator) {
-        return (T*)allocator.address(this->offset);
+    template<Mapping32Bit Map>
+    T* operator[](Map&& map) {
+        return (T*)map.address(this->offset);
     }
 };
 template<typename T>

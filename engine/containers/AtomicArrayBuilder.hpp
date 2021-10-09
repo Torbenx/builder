@@ -7,17 +7,20 @@
 template<typename T>
 class AtomicArrayBuilder {
 public:
-    uint32_t pushBack(T item) {
+    template<typename Callback>
+    uint32_t pushBack(T item, Callback&& callback) {
         while (true) {
             uint64_t enter = this->enter.fetch_add(1, std::memory_order_acquire);
             uint16_t offset = enter;
             uint16_t capacity = enter >> 16;
+            uint32_t payload = enter >> 32;
             if (offset < capacity) {
                 storage[offset] = item;
+                callback(payload);
                 exit.fetch_add(1, std::memory_order_release);
-                return enter >> 32;
+                return payload;
             }
-            allocate(capacity, enter >> 32);
+            allocate(capacity, payload);
         }
     }
 

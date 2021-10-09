@@ -3,7 +3,7 @@
 namespace task {
 
 void PromiseBase::signalDependencies() {
-    auto queue = global->dependencyQueue(task).take((uint32_t)(tick + 1));
+    auto queue = global->dependencyQueue(task).take((uint32_t)(detail::tick + 1));
 
     for (auto item : queue) {
         int_t i = dependencies.getOrInsert(item.asEmptyDependency());
@@ -16,27 +16,25 @@ void PromiseBase::signalDependencies() {
             dependencies.removeAt(i);
             i--;
         } else {
-            int_t targetTick = tick + dep.ticksAhead;
             // acquire the writes of all previous tasks and release our own writes
-            auto j = global->signal(targetTick, dep.task).fetch_sub(dep.refCount, std::memory_order_acq_rel);
+            auto j = global->signal(dep.task, detail::tick + dep.ticksAhead).fetch_sub(dep.refCount, std::memory_order_acq_rel);
             j -= dep.refCount;
             //log("signaling {} for tick={}, waiting for {} more dependencies", dep.task.id, targetTick, j);
             if (j == 0) {
-                global->queue(global->coroutine(dep.task), targetTick);
+                global->queue(dep.task, dep.ticksAhead);
             }
         }
     }
 
     AtomicArrayBuilder<Global::DependencyQueueItem>::free(queue);
 
-    signalCount += global->signalDelta(tick, task).load(std::memory_order_relaxed);
+    signalCount += global->signalDelta(task, detail::tick).load(std::memory_order_relaxed);
     auto mySignalCount = signalCount;
 
-    tick += 1;
-    auto j = global->signal(tick, task).fetch_add(mySignalCount, std::memory_order_acq_rel);
+    auto j = global->signal(task, detail::tick + 1).fetch_add(mySignalCount, std::memory_order_acq_rel);
     j += mySignalCount;
     if (j == 0) {
-        global->queue(global->coroutine(task), tick);
+        global->queue(task, 1);
     }
     //log("waiting for {} more dependencies", j);
 }

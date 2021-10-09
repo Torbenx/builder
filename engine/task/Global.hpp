@@ -5,10 +5,15 @@
 #include "containers/AtomicBumpAllocator.hpp"
 #include "containers/IdAllocator.hpp"
 #include "containers/RangeAllocator.hpp"
-#include "task/Task.hpp"
+#include "task/Scheduler.hpp"
 #include "util/coroutines.hpp"
+#include <list>
 
 namespace task {
+
+namespace detail {
+    inline int_t tick = -1;
+}
 
 class Global {
 public:
@@ -49,7 +54,7 @@ public:
     class TemporaryAllocator {
     public:
         uint32_t allocate32(int_t alignment, int_t size) {
-            return header()->allocator.allocate(alignment, size);
+            return TEMPORARY_REGION_OFFSET + header()->allocator.allocate(alignment, size);
         }
         void free32(uint32_t) { }
         void* address(uint32_t offset) { return tickBase + offset; }
@@ -66,7 +71,7 @@ public:
     class InstanceAllocator {
     public:
         uint32_t allocate32(int_t alignment, int_t size) {
-            return allocator.allocate(alignment, size);
+            return INSTANCE_REGION_OFFSET + allocator.allocate(alignment, size);
         }
         void free32(uint32_t);
         void* address(uint32_t offset) { return tickBase + offset; }
@@ -77,6 +82,21 @@ public:
         RangeAllocator& allocator;
         InstanceAllocator(std::byte* tickBase, RangeAllocator& allocator)
             : tickBase(tickBase), allocator(allocator) { }
+        friend class Global;
+    };
+
+    class TickHelper {
+    public:
+        InstanceAllocator instanceAllocator() { return { tickBase, global->m_instanceAllocator }; }
+        TemporaryAllocator temporaryAllocator() { return { tickBase }; }
+        void* address(uint32_t offset) { return tickBase + offset; }
+        uint32_t offset(void* addr) { return (std::byte*)addr - tickBase; }
+
+    private:
+        Global* global;
+        std::byte* tickBase;
+        TickHelper(Global* global, int_t tick)
+            : global(global), tickBase(global->tickBase(tick)) { }
         friend class Global;
     };
 
@@ -101,21 +121,19 @@ public:
         return task;
     }
 
-    std::byte* tickBase(int_t tick) { return base + (tick & TICK_MASK) * MAX_HEAP_SIZE; }
     InstanceAllocator instanceAllocator(int_t tick) { return { tickBase(tick), m_instanceAllocator }; }
     TemporaryAllocator temporaryAllocator(int_t tick) { return { tickBase(tick) }; }
+    TickHelper tick(int_t tick) { return { this, tick }; }
 
     AtomicArrayBuilder<DependencyQueueItem>& dependencyQueue(TaskHandle task) { return dependencyQueues[task.id]; }
 
-    stdx::coroutine_handle<> coroutine(TaskHandle task) { return coroutines[task.id]; }
+    std::atomic<int16_t>& signal(TaskHandle task, int_t tick) { return ((std::atomic<int16_t>*)(tickBase(tick) + SIGNAL_REGION_OFFSET))[task.id]; }
+    std::atomic<int16_t>& signalDelta(TaskHandle task, int_t tick) { return ((std::atomic<int16_t>*)(tickBase(tick) + SIGNAL_DELTA_REGION_OFFSET))[task.id]; }
 
-    std::atomic<int16_t>& signal(int_t tick, TaskHandle task) { return ((std::atomic<int16_t>*)(tickBase(tick) + SIGNAL_REGION_OFFSET))[task.id]; }
-    std::atomic<int16_t>& signalDelta(int_t tick, TaskHandle task) { return ((std::atomic<int16_t>*)(tickBase(tick) + SIGNAL_DELTA_REGION_OFFSET))[task.id]; }
-
-    void queue(stdx::coroutine_handle<> coro, int_t tick) {
-        if (tick >= (int_t)MAX_TICKS)
+    void queue(TaskHandle task, int16_t ticksAhead) {
+        if (detail::tick + ticksAhead >= (int_t)MAX_TICKS)
             return;
-        queues[tick].push_back(coro);
+        queues[detail::tick + ticksAhead].push_back(coroutines[task.id]);
     }
 
     void enter() {
@@ -124,6 +142,7 @@ public:
             if (queues[i].size() > 0) {
                 auto coro = queues[i].front();
                 queues[i].pop_front();
+                detail::tick = i;
                 coro.resume();
                 goto loop;
             }
@@ -162,6 +181,8 @@ private:
     AtomicArrayBuilder<DependencyQueueItem> dependencyQueues[MAX_TASKS];
     std::list<stdx::coroutine_handle<>> queues[MAX_TICKS];
 
+    std::byte* tickBase(int_t tick) { return base + (tick & TICK_MASK) * MAX_HEAP_SIZE; }
+
     void initializeTick(int_t tick) {
         platform::commitMemory(tickBase(tick), MAX_HEAP_SIZE);
 
@@ -175,7 +196,6 @@ private:
 namespace detail {
     inline thread_local Global* global = nullptr;
     inline thread_local TaskHandle currentTask = nullptr;
-    inline thread_local int_t tick = -1;
 }
 
 }

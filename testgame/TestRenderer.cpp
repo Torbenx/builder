@@ -60,9 +60,8 @@ struct MyInterface {
 task::Task<task::Description { task::interface<MyInterface> }> testChild() {
     auto& self = co_await get_self;
 
-    self.get<MyInterface>().i = 0;
     while (true) {
-        log("tick={} i={}", task::detail::tick, self.get<MyInterface>().i);
+        log("tick={}, i={}", task::detail::tick, self.get<MyInterface>().i);
         co_yield 0;
     }
 }
@@ -70,11 +69,11 @@ task::Task<task::Description { task::interface<MyInterface> }> testChild() {
 task::Task<> testParent() {
     auto& self = co_await get_self;
 
-    auto ext = self.spawnImmediate<testChild>();
-    auto ref = ext.get<MyInterface>(8);
+    auto ext = self.spawnLazy<testChild>();
+    auto ref = ext.get<MyInterface>(0);
     int counter = 0;
     while (true) {
-        log("tick={} c={}", task::detail::tick, counter);
+        log("tick={}, c={}", task::detail::tick, counter);
         ref->i = counter;
         counter++;
         co_yield 0;
@@ -98,7 +97,8 @@ TestRenderer<G>::TestRenderer()
     , f5 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) } {
 
     task::Global* global = new task::Global;
-    task::PromiseBase::spawnInternal(testParent, global, 0, true);
+    task::detail::tick = 0;
+    task::PromiseBase::spawnInternal(testParent, global, true);
     global->enter();
 
     /*HANDLE token;

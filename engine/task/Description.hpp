@@ -8,13 +8,6 @@
 #undef interface
 #endif
 
-namespace Tag {
-struct Task {
-    static constexpr char tag[] = "task";
-    static constexpr bool verifyEnabled = true;
-};
-}
-
 namespace task {
 
 template<typename T>
