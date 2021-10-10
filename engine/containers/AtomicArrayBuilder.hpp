@@ -14,14 +14,20 @@ public:
             uint16_t offset = enter;
             uint16_t capacity = enter >> 16;
             uint32_t payload = enter >> 32;
+            if (!callback(payload)) {
+                return payload;
+            }
             if (offset < capacity) {
                 storage[offset] = item;
-                callback(payload);
                 exit.fetch_add(1, std::memory_order_release);
                 return payload;
             }
             allocate(capacity, payload);
         }
+    }
+
+    uint32_t pushBack(T item) {
+        return pushBack(item, [](uint32_t) { return true; });
     }
 
     ArrayView<T> take(uint32_t payload = 0) {

@@ -51,6 +51,16 @@ public:
         return r;
     }
 
+    template<class UnaryPredicate>
+    void removeIf(UnaryPredicate&& p) {
+        for (int_t i = 0; i < size(); i++) {
+            if (p(data()[i])) {
+                removeAt(i);
+                i--;
+            }
+        }
+    }
+
 private:
     std::vector<T> m_data;
 };

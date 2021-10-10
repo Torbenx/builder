@@ -26,32 +26,32 @@ struct Ptr32Base : Ptr32Raw { };
 template<typename T = void>
 struct Ptr32 : Ptr32Base<T> {
 
-    Ptr32() { }
-    Ptr32(std::nullptr_t) { }
-    Ptr32(uint32_t offset)
+    constexpr Ptr32() { }
+    constexpr Ptr32(std::nullptr_t) { }
+    constexpr Ptr32(uint32_t offset)
         : Ptr32Base<T> { offset } { }
 
-    Ptr32<T>& operator=(uint32_t offset) {
+    constexpr Ptr32<T>& operator=(uint32_t offset) {
         this->offset = offset;
         return *this;
     }
-    Ptr32<T>& operator=(std::nullptr_t) {
+    constexpr Ptr32<T>& operator=(std::nullptr_t) {
         this->offset = 0;
         return *this;
     }
 
-    bool operator==(const Ptr32<>& other) const { return this->offset == other.offset; }
-    explicit operator bool() { return this->offset != 0; }
+    constexpr bool operator==(const Ptr32<T>& other) const { return this->offset == other.offset; }
+    constexpr explicit operator bool() { return this->offset != 0; }
     template<typename S>
-    explicit operator Ptr32<S>() const { return { this->offset }; }
+    constexpr explicit operator Ptr32<S>() const { return { this->offset }; }
 
-    Ptr32<T> operator+(int32_t i) { return { this->offset + i * sizeof(T) }; }
-    Ptr32<T> operator-(int32_t i) { return { this->offset - i * sizeof(T) }; }
-    Ptr32<T>& operator+=(int32_t i) {
+    constexpr Ptr32<T> operator+(int32_t i) { return { this->offset + i * sizeof(T) }; }
+    constexpr Ptr32<T> operator-(int32_t i) { return { this->offset - i * sizeof(T) }; }
+    constexpr Ptr32<T>& operator+=(int32_t i) {
         this->offset += i * sizeof(T);
         return *this;
     }
-    Ptr32<T>& operator-=(int32_t i) {
+    constexpr Ptr32<T>& operator-=(int32_t i) {
         this->offset -= i * sizeof(T);
         return *this;
     }
