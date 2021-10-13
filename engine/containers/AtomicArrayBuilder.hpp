@@ -7,18 +7,19 @@
 template<typename T>
 class AtomicArrayBuilder {
 public:
-    template<typename Callback>
-    uint32_t pushBack(T item, Callback&& callback) {
+    template<typename Callback, typename Conditional>
+    uint32_t pushBack(T item, Callback&& callback, Conditional&& conditional) {
         while (true) {
             uint64_t enter = this->enter.fetch_add(1, std::memory_order_acquire);
             uint16_t offset = enter;
             uint16_t capacity = enter >> 16;
             uint32_t payload = enter >> 32;
-            if (!callback(payload)) {
+            if (!conditional(payload)) {
                 return payload;
             }
             if (offset < capacity) {
                 storage[offset] = item;
+                callback(payload);
                 exit.fetch_add(1, std::memory_order_release);
                 return payload;
             }
@@ -26,8 +27,16 @@ public:
         }
     }
 
-    uint32_t pushBack(T item) {
-        return pushBack(item, [](uint32_t) { return true; });
+    template<typename Callback>
+    uint32_t pushBack(T item, Callback&& callback) {
+        return pushBack(
+            item, std::forward<Callback>(callback), [](uint32_t) { return true; });
+    }
+
+    template<typename Conditional>
+    uint32_t pushBackIf(T item, Conditional&& conditional) {
+        return pushBack(
+            item, [](uint32_t) {}, std::forward<Conditional>(conditional));
     }
 
     ArrayView<T> take(uint32_t payload = 0) {

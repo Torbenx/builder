@@ -69,8 +69,9 @@ task::Task<task::Description { task::interface<MyInterface> }> testChild() {
 task::Task<> testParent() {
     auto& self = co_await get_self;
 
-    auto ext = self.spawnLazy<testChild>();
-    auto ref = ext.get<MyInterface>(0);
+    auto ext = self.spawn<testChild>();
+    auto ref = ext.get<MyInterface>(4);
+    ext.submit();
     int counter = 0;
     while (true) {
         log("tick={}, c={}", task::detail::tick, counter);
@@ -96,10 +97,11 @@ TestRenderer<G>::TestRenderer()
     , f4 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
     , f5 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) } {
 
-    task::Global* global = new task::Global;
+    task::CoroutineScheduler* sched = new task::CoroutineScheduler;
+    task::detail::scheduler = sched;
     task::detail::tick = 0;
-    task::PromiseBase::spawnInternal(testParent, global, true);
-    global->enter();
+    task::PromiseBase::spawnInternal(testParent).submit();
+    sched->enter();
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));

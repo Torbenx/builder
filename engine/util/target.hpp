@@ -26,6 +26,8 @@
 
 #if defined(__GNUC__)
 
+#define ASSUME(expr) { if (!(expr)) { __builtin_unreachable(); } }
+
 #define ALIGN_AS(al) __attribute__((aligned(al)))
 
 #define DEFINE_SECTION(type, name)                 \
@@ -37,6 +39,8 @@
 #define IN_SECTION(name) __attribute__((section(#name)))
 
 #elif defined(_MSC_VER)
+
+#define ASSUME(expr) __assume(expr)
 
 #define ALIGN_AS(al) __declspec(align(al))
 

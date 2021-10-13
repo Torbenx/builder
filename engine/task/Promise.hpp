@@ -1,8 +1,8 @@
 #pragma once
 
 #include "containers/FlatSet.hpp"
-#include "task/Interface.hpp"
 #include "task/Description.hpp"
+#include "task/Interface.hpp"
 
 namespace task {
 
@@ -33,9 +33,6 @@ public:
     friend class Promise;
 };
 
-class AwaitNextTick;
-class AwaitFirstTick;
-
 template<Description desc>
 class InstanceExtractor {
 public:
@@ -47,87 +44,44 @@ public:
     InstanceExtractor(Promise<desc>* promise)
         : promise(promise) { }
 
+    void submit() {
+        if (detail::scheduler->signalSelfInitial(promise->task, detail::tick)) {
+            TaskHandle temp = detail::currentTask;
+            detail::currentTask = promise->task;
+            stdx::coroutine_handle<Promise<desc>>::from_promise(*promise).resume();
+            detail::scheduler->signalDependencies(promise->task, detail::tick);
+            detail::currentTask = temp;
+        }
+        promise = nullptr;
+    }
+
 private:
     Promise<desc>* promise;
 };
 
 class PromiseBase {
 protected:
-    int16_t signalCount = 0;
-    Global* global = nullptr;
     TaskHandle task;
 
-    FlatSet<Global::Dependency> dependencies;
-
-    void signalDependencies();
-    void setGlobals() {
-        detail::currentTask = task;
-        detail::global = global;
-    }
-    static void clearGlobals() {
-        detail::currentTask = nullptr;
-        detail::global = nullptr;
-    }
-
-    friend class AwaitNextTick;
-    friend class AwaitFirstTick;
     template<Description d>
     friend class InstanceExtractor;
 
 public:
     template<Description d, typename... ForwardArgs, typename... FuncArgs>
-    static InstanceExtractor<d> spawnInternal(Task<d> (*func)(FuncArgs...), Global* global, ForwardArgs&&... args, bool immediate) {
+    static InstanceExtractor<d> spawnInternal(Task<d> (*func)(FuncArgs...), ForwardArgs&&... args) {
         Promise<d>* promise = func(std::forward<ForwardArgs>(args)...).take();
 
-        promise->global = global;
-
         auto coro = stdx::coroutine_handle<Promise<d>>::from_promise(*promise);
-        TaskHandle task = global->newTask(coro, detail::tick);
-        promise->instance = make32<typename Promise<d>::Instance_t>(global->instanceAllocator(detail::tick));
-        promise->task = task;
-
-        if (immediate)
-            coro.resume();
+        promise->task = detail::scheduler->newTask(coro);
+        promise->instance = make32<typename Promise<d>::Instance_t>(detail::scheduler->heap().persistentAllocator());
 
         return { promise };
     }
 
     template<auto f, typename... Args>
-    auto spawnImmediate(Args&&... args) {
-        auto ret = spawnInternal(f, global, std::forward<Args>(args)..., true);
-        setGlobals();
+    auto spawn(Args&&... args) {
+        auto ret = spawnInternal(f, std::forward<Args>(args)...);
         return ret;
-    }
-
-    template<auto f, typename... Args>
-    auto spawnLazy(Args&&... args) {
-        auto ret = spawnInternal(f, global, std::forward<Args>(args)..., false);
-        return ret;
-    }
-};
-
-class AwaitNextTick {
-public:
-    PromiseBase& promise;
-
-    bool await_ready() { return false; }
-    void await_suspend(stdx::coroutine_handle<>) {
-        PromiseBase::clearGlobals();
-        promise.signalDependencies();
-    }
-    void await_resume() {
-        promise.setGlobals();
-    }
-};
-
-class AwaitFirstTick {
-public:
-    PromiseBase& promise;
-
-    bool await_ready() { return false; }
-    void await_suspend(stdx::coroutine_handle<>) { }
-    void await_resume() {
-        promise.setGlobals();
     }
 };
 
@@ -140,9 +94,9 @@ public:
     Promise(const Promise&) = delete;
     Promise(Promise&&) = delete;
 
-    AwaitFirstTick initial_suspend() { return { *this }; }
+    stdx::suspend_always initial_suspend() { return {}; }
     stdx::suspend_never final_suspend() noexcept { return {}; }
-    AwaitNextTick yield_value(int) { return { *this }; }
+    stdx::suspend_always yield_value(int) { return {}; }
     await_value<Promise&> await_transform(get_self_t) { return { *this }; }
     Task<desc> get_return_object() { return { this }; }
     void return_void() { }
@@ -155,7 +109,7 @@ public:
     Ptr32<T> ptr() { return (instance->*&Instance_t::interfaces).template get<T>(); }
     template<typename T>
     T& get() {
-        return *ptr<T>()[global->tick(detail::tick)];
+        return *ptr<T>()[detail::scheduler->heap()];
     }
 
 private:

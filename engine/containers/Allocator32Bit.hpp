@@ -1,8 +1,8 @@
 #pragma once
 
 #include "util/types.hpp"
-#include <type_traits>
 #include <tuple>
+#include <type_traits>
 
 template<typename Map>
 concept Mapping32Bit = requires(Map map, uint32_t offset, void* address) {
@@ -57,8 +57,8 @@ struct Ptr32 : Ptr32Base<T> {
     }
 
     template<Mapping32Bit Map>
-    T* operator[](Map&& map) {
-        return (T*)map.address(this->offset);
+    std::remove_extent_t<T>* operator[](Map&& map) {
+        return (std::remove_extent_t<T>*)map.address(this->offset);
     }
 };
 template<typename T>
@@ -66,7 +66,8 @@ int32_t operator-(Ptr32<T> a, Ptr32<T> b) {
     return (a.offset - b.offset) / sizeof(T);
 }
 
-template<typename T> requires std::is_class_v<T>
+template<typename T>
+requires std::is_class_v<T>
 struct Ptr32Base<T> : Ptr32Raw {
 
     template<typename S>
@@ -79,7 +80,7 @@ struct Ptr32Base<T> : Ptr32Raw {
 
 template<typename... Types>
 struct Ptr32Base<std::tuple<Types...>> : Ptr32Raw {
-    
+
     template<typename S>
     Ptr32<S> get() {
         std::tuple<Types...>* tuple = nullptr;
@@ -95,17 +96,21 @@ struct Ptr32Base<std::tuple<Types...>> : Ptr32Raw {
     }
 };
 
-template<typename Callback>
-requires requires(Callback callback) {
-    { callback() } -> Allocator32Bit;
-}
-struct Allocator32BitWrapper {
-    Callback callback;
+template<typename T>
+requires std::is_array_v<T>
+struct Ptr32Base<T> : Ptr32Raw {
+    auto get(int_t i) {
+        using type = std::remove_extent_t<T>;
+        return Ptr32<type> { (uint32_t)(offset + i * sizeof(type)) };
+    }
+};
 
-    uint32_t allocate32(int_t alignment, int_t size) { return callback().allocate32(alignment, size); }
-    void free32(uint32_t offset) { callback().free32(offset); }
-    void* address(uint32_t offset) { return callback().address(offset); }
-    uint32_t offset(void* address) { return callback().offset(address); }
+template<auto callback>
+struct Allocator32BitWrapper {
+    uint32_t allocate32(int_t alignment, int_t size) { return callback(this).allocate32(alignment, size); }
+    void free32(uint32_t offset) { callback(this).free32(offset); }
+    void* address(uint32_t offset) { return callback(this).address(offset); }
+    uint32_t offset(void* address) { return callback(this).offset(address); }
 };
 
 template<Allocator32Bit Allocator>
@@ -116,8 +121,15 @@ template<Allocator32Bit Allocator>
 void* operator new(size_t size, Allocator&& allocator) { return operator new(size, __STDCPP_DEFAULT_NEW_ALIGNMENT__, std::forward<Allocator>(allocator)); }
 
 template<typename T, Allocator32Bit Allocator, typename... Args>
-Ptr32<T> make32(Allocator&& allocator, Args&&... args) {
+Ptr32<T> make32(Allocator&& allocator, Args&&... args) requires(!std::is_array_v<T>) {
     uint32_t offset = allocator.allocate32(alignof(T), sizeof(T));
     new (allocator.address(offset)) T(std::forward<Args>(args)...);
     return { offset };
+}
+
+template<typename T, Allocator32Bit Allocator>
+auto make32(Allocator&& allocator, int_t size) requires std::is_array_v<T> {
+    using type = std::remove_extent_t<T>;
+    uint32_t offset = allocator.allocate32(alignof(type), size * sizeof(type));
+    return Ptr32<T> { offset };
 }
