@@ -5,57 +5,36 @@
 namespace task {
 
 using TaskHandle = Scheduler::Task;
-class CoroutineScheduler;
+using RootHandle = Scheduler::Root;
+
+class CoroutineScheduler : public Scheduler {
+public:
+    CoroutineScheduler()
+        : Scheduler(1) { }
+
+    std::pair<TaskHandle, int_t> next() {
+        for (int_t i = 0; i < (int_t)MAX_TICKS; i++) {
+            if (queues[i].size() > 0) {
+                TaskHandle task = queues[i].front();
+                queues[i].pop_front();
+                return { task, i };
+            }
+        }
+        return { nullptr, 0 };
+    }
+
+protected:
+    void queue(Task task, int_t tick) {
+        queues[tick].push_back(task);
+    }
+
+    std::list<TaskHandle> queues[MAX_TICKS];
+};
 
 namespace detail {
     inline thread_local CoroutineScheduler* scheduler = nullptr;
     inline thread_local TaskHandle currentTask;
     inline thread_local int_t tick = 0;
-}
-
-class CoroutineScheduler final : public Scheduler {
-public:
-    CoroutineScheduler()
-        : Scheduler(1) { }
-
-    void enter() {
-        detail::scheduler = this;
-    loop:
-        for (int_t i = 0; i < (int_t)MAX_TICKS; i++) {
-            if (queues[i].size() > 0) {
-                TaskHandle task = queues[i].front();
-                queues[i].pop_front();
-                detail::tick = i;
-                detail::currentTask = task;
-                coroutines[task.id].resume();
-                signalDependencies(task, i);
-                goto loop;
-            }
-        }
-    }
-
-    Heap::TickHelper heap(int_t tick = detail::tick) { return Scheduler::heap(root, tick); }
-
-    TaskHandle newTask(stdx::coroutine_handle<> coro) {
-        TaskHandle task = Scheduler::newTask(root, detail::tick);
-        if (coroutines.size() <= task.id) {
-            coroutines.resize(task.id + 1);
-        }
-        coroutines[task.id] = coro;
-        return task;
-    }
-
-private:
-    std::list<TaskHandle> queues[MAX_TICKS];
-    std::vector<stdx::coroutine_handle<>> coroutines;
-    Root root = { newRoot() };
-    void queue(TaskHandle task, int_t tick) override {
-        queues[tick].push_back(task);
-    }
-    using Scheduler::newTask;
-};
-
-namespace detail {
 
     inline void createDependency(TaskHandle target, TaskHandle source, int16_t ticksAhead) { scheduler->updateDependencyCount(target, source, ticksAhead, 1); }
     inline void deleteDependency(TaskHandle target, TaskHandle source, int16_t ticksAhead) { scheduler->updateDependencyCount(target, source, ticksAhead, -1); }
@@ -125,7 +104,7 @@ public:
     explicit operator bool() { return task != nullptr; }
 
     T* get() {
-        return ptr[detail::scheduler->heap(detail::tick + ticksAhead)];
+        return ptr[detail::scheduler->heap(task.root(), detail::tick + ticksAhead)];
     }
     detail::Wrapper<T> operator->() { return { this->task, this->ticksAhead, this->get() }; }
 

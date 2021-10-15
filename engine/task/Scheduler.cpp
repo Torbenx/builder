@@ -2,12 +2,14 @@
 
 namespace task {
 
-bool Scheduler::signalInternalRet(Task target, int_t targetTick, refcnt_t delta) {
+void Scheduler::signalInternal(Task target, int_t targetTick, refcnt_t delta) {
     // acquire the writes of all previous tasks and release our own writes
     refcnt_t j = signal(target, targetTick).fetch_add(delta, std::memory_order_acq_rel);
     j += delta;
     log("{{{}}} at {} signaled {} time(s), waiting for {} more signals", (uint32_t)target.id, targetTick, -delta, j - 1);
-    return j == 1;
+    if (j == 1) {
+        queue(target, targetTick);
+    }
 }
 
 void Scheduler::signalExternalDependencies(Root source, utick_t sourceTick, ArrayView<Dependency> externals) {
