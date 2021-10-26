@@ -44,10 +44,12 @@ public:
     AtomicStableVector(Allocator allocator)
         : allocator(allocator) { }
 
+    AtomicStableVector() requires std::is_default_constructible_v<Allocator> { }
+
     void ensureExists(size_t i) {
         ASSUME(i != 0);
         auto j = usedBits(i);
-        if (!m_data[j].load(std::memory_order_relaxed)) [[unlikely]]
+        if (!m_data[j].load(std::memory_order_relaxed))
             allocate(j);
     }
 
@@ -55,6 +57,12 @@ public:
         ASSUME(i != 0);
         auto j = usedBits(i);
         return m_data[j].load(std::memory_order_relaxed).get(i ^ (((size_t)1 << j)));
+    }
+
+    ~AtomicStableVector() {
+        for (int_t i = 0; i <= MAX_BITS; i++) {
+            allocator.free32(m_data[i].load(std::memory_order_relaxed).offset);
+        }
     }
 
 private:

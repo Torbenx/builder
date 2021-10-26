@@ -146,7 +146,7 @@ private:
         uint32_t nextTask = 1;
         Ptr32<TaskSignalBucket> signalBuckets[TASK_BUCKET_COUNT];
         TaskDependencyBucket* dependencyBuckets[TASK_BUCKET_COUNT] = {};
-        Ptr32<RootAndTaskSyncContainter> rootAndTaskSyncContainer;
+        AtomicStableVector<std::atomic<Ptr32<RootAndTaskSyncHeader>>, MAX_TASKS, Heap::EmptyInplacePersistentAllocator> rootAndTaskSyncContainer;
     };
 
     uint32_t nextRoot = 1;
@@ -175,7 +175,7 @@ private:
     }
     std::atomic<refcnt_t>& signalDelta(Task task, utick_t tick) { return signalBucket(task, tick).signalDeltas[task.id & TASK_BUCKET_MASK]; }
 
-    std::atomic<Ptr32<RootAndTaskSyncHeader>>& rootAndTaskSync(Root root, syncid_t syncId, utick_t tick) { return *headers[root.id].rootAndTaskSyncContainer[heap(root, tick)]->operator[](syncId)[heap(root, tick)]; }
+    std::atomic<Ptr32<RootAndTaskSyncHeader>>& rootAndTaskSync(Root root, syncid_t syncId, utick_t tick) { return *headers[root.id].rootAndTaskSyncContainer[syncId][heap(root, tick)]; }
 
     void signalInternal(Task target, int_t targetTick, refcnt_t delta);
     void signalExternalDependencies(Root source, utick_t sourceTick, ArrayView<Dependency> externals);

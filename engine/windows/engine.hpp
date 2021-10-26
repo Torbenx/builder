@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Renderer.hpp"
-#include <D3D11.h>
-#include <Windows.h>
+#include "GL/glwrapper.hpp"
 
 namespace Tag {
 struct Windows {

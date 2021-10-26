@@ -66,7 +66,6 @@ namespace detail {
     struct InterfaceTuple<std::tuple<interface_t<Types>...>> {
         using type = std::tuple<Types...>;
     };
-
 }
 
 template<typename... Types>

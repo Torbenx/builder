@@ -116,14 +116,10 @@ void Scheduler::signalDependencies(Task source, int_t tick) {
 
 // target must depend on source.root()
 void Scheduler::updateDependencyCount(Task target, Task source, tickdiff_t targetTicksDelay, refcnt_t delta) {
-    log("updateDependencyCount");
-    VDUMP(delta);
     if (target.root() == source.root()) {
         dependencyQueue(source).pushBack({ target, targetTicksDelay, delta },
             [&](utick_t sourceTick) {
-                VDUMP(sourceTick);
                 utick_t targetTick = sourceTick + targetTicksDelay;
-                VDUMP(targetTick);
                 signal(target, targetTick).fetch_add(delta, std::memory_order_relaxed);
                 signalDelta(target, targetTick).fetch_add(delta, std::memory_order_relaxed);
             });
@@ -133,7 +129,7 @@ void Scheduler::updateDependencyCount(Task target, Task source, tickdiff_t targe
                 syncid_t syncId = this->syncId(source).load(std::memory_order_relaxed);
                 if (syncId == 0) {
                     syncid_t newSyncId = syncIdAllocator.allocateId();
-                    headers[source.root().id].rootAndTaskSyncContainer[heap(source.root(), sourceTick)]->ensureExists(newSyncId);
+                    headers[source.root().id].rootAndTaskSyncContainer.ensureExists(newSyncId);
                     this->syncId(source).compare_exchange_strong(syncId, newSyncId, std::memory_order_relaxed);
                     if (syncId == 0) {
                         syncId = newSyncId;

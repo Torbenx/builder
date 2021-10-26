@@ -6,7 +6,6 @@
 #include "util/LogTimer.hpp"
 #include "util/log.hpp"
 #include "windows/fullscreen.hpp"
-#include <Windows.h>
 #include <Windowsx.h>
 #include <ctime>
 #include <iostream>

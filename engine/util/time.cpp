@@ -19,7 +19,7 @@ uint64_t getEpochSeconds() {
 
 #ifdef PLATFORM_WINDOWS
 
-#include <Windows.h>
+#include "windows/glwrapper.h"
 
 uint64_t performenceFrequency;
 #define EPOCH_TICKS 0x019DB1DED53E8000

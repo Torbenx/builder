@@ -2,9 +2,6 @@
 #include "util/log.hpp"
 #include "util/target.hpp"
 #include <vector>
-#ifdef PLATFORM_WINDOWS
-#include <Windows.h>
-#endif
 
 std::vector<Pointer> pointers;
 
@@ -99,20 +96,4 @@ int getPointerCount(bool mustBeDown) {
         }
         return count;
     }
-}
-
-/*void setCursorVisible(bool visible) {
-}*/
-
-PointerEvent teleportCursor([[maybe_unused]] float x, [[maybe_unused]] float y) {
-    PointerEvent event;
-    event.event = POINTER_EVENT_MOVE;
-    event.pointerId = POINTER_ID_INVALID;
-#ifdef PLATFORM_WINDOWS
-    event.pointerId = POINTER_ID_CURSOR;
-    event.x = x;
-    event.y = y;
-    SetCursorPos(x, y);
-#endif
-    return event;
 }

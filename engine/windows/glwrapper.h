@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <D3D11.h>
 //must include Windows.h first
 #include <GL/gl.h>
 #include <GL/glcorearb.h>

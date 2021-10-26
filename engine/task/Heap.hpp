@@ -113,12 +113,11 @@ public:
     }
 
     void operator delete(void* heap) {
-        size_t extraSpace = alignmentCeil(platform::pageSize(), sizeof(Heap));
         platform::releaseMemoryRegion(heapToBase(heap), memoryRegionSize());
     }
 
-    using EmptyInplacePersistentAllocator = Allocator32BitWrapper<[](void* addr) { return addressToTickHelper(addr).persistentAllocator(); }>;
-    using EmptyInplaceTemporaryAllocator = Allocator32BitWrapper<[](void* addr) { return addressToTickHelper(addr).temporaryAllocator(); }>;
+    using EmptyInplacePersistentAllocator = Allocator32BitWrapper<[](void* addr) -> PersistentAllocator { return addressToTickHelper(addr).persistentAllocator(); }>;
+    using EmptyInplaceTemporaryAllocator = Allocator32BitWrapper<[](void* addr) -> TemporaryAllocator { return addressToTickHelper(addr).temporaryAllocator(); }>;
 
     Heap() {
         for (int_t i = 0; i < (int_t)MAX_TICKS; i++) {

@@ -141,13 +141,17 @@ class Parameter {
 public:
     Parameter(const Ref<T>& ref, bool currentIsSource)
         : task(ref.task), ptr(ref.ptr) {
-        ticksAhead = detail::activeTask.createDependency(ref.task, ref.ticksAhead, currentIsSource);
+        ticksAhead = detail::activeTask.createDependency(task, ref.ticksAhead, currentIsSource);
     }
     Parameter(Parameter&& other)
         : task(other.task), ptr(other.ptr), ticksAhead(other.ticksAhead) {
         other.task = nullptr;
         other.ptr = nullptr;
         other.ticksAhead = 0;
+    }
+    Parameter(Ptr32<T> ptr, int16_t ticksAhead, bool currentIsSource)
+        : task(detail::currentTask), ptr(ptr) {
+        this->ticksAhead = detail::activeTask.createDependency(task, ticksAhead, currentIsSource);
     }
     Parameter(const Parameter&) = delete;
     Parameter& operator=(const Parameter&) = delete;

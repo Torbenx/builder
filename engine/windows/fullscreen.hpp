@@ -1,7 +1,7 @@
 #pragma once
 
 #include "util/fullscreen.hpp"
-#include <Windows.h>
+#include "GL/glwrapper.hpp"
 #include <string>
 #include <list>
 

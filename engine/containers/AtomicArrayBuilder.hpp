@@ -3,6 +3,7 @@
 #include "containers/ArrayView.hpp"
 #include <atomic>
 #include <mutex>
+#include <cstring>
 
 template<typename T>
 class AtomicArrayBuilder {
