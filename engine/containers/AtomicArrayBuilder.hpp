@@ -2,8 +2,8 @@
 
 #include "containers/ArrayView.hpp"
 #include <atomic>
-#include <mutex>
 #include <cstring>
+#include <mutex>
 
 template<typename T>
 class AtomicArrayBuilder {
@@ -26,6 +26,11 @@ public:
             }
             allocate(capacity, payload);
         }
+    }
+
+    uint32_t pushBack(T item) {
+        return pushBack(
+            item, [](uint32_t) {}, [](uint32_t) { return true; });
     }
 
     template<typename Callback>
