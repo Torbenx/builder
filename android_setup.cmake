@@ -16,7 +16,7 @@ message(STATUS "Using Android SDK ${ANDROID_SDK}")
 get_filename_component(current_dir ${CMAKE_SCRIPT_MODE_FILE} DIRECTORY)
 
 set(ANDROID_MIN_SDK_VERSION 24)
-set(ANDROID_TARGET_SDK_VERSION 27)
+set(ANDROID_TARGET_SDK_VERSION 30)
 
 set(ALL_ABIS "x86" "x86_64" "armeabi-v7a" "arm64-v8a")
 

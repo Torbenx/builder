@@ -15,31 +15,27 @@ import android.content.res.AssetManager;
 import android.util.Log;
 import java.io.IOException;
 import java.io.File;
+import android.app.NativeActivity;
 
-public class MainActivity extends Activity implements SurfaceHolder.Callback2, InputQueue.Callback, Runnable{
+public class MainActivity extends NativeActivity implements Runnable{
     
     View view;
-    AssetManager assetManager;
     boolean fullscreen = false;
     Thread thread;
     ParcelFileDescriptor read, write;
-    int cmdFd;
     
     @Override
     public void onCreate(Bundle saveInstaceState){
         super.onCreate(saveInstaceState);
         Log.d("MainActivity", "onCreate");
-        
+
         String dir = getApplicationInfo().nativeLibraryDir;
         File dirFile = new File(dir);
         for(File libFile : dirFile.listFiles()){
             Log.d("MainActivity", "loading "+libFile.getName());
             System.load(libFile.getPath());
         }
-        
-        assetManager = getResources().getAssets();
-        getWindow().takeSurface(this);
-        getWindow().takeInputQueue(this);
+
         view = new View(this);
         setContentView(view);
         
@@ -52,12 +48,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2, I
         }catch(InterruptedException e){
             e.printStackTrace();
         }
-        nativeCreate(cmdFd);
+        nativeCreate();
     }
     
     @Override
     public void run(){
-        nativeGetRenderer();
         ParcelFileDescriptor[] fds;
         try{
             fds = ParcelFileDescriptor.createPipe();
@@ -66,8 +61,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2, I
         }
         read = fds[0];
         write = fds[1];
-        cmdFd = write.getFd();
-        nativeThreadInit(assetManager, read.getFd());
+        nativeThreadInit(read.getFd(), write.getFd());
         synchronized(thread){
             thread.notifyAll();
         }
@@ -81,82 +75,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2, I
     }
     
     @Override
-    public void onStart(){
-        super.onStart();
-        Log.d("MainActivity", "onStart");
-        nativeStart(cmdFd);
-    }
-    
-    @Override
-    public void onResume(){
-        super.onResume();
-        Log.d("MainActivity", "onResume");
-        applyWindowMode();
-        nativeResume(cmdFd);
-    }
-    
-    @Override
     public void onConfigurationChanged(Configuration config){
         super.onConfigurationChanged(config);
         applyWindowMode();
-    }
-    
-    @Override
-    public void onPause(){
-        super.onPause();
-        Log.d("MainActivity", "onPause");
-        nativePause(cmdFd);
-    }
-    
-    @Override
-    public void onStop(){
-        super.onStop();
-        Log.d("MainActivity", "onStop");
-        nativeStop(cmdFd);
-    }
-    
-    @Override
-    public void onDestroy(){
-        super.onDestroy();
-        Log.d("MainActivity", "onDestroy");
-        nativeDestroy(cmdFd);
-    }
-    
-    @Override
-    public void surfaceCreated(SurfaceHolder holder){
-        Log.d("MainActivity","surfaceCreated");
-        nativeSurfaceCreate(cmdFd, holder.getSurface());
-    }
-    
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height){
-        Log.d("MainActivity", "surfaceChanged format: "+format+", width: "+width+", height: "+height);
-        nativeSurfaceChange(cmdFd, holder.getSurface(), width, height);
-    }
-    
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder){
-        Log.d("MainActivity", "surfaceDestroyed");
-        nativeSurfaceDestroy(cmdFd, holder.getSurface());
-    }
-    
-    @Override
-    public void surfaceRedrawNeeded(SurfaceHolder holder){
-    }
-    
-    @Override
-    public void surfaceRedrawNeededAsync(SurfaceHolder holder, Runnable drawingFinished){
-        drawingFinished.run();
-    }
-    
-    @Override
-    public void onInputQueueCreated(InputQueue inputQueue){
-        nativeCreateInputQueue(inputQueue);
-    }
-    
-    @Override
-    public void onInputQueueDestroyed(InputQueue inputQueue){
-        nativeDestroyInputQueue(inputQueue);
     }
     
     public void goFullscreen(){
@@ -179,22 +100,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback2, I
         });
     }
     
-    native void nativeGetRenderer();
-    
-    native void nativeThreadInit(AssetManager assetManager, int cmdFd);
+    native void nativeThreadInit(int readFd, int writeFd);
     native void nativeThreadLoop();
-    
-    native void nativeCreate(int cmdFd);
-    native void nativeStart(int cmdFd);
-    native void nativeResume(int cmdFd);
-    native void nativePause(int cmdFd);
-    native void nativeStop(int cmdFd);
-    native void nativeDestroy(int cmdFd);
-    
-    native void nativeSurfaceCreate(int cmdFd, Surface surface);
-    native void nativeSurfaceChange(int cmdFd, Surface surface, int width, int height);
-    native void nativeSurfaceDestroy(int cmdFd, Surface surface);
-    
-    native void nativeCreateInputQueue(InputQueue inputQueue);
-    native void nativeDestroyInputQueue(InputQueue inputQueue);
+    native void nativeCreate();
 }

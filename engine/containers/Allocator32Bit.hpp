@@ -3,6 +3,7 @@
 #include "util/types.hpp"
 #include <tuple>
 #include <type_traits>
+#include <concepts>
 
 template<typename Map>
 concept Mapping32Bit = requires(Map map, uint32_t offset, void* address) {
@@ -28,8 +29,7 @@ struct Ptr32 : Ptr32Base<T> {
 
     constexpr Ptr32() { }
     constexpr Ptr32(std::nullptr_t) { }
-    constexpr Ptr32(uint32_t offset)
-        : Ptr32Base<T> { offset } { }
+    constexpr Ptr32(uint32_t offset) { this->offset = offset; }
 
     constexpr Ptr32<T>& operator=(uint32_t offset) {
         this->offset = offset;

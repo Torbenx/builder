@@ -15,4 +15,10 @@ extern "C" {
 JNIEXPORT void JNICALL Java_com_tt_engine_MainActivity_nativeGetRenderer(JNIEnv* env, jobject thiz) {
     engine_getRenderer();
 }
+
+void ANativeActivity_onCreate(ANativeActivity* activity, [[maybe_unused]] void* savedState, [[maybe_unused]] size_t savedStateSize) {
+    engine_getRenderer();
+    android_engineNativeActivityInit(activity);
+}
+
 }

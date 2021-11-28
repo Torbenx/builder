@@ -47,6 +47,7 @@ add_assets(testgame SOURCES ${assets})
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(ANDROID_APP_PACKAGE com.tt.testgame)
     set(ANDROID_APP_NAME "TestGame")
+    set(ANDROID_LIB_NAME testgame)
     set(android_manifest ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
     configure_file(${CMAKE_SOURCE_DIR}/engine/android/AndroidManifest.xml ${android_manifest})
 

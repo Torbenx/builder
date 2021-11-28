@@ -5,6 +5,7 @@
 #include <android/asset_manager.h>
 #include <android/looper.h>
 #include <android/native_window.h>
+#include <android/native_activity.h>
 #include <jni.h>
 #include <string>
 
@@ -46,6 +47,8 @@ struct SurfaceChangeCmdData {
     int width;
     int height;
 };
+
+void android_engineNativeActivityInit(ANativeActivity* nativeActivity);
 
 void engine_setRenderer(CreateFunctions functions);
 

@@ -116,8 +116,10 @@ public:
         platform::releaseMemoryRegion(heapToBase(heap), memoryRegionSize());
     }
 
-    using EmptyInplacePersistentAllocator = Allocator32BitWrapper<[](void* addr) -> PersistentAllocator { return addressToTickHelper(addr).persistentAllocator(); }>;
-    using EmptyInplaceTemporaryAllocator = Allocator32BitWrapper<[](void* addr) -> TemporaryAllocator { return addressToTickHelper(addr).temporaryAllocator(); }>;
+    static constexpr auto PERSISTENT_ALLOCATOR_GETTER = [](void* addr) -> PersistentAllocator { return addressToTickHelper(addr).persistentAllocator(); };
+    static constexpr auto TEMPORARY_ALLOCATOR_GETTER = [](void* addr) -> TemporaryAllocator { return addressToTickHelper(addr).temporaryAllocator(); };
+    using EmptyInplacePersistentAllocator = Allocator32BitWrapper<PERSISTENT_ALLOCATOR_GETTER>;
+    using EmptyInplaceTemporaryAllocator = Allocator32BitWrapper<TEMPORARY_ALLOCATOR_GETTER>;
 
     Heap() {
         for (int_t i = 0; i < (int_t)MAX_TICKS; i++) {

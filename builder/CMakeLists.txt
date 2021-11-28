@@ -22,6 +22,7 @@ target_link_libraries(builder engine)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(ANDROID_APP_PACKAGE com.tt.builder)
     set(ANDROID_APP_NAME "Builder")
+    set(ANDROID_LIB_NAME builder)
     set(android_manifest ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
     configure_file(${CMAKE_SOURCE_DIR}/engine/android/AndroidManifest.xml ${android_manifest})
 

@@ -26,7 +26,8 @@ void Scheduler::signalRoots(std::bitset<MAX_ROOTS> execute) {
         }
     }
     for (int_t i = 0; i < maxRoots + 1; i++) {
-        Root root(i);
+        Root root;
+        root.id = i;
         if (!isRootUsed(root))
             continue;
 
