@@ -8,6 +8,17 @@
 template<typename T>
 class AtomicArrayBuilder {
 public:
+    struct OwningArrayView : ArrayView<T> {
+        void free() {
+            delete[] this->data();
+            *this = OwningArrayView {};
+        }
+
+        ~OwningArrayView() {
+            delete[] this->data();
+        }
+    };
+
     template<typename Callback, typename Conditional>
     uint32_t pushBack(T item, Callback&& callback, Conditional&& conditional) {
         while (true) {
@@ -45,7 +56,7 @@ public:
             item, [](uint32_t) {}, std::forward<Conditional>(conditional));
     }
 
-    ArrayView<T> take(uint32_t payload = 0) {
+    OwningArrayView take(uint32_t payload = 0) {
         std::lock_guard<std::mutex> g(allocationLock);
         uint64_t enter = this->enter.exchange((uint64_t)payload << 32, std::memory_order_relaxed);
 
@@ -59,12 +70,10 @@ public:
 
         ArrayView<T> ret = { storage, size };
         storage = nullptr;
-        return ret;
+        return { ret };
     }
 
-    void clear(uint32_t payload = 0) { free(take(payload)); }
-
-    static void free(ArrayView<T> view) { delete[] view.data(); }
+    void clear(uint32_t payload = 0) { take(payload).free(); }
 
     ~AtomicArrayBuilder() { delete[] storage; }
 

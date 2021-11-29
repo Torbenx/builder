@@ -13,10 +13,11 @@ struct Task {
 }
 
 namespace task {
+   
+using utick_t = uint32_t;
 
 class Heap {
 public:
-    using utick_t = uint32_t;
 
     static constexpr size_t TEMPORARY_ALLOCATION_DEFAULT_ALIGNMENT = 16;
     struct alignas(TEMPORARY_ALLOCATION_DEFAULT_ALIGNMENT) TemporaryAllocationHeader {

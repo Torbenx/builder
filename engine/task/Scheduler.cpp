@@ -2,6 +2,30 @@
 
 namespace task {
 
+Scheduler::Root Scheduler::newRoot(int_t startTick) {
+    Root root { nextRoot++ };
+    heaps[root.id].reset(new Heap());
+    RootHeader& header = headers[root.id];
+    header.heap = heaps[root.id]->helper();
+    auto allocator = headers[root.id].heap.tick(startTick).persistentAllocator();
+    header.tick = startTick;
+    header.ticksFor = make32<int_t[]>(allocator, maxRoots + 1);
+    header.rootQueue = make32<AtomicArrayBuilder<RootQueueItem>>(allocator);
+    return root;
+}
+
+Scheduler::Task Scheduler::newTask(Root root, int_t tick) {
+    RootHeader& header = headers[root.id];
+    Task task { root, header.nextTask++ };
+    int_t bucket = task.id >> TASK_BUCKET_SHIFT;
+    int_t bucketOffset = task.id & TASK_BUCKET_MASK;
+    if (!header.signalBuckets[bucket]) {
+        header.signalBuckets[bucket] = make32<TaskSignalBucket>(header.heap.tick(tick).persistentAllocator());
+        header.dependencyBuckets[bucket] = new TaskDependencyBucket;
+    }
+    return task;
+}
+
 void Scheduler::signalInternal(Task target, int_t targetTick, urefcnt_t delta) {
     // acquire the writes of all previous tasks and release our own writes
     urefcnt_t j = signal(target, targetTick).fetch_add(delta, std::memory_order_acq_rel);
@@ -20,55 +44,37 @@ void Scheduler::signalExternal(Root source, TaskOrExternal target, utick_t sourc
     urefcnt_t j = externalSignal(source, target, sourceTick).fetch_add(delta, std::memory_order_acq_rel);
     j += delta;
     if (j == SIGNALED_BY_ROOT_FLAG) {
-        signalInternal(taskFromExternal(source, target), ticksFor(source, sourceTick)[target.root().id], 1);
+        signalInternal(taskFromExternal(source, target), externalTick(source, target.root(), sourceTick), 1);
     }
 }
 
-void Scheduler::signalRoots(std::bitset<MAX_ROOTS> execute) {
-    /*for (int_t i = 0; i < maxRoots + 1; i++) {
-        if (execute[i]) {
-            headers[i].tick += 1;
-        }
-    }
-    for (int_t i = 0; i < maxRoots + 1; i++) {
-        Root root;
-        root.id = i;
-        if (!isRootUsed(root))
-            continue;
+void Scheduler::signalExternalFromRoot(Root source, TaskOrExternal target, utick_t sourceTick, refcnt_t signalCount) {
+    signalExternal(source, target, sourceTick, SIGNALED_BY_ROOT_FLAG - (urefcnt_t)signalCount);
+}
 
-        utick_t tick = headers[i].tick;
-        int_t* ticksFor = this->ticksFor(root, tick);
-        for (int_t j = 0; j < maxRoots + 1; j++) {
-            ticksFor[j] = headers[j].tick;
-        }
+void Scheduler::signalRoot(Root root, ArrayView<int_t> sourceTicks) {
+    int_t tick = headers[root.id].tick++;
+    for (int_t j = 0; j < maxRoots + 1; j++) {
+        Root source;
+        source.id = j;
+        int_t sourceTick = sourceTicks[source.id];
+        externalTick(source, root, sourceTick) = tick;
 
-        FlatSet<syncid_t>& externals = tasksWithExternalDependencies(root);
+        auto queue = rootQueue(source, root).take(tick + 1);
+        auto& delayedQueue = rootQueueDelayed(source, root);
+        delayedQueue.insert(queue);
+        queue.free();
 
-        auto queue = rootQueue(root, tick).take(1);
-        for (auto item : queue) {
-            utick_t targetTick = ticksFor[item.task.root().id] + item.delay;
-            signal(item.task, targetTick).fetch_add(item.refCountDelta, std::memory_order_relaxed);
-            signalDelta(item.task, targetTick).fetch_add(item.refCountDelta, std::memory_order_relaxed);
-
-            if (!externals.has(item.syncId))
-                externals.insert(item.syncId);
-        }
-        AtomicArrayBuilder<RootDependencyQueueItem>::free(queue);
-
-        auto allocator = heap(root, tick).temporaryAllocator();
-        for (int_t i = 0; i < externals.size(); i++) {
-            Ptr32<RootAndTaskSyncHeader> ptr = rootAndTaskSync(root, externals[i], tick).exchange(SIGNALED_BY_ROOT_SENTINEL, std::memory_order_acq_rel);
-            if (ptr) {
-                RootAndTaskSyncHeader* header = ptr[allocator];
-                if (header->size > 0) {
-                    signalExternalDependencies(root, tick, { header->ptr[allocator], header->size });
-                } else {
-                    externals.removeAt(i);
-                    i--;
-                }
+        for (auto item : delayedQueue) {
+            if (item.firstSourceTick <= sourceTick) {
+                externalSignalCount(source, item.task) += item.refCountDelta;
             }
         }
-    }*/
+
+        for (auto item : externals(source, root)) {
+            signalExternalFromRoot(source, item, sourceTick, externalSignalCount(source, item));
+        }
+    }
 }
 
 void Scheduler::signalDependencies(Task source, int_t tick) {
@@ -76,14 +82,14 @@ void Scheduler::signalDependencies(Task source, int_t tick) {
 
     auto queue = dependencyQueue(source).take(sourceTick + 1);
 
-    FlatSet<Dependency>& internals = this->internalDependencies(source);
-    FlatSet<Dependency>& externals = this->externalDependencies(source);
+    FlatSet<Dependency>& internals = internalDependencies(source);
+    FlatSet<Dependency>& externals = externalDependencies(source);
     for (auto item : queue) {
         auto& depedencies = item.task.root() == source.root() ? internals : externals;
         int_t i = depedencies.getOrInsert(item.asEmptyDependency());
         depedencies[i].refCount += item.refCountDelta;
     }
-    AtomicArrayBuilder<DependencyQueueItem>::free(queue);
+    queue.free();
 
     internals.removeIf([](Dependency d) { return d.refCount == 0; });
     for (auto dep : internals) {
@@ -101,24 +107,28 @@ void Scheduler::signalDependencies(Task source, int_t tick) {
 }
 
 // target.root() must depend on the calling task
-void Scheduler::updateDependencyCount(Task target, Task source, tickdiff_t targetTicksDelay, refcnt_t delta) {
+void Scheduler::updateDependencyCount(Task target, Task source, tickdiff_t sourceTicksDelay, refcnt_t delta) {
     if (target.root() == source.root()) {
-        dependencyQueue(source).pushBack({ target, targetTicksDelay, delta },
+        dependencyQueue(source).pushBack({ target, sourceTicksDelay, delta },
             [&](utick_t sourceTick) {
-                utick_t targetTick = sourceTick + targetTicksDelay;
+                utick_t targetTick = sourceTick + sourceTicksDelay;
                 signal(target, targetTick).fetch_sub(delta, std::memory_order_relaxed);
                 signalDelta(target, targetTick).fetch_sub(delta, std::memory_order_relaxed);
             });
     } else {
         TaskOrExternal external = target;
         external.id = 0; // find or allocate external id
-        dependencyQueue(source).pushBack({ external, targetTicksDelay, delta },
+        dependencyQueue(source).pushBack({ external, sourceTicksDelay, delta },
+
             [&](utick_t sourceTick) {
-                utick_t targetTick = rootQueue(source.root(), external.root()).pushBack({ external, targetTicksDelay, delta, sourceTick }) + targetTicksDelay;
-                if (false /* allocate */) {
-                    signal(target, targetTick).fetch_sub(1, std::memory_order_relaxed);
-                    signalDelta(target, targetTick).fetch_sub(1, std::memory_order_relaxed);
-                }
+                rootQueue(source.root(), external.root()).pushBack({ external, sourceTick + sourceTicksDelay, delta },
+
+                    [&](utick_t targetTick) {
+                        if (false /* allocate */) {
+                            signal(target, targetTick).fetch_sub(1, std::memory_order_relaxed);
+                            signalDelta(target, targetTick).fetch_sub(1, std::memory_order_relaxed);
+                        }
+                    });
             });
     }
 }

@@ -113,7 +113,7 @@ public:
     }
 
     template<typename T>
-    Ref<T> get(Scheduler::tickdiff_t ticksAhead) {
+    Ref<T> get(tickdiff_t ticksAhead) {
         return Ref<T>::createFromCurrent(task, interfaces.template get<T>(), ticksAhead);
     }
 
