@@ -57,11 +57,18 @@ struct MyInterface {
     int i;
 };
 
-task::Task<task::Description { task::interface<MyInterface> }> testChild() {
+struct MyData {
+    int i;
+};
+
+task::Task<task::Description { task::data<MyData> }> testChild() {
     auto& self = co_await get_self;
 
+    int counter = 0;
     while (true) {
-        log("tick={}, i={}", task::detail::tick, self.get<MyInterface>().i);
+        log("tick={}, i={}", task::detail::tick, counter);
+        self.get<MyData>()->i = counter;
+        counter++;
         co_yield 0;
     }
 }
@@ -70,13 +77,10 @@ task::Task<> testParent() {
     auto& self = co_await get_self;
 
     auto ext = task::Spawn<testChild>();
-    auto ref = ext.get<MyInterface>(0);
+    auto dat = ext.get<MyData>(0);
     co_await ext.execute();
-    int counter = 0;
     while (true) {
-        log("tick={}, c={}", task::detail::tick, counter);
-        ref->i = counter;
-        counter++;
+        log("tick={}, c={}", task::detail::tick, dat->i);
         co_yield 0;
     }
 }
@@ -102,7 +106,8 @@ TestRenderer<G>::TestRenderer()
     task::detail::scheduler = sched;
     task::detail::tick = 0;
     task::detail::currentTask = { root, 0 };
-    task::Spawn<testParent>().execute().await_suspend({}).resume();
+    task::Spawn<testParent>().execute();
+    task::detail::getNext().resume();
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));

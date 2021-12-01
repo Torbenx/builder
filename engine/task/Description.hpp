@@ -68,6 +68,15 @@ namespace detail {
     };
 }
 
+template<typename T, typename Tuple>
+struct tuple_has_type;
+
+template<typename T, typename... Types>
+struct tuple_has_type<T, std::tuple<Types...>> : std::disjunction<std::is_same<T, Types>...> { };
+
+template<typename T, typename Tuple>
+constexpr bool tuple_has_type_v = tuple_has_type<T, Tuple>::value;
+
 template<typename... Types>
 struct Description {
     static constexpr auto interfaces = std::tuple_cat(std::conditional_t<is_interface<Types>::value, std::tuple<Types>, std::tuple<>> {}...);

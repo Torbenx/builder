@@ -2,35 +2,47 @@
 
 namespace task {
 
+Scheduler::Scheduler(int_t maxRoots)
+    : maxRoots(maxRoots) {
+    rootHeaders.reset(new RootHeader[maxRoots + 1]);
+    heaps.reset(new std::unique_ptr<Heap>[maxRoots + 1]);
+}
+
 Scheduler::Root Scheduler::newRoot(int_t startTick) {
     Root root { nextRoot++ };
     heaps[root.id].reset(new Heap());
-    RootHeader& header = headers[root.id];
+    RootHeader& header = rootHeader(root);
     header.heap = heaps[root.id]->helper();
-    auto allocator = headers[root.id].heap.tick(startTick).persistentAllocator();
+    auto allocator = header.heap.tick(startTick).persistentAllocator();
     header.tick = startTick;
-    header.ticksFor = make32<int_t[]>(allocator, maxRoots + 1);
+    header.externalTicks = make32<int_t[]>(allocator, maxRoots + 1);
     header.rootQueue = make32<AtomicArrayBuilder<RootQueueItem>>(allocator);
+    header.externalHeaders.reset(new ExternalHeader[maxRoots] {});
     return root;
 }
 
 Scheduler::Task Scheduler::newTask(Root root, int_t tick) {
-    RootHeader& header = headers[root.id];
+    RootHeader& header = rootHeader(root);
     Task task { root, header.nextTask++ };
-    int_t bucket = task.id >> TASK_BUCKET_SHIFT;
-    int_t bucketOffset = task.id & TASK_BUCKET_MASK;
-    if (!header.signalBuckets[bucket]) {
-        header.signalBuckets[bucket] = make32<TaskSignalBucket>(header.heap.tick(tick).persistentAllocator());
-        header.dependencyBuckets[bucket] = new TaskDependencyBucket;
-    }
+    header.taskDependencies.ensureExists(task.id); // not safe?
+    header.taskSignals.ensureExists(task.id, heap(root, tick).persistentAllocator());
     return task;
+}
+
+void Scheduler::allowExternalsOneWay(Root source, Root target) {
+    ExternalHeader& header = externalHeader(source, target);
+    // nothing to?
 }
 
 void Scheduler::signalInternal(Task target, int_t targetTick, urefcnt_t delta) {
     // acquire the writes of all previous tasks and release our own writes
     urefcnt_t j = signal(target, targetTick).fetch_add(delta, std::memory_order_acq_rel);
     j += delta;
-    log("{{{}}} at {} signaled {} time(s), waiting for {} more signals", (uint32_t)target.id, targetTick, delta, j);
+    if (j >= SIGNALED_BY_SELF_FLAG / 2) {
+        log("{{{}}} at {} signaled {} time(s), waiting for {} more signal(s)", (uint32_t)target.id, targetTick, delta, SIGNALED_BY_SELF_FLAG - j);
+    } else {
+        log("{{{}}} at {} signaled {} time(s), {} time(s) in total", (uint32_t)target.id, targetTick, delta, j);
+    }
     if (j == SIGNALED_BY_SELF_FLAG) {
         queue(target, targetTick);
     }
@@ -53,7 +65,7 @@ void Scheduler::signalExternalFromRoot(Root source, TaskOrExternal target, utick
 }
 
 void Scheduler::signalRoot(Root root, ArrayView<int_t> sourceTicks) {
-    int_t tick = headers[root.id].tick++;
+    int_t tick = rootHeader(root).tick++;
     for (int_t j = 0; j < maxRoots + 1; j++) {
         Root source;
         source.id = j;
@@ -113,7 +125,7 @@ void Scheduler::updateDependencyCount(Task target, Task source, tickdiff_t sourc
             [&](utick_t sourceTick) {
                 utick_t targetTick = sourceTick + sourceTicksDelay;
                 signal(target, targetTick).fetch_sub(delta, std::memory_order_relaxed);
-                signalDelta(target, targetTick).fetch_sub(delta, std::memory_order_relaxed);
+                signalDelta(target, targetTick).fetch_add(delta, std::memory_order_relaxed);
             });
     } else {
         TaskOrExternal external = target;
@@ -126,7 +138,7 @@ void Scheduler::updateDependencyCount(Task target, Task source, tickdiff_t sourc
                     [&](utick_t targetTick) {
                         if (false /* allocate */) {
                             signal(target, targetTick).fetch_sub(1, std::memory_order_relaxed);
-                            signalDelta(target, targetTick).fetch_sub(1, std::memory_order_relaxed);
+                            signalDelta(target, targetTick).fetch_add(1, std::memory_order_relaxed);
                         }
                     });
             });

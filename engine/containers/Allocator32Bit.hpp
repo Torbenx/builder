@@ -60,6 +60,11 @@ struct Ptr32 : Ptr32Base<T> {
     std::remove_extent_t<T>* operator[](Map&& map) {
         return (std::remove_extent_t<T>*)map.address(this->offset);
     }
+
+    template<Allocator32Bit Allocator>
+    void free(Allocator&& allocator) {
+        allocator.free32(this->offset);
+    }
 };
 template<typename T>
 int32_t operator-(Ptr32<T> a, Ptr32<T> b) {
@@ -128,7 +133,7 @@ Ptr32<T> make32(Allocator&& allocator, Args&&... args) requires(!std::is_array_v
 }
 
 template<typename T, Allocator32Bit Allocator>
-auto make32(Allocator&& allocator, int_t size) requires std::is_array_v<T> {
+Ptr32<T> make32(Allocator&& allocator, int_t size) requires std::is_array_v<T> {
     using type = std::remove_extent_t<T>;
     uint32_t offset = allocator.allocate32(alignof(type), size * sizeof(type));
     return Ptr32<T> { offset };

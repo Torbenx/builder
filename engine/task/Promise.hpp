@@ -88,17 +88,21 @@ public:
         std::abort();
     }
 
-
     template<typename T>
-    Ptr32<T> ptr() { return interfaces.template get<T>(); }
-    template<typename T>
-    T& get() {
-        return *ptr<T>()[detail::scheduler->heap(detail::currentTask.root(), detail::tick)];
+    SelfRef<T> get() {
+        if constexpr (tuple_has_type_v<T, Interfaces_t>) {
+            return { interfaces.template get<T>() };
+        } else {
+            return { data.template get<T>() };
+        }
     }
 
 private:
-    Ptr32<typename decltype(desc)::InterfaceTuple> interfaces;
-    Ptr32<typename decltype(desc)::DataTuple> data;
+    using Interfaces_t = typename decltype(desc)::InterfaceTuple;
+    using Data_t = typename decltype(desc)::DataTuple;
+
+    Ptr32<Interfaces_t> interfaces;
+    Ptr32<Data_t> data;
     template<auto func>
     friend class Spawn;
 };
@@ -108,13 +112,17 @@ class Spawn<func> {
 public:
     Spawn() {
         task = detail::scheduler->newTask(detail::currentTask.root(), detail::tick);
-        interfaces = make32<Interfaces_t>(detail::scheduler->heap(detail::currentTask.root(), detail::tick).persistentAllocator());
-        data = make32<Data_t>(detail::scheduler->heap(detail::currentTask.root(), detail::tick).persistentAllocator());
+        interfaces = make32<Interfaces_t>(detail::scheduler->heap(task.root(), detail::tick).persistentAllocator());
+        data = make32<Data_t>(detail::scheduler->heap(task.root(), detail::tick).persistentAllocator());
     }
 
     template<typename T>
     Ref<T> get(tickdiff_t ticksAhead) {
-        return Ref<T>::createFromCurrent(task, interfaces.template get<T>(), ticksAhead);
+        if constexpr (tuple_has_type_v<T, Interfaces_t>) {
+            return Ref<T>::createFromCurrent(task, interfaces.template get<T>(), ticksAhead);
+        } else {
+            return Ref<T>::createToCurrent(task, data.template get<T>(), ticksAhead);
+        }
     }
 
     template<typename... CallArgs>

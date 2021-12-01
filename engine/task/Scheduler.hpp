@@ -49,23 +49,26 @@ public:
     static constexpr size_t MAX_TICKS = Heap::MAX_TICKS;
     static constexpr size_t MAX_ROOTS = 64;
 
-    Scheduler(int_t maxRoots)
-        : maxRoots(maxRoots) {
-        headers.reset(new RootHeader[maxRoots + 1]);
-        heaps.reset(new std::unique_ptr<Heap>[maxRoots + 1]);
-    }
+    Scheduler(int_t maxRoots);
 
     Root newRoot(int_t startTick = 0);
     void signalRoot(Root root, ArrayView<int_t> sourceTicks);
     Task newTask(Root root, int_t tick);
+    void allowExternals(Root root1, Root root2) {
+        allowExternalsOneWay(root1, root2);
+        allowExternalsOneWay(root2, root1);
+    }
+    void allowExternalsOneWay(Root source, Root target);
 
-    void signalSelfInitial(Task task, int_t tick) { return signalSelf(task, tick, signalCount(task)); }
-    bool isReady(Task task, int_t tick) { return signal(task, tick).load(std::memory_order_relaxed) == 1; }
+    void signalSelfInitial(Task task, int_t tick) { signalSelf(task, tick, 0); }
+    bool isReady(Task task, int_t tick) { return signal(task, tick).load(std::memory_order_relaxed) == SIGNALED_BY_SELF_FLAG; }
     void updateDependencyCount(Task target, Task source, tickdiff_t sourceTicksDelay, refcnt_t delta);
     void signalDependencies(Task task, int_t tick);
 
-    Heap::TickHelper heap(Root root, utick_t tick) { return headers[root.id].heap.tick(tick); }
-    void*& payload(Task task) { return dependencyBucket(task).payload[task.id & TASK_BUCKET_MASK]; }
+    Heap::TickHelper heap(Root root, utick_t tick) { return rootHeader(root).heap.tick(tick); }
+    void*& payload(Task task) { return taskDependencies(task).payload; }
+
+    int_t& externalTick(Root source, Root target, utick_t sourceTick) { return rootHeader(source).externalTicks[heap(source, sourceTick)][target.id]; }
 
 protected:
     virtual void queue(Task task, int_t tick) = 0;
@@ -98,65 +101,74 @@ private:
         refcnt_t refCountDelta;
     };
 
-    static constexpr size_t TASK_BUCKET_SHIFT = 8;
-    static constexpr size_t TASK_BUCKET_SIZE = (size_t)1 << TASK_BUCKET_SHIFT;
-    static constexpr size_t TASK_BUCKET_COUNT = MAX_TASKS >> TASK_BUCKET_SHIFT;
-    static constexpr size_t TASK_BUCKET_MASK = TASK_BUCKET_SIZE - 1;
-    struct TaskSignalBucket {
-        std::atomic<urefcnt_t> signals[TASK_BUCKET_SIZE];
-        std::atomic<refcnt_t> signalDeltas[TASK_BUCKET_SIZE];
+    struct TaskSignals {
+        std::atomic<urefcnt_t> signal;
+        std::atomic<refcnt_t> signalDelta;
     };
-    struct TaskDependencyBucket {
-        FlatSet<Dependency> internalDeps[TASK_BUCKET_SIZE];
-        FlatSet<Dependency> externalDeps[TASK_BUCKET_SIZE];
-        AtomicArrayBuilder<DependencyQueueItem> queues[TASK_BUCKET_SIZE];
-        refcnt_t signalCounts[TASK_BUCKET_SIZE] = {};
-        void* payload[TASK_BUCKET_SIZE];
+    struct TaskDependencies {
+        FlatSet<Dependency> internalDep;
+        FlatSet<Dependency> externalDep;
+        AtomicArrayBuilder<DependencyQueueItem> queue;
+        refcnt_t signalCount = 0;
+        void* payload;
+    };
+
+    struct ExternalTaskInfo {
+        Task task;
+        refcnt_t signalCount = 0;
+    };
+
+    struct ExternalHeader {
+        AtomicArrayBuilder<RootQueueItem> queue;
+        FlatSet<RootQueueItem> delayedQueue;
+        FlatSet<TaskOrExternal> externals;
+        StableVector<ExternalTaskInfo, MAX_TASKS> externalTasks;
+        AtomicStableVector<std::atomic<urefcnt_t>, MAX_TASKS> signals;
     };
 
     struct RootHeader {
-        int_t tick;
+        int_t tick = 0;
         Heap::Helper heap;
-        Ptr32<int_t[]> ticksFor;
+        std::unique_ptr<ExternalHeader[]> externalHeaders;
+        Ptr32<int_t[]> externalTicks;
         Ptr32<AtomicArrayBuilder<RootQueueItem>> rootQueue;
         uint32_t nextTask = 1;
-        Ptr32<TaskSignalBucket> signalBuckets[TASK_BUCKET_COUNT];
-        TaskDependencyBucket* dependencyBuckets[TASK_BUCKET_COUNT] = {};
+        StableVector<TaskDependencies, MAX_TASKS> taskDependencies;
+        AtomicStableVector<TaskSignals, MAX_TASKS> taskSignals;
     };
 
     uint32_t nextRoot = 1;
 
     int_t maxRoots;
-    std::unique_ptr<RootHeader[]> headers;
+    std::unique_ptr<RootHeader[]> rootHeaders;
     std::unique_ptr<std::unique_ptr<Heap>[]> heaps;
 
-    TaskDependencyBucket& dependencyBucket(Task task) { return *headers[task.root().id].dependencyBuckets[task.id >> TASK_BUCKET_SHIFT]; }
-    AtomicArrayBuilder<DependencyQueueItem>& dependencyQueue(Task task) { return dependencyBucket(task).queues[task.id & TASK_BUCKET_MASK]; }
-    FlatSet<Dependency>& internalDependencies(Task task) { return dependencyBucket(task).internalDeps[task.id & TASK_BUCKET_MASK]; }
-    FlatSet<Dependency>& externalDependencies(Task task) { return dependencyBucket(task).externalDeps[task.id & TASK_BUCKET_MASK]; }
-    refcnt_t& signalCount(Task task) { return dependencyBucket(task).signalCounts[task.id & TASK_BUCKET_MASK]; }
+    RootHeader& rootHeader(Root root) { return rootHeaders[root.id]; }
 
-    int_t& externalTick(Root source, Root target, utick_t sourceTick) { return headers[source.id].ticksFor[heap(source, sourceTick)][target.id]; }
+    TaskDependencies& taskDependencies(Task task) { return rootHeader(task.root()).taskDependencies[task.id]; }
+    AtomicArrayBuilder<DependencyQueueItem>& dependencyQueue(Task task) { return taskDependencies(task).queue; }
+    FlatSet<Dependency>& internalDependencies(Task task) { return taskDependencies(task).internalDep; }
+    FlatSet<Dependency>& externalDependencies(Task task) { return taskDependencies(task).externalDep; }
+    refcnt_t& signalCount(Task task) { return taskDependencies(task).signalCount; }
 
-    TaskSignalBucket& signalBucket(Task task, utick_t tick) { return *headers[task.root().id].signalBuckets[task.id >> TASK_BUCKET_SHIFT][heap(task.root(), tick)]; }
-    std::atomic<urefcnt_t>& signal(Task task, utick_t tick) { return signalBucket(task, tick).signals[task.id & TASK_BUCKET_MASK]; }
-    std::atomic<refcnt_t>& signalDelta(Task task, utick_t tick) { return signalBucket(task, tick).signalDeltas[task.id & TASK_BUCKET_MASK]; }
+    TaskSignals& taskSignals(Task task, utick_t tick) { return *rootHeader(task.root()).taskSignals[task.id][heap(task.root(), tick)]; }
+    std::atomic<urefcnt_t>& signal(Task task, utick_t tick) { return taskSignals(task, tick).signal; }
+    std::atomic<refcnt_t>& signalDelta(Task task, utick_t tick) { return taskSignals(task, tick).signalDelta; }
 
-    std::atomic<urefcnt_t>& externalSignal(Root source, TaskOrExternal target, utick_t sourceTick);
+    std::atomic<urefcnt_t>& externalSignal(Root source, TaskOrExternal target, utick_t sourceTick) { return *externalHeader(source, target.root()).signals[target.id][heap(source, sourceTick)]; }
 
-    AtomicArrayBuilder<RootQueueItem>& rootQueue(Root source, Root target);
-    FlatSet<RootQueueItem>& rootQueueDelayed(Root source, Root traget);
-    FlatSet<TaskOrExternal>& externals(Root source, Root target);
+    ExternalHeader& externalHeader(Root source, Root target) { return rootHeader(source).externalHeaders[target.id]; }
+    AtomicArrayBuilder<RootQueueItem>& rootQueue(Root source, Root target) { return externalHeader(source, target).queue; }
+    FlatSet<RootQueueItem>& rootQueueDelayed(Root source, Root target) { return externalHeader(source, target).delayedQueue; }
+    FlatSet<TaskOrExternal>& externals(Root source, Root target) { return externalHeader(source, target).externals; }
 
-    Task taskFromExternal(Root source, TaskOrExternal target);
-    refcnt_t& externalSignalCount(Root source, TaskOrExternal target);
+    Task taskFromExternal(Root source, TaskOrExternal target) { return externalHeader(source, target.root()).externalTasks[target.id].task; }
+    refcnt_t& externalSignalCount(Root source, TaskOrExternal target) { return externalHeader(source, target.root()).externalTasks[target.id].signalCount; }
 
     void signalSelf(Task task, int_t targetTick, refcnt_t signalCount);
     void signalInternal(Task target, int_t targetTick, urefcnt_t delta);
     void signalExternal(Root source, TaskOrExternal target, utick_t sourceTick, urefcnt_t delta);
     void signalExternalFromRoot(Root source, TaskOrExternal target, utick_t sourceTick, refcnt_t signalCount);
-
-    bool isRootUsed(Root root) { return (bool)headers[root.id].ticksFor; }
 };
 
 }
