@@ -53,22 +53,32 @@ Script<int> test() {
     co_await r;
 }*/
 
-struct MyInterface {
-    int i;
-};
-
 struct MyData {
     int i;
 };
 
-task::Task<task::Description { task::data<MyData> }> testChild() {
-    auto& self = co_await get_self;
+class MyInterface {
+public:
+    task::DataRef<MyData> dat;
+    void setData(task::DataParameter<MyData> dat) {
+        this->dat = std::move(dat);
+    }
+};
 
-    int counter = 0;
+task::Task<task::Description { task::interface<MyInterface> }> testChild() {
+    auto& self = co_await get_self;
+    
+    task::DataRef<MyData> dat;
     while (true) {
-        log("tick={}, i={}", task::detail::tick, counter);
-        self.get<MyData>()->i = counter;
-        counter++;
+        dat = std::move(self.get<MyInterface>()->dat);
+        if (dat)
+            break;
+        co_yield 0;
+    };
+
+    while (true) {
+        log("tick={}, i={}", task::detail::tick, dat->i);
+        
         co_yield 0;
     }
 }
@@ -76,11 +86,18 @@ task::Task<task::Description { task::data<MyData> }> testChild() {
 task::Task<> testParent() {
     auto& self = co_await get_self;
 
+    auto dat = task::makeData<MyData>();
+
     auto ext = task::Spawn<testChild>();
-    auto dat = ext.get<MyData>(0);
+    task::InterfaceRef<MyInterface> inf = ext.get<MyInterface>(2);
     co_await ext.execute();
+    inf->setData(dat);
+
+    int counter = 0;
     while (true) {
-        log("tick={}, c={}", task::detail::tick, dat->i);
+        log("tick={}, c={}", task::detail::tick, counter);
+        dat->i = counter;
+        counter++;
         co_yield 0;
     }
 }

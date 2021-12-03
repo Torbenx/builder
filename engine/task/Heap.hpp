@@ -18,7 +18,6 @@ using utick_t = uint32_t;
 
 class Heap {
 public:
-
     static constexpr size_t TEMPORARY_ALLOCATION_DEFAULT_ALIGNMENT = 16;
     struct alignas(TEMPORARY_ALLOCATION_DEFAULT_ALIGNMENT) TemporaryAllocationHeader {
         struct MyCallback {

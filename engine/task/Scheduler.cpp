@@ -89,13 +89,11 @@ void Scheduler::signalRoot(Root root, ArrayView<int_t> sourceTicks) {
     }
 }
 
-void Scheduler::signalDependencies(Task source, int_t tick) {
+void Scheduler::TaskInternals::signalDependencies(Scheduler& scheduler, Task source, int_t tick) {
     utick_t sourceTick = tick;
 
-    auto queue = dependencyQueue(source).take(sourceTick + 1);
+    auto queue = scheduler.dependencyQueue(source).take(sourceTick + 1);
 
-    FlatSet<Dependency>& internals = internalDependencies(source);
-    FlatSet<Dependency>& externals = externalDependencies(source);
     for (auto item : queue) {
         auto& depedencies = item.task.root() == source.root() ? internals : externals;
         int_t i = depedencies.getOrInsert(item.asEmptyDependency());
@@ -105,20 +103,18 @@ void Scheduler::signalDependencies(Task source, int_t tick) {
 
     internals.removeIf([](Dependency d) { return d.refCount == 0; });
     for (auto dep : internals) {
-        signalInternal(dep.task, tick + dep.delay, dep.refCount);
+        scheduler.signalInternal(dep.task, tick + dep.delay, dep.refCount);
     }
 
     externals.removeIf([](Dependency d) { return d.refCount == 0; });
     for (auto dep : externals) {
-        signalExternal(source.root(), dep.task, sourceTick + dep.delay, dep.refCount);
+        scheduler.signalExternal(source.root(), dep.task, sourceTick + dep.delay, dep.refCount);
     }
 
-    refcnt_t& signalCount = this->signalCount(source);
-    signalCount += signalDelta(source, sourceTick).load(std::memory_order_relaxed);
-    signalSelf(source, tick + 1, signalCount);
+    signalCount += scheduler.signalDelta(source, sourceTick).load(std::memory_order_relaxed);
+    scheduler.signalSelf(source, tick + 1, signalCount);
 }
 
-// target.root() must depend on the calling task
 void Scheduler::updateDependencyCount(Task target, Task source, tickdiff_t sourceTicksDelay, refcnt_t delta) {
     if (target.root() == source.root()) {
         dependencyQueue(source).pushBack({ target, sourceTicksDelay, delta },

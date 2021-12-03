@@ -63,7 +63,6 @@ public:
     void signalSelfInitial(Task task, int_t tick) { signalSelf(task, tick, 0); }
     bool isReady(Task task, int_t tick) { return signal(task, tick).load(std::memory_order_relaxed) == SIGNALED_BY_SELF_FLAG; }
     void updateDependencyCount(Task target, Task source, tickdiff_t sourceTicksDelay, refcnt_t delta);
-    void signalDependencies(Task task, int_t tick);
 
     Heap::TickHelper heap(Root root, utick_t tick) { return rootHeader(root).heap.tick(tick); }
     void*& payload(Task task) { return taskDependencies(task).payload; }
@@ -106,10 +105,7 @@ private:
         std::atomic<refcnt_t> signalDelta;
     };
     struct TaskDependencies {
-        FlatSet<Dependency> internalDep;
-        FlatSet<Dependency> externalDep;
         AtomicArrayBuilder<DependencyQueueItem> queue;
-        refcnt_t signalCount = 0;
         void* payload;
     };
 
@@ -137,6 +133,16 @@ private:
         AtomicStableVector<TaskSignals, MAX_TASKS> taskSignals;
     };
 
+public:
+    class TaskInternals {
+    public:
+        void signalDependencies(Scheduler& scheduler, Task task, int_t tick);
+    private:
+        FlatSet<Dependency> internals;
+        FlatSet<Dependency> externals;
+        refcnt_t signalCount = 0;
+    };
+
     uint32_t nextRoot = 1;
 
     int_t maxRoots;
@@ -147,9 +153,6 @@ private:
 
     TaskDependencies& taskDependencies(Task task) { return rootHeader(task.root()).taskDependencies[task.id]; }
     AtomicArrayBuilder<DependencyQueueItem>& dependencyQueue(Task task) { return taskDependencies(task).queue; }
-    FlatSet<Dependency>& internalDependencies(Task task) { return taskDependencies(task).internalDep; }
-    FlatSet<Dependency>& externalDependencies(Task task) { return taskDependencies(task).externalDep; }
-    refcnt_t& signalCount(Task task) { return taskDependencies(task).signalCount; }
 
     TaskSignals& taskSignals(Task task, utick_t tick) { return *rootHeader(task.root()).taskSignals[task.id][heap(task.root(), tick)]; }
     std::atomic<urefcnt_t>& signal(Task task, utick_t tick) { return taskSignals(task, tick).signal; }

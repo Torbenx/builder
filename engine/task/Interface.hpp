@@ -36,20 +36,23 @@ namespace detail {
     inline thread_local TaskHandle currentTask;
     inline thread_local int_t tick = 0;
 
-    inline void createDependency(TaskHandle target, TaskHandle source, int16_t ticksAhead) { scheduler->updateDependencyCount(target, source, ticksAhead, 1); }
-    inline void deleteDependency(TaskHandle target, TaskHandle source, int16_t ticksAhead) { scheduler->updateDependencyCount(target, source, ticksAhead, -1); }
+    inline void createDependency(TaskHandle target, TaskHandle source, tickdiff_t ticksAhead) {
+        log<Tag::Task>("createDependency: {{{}}} -> {{{}}} + {}", (uint32_t)source.id, (uint32_t)target.id, ticksAhead);
+        scheduler->updateDependencyCount(target, source, ticksAhead, 1);
+    }
+    inline void deleteDependency(TaskHandle target, TaskHandle source, tickdiff_t ticksAhead) { scheduler->updateDependencyCount(target, source, ticksAhead, -1); }
 
-    inline void deleteDependencyFromCurrent(TaskHandle target, int16_t ticksAhead) { deleteDependency(target, currentTask, ticksAhead); }
+    inline void deleteDependencyFromCurrent(TaskHandle target, tickdiff_t ticksAhead) { deleteDependency(target, currentTask, ticksAhead); }
 
     namespace {
         // the current interface a method is being called on
         thread_local struct {
             TaskHandle task;
-            int16_t ticksAhead = 0;
+            tickdiff_t ticksAhead = 0;
 
-            inline int16_t createDependency(TaskHandle task, int16_t ticksAhead, bool currentIsSource) {
-                TaskHandle target = currentIsSource ? task : this->task;
-                TaskHandle source = currentIsSource ? this->task : task;
+            inline tickdiff_t createDependency(TaskHandle task, tickdiff_t ticksAhead, bool activeIsSource) {
+                TaskHandle source = activeIsSource ? this->task : task;
+                TaskHandle target = activeIsSource ? task : this->task;
                 ticksAhead = ticksAhead - this->ticksAhead;
                 detail::createDependency(target, source, std::abs(ticksAhead));
                 return ticksAhead;
@@ -62,7 +65,7 @@ namespace detail {
         T* ptr;
         T* operator->() { return ptr; }
 
-        Wrapper(TaskHandle task, int16_t ticksAhead, T* ptr)
+        Wrapper(TaskHandle task, tickdiff_t ticksAhead, T* ptr)
             : ptr(ptr) {
             VERIFY(Task, activeTask.task == nullptr);
             activeTask = { task, ticksAhead };
@@ -77,30 +80,32 @@ namespace detail {
     };
 }
 
-template<typename T>
+template<typename T, bool isInterface>
 struct RefDescriptor {
     TaskHandle task;
     Ptr32<T> ptr;
-    int16_t ticksAhead = 0;
+    // ticksAhead >= 0 for interfaces and <= 0 for data
+    tickdiff_t ticksAhead = 0;
 
-    RefDescriptor(TaskHandle task, Ptr32<T> ptr, int16_t ticksAhead)
+    RefDescriptor() { }
+    RefDescriptor(TaskHandle task, Ptr32<T> ptr, tickdiff_t ticksAhead)
         : task(task), ptr(ptr), ticksAhead(ticksAhead) { }
 
     explicit operator bool() { return task != nullptr; }
 };
 
-template<typename T>
-class Ref : public RefDescriptor<T> {
+template<typename T, bool isInterface>
+class Ref : public RefDescriptor<T, isInterface> {
 public:
-    Ref(const Ref<T>&) = delete;
-    Ref& operator=(const Ref<T>&) = delete;
+    Ref(const Ref&) = delete;
+    Ref& operator=(const Ref&) = delete;
 
     Ref() { }
-    Ref(Ref<T>&& other)
-        : Ref((RefDescriptor<T>)other) {
+    Ref(Ref&& other)
+        : Ref((RefDescriptor<T, isInterface>)other) {
         other.clearFields();
     }
-    Ref& operator=(Ref<T>&& other) {
+    Ref& operator=(Ref&& other) {
         deleteDependency();
         this->task = other.task;
         this->ptr = other.ptr;
@@ -118,23 +123,23 @@ public:
 
     ~Ref() { deleteDependency(); }
 
-    static Ref<T> createFromCurrent(TaskHandle target, Ptr32<T> ptr, int16_t ticksAhead) {
+    static Ref createFromCurrent(TaskHandle target, Ptr32<T> ptr, tickdiff_t ticksAhead) requires isInterface {
         detail::createDependency(target, detail::currentTask, ticksAhead);
-        return { RefDescriptor<T> { target, ptr, ticksAhead } };
+        return { RefDescriptor<T, isInterface> { target, ptr, ticksAhead } };
     }
 
-    static Ref<T> createToCurrent(TaskHandle source, Ptr32<T> ptr, int16_t ticksAhead) {
+    static Ref createToCurrent(TaskHandle source, Ptr32<T> ptr, tickdiff_t ticksAhead) requires (!isInterface) {
         detail::createDependency(detail::currentTask, source, ticksAhead);
-        return { RefDescriptor<T> { source, ptr, ticksAhead } };
+        return { RefDescriptor<T, isInterface> { source, ptr, ticksAhead } };
     }
 
 protected:
-    Ref(const RefDescriptor<T>& ref)
-        : RefDescriptor<T>(ref) { }
+    Ref(const RefDescriptor<T, isInterface>& ref)
+        : RefDescriptor<T, isInterface>(ref) { }
 
     T* get() {
         int_t tick;
-        if (task.root() == detail::currentTask.root()) {
+        if (this->task.root() == detail::currentTask.root()) {
             tick = detail::tick;
         } else {
             tick = 0; // fix me
@@ -154,34 +159,18 @@ protected:
         this->ticksAhead = 0;
     }
 };
-
 template<typename T>
-class SelfRef {
+using InterfaceRef = Ref<T, true>;
+template<typename T>
+using DataRef = Ref<T, false>;
+
+template<typename T, bool isInterface>
+class Parameter : public Ref<T, isInterface> {
 public:
-    Ptr32<T> ptr;
-
-    SelfRef(const SelfRef&) = delete;
-    SelfRef& operator=(const SelfRef&) = delete;
-    SelfRef(Ptr32<T> ptr)
-        : ptr(ptr) { }
-    SelfRef() { }
-
-    T* operator->() { return ptr[heap()]; }
-    RefDescriptor<T> asRef(int16_t ticksAhead) { return { detail::currentTask, ptr, ticksAhead }; }
-
-    ~SelfRef() { /* how to free this? */ }
-
-private:
-    Heap::TickHelper heap() { return detail::scheduler->heap(detail::currentTask.root(), detail::tick); }
-};
-
-template<typename T, bool currentIsSource>
-class Parameter : public Ref<T> {
-public:
-    Parameter(const RefDescriptor<T>& ref)
-        : Ref<T>(RefDescriptor<T> { ref.task, ref.ptr, detail::activeTask.createDependency(ref.task, ref.ticksAhead, currentIsSource) }) { }
+    Parameter(const RefDescriptor<T, isInterface>& ref)
+        : Ref<T, isInterface>(RefDescriptor<T, isInterface> { ref.task, ref.ptr, detail::activeTask.createDependency(ref.task, ref.ticksAhead, isInterface) }) { }
     Parameter(Parameter&& other)
-        : Ref<T>(std::move(other)) { }
+        : Ref<T, isInterface>(std::move(other)) { }
 
     Parameter(const Parameter&) = delete;
     Parameter& operator=(const Parameter&) = delete;
@@ -193,5 +182,34 @@ template<typename T>
 using InterfaceParameter = Parameter<T, true>;
 template<typename T>
 using DataParameter = Parameter<T, false>;
+
+template<typename T, bool isInterface>
+class SelfRef {
+public:
+    Ptr32<T> ptr;
+
+    SelfRef(const SelfRef&) = delete;
+    SelfRef& operator=(const SelfRef&) = delete;
+    SelfRef(Ptr32<T> ptr)
+        : ptr(ptr) { }
+    SelfRef() { }
+
+    T* operator->() { return ptr[heap()]; }
+    RefDescriptor<T, isInterface> delayed(tickdiff_t delay = 1) {
+        return { detail::currentTask, ptr, isInterface ? delay : -delay };
+    }
+    operator RefDescriptor<T, isInterface>() { return delayed(0); }
+    operator Parameter<T, isInterface>() { return Parameter { delayed(0) }; }
+
+    ~SelfRef() { /* how to free this? */ }
+
+private:
+    Heap::TickHelper heap() { return detail::scheduler->heap(detail::currentTask.root(), detail::tick); }
+};
+
+template<typename T>
+inline SelfRef<T, false> makeData() {
+    return { make32<T>(detail::scheduler->heap(detail::currentTask.root(), detail::tick).persistentAllocator()) };
+}
 
 }

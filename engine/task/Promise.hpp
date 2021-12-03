@@ -26,10 +26,12 @@ namespace detail {
 }
 
 struct AwaitNextTick {
+    Scheduler::TaskInternals& taskInternals;
+
     bool await_ready() { return false; }
 
     stdx::coroutine_handle<> await_suspend(stdx::coroutine_handle<>) {
-        detail::scheduler->signalDependencies(detail::currentTask, detail::tick);
+        taskInternals.signalDependencies(*detail::scheduler, detail::currentTask, detail::tick);
         return detail::getNext();
     }
 
@@ -77,7 +79,7 @@ public:
 
     stdx::suspend_always initial_suspend() { return {}; }
     stdx::suspend_never final_suspend() noexcept { return {}; }
-    AwaitNextTick yield_value(int) { return {}; }
+    AwaitNextTick yield_value(int) { return { taskInternals }; }
     await_value<Promise&> await_transform(get_self_t) { return { *this }; }
     template<typename T>
     decltype(auto) await_transform(T&& t) { return std::forward<T>(t); }
@@ -89,11 +91,11 @@ public:
     }
 
     template<typename T>
-    SelfRef<T> get() {
+    auto get() {
         if constexpr (tuple_has_type_v<T, Interfaces_t>) {
-            return { interfaces.template get<T>() };
+            return SelfRef<T, true> { interfaces.template get<T>() };
         } else {
-            return { data.template get<T>() };
+            return SelfRef<T, false> { data.template get<T>() };
         }
     }
 
@@ -105,6 +107,8 @@ private:
     Ptr32<Data_t> data;
     template<auto func>
     friend class Spawn;
+
+    Scheduler::TaskInternals taskInternals;
 };
 
 template<Description desc, typename... Args, Task<desc> (*func)(Args...)>
@@ -117,11 +121,11 @@ public:
     }
 
     template<typename T>
-    Ref<T> get(tickdiff_t ticksAhead) {
+    auto get(tickdiff_t delay) {
         if constexpr (tuple_has_type_v<T, Interfaces_t>) {
-            return Ref<T>::createFromCurrent(task, interfaces.template get<T>(), ticksAhead);
+            return InterfaceRef<T>::createFromCurrent(task, interfaces.template get<T>(), delay);
         } else {
-            return Ref<T>::createToCurrent(task, data.template get<T>(), ticksAhead);
+            return DataRef<T>::createToCurrent(task, data.template get<T>(), -delay);
         }
     }
 
