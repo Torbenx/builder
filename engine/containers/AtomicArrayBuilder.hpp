@@ -1,6 +1,7 @@
 #pragma once
 
 #include "containers/ArrayView.hpp"
+#include "resource/Owned.hpp"
 #include <atomic>
 #include <cstring>
 #include <mutex>
@@ -8,17 +9,6 @@
 template<typename T>
 class AtomicArrayBuilder {
 public:
-    struct OwningArrayView : ArrayView<T> {
-        void free() {
-            delete[] this->data();
-            *this = OwningArrayView {};
-        }
-
-        ~OwningArrayView() {
-            delete[] this->data();
-        }
-    };
-
     template<typename Callback, typename Conditional>
     uint32_t pushBack(T item, Callback&& callback, Conditional&& conditional) {
         while (true) {
@@ -56,7 +46,7 @@ public:
             item, [](uint32_t) {}, std::forward<Conditional>(conditional));
     }
 
-    OwningArrayView take(uint32_t payload = 0) {
+    Owned<ArrayView<T>> take(uint32_t payload = 0) {
         std::lock_guard<std::mutex> g(allocationLock);
         uint64_t enter = this->enter.exchange((uint64_t)payload << 32, std::memory_order_relaxed);
 

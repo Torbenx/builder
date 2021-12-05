@@ -67,7 +67,7 @@ public:
 
 task::Task<task::Description { task::interface<MyInterface> }> testChild() {
     auto& self = co_await get_self;
-    
+
     task::DataRef<MyData> dat;
     while (true) {
         dat = std::move(self.get<MyInterface>()->dat);
@@ -78,7 +78,7 @@ task::Task<task::Description { task::interface<MyInterface> }> testChild() {
 
     while (true) {
         log("tick={}, i={}", task::detail::tick, dat->i);
-        
+
         co_yield 0;
     }
 }
@@ -118,13 +118,13 @@ TestRenderer<G>::TestRenderer()
     , f4 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) }
     , f5 { .modelMatrix = Mat4x4::Id, .drawMode = DrawMode::TriangleStrip, .indices = IndexBuffer::withoutData(4) } {
 
-    task::CoroutineScheduler* sched = new task::CoroutineScheduler;
+    /*task::CoroutineScheduler* sched = new task::CoroutineScheduler;
     task::RootHandle root = sched->newRoot();
     task::detail::scheduler = sched;
     task::detail::tick = 0;
     task::detail::currentTask = { root, 0 };
     task::Spawn<testParent>().execute();
-    task::detail::getNext().resume();
+    task::detail::getNext().resume();*/
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));
@@ -145,8 +145,9 @@ TestRenderer<G>::TestRenderer()
     log("lastError = {}, ERROR_PRIVILEGE_NOT_HELD = {}", GetLastError(), ERROR_PRIVILEGE_NOT_HELD);*/
 
     Framebuffer::DEFAULT.clearColor(0, 0, 0, 1);
+    Context<GAllocator*>::set(&allocator);
 
-    ambientLight.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 1) * 1.0f;
+    ambientLight.fragmentUniform.staticUpdate().color = Vec3(1, 1, 1) * 1.0f;
 
     spotLightDepthMap = Texture::depth(2048, 2048, Texture::DepthBits::D16);
     spotLightFB.bind();
@@ -157,8 +158,8 @@ TestRenderer<G>::TestRenderer()
         0.0f, 0.0f, 0.5f, 0.0f,
         0.5f, 0.5f, 0.5f - 0.001f, 1.0f });
     spotLightDepthPass.viewProjectionMatrix = Mat4x4::frustumVH(F_PI * 0.2f, F_PI * 0.4f, 0.7f, 30.0f) * Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
-    spotLight.fragmentUniform.staticUpdate(allocator) = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
-    spotLight.vertexUniform.staticUpdate(allocator) = { .mvpMatrix = mat * spotLightDepthPass.viewProjectionMatrix };
+    spotLight.fragmentUniform.staticUpdate() = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
+    spotLight.vertexUniform.staticUpdate() = { .mvpMatrix = mat * spotLightDepthPass.viewProjectionMatrix };
     spotLight.depthMap = *spotLightDepthMap;
 
     pointLightDepthMap = CubeMap::depth(1024, 1024, Texture::DepthBits::D16);
@@ -168,8 +169,8 @@ TestRenderer<G>::TestRenderer()
         pointLightFBs[i].viewport(1024, 1024);
     }
     pointLight.depthMap = *pointLightDepthMap;
-    pointLight.fragmentUniform.allocateDynamic(allocator);
-    pointLight.vertexUniform.allocateDynamic(allocator);
+    pointLight.fragmentUniform.allocateDynamic();
+    pointLight.vertexUniform.allocateDynamic();
     updatePointLightData();
 
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
@@ -178,27 +179,27 @@ TestRenderer<G>::TestRenderer()
     reflectionFB.attach(reflectionDepthBuffer);
     reflectionFB.attach(reflectionTexture);
     reflectionFB.viewport(2048, 2048);
-    reflection.fragmentUniform.staticUpdate(allocator).factor = 0.7f;
+    reflection.fragmentUniform.staticUpdate().factor = 0.7f;
     reflection.texture = *reflectionTexture;
     reflectionFB.clearColor(0, 0, 0, 1);
 
-    col1.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 0, 0) * 0.5f;
-    col2.fragmentUniform.staticUpdate(allocator).color = Vec3(0, 1, 0) * 0.5f;
-    col3.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 1) * 0.1f;
-    col4.fragmentUniform.staticUpdate(allocator).color = Vec3(1, 1, 0) * 0.5f;
-    col5.fragmentUniform.staticUpdate(allocator).color = Vec3(0, 0, 1) * 0.5f;
+    col1.fragmentUniform.staticUpdate().color = Vec3(1, 0, 0) * 0.5f;
+    col2.fragmentUniform.staticUpdate().color = Vec3(0, 1, 0) * 0.5f;
+    col3.fragmentUniform.staticUpdate().color = Vec3(1, 1, 1) * 0.1f;
+    col4.fragmentUniform.staticUpdate().color = Vec3(1, 1, 0) * 0.5f;
+    col5.fragmentUniform.staticUpdate().color = Vec3(0, 0, 1) * 0.5f;
 
     float f1Scale = 0.5f;
-    f1.vertices.staticUpdate(allocator, { Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale });
-    f1.normals.staticUpdate(allocator, { up, up, up, up });
-    f2.vertices.staticUpdate(allocator, { Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
-    f2.normals.staticUpdate(allocator, { up, up, up, up });
-    f3.vertices.staticUpdate(allocator, { Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
-    f3.normals.staticUpdate(allocator, { up, up, up, up });
-    f4.vertices.staticUpdate(allocator, { Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
-    f4.normals.staticUpdate(allocator, { -up, -up, -up, -up });
-    f5.vertices.allocateDynamic(allocator, 4);
-    f5.normals.staticUpdate(allocator, { up, up, up, up });
+    f1.vertices.staticUpdate({ Vec3(-1, 0, -1) * f1Scale, Vec3(-1, 0, 1) * f1Scale, Vec3(1, 0, -1) * f1Scale, Vec3(1, 0, 1) * f1Scale });
+    f1.normals.staticUpdate({ up, up, up, up });
+    f2.vertices.staticUpdate({ Vec3(-1, 3, 0), Vec3(-1, 3, 2), Vec3(1, 3, 0), Vec3(1, 3, 2) });
+    f2.normals.staticUpdate({ up, up, up, up });
+    f3.vertices.staticUpdate({ Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) });
+    f3.normals.staticUpdate({ up, up, up, up });
+    f4.vertices.staticUpdate({ Vec3(-10, 4, -10), Vec3(-10, 4, 10), Vec3(10, 4, -10), Vec3(10, 4, 10) });
+    f4.normals.staticUpdate({ -up, -up, -up, -up });
+    f5.vertices.allocateDynamic(4);
+    f5.normals.staticUpdate({ up, up, up, up });
 
     id_t id1 = objects.insertObject(f1);
     id_t id2 = objects.insertObject(f2);
@@ -233,6 +234,10 @@ TestRenderer<G>::TestRenderer()
     textComp.textColor = Vec4(1, 0, 0, 1);
     textComp.noBreaks = true;
 
+    TestComponent* typedPtr = new TestComponent {};
+    textBackground.reset(typedPtr);
+    typedPtr->color = Vec4(0, 1, 0, 1);
+
     cubeComp.farDepth = 1.0f;
     cubeComp.cubeMap = &pointLight.depthMap;
     cubeComp.positiveZ(Rect::bltr(-1, -1, 1, 1));
@@ -243,6 +248,8 @@ TestRenderer<G>::TestRenderer()
         .alignLeft()
         .wrapContentWidth()
         .wrapContentHeight();
+    uiScene.layout(textBackground.get())
+        .align(&textComp, TypedSize::pixels(-5.0f));
     uiScene.layout(&cubeComp)
         .align(nullptr, TypedSize::gl(0.1f));
     uiScene.layout(&refComp)
@@ -265,8 +272,8 @@ TestRenderer<G>::TestRenderer()
 
     pawn.modelMatrix = Mat4x4::diagonal(Vec3(1, 1, 1) * 0.1f) * Mat4x4::rotate(-F_PI / 2.0f, Vec3(1, 0, 0)) * Mat4x4::translate(Vec3(+2, -16, 0));
     pawn.drawMode = DrawMode::Triangles;
-    pawn.vertices.staticUpdate(allocator, { (Vec3*)parser.vertex, parser.vertexCount });
-    pawn.normals.staticUpdate(allocator, { (Vec3*)parser.normals, parser.vertexCount });
+    pawn.vertices.staticUpdate({ (Vec3*)parser.vertex, parser.vertexCount });
+    pawn.normals.staticUpdate({ (Vec3*)parser.normals, parser.vertexCount });
     pawn.indices = *pawnIndices;
     id_t pawnId = objects.insertObject(pawn);
 
@@ -307,9 +314,9 @@ TestRenderer<G>::TestRenderer()
 
     glEnable(GL_DEPTH_TEST);
     for (int_t i = 0; i < 6; i++) {
-        pointLightDepthPasses[i].draw(objects, allocator);
+        pointLightDepthPasses[i].draw(objects);
     }
-    spotLightDepthPass.draw(objects, allocator);
+    spotLightDepthPass.draw(objects);
     glDisable(GL_DEPTH_TEST);
 }
 
@@ -318,12 +325,12 @@ void TestRenderer<G>::updatePointLightData() {
     float m_near = 0.2f;
     float m_far = 15.0f;
 
-    pointLight.fragmentUniform.dynamicUpdate(allocator) = {
+    pointLight.fragmentUniform.dynamicUpdate() = {
         .color = Vec3(1, 0.3, 1) * 16.0f,
         .a = ((m_near + m_far) / (m_far - m_near) + 1.0f) * 0.5f - 0.001f,
         .b = 2.0f * m_near * m_far / (m_far - m_near) * 0.5f
     };
-    pointLight.vertexUniform.dynamicUpdate(allocator) = { .lightPos = pointLightPosition };
+    pointLight.vertexUniform.dynamicUpdate() = { .lightPos = pointLightPosition };
 
     Mat4x4 pointLightProjection = Mat4x4::frustum(-m_near, m_near, -m_near, m_near, m_near, m_far);
     for (int_t i = 0; i < 6; i++) {
@@ -362,9 +369,9 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
 
-    textComp.updateContent(metrics, allocator);
+    textComp.updateContent(metrics);
     uiScene.metrics = metrics;
-    uiScene.build(allocator);
+    uiScene.build();
 
     if (uiRenderer)
         uiRenderer->release(allocator);
@@ -483,8 +490,9 @@ void TestRenderer<G>::drawFrame() {
         std::stringstream ss;
         ss << "FPS: " << frameCounter;
         textComp.text = ss.str();
-        textComp.updateContent(uiScene.metrics, allocator);
-        uiScene.build(allocator);
+        textComp.updateContent(uiScene.metrics);
+        uiScene.build();
+        allocator.stage();
 
         lsecond = now;
         frameCounter = 0;
@@ -532,7 +540,7 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[1] = Vec3(plp.x - 0.3f, plp.y, plp.z + 0.3f);
     obj5_coords[2] = Vec3(plp.x + 0.3f, plp.y, plp.z - 0.3f);
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
-    f5.vertices.dynamicUpdate(allocator, obj5_coords);
+    f5.vertices.dynamicUpdate(obj5_coords);
     updatePointLightData();
     //uiRenderer->update(allocator);
 
@@ -543,10 +551,10 @@ void TestRenderer<G>::drawFrame() {
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     for (int_t i = 0; i < 6; i++) {
-        pointLightDepthPasses[i].draw(objects, allocator);
+        pointLightDepthPasses[i].draw(objects);
     }
-    reflectionPass.draw(objects, allocator);
-    renderpass.draw(objects, allocator);
+    reflectionPass.draw(objects);
+    renderpass.draw(objects);
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
 
@@ -560,26 +568,17 @@ void TestRenderer<G>::drawFrame() {
         // util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    // cubeComp.draw(Framebuffer::DEFAULT, allocator);
+    // cubeComp.draw(Framebuffer::DEFAULT);
 
-    //uiRenderer->draw(uiTexture, allocator);
-    //refComp.draw(Framebuffer::DEFAULT, allocator);
-    textComp.draw(Framebuffer::DEFAULT, allocator);
+    //uiRenderer->draw(uiTexture);
+    //refComp.draw(Framebuffer::DEFAULT);
+    textBackground->draw(Framebuffer::DEFAULT);
+    textComp.draw(Framebuffer::DEFAULT);
 }
 
 template<Gapi G>
 TestRenderer<G>::~TestRenderer() {
-    uiScene.clear(allocator);
-    /*ambientLightU.release(allocator);
-    col1U.release(allocator);
-    col2U.release(allocator);
-    col3U.release(allocator);
-    col4U.release(allocator);
-    col5U.release(allocator);
-    pawnTexCoords.release(allocator);
-    spotLightFU.release(allocator);
-    spotLightVU.release(allocator);
-    reflectionU.release(allocator);*/
+    uiScene.clear();
 }
 
 INSTANTIATE_G_API_CLASS(TestRenderer);

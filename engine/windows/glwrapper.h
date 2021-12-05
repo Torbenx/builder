@@ -4,9 +4,10 @@
 
 #pragma once
 
+#define NTDDI_VERSION 0x0A000005
 #include <Windows.h>
-#include <D3D11.h>
 //must include Windows.h first
+#include <D3D11.h>
 #include <GL/gl.h>
 #include <GL/glcorearb.h>
 #include <GL/wglext.h>

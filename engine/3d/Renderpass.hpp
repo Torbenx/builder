@@ -11,7 +11,7 @@ struct DepthRenderpass {
     DepthRenderpass(Framebuffer* framebuffer)
         : framebuffer(framebuffer) { }
 
-    void draw(GraphicsObjectCollection&, GAllocator&);
+    void draw(GraphicsObjectCollection&, Context<GAllocator*> = {});
     void addObject(id_t objectId);
 };
 
@@ -24,7 +24,7 @@ public:
     Renderpass(Framebuffer* framebuffer)
         : framebuffer(framebuffer) { }
 
-    void draw(GraphicsObjectCollection&, GAllocator&);
+    void draw(GraphicsObjectCollection&, Context<GAllocator*> = {});
     void addObject(id_t objectId, std::vector<Effect::Handle> effects);
 
 private:

@@ -50,8 +50,10 @@ public:
     T* data() const { return m_data; }
     int_t size() const { return m_size; }
     T& operator[](int_t i) const { return data()[i]; }
-    iterator begin() { return { data() }; }
-    iterator end() { return { data() + size() }; }
+    iterator begin() const { return { data() }; }
+    iterator end() const { return { data() + size() }; }
+
+    void release() { delete[] m_data; }
 
 private:
     T* m_data = nullptr;

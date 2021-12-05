@@ -70,6 +70,7 @@ public:
     int_t navBaseX, navBaseY;
     int_t navDeltaX = 0, navDeltaY = 0;
     TextComponent textComp;
+    std::unique_ptr<UiComponent> textBackground; // why does this work???
     DepthCubeMapComponent cubeComp;
     TextureComponent refComp;
     UiScene uiScene;

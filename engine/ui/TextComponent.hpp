@@ -12,9 +12,9 @@ class TextComponent : public TextureComponent{
         TypedSize textSize;
         bool noBreaks = false;
         TextComponent();
-        void draw(Framebuffer&, GAllocator&) override;
-        void updateRect(ScreenMetrics&, GAllocator&) override;
-        void updateContent(ScreenMetrics&, GAllocator&) override;
+        void draw(Framebuffer&, Context<GAllocator*> = {}) override;
+        void updateRect(ScreenMetrics&, Context<GAllocator*> = {}) override;
+        void updateContent(ScreenMetrics&, Context<GAllocator*> = {}) override;
         TypedSizeXY getContentWidth() override;
         TypedSizeXY getContentHeight() override;
         ~TextComponent();

@@ -67,7 +67,8 @@ public:
     }
 
     void release(GAllocator& allocator) {
-        allocation.release(allocator);
+        Context<GAllocator*>::set(&allocator);
+        allocation.release();
     }
 
 private:

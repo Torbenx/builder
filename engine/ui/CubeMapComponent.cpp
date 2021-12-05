@@ -5,7 +5,7 @@ CubeMapComponent::CubeMapComponent(bool createShader) : coords(VertexBuffer::all
         shader = Shaders::cubeMap();
 }
 
-void CubeMapComponent::draw(Framebuffer& framebuffer, GAllocator&){
+void CubeMapComponent::draw(Framebuffer& framebuffer, Context<GAllocator*>){
     shader->use();
     shader->attribPointer(shader->positionAttrib, coords.value);
     shader->attribPointer(shader->texCoordAttrib, texCoords.value);
@@ -14,7 +14,7 @@ void CubeMapComponent::draw(Framebuffer& framebuffer, GAllocator&){
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
 
-void CubeMapComponent::updateRect(ScreenMetrics&, GAllocator&){
+void CubeMapComponent::updateRect(ScreenMetrics&, Context<GAllocator*>) {
     coords.value.update(rect.corners());
 }
 

@@ -15,8 +15,8 @@ public:
     std::list<UiRendererClickable> clickables;
     UiSceneComponent();
     void makeClickable(UiComponent& comp, int id);
-    void updateRect(ScreenMetrics&, GAllocator&) override;
-    void draw(Framebuffer&, GAllocator&) override { }
+    void updateRect(ScreenMetrics&, Context<GAllocator*> = {}) override;
+    void draw(Framebuffer&, Context<GAllocator*> = {}) override { }
     virtual void pointer(PointerEvent event);
     virtual void onClick(int) { }
 };

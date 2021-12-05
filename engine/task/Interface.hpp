@@ -196,7 +196,7 @@ public:
 
     T* operator->() { return ptr[heap()]; }
     RefDescriptor<T, isInterface> delayed(tickdiff_t delay = 1) {
-        return { detail::currentTask, ptr, isInterface ? delay : -delay };
+        return { detail::currentTask, ptr, (tickdiff_t)(isInterface ? delay : -delay) };
     }
     operator RefDescriptor<T, isInterface>() { return delayed(0); }
     operator Parameter<T, isInterface>() { return Parameter { delayed(0) }; }

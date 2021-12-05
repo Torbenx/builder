@@ -17,7 +17,7 @@ public:
 
     ShaderpassImpl(Resource<id_t> shaderHandle);
 
-    void draw(GraphicsObjectCollection&, Renderpass&, GAllocator&) override;
+    void draw(GraphicsObjectCollection&, Renderpass&, Context<GAllocator*> = {}) override;
     void addEntry(id_t objectId, std::vector<Effect::Handle>& effects) override;
 };
 
@@ -111,7 +111,8 @@ std::array<DataStream::Reader, N> createReaderArray_helper(const std::array<Data
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& renderpass, GAllocator& allocator) {
+void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& renderpass, Context<GAllocator*> allocator) {
+    allocator.forward();
     EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
@@ -133,18 +134,18 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
             Effect::TypeData data = Effect::data(entry.effects[j].type);
             auto state = shader.ordered(shader.slots[j]);
             for (int_t c = 0; c < data.vertexBuffers.size(); c++)
-                state.attribPointer({ allocator.buffer(reader.read<GPtr>()), data.vertexBufferElementSizes[c] });
+                state.attribPointer({ allocator->buffer(reader.read<GPtr>()), data.vertexBufferElementSizes[c] });
             for (int_t c = 0; c < data.textures.size(); c++)
                 state.uniformTexture(reader.read<Texture>());
             if (data.vertexUniformDesc.size > 0)
-                state.uniformBuffer({ allocator.buffer(reader.read<GPtr>()), data.vertexUniformDesc.size });
+                state.uniformBuffer({ allocator->buffer(reader.read<GPtr>()), data.vertexUniformDesc.size });
             if (data.fragmentUniformDesc.size > 0)
-                state.uniformBuffer({ allocator.buffer(reader.read<GPtr>()), data.fragmentUniformDesc.size });
+                state.uniformBuffer({ allocator->buffer(reader.read<GPtr>()), data.fragmentUniformDesc.size });
         }
         const GraphicsObject& object = objects[entry.objectId];
         shader.uniformMat4x4(shader.modelUniform, object.modelMatrix);
-        shader.attribPointer(shader.positionAttrib, object.vertices.vertexBuffer(allocator));
-        shader.attribPointer(shader.normalAttrib, object.normals.vertexBuffer(allocator));
+        shader.attribPointer(shader.positionAttrib, object.vertices.vertexBuffer());
+        shader.attribPointer(shader.normalAttrib, object.normals.vertexBuffer());
         renderpass.framebuffer->draw(object.drawMode, object.indices);
     }
 }

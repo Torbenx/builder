@@ -2,17 +2,18 @@
 
 #include "graphics/GAllocator.hpp"
 #include "math/constants.hpp"
+#include "util/Context.hpp"
 
 template<typename T = void>
 struct GAllocationHelper {
     TypedGPtr<T> ptr;
 
-    void release(GAllocator& allocator) {
-        allocator.free(&ptr);
+    void release(Context<GAllocator*> allocator = {}) {
+        allocator->free(&ptr);
     }
 
     ~GAllocationHelper() {
-        VERIFY(Graphics, ptr.bufferId == 0);
+        release();
     }
 };
 
@@ -27,46 +28,46 @@ static inline int_t uniformAlignment() {
 template<typename T>
 struct UniformHelper : GAllocationHelper<T> {
 
-    UniformBuffer uniformBuffer(GAllocator& allocator) const {
-        return { allocator.buffer(this->ptr), sizeof(T) };
+    UniformBuffer uniformBuffer(Context<GAllocator*> allocator = {}) const {
+        return { allocator->buffer(this->ptr), sizeof(T) };
     }
 
-    T& allocateDynamic(GAllocator& allocator) {
-        return *(T*)allocator.allocateDynamic(&this->ptr, uniformAlignment(), sizeof(T));
+    T& allocateDynamic(Context<GAllocator*> allocator = {}) {
+        return *(T*)allocator->allocateDynamic(&this->ptr, uniformAlignment(), sizeof(T));
     }
 
-    T& dynamicUpdate(GAllocator& allocator) {
-        return *(T*)allocator.mapping(this->ptr);
+    T& dynamicUpdate(Context<GAllocator*> allocator = {}) {
+        return *(T*)allocator->mapping(this->ptr);
     }
 
-    T& staticUpdate(GAllocator& allocator) {
-        return *(T*)allocator.allocateStatic(&this->ptr, uniformAlignment(), sizeof(T));
+    T& staticUpdate(Context<GAllocator*> allocator = {}) {
+        return *(T*)allocator->allocateStatic(&this->ptr, uniformAlignment(), sizeof(T));
     }
 };
 
 template<typename T>
 struct VertexAttribHelper : GAllocationHelper<T*> {
-    VertexAttribBuffer vertexBuffer(GAllocator& allocator) const {
-        return { allocator.buffer(this->ptr), VectorTraits<T>::length };
+    VertexAttribBuffer vertexBuffer(Context<GAllocator*> allocator = {}) const {
+        return { allocator->buffer(this->ptr), VectorTraits<T>::length };
     }
 
-    T* staticUpdate(GAllocator& allocator, int_t n) {
-        return (T*)allocator.allocateStatic(&this->ptr, alignof(T), sizeof(T) * n);
+    T* staticUpdate(int_t n, Context<GAllocator*> allocator = {}) {
+        return (T*)allocator->allocateStatic(&this->ptr, alignof(T), sizeof(T) * n);
     }
 
-    T* allocateDynamic(GAllocator& allocator, int_t n) {
-        return (T*)allocator.allocateDynamic(&this->ptr, alignof(T), sizeof(T) * n);
+    T* allocateDynamic(int_t n, Context<GAllocator*> allocator = {}) {
+        return (T*)allocator->allocateDynamic(&this->ptr, alignof(T), sizeof(T) * n);
     }
 
-    T* dynamicUpdate(GAllocator& allocator) {
-        return (T*)allocator.mapping(this->ptr);
+    T* dynamicUpdate(Context<GAllocator*> allocator = {}) {
+        return (T*)allocator->mapping(this->ptr);
     }
 
-    void dynamicUpdate(GAllocator& allocator, const ArrayView<const T>& data) {
-        std::memcpy(dynamicUpdate(allocator), data.data(), sizeof(T) * data.size());
+    void dynamicUpdate(const ArrayView<const T>& data, Context<GAllocator*> allocator = {}) {
+        std::memcpy(dynamicUpdate(), data.data(), sizeof(T) * data.size());
     }
 
-    void staticUpdate(GAllocator& allocator, const ArrayView<const T>& data) {
-        std::memcpy(staticUpdate(allocator, data.size()), data.data(), sizeof(T) * data.size());
+    void staticUpdate(const ArrayView<const T>& data, Context<GAllocator*> allocator = {}) {
+        std::memcpy(staticUpdate(data.size()), data.data(), sizeof(T) * data.size());
     }
 };

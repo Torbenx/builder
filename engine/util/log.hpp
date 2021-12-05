@@ -18,7 +18,7 @@ struct Default {
 void log_print(const std::string& tag, const std::string& msg);
 
 template<typename T>
-concept LogTag = std::is_same_v<decltype(T::tag), const char[sizeof(T::tag)]> && sizeof(T::tag) <= 8;
+concept LogTag = std::is_same_v<decltype(T::tag), const char[sizeof(T::tag)]> && sizeof(T::tag) <= 10 + 1;
 
 template<typename T>
 concept VerifyTag = LogTag<T> && std::is_same_v<decltype(T::verifyEnabled), const bool>;

@@ -74,8 +74,8 @@ void Scheduler::signalRoot(Root root, ArrayView<int_t> sourceTicks) {
 
         auto queue = rootQueue(source, root).take(tick + 1);
         auto& delayedQueue = rootQueueDelayed(source, root);
-        delayedQueue.insert(queue);
-        queue.free();
+        delayedQueue.insert(*queue);
+        queue.release();
 
         for (auto item : delayedQueue) {
             if (item.firstSourceTick <= sourceTick) {
@@ -94,12 +94,12 @@ void Scheduler::TaskInternals::signalDependencies(Scheduler& scheduler, Task sou
 
     auto queue = scheduler.dependencyQueue(source).take(sourceTick + 1);
 
-    for (auto item : queue) {
+    for (auto item : *queue) {
         auto& depedencies = item.task.root() == source.root() ? internals : externals;
         int_t i = depedencies.getOrInsert(item.asEmptyDependency());
         depedencies[i].refCount += item.refCountDelta;
     }
-    queue.free();
+    queue.release();
 
     internals.removeIf([](Dependency d) { return d.refCount == 0; });
     for (auto dep : internals) {

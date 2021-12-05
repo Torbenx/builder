@@ -62,7 +62,7 @@ struct Ptr32 : Ptr32Base<T> {
     }
 
     template<Allocator32Bit Allocator>
-    void free(Allocator&& allocator) {
+    void release(Allocator&& allocator) {
         allocator.free32(this->offset);
     }
 };
