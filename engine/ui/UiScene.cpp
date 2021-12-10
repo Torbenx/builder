@@ -36,8 +36,7 @@ void UiScene::setParent(Rect rect) {
     this->parent = rect;
 }
 
-void UiScene::build(Context<GAllocator*> allocator) {
-    allocator.forward();
+void UiScene::build([[context]] GAllocator* allocator) {
 
     solver.fixed[UI_VAR_TOP] = parent.top;
     solver.fixed[UI_VAR_BOTTOM] = parent.bottom;
@@ -60,8 +59,7 @@ void UiScene::build(Context<GAllocator*> allocator) {
     solver.freeSolution();
 }
 
-void UiScene::clear(Context<GAllocator*> allocator) {
-    allocator.forward();
+void UiScene::clear([[context]] GAllocator* allocator) {
     solver.clear();
     components.clear();
 }

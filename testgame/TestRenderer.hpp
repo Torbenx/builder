@@ -70,7 +70,7 @@ public:
     int_t navBaseX, navBaseY;
     int_t navDeltaX = 0, navDeltaY = 0;
     TextComponent textComp;
-    std::unique_ptr<UiComponent> textBackground; // why does this work???
+    TestComponent textBackground;
     DepthCubeMapComponent cubeComp;
     TextureComponent refComp;
     UiScene uiScene;
@@ -87,5 +87,4 @@ public:
     void rawKey(uint32_t keycode, bool down);
     void drawFrame();
     void updatePointLightData();
-    ~TestRenderer();
 };

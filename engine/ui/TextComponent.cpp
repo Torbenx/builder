@@ -7,8 +7,7 @@ TextComponent::TextComponent() : TextureComponent(false){
     shader = Shaders::text();
 }
 
-void TextComponent::updateContent(ScreenMetrics& metrics, Context<GAllocator*> allocator){
-    allocator.forward();
+void TextComponent::updateContent(ScreenMetrics& metrics, [[context]] GAllocator*){
     if(textFormat){
         delete textFormat;
     }
@@ -23,8 +22,7 @@ void TextComponent::updateContent(ScreenMetrics& metrics, Context<GAllocator*> a
     texture->wrappingMode(Texture::WrappingMode::ClampBorder, Texture::WrappingMode::ClampBorder);
 }
 
-void TextComponent::updateRect(ScreenMetrics& metrics, Context<GAllocator*> allocator){
-    allocator.forward();
+void TextComponent::updateRect(ScreenMetrics& metrics, [[context]] GAllocator*){
     TextureComponent::updateRect(metrics);
     if(!noBreaks) updateContent(metrics);
     Rect texRect = Rect::bltr(rect.height() / getContentHeight().toGL(metrics), 0.0f, 0.0f, rect.width() / getContentWidth().toGL(metrics));
@@ -43,15 +41,14 @@ TypedSizeXY TextComponent::getContentHeight(){
     return TypedSize::nan.asYSize();
 }
 
-void TextComponent::draw(Framebuffer& framebuffer, Context<GAllocator*> allocator){
-    allocator.forward();
+void TextComponent::draw(Framebuffer& framebuffer, [[context]] GAllocator*){
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     TextureComponent::draw(framebuffer);
     glDisable(GL_BLEND);
 }
 
-TextComponent::~TextComponent(){
+TextComponent::~TextComponent([[context]] GAllocator*){
     if(textFormat){
         delete textFormat;
     }

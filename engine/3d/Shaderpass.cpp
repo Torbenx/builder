@@ -17,7 +17,7 @@ public:
 
     ShaderpassImpl(Resource<id_t> shaderHandle);
 
-    void draw(GraphicsObjectCollection&, Renderpass&, Context<GAllocator*> = {}) override;
+    void draw(GraphicsObjectCollection&, Renderpass&, [[context]] GAllocator*) override;
     void addEntry(id_t objectId, std::vector<Effect::Handle>& effects) override;
 };
 
@@ -111,8 +111,7 @@ std::array<DataStream::Reader, N> createReaderArray_helper(const std::array<Data
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& renderpass, Context<GAllocator*> allocator) {
-    allocator.forward();
+void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& renderpass, [[context]] GAllocator* allocator) {
     EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);

@@ -14,6 +14,7 @@ struct Graphics {
 struct GPtr {
     uint32_t bufferId : 8 = 0;
     uint32_t offset : 24 = 0;
+    explicit operator bool() { return offset != 0; }
 };
 
 template<typename T>

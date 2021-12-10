@@ -28,8 +28,8 @@ class UiScene{
         UiScene();
         void setParent(Rect rect);
         UiSceneBuilder layout(UiComponent* comp);
-        void build(Context<GAllocator*> = {});
-        void clear(Context<GAllocator*> = {});
+        void build([[context]] GAllocator*);
+        void clear([[context]] GAllocator*);
         ~UiScene();
 };
 

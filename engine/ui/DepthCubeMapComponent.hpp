@@ -2,9 +2,10 @@
 
 #include "ui/CubeMapComponent.hpp"
 
-class DepthCubeMapComponent : public CubeMapComponent{
-    public:
-        float farDepth;
-        DepthCubeMapComponent();
-        void doUniforms() override;
+class DepthCubeMapComponent : public CubeMapComponent {
+public:
+    float farDepth;
+    DepthCubeMapComponent();
+    void doUniforms() override;
+    ~DepthCubeMapComponent([[context]] GAllocator*) { }
 };

@@ -14,12 +14,12 @@ public:
     UiComponent() { }
     UiComponent(const UiComponent&) = delete;
 
-    virtual void updateContent(ScreenMetrics&, Context<GAllocator*> = {}) { }
+    virtual void updateContent(ScreenMetrics&, [[context]] GAllocator*) { }
     virtual TypedSizeXY getContentWidth() { return TypedSize::nan.asXSize(); }
     virtual TypedSizeXY getContentHeight() { return TypedSize::nan.asYSize(); }
-    virtual void updateRect(ScreenMetrics&, Context<GAllocator*> = {}) = 0;
-    virtual void draw(Framebuffer&, Context<GAllocator*> = {}) = 0;
-    virtual ~UiComponent() { }
+    virtual void updateRect(ScreenMetrics&, [[context]] GAllocator*) = 0;
+    virtual void draw(Framebuffer&, [[context]] GAllocator*) = 0;
+    virtual ~UiComponent([[context]] GAllocator*) { }
 
     LazyTypedSizeXY getContentWidthLazy();
     LazyTypedSizeXY getContentHeightLazy();

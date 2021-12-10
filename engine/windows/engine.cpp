@@ -42,7 +42,7 @@ void gl_debug_callback(
     [[maybe_unused]] GLsizei length,
     [[maybe_unused]] const GLchar* message,
     [[maybe_unused]] const void* userParam) {
-    
+
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
         log<Tag::GL>("[{}] glDebug: {}", severity, message);
 }
@@ -279,7 +279,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             rendererState = RENDERER_STATE_INVISIBLE;
             renderer->invisible();
         }
-        delete renderer;
+        //delete renderer;
         PostQuitMessage(0);
         return 0;
     default:

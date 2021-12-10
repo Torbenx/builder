@@ -1,8 +1,7 @@
 #include "3d/Renderpass.hpp"
 #include <algorithm>
 
-void DepthRenderpass::draw(GraphicsObjectCollection& objects, Context<GAllocator*> allocator) {
-    allocator.forward();
+void DepthRenderpass::draw(GraphicsObjectCollection& objects, [[context]] GAllocator* allocator) {
     depthShader->use();
     framebuffer->bind();
     framebuffer->clear();
@@ -18,8 +17,7 @@ void DepthRenderpass::addObject(id_t objectId) {
     objectIds.push_back(objectId);
 }
 
-void Renderpass::draw(GraphicsObjectCollection& objects, Context<GAllocator*> allocator) {
-    allocator.forward();
+void Renderpass::draw(GraphicsObjectCollection& objects, [[context]] GAllocator* allocator) {
     framebuffer->bind();
     framebuffer->clear();
     for (std::unique_ptr<Shaderpass>& pass : passes) {

@@ -14,9 +14,10 @@ public:
     UiScene scene;
     std::list<UiRendererClickable> clickables;
     UiSceneComponent();
+    ~UiSceneComponent([[context]] GAllocator*) { }
     void makeClickable(UiComponent& comp, int id);
-    void updateRect(ScreenMetrics&, Context<GAllocator*> = {}) override;
-    void draw(Framebuffer&, Context<GAllocator*> = {}) override { }
+    void updateRect(ScreenMetrics&, [[context]] GAllocator*) override;
+    void draw(Framebuffer&, [[context]] GAllocator*) override { }
     virtual void pointer(PointerEvent event);
     virtual void onClick(int) { }
 };
