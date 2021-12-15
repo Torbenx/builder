@@ -11,7 +11,7 @@ public:
     Vec4 color;
     VertexAttribHelper<Vec2> coords;
     TestComponent();
-    ~TestComponent([[context]] GAllocator*) { }
+    ~TestComponent([[context]] GAllocator* allocator) { }
     void draw(Framebuffer&, [[context]] GAllocator*) override;
     void updateRect(ScreenMetrics&, [[context]] GAllocator*) override;
 };

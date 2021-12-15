@@ -279,7 +279,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             rendererState = RENDERER_STATE_INVISIBLE;
             renderer->invisible();
         }
-        //delete renderer;
+        delete renderer;
         PostQuitMessage(0);
         return 0;
     default:

@@ -14,7 +14,7 @@ public:
     UiScene scene;
     std::list<UiRendererClickable> clickables;
     UiSceneComponent();
-    ~UiSceneComponent([[context]] GAllocator*) { }
+    ~UiSceneComponent([[context]] GAllocator* allocator) { }
     void makeClickable(UiComponent& comp, int id);
     void updateRect(ScreenMetrics&, [[context]] GAllocator*) override;
     void draw(Framebuffer&, [[context]] GAllocator*) override { }

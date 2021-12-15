@@ -30,7 +30,7 @@ Scheduler::Task Scheduler::newTask(Root root, int_t tick) {
 }
 
 void Scheduler::allowExternalsOneWay(Root source, Root target) {
-    ExternalHeader& header = externalHeader(source, target);
+    // ExternalHeader& header = externalHeader(source, target);
     // nothing to?
 }
 

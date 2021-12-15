@@ -18,5 +18,6 @@ public:
     UniformHelper<FragmentUniform> fragmentUniform;
 
     Reflection();
+    ~Reflection([[context]] GAllocator* allocator) { }
     static void addTo(EffectShaderBuilder&);
 };

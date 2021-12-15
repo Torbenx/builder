@@ -25,6 +25,7 @@ template<Gapi G>
 class TestRenderer : public Renderer<G> {
 public:
     GAllocator allocator;
+    [[context]] GAllocator* allocatorPtr = &allocator;
     uint64_t lframe;
     uint64_t lsecond;
     int_t frameCounter = 0;
@@ -77,7 +78,7 @@ public:
     Renderpass renderpass;
     GraphicsObjectCollection objects;
 
-    std::unique_ptr<ui_renderer::Renderer> uiRenderer;
+    //std::unique_ptr<ui_renderer::Renderer> uiRenderer;
     Resource<Texture> uiTexture;
 
     TestRenderer();
@@ -87,4 +88,5 @@ public:
     void rawKey(uint32_t keycode, bool down);
     void drawFrame();
     void updatePointLightData();
+    ~TestRenderer();
 };

@@ -58,13 +58,13 @@ public:
 
     template<Allocator32Bit Allocator>
     void free(Allocator&& allocator) {
-        for (int_t i = 0; i <= MAX_BITS; i++) {
+        for (int_t i = 0; i <= (int_t)MAX_BITS; i++) {
             allocator.free32(m_data[i].load(std::memory_order_relaxed).offset);
         }
     }
 
     ~AtomicStableVector() {
-        for (int_t j = 0; j <= MAX_BITS; j++) {
+        for (int_t j = 0; j <= (int_t)MAX_BITS; j++) {
             VERIFY(Containers, (bool)m_data[j].load(std::memory_order_relaxed));
         }
     }

@@ -11,9 +11,9 @@ struct GAllocationHelper {
         allocator->free(&ptr);
     }
 
-    ~GAllocationHelper([[context]] GAllocator* allocator = nullptr) {
+    ~GAllocationHelper([[context]] GAllocator* allocator) {
         VERIFY(Graphics, !ptr || allocator);
-        release();
+        release(allocator);
     }
 };
 
@@ -43,6 +43,8 @@ struct UniformHelper : GAllocationHelper<T> {
     T& staticUpdate([[context]] GAllocator* allocator) {
         return *(T*)allocator->allocateStatic(&this->ptr, uniformAlignment(), sizeof(T));
     }
+
+    ~UniformHelper([[context]] GAllocator* allocator) { }
 };
 
 template<typename T>
@@ -63,11 +65,13 @@ struct VertexAttribHelper : GAllocationHelper<T*> {
         return (T*)allocator->mapping(this->ptr);
     }
 
-    void dynamicUpdate(const ArrayView<const T>& data, [[context]] GAllocator*) {
-        std::memcpy(dynamicUpdate(), data.data(), sizeof(T) * data.size());
+    void dynamicUpdate(const ArrayView<const T>& data, [[context]] GAllocator* allocator) {
+        std::memcpy(dynamicUpdate(allocator), data.data(), sizeof(T) * data.size());
     }
 
-    void staticUpdate(const ArrayView<const T>& data, [[context]] GAllocator*) {
-        std::memcpy(staticUpdate(data.size()), data.data(), sizeof(T) * data.size());
+    void staticUpdate(const ArrayView<const T>& data, [[context]] GAllocator* allocator) {
+        std::memcpy(staticUpdate(data.size(), allocator), data.data(), sizeof(T) * data.size());
     }
+
+    ~VertexAttribHelper([[context]] GAllocator* allocator) { }
 };

@@ -32,9 +32,9 @@ protected:
 };
 
 namespace detail {
-    inline thread_local CoroutineScheduler* scheduler = nullptr;
-    inline thread_local TaskHandle currentTask;
-    inline thread_local int_t tick = 0;
+    inline CoroutineScheduler* scheduler = nullptr;
+    inline TaskHandle currentTask;
+    inline int_t tick = 0;
 
     inline void createDependency(TaskHandle target, TaskHandle source, tickdiff_t ticksAhead) {
         log<Tag::Task>("createDependency: {{{}}} -> {{{}}} + {}", (uint32_t)source.id, (uint32_t)target.id, ticksAhead);
@@ -46,7 +46,7 @@ namespace detail {
 
     namespace {
         // the current interface a method is being called on
-        thread_local struct {
+        struct {
             TaskHandle task;
             tickdiff_t ticksAhead = 0;
 

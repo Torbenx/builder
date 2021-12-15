@@ -22,7 +22,7 @@ void TextComponent::updateContent(ScreenMetrics& metrics, [[context]] GAllocator
     texture->wrappingMode(Texture::WrappingMode::ClampBorder, Texture::WrappingMode::ClampBorder);
 }
 
-void TextComponent::updateRect(ScreenMetrics& metrics, [[context]] GAllocator*){
+void TextComponent::updateRect(ScreenMetrics& metrics, [[context]] GAllocator* allocator){
     TextureComponent::updateRect(metrics);
     if(!noBreaks) updateContent(metrics);
     Rect texRect = Rect::bltr(rect.height() / getContentHeight().toGL(metrics), 0.0f, 0.0f, rect.width() / getContentWidth().toGL(metrics));
@@ -41,14 +41,14 @@ TypedSizeXY TextComponent::getContentHeight(){
     return TypedSize::nan.asYSize();
 }
 
-void TextComponent::draw(Framebuffer& framebuffer, [[context]] GAllocator*){
+void TextComponent::draw(Framebuffer& framebuffer, [[context]] GAllocator* allocator){
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     TextureComponent::draw(framebuffer);
     glDisable(GL_BLEND);
 }
 
-TextComponent::~TextComponent([[context]] GAllocator*){
+TextComponent::~TextComponent([[context]] GAllocator* allocator){
     if(textFormat){
         delete textFormat;
     }

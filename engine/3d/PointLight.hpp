@@ -24,4 +24,5 @@ public:
 
     static void addTo(EffectShaderBuilder&);
     PointLight();
+    ~PointLight([[context]] GAllocator* allocator) { }
 };

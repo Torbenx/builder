@@ -51,9 +51,11 @@ public:
     virtual void rawMouseKey([[maybe_unused]] uint32_t key, [[maybe_unused]] bool down) { }
     //ticks > 0 => up
     virtual void rawMouseWheel([[maybe_unused]] int_t ticks) { }
+
+    virtual ~Renderer() { }
 };
 
-#define __FOREACH_G_API(api) Renderer<api>*(*createRenderer_##api)();
+#define __FOREACH_G_API(api) Renderer<api>* (*createRenderer_##api)();
 struct CreateFunctions {
     ENUMERATE_G_APIS(__FOREACH_G_API)
 };
