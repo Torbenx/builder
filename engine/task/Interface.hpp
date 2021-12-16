@@ -7,6 +7,11 @@ namespace task {
 using TaskHandle = Scheduler::Task;
 using RootHandle = Scheduler::Root;
 
+struct TaskInfo {
+    TaskHandle task;
+    int_t tick;
+};
+
 class CoroutineScheduler : public Scheduler {
 public:
     CoroutineScheduler()
@@ -33,16 +38,12 @@ protected:
 
 namespace detail {
     inline CoroutineScheduler* scheduler = nullptr;
-    inline TaskHandle currentTask;
-    inline int_t tick = 0;
 
     inline void createDependency(TaskHandle target, TaskHandle source, tickdiff_t ticksAhead) {
         log<Tag::Task>("createDependency: {{{}}} -> {{{}}} + {}", (uint32_t)source.id, (uint32_t)target.id, ticksAhead);
         scheduler->updateDependencyCount(target, source, ticksAhead, 1);
     }
     inline void deleteDependency(TaskHandle target, TaskHandle source, tickdiff_t ticksAhead) { scheduler->updateDependencyCount(target, source, ticksAhead, -1); }
-
-    inline void deleteDependencyFromCurrent(TaskHandle target, tickdiff_t ticksAhead) { deleteDependency(target, currentTask, ticksAhead); }
 
     namespace {
         // the current interface a method is being called on
@@ -105,7 +106,7 @@ public:
         : Ref((RefDescriptor<T, isInterface>)other) {
         other.clearFields();
     }
-    Ref& operator=(Ref&& other) {
+    Ref& operator=(Ref&& other, [[context]] TaskInfo info) {
         deleteDependency();
         this->task = other.task;
         this->ptr = other.ptr;
@@ -119,17 +120,17 @@ public:
         return *this;
     }
 
-    detail::Wrapper<T> operator->() { return { this->task, this->ticksAhead, this->get() }; }
+    detail::Wrapper<T> operator->([[context]] TaskInfo info) { return { this->task, this->ticksAhead, this->get() }; }
 
-    ~Ref() { deleteDependency(); }
+    ~Ref([[context]] TaskInfo info) { deleteDependency(); }
 
-    static Ref createFromCurrent(TaskHandle target, Ptr32<T> ptr, tickdiff_t ticksAhead) requires isInterface {
-        detail::createDependency(target, detail::currentTask, ticksAhead);
+    static Ref createFromCurrent(TaskHandle target, Ptr32<T> ptr, tickdiff_t ticksAhead, [[context]] TaskInfo info) requires isInterface {
+        detail::createDependency(target, info.task, ticksAhead);
         return { RefDescriptor<T, isInterface> { target, ptr, ticksAhead } };
     }
 
-    static Ref createToCurrent(TaskHandle source, Ptr32<T> ptr, tickdiff_t ticksAhead) requires (!isInterface) {
-        detail::createDependency(detail::currentTask, source, ticksAhead);
+    static Ref createToCurrent(TaskHandle source, Ptr32<T> ptr, tickdiff_t ticksAhead, [[context]] TaskInfo info) requires (!isInterface) {
+        detail::createDependency(info.task, source, ticksAhead);
         return { RefDescriptor<T, isInterface> { source, ptr, ticksAhead } };
     }
 
@@ -137,19 +138,23 @@ protected:
     Ref(const RefDescriptor<T, isInterface>& ref)
         : RefDescriptor<T, isInterface>(ref) { }
 
-    T* get() {
+    T* get([[context]] TaskInfo info) {
         int_t tick;
-        if (this->task.root() == detail::currentTask.root()) {
-            tick = detail::tick;
+        if (this->task.root() == info.task.root()) {
+            tick = info.tick;
         } else {
             tick = 0; // fix me
         }
-        return this->ptr[detail::scheduler->heap(this->task.root(), detail::tick + this->ticksAhead)];
+        return this->ptr[detail::scheduler->heap(this->task.root(), tick + this->ticksAhead)];
     }
 
-    void deleteDependency() {
+    void deleteDependency([[context]] TaskInfo info) {
         if (this->task) {
-            detail::deleteDependencyFromCurrent(this->task, this->ticksAhead);
+            if constexpr (isInterface) {
+                detail::deleteDependency(this->task, info.task, this->ticksAhead);
+            } else {
+                detail::deleteDependency(info.task, this->task, -this->ticksAhead);
+            }
         }
     }
 
@@ -176,7 +181,7 @@ public:
     Parameter& operator=(const Parameter&) = delete;
     Parameter& operator=(Parameter&&) = delete;
 
-    ~Parameter() { VERIFY(Task, this->task == nullptr); }
+    ~Parameter([[context]] TaskInfo info) { VERIFY(Task, this->task == nullptr); }
 };
 template<typename T>
 using InterfaceParameter = Parameter<T, true>;
@@ -194,22 +199,22 @@ public:
         : ptr(ptr) { }
     SelfRef() { }
 
-    T* operator->() { return ptr[heap()]; }
-    RefDescriptor<T, isInterface> delayed(tickdiff_t delay = 1) {
-        return { detail::currentTask, ptr, (tickdiff_t)(isInterface ? delay : -delay) };
+    T* operator->([[context]] TaskInfo info) { return ptr[heap()]; }
+    RefDescriptor<T, isInterface> delayed(tickdiff_t delay = 1, [[context]] TaskInfo info) {
+        return { info.task, ptr, (tickdiff_t)(isInterface ? delay : -delay) };
     }
-    operator RefDescriptor<T, isInterface>() { return delayed(0); }
-    operator Parameter<T, isInterface>() { return Parameter { delayed(0) }; }
+    operator RefDescriptor<T, isInterface>([[context]] TaskInfo info) { return delayed(0); }
+    operator Parameter<T, isInterface>([[context]] TaskInfo info) { return Parameter { delayed(0) }; }
 
     ~SelfRef() { /* how to free this? */ }
 
 private:
-    Heap::TickHelper heap() { return detail::scheduler->heap(detail::currentTask.root(), detail::tick); }
+    Heap::TickHelper heap([[context]] TaskInfo info) { return detail::scheduler->heap(info.task.root(), info.tick); }
 };
 
 template<typename T>
-inline SelfRef<T, false> makeData() {
-    return { make32<T>(detail::scheduler->heap(detail::currentTask.root(), detail::tick).persistentAllocator()) };
+inline SelfRef<T, false> makeData([[context]] TaskInfo info) {
+    return { make32<T>(detail::scheduler->heap(info.task.root(), info.tick).persistentAllocator()) };
 }
 
 }

@@ -60,12 +60,12 @@ struct MyData {
 class MyInterface {
 public:
     task::DataRef<MyData> dat;
-    void setData(task::DataParameter<MyData> dat) {
+    void setData(task::DataParameter<MyData> dat, [[context]] task::TaskInfo info) {
         this->dat = std::move(dat);
     }
 };
 
-task::Task<task::Description { task::interface<MyInterface> }> testChild() {
+task::Task<task::Description { task::interface<MyInterface> }> testChild([[context]] task::TaskInfo taskInfo) {
     auto& self = co_await get_self;
 
     task::DataRef<MyData> dat;
@@ -77,13 +77,13 @@ task::Task<task::Description { task::interface<MyInterface> }> testChild() {
     };
 
     while (true) {
-        log("tick={}, i={}", task::detail::tick, dat->i);
+        log("tick={}, i={}", taskInfo.tick, dat->i);
 
         co_yield 0;
     }
 }
 
-task::Task<> testParent() {
+task::Task<> testParent([[context]] task::TaskInfo taskInfo) {
     auto& self = co_await get_self;
 
     auto dat = task::makeData<MyData>();
@@ -95,7 +95,7 @@ task::Task<> testParent() {
 
     int counter = 0;
     while (true) {
-        log("tick={}, c={}", task::detail::tick, counter);
+        log("tick={}, c={}", taskInfo.tick, counter);
         dat->i = counter;
         counter++;
         co_yield 0;
@@ -116,9 +116,8 @@ TestRenderer<G>::TestRenderer()
     task::CoroutineScheduler* sched = new task::CoroutineScheduler;
     task::RootHandle root = sched->newRoot();
     task::detail::scheduler = sched;
-    task::detail::tick = 0;
-    task::detail::currentTask = { root, 0 };
-    task::Spawn<testParent>().execute();
+    task::TaskInfo info { { root, 0 }, 0 };
+    task::Spawn<testParent>(info).execute(info);
     task::detail::getNext().resume();
 
     /*HANDLE token;
