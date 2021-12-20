@@ -29,11 +29,6 @@ Scheduler::Task Scheduler::newTask(Root root, int_t tick) {
     return task;
 }
 
-void Scheduler::allowExternalsOneWay(Root source, Root target) {
-    // ExternalHeader& header = externalHeader(source, target);
-    // nothing to?
-}
-
 void Scheduler::signalInternal(Task target, int_t targetTick, urefcnt_t delta) {
     // acquire the writes of all previous tasks and release our own writes
     urefcnt_t j = signal(target, targetTick).fetch_add(delta, std::memory_order_acq_rel);

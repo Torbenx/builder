@@ -54,11 +54,6 @@ public:
     Root newRoot(int_t startTick = 0);
     void signalRoot(Root root, ArrayView<int_t> sourceTicks);
     Task newTask(Root root, int_t tick);
-    void allowExternals(Root root1, Root root2) {
-        allowExternalsOneWay(root1, root2);
-        allowExternalsOneWay(root2, root1);
-    }
-    void allowExternalsOneWay(Root source, Root target);
 
     void signalSelfInitial(Task task, int_t tick) { signalSelf(task, tick, 0); }
     bool isReady(Task task, int_t tick) { return signal(task, tick).load(std::memory_order_relaxed) == SIGNALED_BY_SELF_FLAG; }
