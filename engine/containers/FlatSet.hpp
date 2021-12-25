@@ -19,15 +19,16 @@ public:
     T* data() { return m_data.data(); }
     operator ArrayView<T>() { return { data(), size() }; }
 
-    int_t find(const T& t) {
+    template<typename S>
+    int_t find(const S& s) {
         for (int_t i = 0; i < size(); i++) {
-            if (t == m_data[i]) {
+            if (s == m_data[i])
                 return i;
-            }
         }
-        return size();
     }
     bool has(const T& t) { return find(t) != size(); }
+    template<typename S>
+    T& get(const S& s) { return m_data[find<S>(s)]; }
 
     void insert(const T& t) {
         m_data.push_back(t);
@@ -39,16 +40,19 @@ public:
     }
 
     void removeAt(int_t i) {
-        m_data[i] = m_data[size() - 1];
+        m_data[i] = std::move(m_data[size() - 1]);
         m_data.pop_back();
     }
     void remove(const T& t) { removeAt(find(t)); }
 
-    int_t getOrInsert(const T& t) {
+    int_t findOrInsert(const T& t) {
         int_t r = find(t);
         if (r == size())
             insert(t);
         return r;
+    }
+    T& getOrInsert(const T& t) {
+        return m_data[findOrInsert(t)];
     }
 
     template<class UnaryPredicate>

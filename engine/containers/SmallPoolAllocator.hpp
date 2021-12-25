@@ -48,6 +48,15 @@ AllocResult allocate(uint64_t state) {
     return { (uint64_t)1 << offset, offset };
 }
 
+template<uint64_t alignment>
+AllocResult allocatePowerOf2(int_t exponent, uint64_t state) {
+    constexpr uint64_t mask = alignmentMasks[std::countl_zero(alignment)];
+    for (int_t i = 1; i <= exponent; i++)
+        state &= state >> i;
+    int offset = std::countl_zero(state);
+    return { (uint64_t)1 << offset, offset };
+}
+
 // returns bits to set in state
 template<uint64_t size>
 uint64_t freeMask(int_t offset) {
