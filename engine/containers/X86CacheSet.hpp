@@ -9,15 +9,15 @@ class X86CacheSet {
 public:
     static constexpr int_t N = sizeof(mask_t) * 8;
 
-protected:
+    uint8_t tags[D][N];
+    mask_t used = 0;
+    T values[N];
+
+private:
     struct IteratorState {
         mask_t mask;
         uint8_t offset;
     };
-
-    uint8_t tags[D][N];
-    mask_t used = 0;
-    T values[N];
 
     static mask_t usedMask(uint8_t offset) { return 1 << offset; }
 
@@ -56,28 +56,6 @@ public:
         state.offset = std::countr_zero(state.mask);
         state.mask &= (state.mask - 1);
         return true;
-    }
-
-    // only called when *this is full
-    std::array<uint8_t, D> determineGrowth(const uint8_t* tag) {
-        std::array<uint8_t, D> mask { 0xff };
-        for (int_t i = 0; i < N; i++) {
-            for (int_t j = 0; j < D; j++) {
-                mask[j] &= ~(tags[j][i] ^ tag[j]);
-            }
-        }
-        uint8_t min = std::numeric_limits<uint8_t>::max();
-        int_t minIndex;
-        for (int_t j = 0; j < D; j++) {
-            uint8_t v = std::countr_one(mask[j]) + 1;
-            if (v < min) {
-                min = v;
-                minIndex = j;
-            }
-        }
-        mask.fill(0);
-        mask[minIndex] = min;
-        return mask;
     }
 
     uint8_t matchEmpty() { return std::countr_one(used); }

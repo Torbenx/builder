@@ -27,7 +27,6 @@ static inline int_t uniformAlignment() {
 
 template<typename T>
 struct UniformHelper : GAllocationHelper<T> {
-
     UniformBuffer uniformBuffer([[context]] GAllocator* allocator) const {
         return { allocator->buffer(this->ptr), sizeof(T) };
     }

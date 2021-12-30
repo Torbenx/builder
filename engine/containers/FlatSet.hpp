@@ -25,6 +25,7 @@ public:
             if (s == m_data[i])
                 return i;
         }
+        return size();
     }
     bool has(const T& t) { return find(t) != size(); }
     template<typename S>

@@ -53,7 +53,11 @@ public:
     iterator begin() const { return { data() }; }
     iterator end() const { return { data() + size() }; }
 
-    void release() { delete[] m_data; }
+    void release() {
+        delete[] m_data;
+        m_data = nullptr;
+        m_size = 0;
+    }
 
 private:
     T* m_data = nullptr;

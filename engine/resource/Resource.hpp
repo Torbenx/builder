@@ -2,14 +2,12 @@
 
 #include "util/log.hpp"
 #include "util/types.hpp"
+#include "resource/Owned.hpp"
 
 #define DEBUG_RESOURCE(str) //log(str " refCount={}", refCount)
 
 template<typename T>
 class Resource;
-
-template<typename T>
-concept Releasable = requires(T value) { value.release(); };
 
 class ResourceMonitor {
 public:

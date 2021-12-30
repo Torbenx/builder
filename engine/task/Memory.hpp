@@ -19,6 +19,7 @@ struct TaskInfoRaw {
     uint64_t taskId : 24 = 0;
     uint64_t rootId : 8 = 0;
     uint64_t utick : 32 = 0;
+};
 
 struct RefDescriptorRaw {
     uint64_t addr : 24 = 0;
@@ -38,7 +39,7 @@ uint64_t composeAddress(RefDescriptorRaw desc, TickInfoRaw info) {
 
 struct TickExpander {
     uint64_t high = 0;
-    uint64_t tick(uint32_t utick) {
+    int_t tick(uint32_t utick) {
         return (utick ^ (uint32_t)high) + high;
     }
 };

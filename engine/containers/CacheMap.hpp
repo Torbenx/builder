@@ -54,7 +54,7 @@ public:
         Set& set = sets[index];
         return { &set, set.matchTag(tag) };
     }
-    Hint findUnchecked(std::array<key_t, D> key) { return findUnchecked(key.data); }
+    Hint findUnchecked(std::array<key_t, D> key) { return findUnchecked(key.data()); }
 
     bool insertOrAssign(const key_t* key, T value) { return insertOrAssignHint(find(key), key, value); }
     bool insertOrAssign(std::array<key_t, D> key, T value) { return insertOrAssign(key.data(), value); }
@@ -98,12 +98,12 @@ public:
         for (int_t i = 0; i < D; i++) {
             tag[i] = key[i] >> logSize[i];
         }
-        if (offset >= N) {
-            grow(hint.set->determineGrowth(tag).data());
-            return insertOrAssign(key, value);
+        if (offset < N) {
+            hint.set->insert(offset, tag, value);
+            return false;
         }
-        hint.set->insert(offset, tag, value);
-        return false;
+        grow(determineGrowth(hint.set->tags, tag).data());
+        return insertOrAssign(key, value);
     }
     void insertOrAssignHint(Hint hint, std::array<key_t, D> key, T value) { insertOrAssignHint(hint, key, value); }
 
@@ -119,6 +119,25 @@ public:
     }
 
 private:
+    static std::array<uint8_t, D> determineGrowth(const uint8_t (&tags)[D][N], uint8_t* tag) {
+        uint8_t min = std::numeric_limits<uint8_t>::max();
+        int_t minIndex;
+        for (int_t j = 0; j < D; j++) {
+            uint8_t mask = 0xff;
+            for (int_t i = 0; i < 16; i++) {
+                mask &= ~(tags[j][i] ^ tag[j]);
+            }
+            uint8_t v = std::countr_one(mask) + 1;
+            if (v < min) {
+                min = v;
+                minIndex = j;
+            }
+        }
+        std::array<uint8_t, D> mask { };
+        mask[minIndex] = min;
+        return mask;
+    }
+
     // n = number of bits to grow
     void grow(const uint8_t* n) {
         size_t newSize = 1;
@@ -132,10 +151,10 @@ private:
         for (int_t index = 0; index < oldSize; index++) {
             Set& set = sets[index];
 
-            uint8_t coords[D];
+            key_t coords[D];
             size_t temp = index;
             for (int_t i = D - 1; i >= 0; i--) {
-                coords[i] = temp & ((1 << logSize[i]) - 1);
+                coords[i] = temp & (((key_t)1 << logSize[i]) - 1);
                 temp >>= logSize[i];
             }
 
@@ -143,12 +162,12 @@ private:
             while (set.nextEntry(state)) {
                 std::array<uint8_t, D> tag = set.getTag(state);
                 int_t newIndex = coords[0];
-                newIndex += (tag[0] & ((1 << n[0]) - 1)) << logSize[0];
+                newIndex += (tag[0] & (((uint8_t)1 << n[0]) - 1)) << logSize[0];
                 tag[0] >>= n[0];
                 for (int_t i = 1; i < D; i++) {
                     newIndex <<= logSize[i] + n[i];
                     newIndex += coords[i];
-                    newIndex += (tag[i] & ((1 << n[i]) - 1)) << logSize[i];
+                    newIndex += (tag[i] & (((uint8_t)1 << n[i]) - 1)) << logSize[i];
                     tag[i] >>= n[i];
                 }
                 newSets[newIndex].insert(state, tag.data(), set.getValue(state));

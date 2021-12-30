@@ -91,8 +91,8 @@ void Scheduler::TaskInternals::signalDependencies(Scheduler& scheduler, Task sou
 
     for (auto item : *queue) {
         auto& depedencies = item.task.root() == source.root() ? internals : externals;
-        int_t i = depedencies.getOrInsert(item.asEmptyDependency());
-        depedencies[i].refCount += item.refCountDelta;
+        auto& dep = depedencies.getOrInsert(item.asEmptyDependency());
+        dep.refCount += item.refCountDelta;
     }
     queue.release();
 

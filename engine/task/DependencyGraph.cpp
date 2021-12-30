@@ -2,28 +2,89 @@
 
 namespace {
 
+static void verifyValidTick(uint8_t harmonic, utick_t tick) {
+    VERIFY(Task, tick & (((tick_t)1 << harmonic) - 1) == 0);
+}
+
 /* ==============> Concurrency <============== */
 
-void DependencyGraph::signalTarget(Group group, Target target, utick_t tick, urefcnt_t delta) {
-    urefcnt_t i = signal(group, target, tick).fetch_add(delta, std::memory_order_acq_rel);
+void DependencyGraph::signalTarget(CompleteTarget target, utick_t tick, urefcnt_t delta) {
+    verifyValidTick(target.harmonic, tick);
+    urefcnt_t i = signal(target, tick).fetch_add(delta, std::memory_order_acq_rel);
     i += delta;
     if (i == TARGET_UNLOCKED_FLAG)
-        onDepedenciesFulfilled(group, target, tick);
+        onDepedenciesFulfilled(target, tick);
 }
 
-void DependencyGraph::unlockTarget(Group group, Target target, utick_t tick, refcnt_t signalCount) {
-    signalTarget(group, target, tick, TARGET_UNLOCKED_FLAG - signalCount);
+void DependencyGraph::unlockTarget(TargetNodeImpl& impl, CompleteTarget target, utick_t tick) {
+    verifyValidTick(target.harmonic, tick);
+    impl.updates.insert(updateQueue(target).take());
+    TickExpander expander = tickExpander(target.cluster());
+    impl.updates.apply(
+        [&](auto update) {
+            if (update.isDependencyUpdate()) {
+                for (int_t i = update.dependency.relHarmonic; i < NUM_HARMONICS; i++)
+                    impl.refCounts[i] += update.dependency.refCount;
+            }
+        },
+        tick, expander);
+    utick_t nextTick = tick + ((utick_t)1 << target.harmonic);
+    int relHarmonic = std::countr_zero(nextTick) - target.harmonic;
+    signalTarget(target, nextTick, TARGET_UNLOCKED_FLAG - impl.refCounts[relHarmonic]);
 }
 
-void DependencyGraph::updateDependency(Group group, Source source, Target target, utick_t tick, tickdiff_t delay, refcnt_t delta) {
-    utick_t firstEmittingTick, firstReceivingTick;
-    updateQueue(group, source).pushBack({ source, target, delay, delta, tick }, [&](utick_t currentSourceTick) {
-        firstEmittingTick = std::max(currentSourceTick, tick);
-        firstReceivingTick = firstEmittingTick + delay;
-        impl()->signal(target, firstReceivingTick).fetch_sub(delta, std::memory_order_relaxed);
+void sDependencyGraph::sendMetadataUpdate(CompleteSource source, Dependency dep, utick_t tick, Metadata metadata) {
+    utick_t targetTick = ceilTickToHarmonic(dep.absHarmonic, tick);
+    updateQueue(dep.target(source.cluster())).pushBack({ metadata, tick + dep.delay });
+}
+
+// must be called every tick
+void DependencyGraph::signalSource(SourceNodeImpl& impl, CompleteSource source, utick_t tick, Metadata metadata) {
+    verifyValidTick(source.harmonic, tick);
+    utick_t nextTick = tick + ((utick_t)1 << source.harmonic);
+    impl.updates.insert(updateQueue(source).take(nextTick));
+    TickExpander expander = tickExpander(source.cluster());
+    impl.updates.apply(
+        [&](auto update) {
+            auto dep = update.dep;
+            int_t idx = impl.dependencies.find(dep);
+            if (idx == impl.dependencies.size()) {
+                impl.insert(dep);
+                if (!metadata.hasChanged()) // lets ensure we only send one update
+                    sendMetadataUpdate(source, dep, tick, metadata);
+            } else
+                impl.dependencies[idx].refCount += dep.refCount;
+        });
+    impl.dependencies.removeIf([](auto dep) { return dep.refCount == 0; });
+
+    if (metadata.hasChanged()) {
+        for (auto dep : impl.dependencies)
+            sendMetadataUpdate(source, dep, tick, metadata);
+    }
+
+    uint8_t includedHarmonics = std::countr_zero(tick);
+    for (auto dep : impl.dependencies) {
+        if (dep.absHarmonic <= includedHarmonics) {
+            signalTarget(dep.target(source.cluster()), tick + dep.delay, dep.refCount);
+        }
+    }
+}
+
+// must never be called after unlockTarget(..., target, sourceTick + ticksDelay)
+void DependencyGraph::updateDependencyWithinCluster(CompleteSource source, CompleteTarget target, utick_t sourceUtick, tickdiff_t ticksDelay, refcnt_t delta) {
+    verifyValidTick(source.harmonic, sourceUtick);
+    verifyValidTick(target.harmonic, tick);
+    int_t firstEmittingTick, firstReceivingTick;
+    TickExpander expander = tickExpander(source.cluster());
+    int_t sourceTick = expander.tick(sourceUtick);
+    int_t relHarmonic = (int_t)target.harmonic - (int_t)source.harmonic;
+    updateQueue(source).pushBack({ { target, ticksDelay, delta }, sourceUTick }, [&](utick_t currentSourceUtick) {
+        int_t currentSourceTick = expander.tick(currentSourceUtick);
+        firstEmittingTick = std::max(currentSourceTick, sourceTick);
+        firstReceivingTick = firstEmittingTick + ticksDelay;
+        signal(target, firstReceivingTick).fetch_sub(delta, std::memory_order_relaxed);
     });
-    updateQueue(group, target).pushBack({ group, target, delta, firstReceivingTick });
-    return { firstEmittingTick, firstReceivingTick };
+    updateQueue(target).pushBack({ (uint8_t)std::max<int_t>(0, -relHarmonic), delta, (utick_t)firstReceivingTick });
 }
 
 /* ==============> ? <============== */
@@ -38,92 +99,62 @@ void DependencyGraph::updateDependency(Group group, Source source, Target target
    since they must know which sourceTick to depend on.
  */
 
-void DependencyGraph::onTaskTickFinish(Promise& prom, Group group, Task task, utick_t tick) {
-    auto expander = tickExpander(group);
-    prom.sourceUpdates.insert(updateQueue(group, Source { task }).task(tick + 1));
-    prom.sourceUpdates.apply(
-        [&](auto update) {
-            auto& dep = prom.depedencies.getOrInsert(update.asEmptyDependency());
-            dep.refCount += update.delta;
-        },
-        tick, expander);
-    prom.targetUpdates.insert(updateQueue(group, Target { task }).take());
-    prom.targetUpdates.apply(
-        [&](auto update) {
-            prom.refCount += update.delta;
-        },
-        tick, expander);
-
-    for (auto dep : prom.dependencies)
-        signalTarget(group, dep.target, tick + dep.delay, dep.refCount);
-    unlockTarget(group, Target { task }, tick + 1, prom.refCount);
+CompleteSource DependencyGraph::updateDependency(CompleteSource source, CompleteTarget target, utick_t sourceTick, tickdiff_t targetTicksDelay, refcnt_t delta) {
+    verifyValidTick(source.harmonic, sourceTick);
+    verifyValidTick(target.harmonic, targetTicksDelay);
+    auto [mappedSource, mappedSourceTick] = maybeMap(source, target.cluster(), sourceTick);
+    updateDependencyWithinCluster(mappedSource, target, mappedSourceTick, targetTicksDelay, delta);
+    return mappedSource;
 }
 
-void DependencyGraph::onDepedenciesFulfilled(Group group, Target target, utick_t tick) {
+void DependencyGraph::onDepedenciesFulfilled(CompleteTarget target, utick_t tick) {
+    verifyValidTick(target.harmonic, tick);
     if (target.isMapping()) {
-        // We only get here after beginTick(..., extGroup, extTick),
-        // i.e. we depend on target's root.
-        auto [trnGroup, trnTarget] = translateMapping(group, target);
-        utick_t trnTick = translateTick(group, trnGroup, tick);
-        signalTarget(trnGroup, trnTarget, trnTick, EXTERNAL_REFERENCE_REF_COUNT);
+        auto& impl = findMappedSource(target, tick);
+        // we only get here after unlockTarget in beginClusterTick().
+        utick_t sourceTick = translateTick(target.cluster(), impl.source.cluster(), tick); // what about the harmonic?
+        signalSource(impl, impl.source, sourceTick);
     } else {
-        scheduleTask(group, target.asTask(), tick);
+        scheduleTask(target.asTask(), tick);
     }
 }
 
-// We always have an iterface on target.
-Target DependencyGraph::updateDependency(Group sourceG, Task source, Group targetG, Task target, utick_t sourceTick, tickdiff_t sourceTicksDelay, refcnt_t delta) {
-    if (sourceG == targetG) {
-        updateDependency(sourceG, Source { source }, Target { target }, sourceTick, sourceTicksDelay, delta);
-        return Target { target };
-    }
-    // Since we have an interface to target, this depends on source's root.
-    // So this will always happend after beginTick(..., sourceG, sourceTick).
-    auto [mapping, wasAllocated] = findOrCreateMapping(sourceG, targetG, target, sourceTick);
-    if (wasAllocated) {
-        // When source is ahead the target may have 0 dependencies for a while,
-        // but target must still start depending on its root now.
-        utick_t targetTick = translateTick(sourceG, targetG, sourceTick);
-        updateDependency(targetG, Source::ROOT, Target { target }, targetTick, 0, EXTERNAL_REFERENCE_REF_COUNT);
-    }
-    updateDependency(sourceG, Source { source }, mapping, sourceTick, sourceTicksDelay, delta);
-    return mapping;
-}
-
-void DependencyGraph::beginGroupTick(GroupHeader& header, Group group, utick_t tick, const std::bitset<MAX_GROUPS>& firstTimeUsingTick) {
-    auto expander = tickExpander(group);
-    header.sourceUpdates.insert(mappingsCreationQueue(group).take(tick + 1));
-    header.sourceUpdates.apply(
-        [&](auto update) {
-            header.depedencies.insert(update.asEmptyMappedDependency());
-        },
-        tick, expander);
-    header.targetUpdates.insert(mappingsUpdateQueue(group).take());
-    header.targetUpdates.apply(
-        [&](auto update) {
-            Target target = translateMapping(update.sourceGroup, update.target);
-            auto& dep = header.depedencies.get(target);
-            auto& info = dep.referencingGroups.getOrInsert({ update.sourceGroup, update.target });
-            info.refCount += update.delta;
-        },
-        tick, expander);
-
-    // handle removing stuff...
-
-    for (auto& dep : header.dependencies) {
-        refcnt_t directSignals = 0;
-        for (auto info : dep.referencingGroups) {
-            // We only depend on a group the first time the tick is used, then
-            // the dependency is carried implicitly by the fact that each task
-            // depends on its previous iterations.
-            if (firstTimeUsingTick.test(info.group.index()))
-                unlockTarget(info.group, info.mapping, translateTick(group, info.group, tick), info.refCount);
-            else
-                directSignals += EXTERNAL_REFERENCE_REF_COUNT;
+void DependencyGraph::beginClusterTick(Cluster cluster, utick_t tick, const std::bitset<MAX_GROUPS>& firstTimeUsingTick) {
+    auto& impl = clusterImpl(cluster);
+    for (auto mappedTarget : impl.getMappedTargets()) {
+        if (firstTimeUsingTick.test(mappedTarget.group().index())) {
+            utick_t mappedTick = translateTick(cluster.harmonic(0), mappedTarget.group(), tick);
+            unlockTarget(mappedTarget, mappedTick, 1);
+        } else {
+            // can't do unlockTarget(mappedTarget, mappedTick, 0)
+            utick_t mappedTick = ;
+            auto& impl = findMappedSource(mappedTarget, mappedTick);
+            utick_t sourceTick = tick; // mapped sources are always in the 0th harmonic
+            signalSource(impl, impl.source, sourceTick);
         }
-        if (directSignals != 0)
-            signalTarget(group, dep.target, tick, directSignals);
     }
+}
+
+std::pair<CompleteSource, utick_t> DependencyGraph::maybeMap(CompleteSource source, Cluster cluster, utick_t sourceTick) {
+    if (source.cluster() == cluster)
+        return { source, sourceTick };
+
+    // mapped sources are always in the 0th harmonic
+    utick_t mappedSourceTick = translateTickCeil(source.cluster(), cluster, sourceTick);
+
+    auto& impl = clusterImpl(cluster);
+    auto [sourceMapping, wasAllocated] = impl.findOrCreateMapping(source, cluster, mappedSourceTick);
+    if (!wasAllocated)
+        return { sourceMapping, mappedSourceTick };
+
+    auto mappedTarget = clusterImpl(source.cluster()).createMappedTarget(source, sourceMapping, sourceTick);
+    updateDependencyWithinCluster(source, mappedTarget, sourceTick, 0, 1);
+    impl.registerMappedTarget(mappedTarget, mappedSourceTick);
+    return { sourceMapping, mappedSourceTick };
+}
+
+MappedSourceNodeImpl& DependencyGraph::findMappedSource(CompleteTarget target, utick_t tick) {
+    return clusterImpl(target.cluster()).findMappedSource(target, tick);
 }
 
 }

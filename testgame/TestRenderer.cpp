@@ -366,6 +366,10 @@ void TestRenderer<G>::updatePointLightData() {
     }
 }
 
+uint32_t testStuff(CacheMap<uint32_t, 1>& map, uint16_t key) {
+    return map[&key];
+}
+
 template<Gapi G>
 void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
@@ -392,32 +396,41 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
 
     allocator.stage();
 
-    std::mt19937 gen(0);
+    std::mt19937 gen(2);
 
-    CacheMap<uint32_t, 3> map;
-    int_t step = 100;
+    constexpr int_t DIM = 1;
+    CacheMapBase<uint32_t, AVX2CacheSet<uint32_t, DIM>, DIM> map;
+    int_t step = 4;
     int_t items = 0;
     std::vector<std::pair<int_t, int_t>> v;
-    for (int_t i = 0; i < 80000; i += step) {
-        std::uniform_int_distribution<uint16_t> dist(0, 255);
+    for (int_t i = 0; i < 2000; i += step) {
+        std::uniform_int_distribution<uint16_t> dist(0, (i + 8) * 4);
         for (int_t j = 0; j < step; j++) {
-            uint16_t key[3] { dist(gen), dist(gen), dist(gen) };
+            uint16_t key[DIM];
+            for (int_t k = 0; k < DIM; k++) {
+                key[k] = dist(gen);
+            }
             if (!map.insertOrAssign(key, 0)) {
                 items++;
             }
         }
         v.push_back({ items, map.setCount() * map.N });
     }
-    std::stringstream str1;
+    std::stringstream str;
     for (auto i : v) {
-        str1 << i.first << ",";
+        str << i.first << ",";
     }
-    std::stringstream str2;
+    log("{}", str.str());
+    str.str({});
     for (auto i : v) {
-        str2 << i.second << ",";
+        str << i.second << ",";
     }
-    log("{}", str1.str());
-    log("{}", str2.str());
+    log("{}", str.str());
+    str.str({});
+    for (auto i : v) {
+        str << ((float)i.first / i.second) << ",";
+    }
+    log("{}", str.str());
 }
 
 template<Gapi G>
@@ -550,7 +563,7 @@ void TestRenderer<G>::drawFrame() {
     obj5_coords[3] = Vec3(plp.x + 0.3f, plp.y, plp.z + 0.3f);
     f5.vertices.dynamicUpdate(obj5_coords, &allocator);
     updatePointLightData();
-    //uiRenderer->update(allocator);
+    // uiRenderer->update(allocator);
 
     allocator.pumpDynamicData();
     glWaitSync(lastSync, 0, GL_TIMEOUT_IGNORED);
@@ -579,8 +592,8 @@ void TestRenderer<G>::drawFrame() {
 
     // cubeComp.draw(Framebuffer::DEFAULT);
 
-    //uiRenderer->draw(uiTexture);
-    //refComp.draw(Framebuffer::DEFAULT);
+    // uiRenderer->draw(uiTexture);
+    // refComp.draw(Framebuffer::DEFAULT);
     textBackground.draw(Framebuffer::DEFAULT);
     textComp.draw(Framebuffer::DEFAULT);
 }
