@@ -41,20 +41,24 @@ uint64_t availableMask(uint64_t in) {
 
 template<uint64_t alignment, uint64_t size>
 AllocResult allocate(uint64_t state) {
-    constexpr uint64_t mask = alignmentMasks[std::countl_zero(alignment)];
+    constexpr uint64_t alignmentMask = alignmentMasks[std::countl_zero(alignment)];
+    constexpr uint64_t sizeMask = ((uint64_t)1 << size) - 1;
     uint64_t avail = availableMask<size>(state);
-    uint64_t valid = avail & mask;
+    uint64_t valid = avail & alignmentMask;
     int offset = std::countl_zero(valid);
-    return { (uint64_t)1 << offset, offset };
+    return { sizeMask << offset, offset };
 }
 
 template<uint64_t alignment>
 AllocResult allocatePowerOf2(int_t exponent, uint64_t state) {
-    constexpr uint64_t mask = alignmentMasks[std::countl_zero(alignment)];
+    constexpr uint64_t alignmentMask = alignmentMasks[std::countl_zero(alignment)];
+    uint64_t size = (uint64_t)1 << exponent;
+    uint64_t sizeMask = ((uint64_t)1 << size) - 1;
     for (int_t i = 1; i <= exponent; i++)
         state &= state >> i;
+    state &= alignmentMask;
     int offset = std::countl_zero(state);
-    return { (uint64_t)1 << offset, offset };
+    return { sizeMask << offset, offset };
 }
 
 // returns bits to set in state

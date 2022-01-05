@@ -77,43 +77,33 @@ struct Holder {
     T t;
 };
 
-template<int_t N, std::array<int_t, N> ids, int_t b = 2>
-constexpr auto uniqueIdIndices() {
-    if constexpr (b == 0) {
-        return 0;
-    } else {
-        std::array<int_t, uniqueIdIndices<N, ids, b - 1>()> out;
-        int_t offset = 0;
-        for (int_t i = 0; i < N; i++) {
-            int_t j = 0;
-            for (; j < i; j++) {
-                if (ids[j] == ids[i])
-                    break;
-            }
-            if (i == j) {
-                if constexpr (b == 2)
-                    out[offset] = i;
-                offset++;
-            }
+template<int_t N, std::array<int_t, N> ids>
+constexpr std::pair<std::array<int_t, N>, int_t> uniqueIdIndices() {
+    std::array<int_t, N> out {};
+    int_t offset = 0;
+    for (int_t i = 0; i < N; i++) {
+        int_t j = 0;
+        for (; j < i; j++) {
+            if (ids[j] == ids[i])
+                break;
         }
-        if constexpr (b == 2)
-            return out;
-        else
-            return offset;
+        if (i == j)
+            out[offset++] = i;
     }
+    return { out, offset };
 }
 
-template<int_t n, std::array<int_t, n> indices, typename... Holders, size_t... I>
+template<int_t N, std::array<int_t, N> indices, typename... Holders, size_t... I>
 constexpr auto deduplicate_helper(std::tuple<Holders...> tuple, std::index_sequence<I...>) {
     return std::make_tuple(std::get<indices[I]>(tuple)...);
 }
 
 template<typename... Types, int_t... ids>
 auto deduplicate(std::tuple<Holder<Types, ids>...> tuple) {
-    constexpr std::array<int_t, sizeof...(ids)> idList { ids... };
-    constexpr auto indices = uniqueIdIndices<sizeof...(ids), idList>();
-    constexpr int_t n = std::tuple_size<decltype(indices)>::value;
-    return deduplicate_helper<n, indices>(tuple, std::make_index_sequence<n>());
+    constexpr int_t N = sizeof...(ids);
+    constexpr std::array<int_t, N> idList { ids... };
+    constexpr auto indices = uniqueIdIndices<N, idList>();
+    return deduplicate_helper<N, indices.first>(tuple, std::make_index_sequence<indices.second>());
 }
 
 }
@@ -154,6 +144,6 @@ auto operator||(const WaitExpression<ls1, Holders1...>& s1, const WaitExpression
 template<LogicSet ls1, typename... Holders1, LogicSet ls2, typename... Holders2>
 auto operator&&(const WaitExpression<ls1, Holders1...>& s1, const WaitExpression<ls2, Holders2...>& s2) {
     constexpr LogicSet ls = ls1 && ls2;
-    auto tuple = deduplicate(std::tuple_cat(s1.tuple, s2.tuple));
+    auto tuple = event_detail::deduplicate(std::tuple_cat(s1.tuple, s2.tuple));
     return makeWaitExpression<ls>(tuple);
 }

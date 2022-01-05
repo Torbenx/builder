@@ -10,7 +10,7 @@ template<typename T = id_t, size_t N = 20>
 class IdAllocator {
 public:
     IdAllocator(T min = 0, T max = std::numeric_limits<T>::max()) {
-        buckets.emplace(min, max - 1);
+        reset(min, max);
     }
 
     T allocateId() {
@@ -72,6 +72,11 @@ public:
             return;
         }
         split(prevIt, id);
+    }
+
+    void reset(T min = 0, T max = std::numeric_limits<T>::max()) {
+        buckets.clear();
+        buckets.emplace(min, max - 1);
     }
 
     size_t bucketCount() {

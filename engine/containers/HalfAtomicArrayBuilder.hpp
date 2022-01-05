@@ -77,7 +77,7 @@ public:
             if (success && currentHeader)
                 currentHeader->next = newHeader;
             if (!success)
-                allocator.free(newStorage);
+                BlockHeader::free(newStorage, newCapacity, allocator);
         }
     }
 
@@ -99,7 +99,7 @@ public:
             BlockIterator it;
             BlockIterator begin() { return it; }
             EndSentinel end() { return {}; }
-        } r { BlockIterator { allocator, info.storage } };
+        } r { BlockIterator { allocator, first } };
         return r;
     }
 
