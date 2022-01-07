@@ -211,56 +211,47 @@ constexpr uint16_t FIRST_VALID_TASK_ID = 1;
 constexpr uint16_t FIRST_VALID_SOURCE_MAPPING_ID = 1;
 constexpr uint16_t FIRST_VALID_MAPPED_TARGET_ID = 1;
 
+// system tasks
 constexpr uint16_t RETIRE_TICK_TASK_ID = 1;
+
+// system source mappings
 constexpr uint16_t ROOT_SOURCE_ID = 1;
+constexpr uint16_t DELAYED_ROOT_SOURCE_ID = 2;
+
+constexpr uint16_t FIRST_USER_TASK_ID = 2;
+constexpr uint16_t FIRST_USER_SOURCE_MAPPING_ID = 3;
+constexpr uint16_t FIRST_USER_MAPPED_TARGET_ID = 1;
 
 struct ClusterImpl {
+    /* ==============> Task allocator <============== */
     std::mutex taskIdAllocatorLock;
     sIdAllocator taskIdAllocator;
+    std::unique_ptr<Promise*[]> taskPromises;
 
-    Task createTask(Promise* promise, Cluster cluster, uint8_t harmonic, utick_t) {
-        std::unique_lock g(taskIdAllocatorLock);
-        auto id = taskIdAllocator.allocateId();
-        taskPromises[id] = promise;
-        return { id, cluster.id, harmonic };
-    }
+    Task createTask(Promise*, Cluster, uint8_t harmonic, utick_t);
 
+    /* ==============> Source mapping allocator <============== */
     std::shared_mutex sourceMappingLock;
     std::unordered_map<CompleteSource, CompleteSource> sourceMappings;
     sIdAllocator sourceMappingAllocator;
 
     // the caller must hold sourceMappingLock
-    CompleteSource createPsudoMapping(Cluster cluster, utick_t) {
-        auto id = sourceMappingAllocator.allocateId();
-        return CompleteSource::mapping(id, cluster);
-    }
-
+    CompleteSource createPsudoMapping(Cluster, utick_t);
     // Get the mapping of source in cluster, where this impl corresponds cluster.
-    std::pair<CompleteSource, bool> findOrCreateMapping(CompleteSource source, Cluster cluster, utick_t tick) {
-        {
-            std::shared_lock g(sourceMappingLock);
-            auto it = sourceMappings.find(source);
-            if (it != sourceMappings.end())
-                return { it->second, false };
-        }
-        std::unique_lock g(sourceMappingLock);
-        auto mapping = createPsudoMapping(cluster, tick);
-        sourceMappings.insert({ source, mapping });
-        return { mapping, true };
-    }
+    std::pair<CompleteSource, bool> findOrCreateMapping(CompleteSource, Cluster, utick_t);
 
+    /* ==============> Mapped target allocator <============== */
     std::mutex mappedTargetAllocatorLock;
     sIdAllocator mappedTargetAllocator;
+    // The mapped sources in other clusters associated with mappedTargets in this cluster.
+    std::unique_ptr<MappedSourceNodeImpl[]> mappedSourceNodes;
 
     // Create the target associated to the mapping sourceMapping of source,
     // where this impl corresponds to source.cluster()
-    CompleteTarget createMappedTarget(CompleteSource source, CompleteSource sourceMapping, utick_t) {
-        std::unique_lock g(mappedTargetAllocatorLock);
-        auto id = mappedTargetAllocator.allocateId();
-        mappedSourceNodes[id].source = sourceMapping;
-        return CompleteTarget::mapped(id, source);
-    }
+    CompleteTarget createMappedTarget(CompleteSource source, CompleteSource sourceMapping, utick_t);
+    MappedSourceNodeImpl& findMappedSource(CompleteTarget, utick_t);
 
+    /* ==============> Mapped target tracking <============== */
     // All the mapped targets in other clusters that are associated with
     // a source mapping into this cluster.
     FlatSet<CompleteTarget> mappedTargets;
@@ -269,21 +260,16 @@ struct ClusterImpl {
     void registerMappedTarget(CompleteTarget target, utick_t) {
         mappedTargetQueue.pushBack(target);
     }
-
     FlatSet<CompleteTarget>& getMappedTargets(utick_t) {
         mappedTargets.insert(mappedTargetQueue.take());
         return mappedTargets;
     }
 
-    SourceNodeImpl rootSourceImpl;
-
-    // The mapped sources in other clusters associated with mappedTargets in this cluster.
-    std::unique_ptr<MappedSourceNodeImpl[]> mappedSourceNodes;
+    /* ==============> Update queues <============== */
     std::unique_ptr<AtomicArrayBuilder<SourceUpdate>[]> mappedSourceUpdateQueues;
     std::unique_ptr<AtomicArrayBuilder<TargetUpdate>[]> mappedTargetUpdateQueues;
     std::unique_ptr<AtomicArrayBuilder<SourceUpdate>[]> taskSourceUpdateQueues;
     std::unique_ptr<AtomicArrayBuilder<TargetUpdate>[]> taskTargetUpdateQueues;
-    std::unique_ptr<Promise*[]> taskPromises;
 
     AtomicArrayBuilder<SourceUpdate>& updateQueue(CompleteSource source, utick_t) {
         return (source.isMapping() ? mappedSourceUpdateQueues : taskSourceUpdateQueues)[source.id];
@@ -291,46 +277,41 @@ struct ClusterImpl {
     AtomicArrayBuilder<TargetUpdate>& updateQueue(CompleteTarget target, utick_t) {
         return (target.isMapping() ? mappedTargetUpdateQueues : taskTargetUpdateQueues)[target.id];
     }
-    MappedSourceNodeImpl& findMappedSource(CompleteTarget target, utick_t) {
-        VERIFY(Task, target.isMapping());
-        return mappedSourceNodes[target.id];
-    }
 
-    void initialize(int_t maxTasks, int_t maxMappedTargets, int_t maxSourceMappings) {
-        mappedSourceNodes.reset(new MappedSourceNodeImpl[maxMappedTargets]);
-        mappedSourceUpdateQueues.reset(new AtomicArrayBuilder<SourceUpdate>[maxSourceMappings]);
-        mappedTargetUpdateQueues.reset(new AtomicArrayBuilder<TargetUpdate>[maxMappedTargets]);
-        taskSourceUpdateQueues.reset(new AtomicArrayBuilder<SourceUpdate>[maxTasks]);
-        taskTargetUpdateQueues.reset(new AtomicArrayBuilder<TargetUpdate>[maxTasks]);
-        taskPromises.reset(new Promise*[maxTasks]());
-        taskIdAllocator.reset(FIRST_VALID_TASK_ID);
-        sourceMappingAllocator.reset(FIRST_VALID_SOURCE_MAPPING_ID);
-        mappedTargetAllocator.reset(FIRST_VALID_MAPPED_TARGET_ID);
-    }
+    /* ==============> System source mappings <============== */
+    SourceNodeImpl rootSourceImpl;
+    SourceNodeImpl delayedRootSourceImpl;
 
-    void reset() {
-        mappedSourceNodes.reset();
-        mappedSourceUpdateQueues.reset();
-        mappedTargetUpdateQueues.reset();
-        taskSourceUpdateQueues.reset();
-        taskTargetUpdateQueues.reset();
-        taskPromises.reset();
+    /* ==============> initializeClusterTick <============== */
+    int_t nextTickToAllocate;
+    int_t maxInterfaceTicksDelay;
 
-        taskIdAllocator.reset();
-        sourceMappingAllocator.reset();
-        sourceMappings.clear();
-        mappedTargetAllocator.reset();
-        mappedTargets.clear();
-        mappedTargetQueue.clear();
-
-        rootSourceImpl.clear();
-    }
+    /* ==============> Globals <============== */
+    void ClusterImpl(int_t firstTick, int_t maxTasks, int_t maxMappedTargets, int_t maxSourceMappings, int_t maxInterfaceTicksDelay);
+    ~ClusterImpl();
 };
 
 struct RetireTaskImpl {
     tickdiff_t maxDelay = 0;
-    int_t nextTickToAllocate = 0;
     int_t nextTickToDeallocate = 0;
+};
+
+struct ExternalTicks {
+    std::bitmask<32> dependenceMask = 0;
+    utick_t ticks[32] {};
+
+    utick_t tick(Cluster cluster) const {
+        return ticks[cluster.id];
+    }
+
+    void setTick(Cluster cluster, utick_t tick, bool carriesDependence) {
+        ticks[cluster.id] = tick;
+        dependenceMask.set(cluster.id, carriesDependence);
+    }
+
+    bool carriesDependence(Cluster cluster) const {
+        return dependenceMask.test(cluster.id);
+    }
 };
 
 struct DependencyGraph {
@@ -339,9 +320,14 @@ struct DependencyGraph {
     static Task retireTickTask(Cluster cluster) {
         return { .id = RETIRE_TICK_TASK_ID, .clusterId = cluster.id, .harmonic = 0 };
     }
+    static CompleteTarget retireTickTarget(Cluster cluster) {
+        return retireTickTask(cluster).target();
+    }
     static CompleteSource rootSource(Cluster cluster) {
         return CompleteSource::mapping(ROOT_SOURCE_ID, cluster);
     }
+    static CompleteSource delayedRootSource(Cluster cluster) {
+        return CompleteSource::mapping(DELAYED_ROOT_SOURCE_ID, cluster);
     }
     static utick_t ceilTickToHarmonic(uint8_t harmonic, utick_t tick) {
         utick_t mask = ((utick_t)1 << harmonic) - 1;
@@ -352,24 +338,29 @@ struct DependencyGraph {
         return tick & ~mask;
     }
 
-    /* ==============> Data <============== */
-    ClusterImpl m_clusterImpls[32];
+    /* ==============>  Data structure <============== */
+    uninitialized<ClusterImpl> m_clusterImpls[32];
 
     ClusterImpl& clusterImpl(Cluster cluster);
     AtomicArrayBuilder<SourceUpdate>& updateQueue(CompleteSource);
     AtomicArrayBuilder<TargetUpdate>& updateQueue(CompleteTarget);
     MappedSourceNodeImpl& findMappedSource(CompleteTarget, utick_t);
+    utick_t currentTick(Cluster);
+    ArrayView<const Cluster> interactingClusters(Cluster);
 
     std::atomic<urefcnt_t>& signal(CompleteTarget, utick_t);
+    HalfAtomicArrayBuilder<GraphUpdate>& graphUpdateQueue(Cluster, utick_t);
+    ExternalTicks& externalTicks(Cluster, utick_t);
+    std::atomic<int8_t>& clusterDataRefCount(Cluster, utick_t);
 
     /* ==============> TODO <============== */
-    HalfAtomicArrayBuilder<GraphUpdate>& graphUpdateQueue(Cluster, utick_t);
 
     TickExpander tickExpander(Cluster);
-    // Translating using this method is only valid if .
+    // Translating using this method is only valid if the tick is carring dependence.
     utick_t translateTick(Cluster from, Cluster to, utick_t);
     utick_t translateTickCeil(Cluster from, Cluster to, utick_t);
     utick_t translateTickFloor(Cluster from, Cluster to, utick_t);
+    bool isCarringDependence(Cluster from, Cluster to, utick_t);
 
     void scheduleTask(Task, utick_t);
 
@@ -389,7 +380,11 @@ struct DependencyGraph {
     CompleteSource maybeMapSource(Cluster, CompleteSource, utick_t);
 
     /* ==============> ? <============== */
+    std::mutex clusterIdFreeMaskLock;
+    uint32_t clusterIdFreeMask;
+
     Task newTask(Promise* prom, Cluster, uint8_t harmonic, utick_t);
+    Cluster newCluster(int_t firstTick);
 };
 
 }

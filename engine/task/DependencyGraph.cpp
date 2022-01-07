@@ -1,10 +1,78 @@
 #include "task/DependencyGraph.hpp"
 
-namespace {
+namespace task {
 
 static void verifyValidTick(uint8_t harmonic, utick_t tick) {
     VERIFY(Task, tick & (((tick_t)1 << harmonic) - 1) == 0);
 }
+
+/* ------------------------------------------- *
+ * ==============> ClusterImpl <============== *
+ * ------------------------------------------- */
+
+/* ==============> Task allocator <============== */
+
+Task ClusterImpl::createTask(Promise* promise, Cluster cluster, uint8_t harmonic, utick_t) {
+    std::unique_lock g(taskIdAllocatorLock);
+    auto id = taskIdAllocator.allocateId();
+    taskPromises[id] = promise;
+    return { id, cluster.id, harmonic };
+}
+
+/* ==============> Source mapping allocator <============== */
+
+CompleteSource ClusterImpl::createPsudoMapping(Cluster cluster, utick_t) {
+    auto id = sourceMappingAllocator.allocateId();
+    return CompleteSource::mapping(id, cluster);
+}
+
+std::pair<CompleteSource, bool> ClusterImpl::findOrCreateMapping(CompleteSource source, Cluster cluster, utick_t tick) {
+    {
+        std::shared_lock g(sourceMappingLock);
+        auto it = sourceMappings.find(source);
+        if (it != sourceMappings.end())
+            return { it->second, false };
+    }
+    std::unique_lock g(sourceMappingLock);
+    auto mapping = createPsudoMapping(cluster, tick);
+    sourceMappings.insert({ source, mapping });
+    return { mapping, true };
+}
+
+/* ==============> Mapped target allocator <============== */
+
+CompleteTarget ClusterImpl::createMappedTarget(CompleteSource source, CompleteSource sourceMapping, utick_t) {
+    std::unique_lock g(mappedTargetAllocatorLock);
+    auto id = mappedTargetAllocator.allocateId();
+    mappedSourceNodes[id].source = sourceMapping;
+    return CompleteTarget::mapped(id, source);
+}
+
+MappedSourceNodeImpl& ClusterImpl::findMappedSource(CompleteTarget target, utick_t) {
+    VERIFY(Task, target.isMapping());
+    return mappedSourceNodes[target.id];
+}
+
+/* ==============> Globals <============== */
+
+void ClusterImpl::ClusterImpl(int_t firstTick, int_t maxTasks, int_t maxMappedTargets, int_t maxSourceMappings)
+    : mappedSourceNodes(new MappedSourceNodeImpl[maxMappedTargets])
+    , mappedSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[maxSourceMappings])
+    , mappedTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[maxMappedTargets])
+    , taskSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[maxTasks])
+    , taskTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[maxTasks])
+    , taskPromises(new Promise*[maxTasks]())
+    , taskIdAllocator(FIRST_VALID_TASK_ID)
+    , sourceMappingAllocator(FIRST_VALID_SOURCE_MAPPING_ID)
+    , mappedTargetAllocator(FIRST_VALID_MAPPED_TARGET_ID)
+    , nextTickToAllocate(firstTick + -1)
+    , maxInterfaceTicksDelay(maxInterfaceTicksDelay) { }
+
+void ClusterImpl::~ClusterImpl() { }
+
+/* ----------------------------------------------- *
+ * ==============> DependencyGraph <============== *
+ * ----------------------------------------------- */
 
 /* ==============> Concurrency <============== */
 
@@ -84,20 +152,10 @@ void DependencyGraph::updateDependencyWithinCluster(CompleteSource source, Compl
 
 /* ==============> ? <============== */
 
-/*
- * Tasks providing data to external tasks don't depend on anything.
- * Tasks receiving data from external tasks depend on their root,
-   since they must know from which sourceTick to take it.
- * Tasks holding an interface to an external task depend on their root,
-   since they must know where to write messages.
- * Tasks providing an interface to an external task depend on their root,
-   since they must know which sourceTick to depend on.
- */
-
 CompleteSource DependencyGraph::updateDependency(CompleteSource source, CompleteTarget target, utick_t sourceTick, tickdiff_t targetTicksDelay, refcnt_t delta) {
     verifyValidTick(source.harmonic, sourceTick);
     verifyValidTick(target.harmonic, targetTicksDelay);
-    auto [mappedSource, mappedSourceTick] = maybeMap(source, target.cluster(), sourceTick);
+    auto [mappedSource, mappedSourceTick] = maybeMapSource(source, target.cluster(), sourceTick);
     updateDependencyWithinCluster(mappedSource, target, mappedSourceTick, targetTicksDelay, delta);
     return mappedSource;
 }
@@ -107,29 +165,24 @@ void DependencyGraph::onDepedenciesFulfilled(CompleteTarget target, utick_t tick
     if (target.isMapping()) {
         auto& impl = findMappedSource(target, tick);
         // we only get here after unlockTarget in beginClusterTick().
-        utick_t sourceTick = translateTick(target.cluster(), impl.source.cluster(), tick); // what about the harmonic?
+        utick_t sourceTick = translateTickCeil(target.cluster(), impl.source.cluster(), tick);
         signalSource(impl, impl.source, sourceTick);
     } else {
         scheduleTask(target.asTask(), tick);
     }
 }
 
-void DependencyGraph::beginClusterTick(Cluster cluster, utick_t tick, const std::bitset<MAX_GROUPS>& firstTimeUsingTick) {
-    auto& impl = clusterImpl(cluster);
-    for (auto mappedTarget : impl.getMappedTargets()) {
-        if (firstTimeUsingTick.test(mappedTarget.group().index())) {
-            utick_t mappedTick = translateTick(cluster.harmonic(0), mappedTarget.group(), tick);
-            unlockTarget(mappedTarget, mappedTick, 1);
-        } else {
-            // can't do unlockTarget(mappedTarget, mappedTick, 0)
-            utick_t mappedTick = ;
-            auto& impl = findMappedSource(mappedTarget, mappedTick);
-            utick_t sourceTick = tick; // mapped sources are always in the 0th harmonic
-            signalSource(impl, impl.source, sourceTick);
-        }
-    }
-    signalSource(impl.rootSourceImpl, rootSource(cluster), tick);
-}
+/* ==============> External handling and Tick lifecycle <============== */
+
+/*
+ * Tasks providing data to external tasks don't depend on anything.
+ * Tasks receiving data from external tasks depend on their root,
+   since they must know from which sourceTick to take it.
+ * Tasks holding an interface to an external task depend on their root,
+   since they must know where to write messages.
+ * Tasks providing an interface to an external task depend on their root,
+   since they must know which sourceTick to depend on.
+ */
 
 std::pair<CompleteSource, utick_t> DependencyGraph::maybeMapSource(CompleteSource source, Cluster cluster, utick_t sourceTick) {
     if (source.cluster() == cluster)
@@ -143,54 +196,52 @@ std::pair<CompleteSource, utick_t> DependencyGraph::maybeMapSource(CompleteSourc
     if (!wasAllocated)
         return { sourceMapping, mappedSourceTick };
 
-    updateDependencyWithinCluster(sourceMapping, retireTickTask().target(), mappedSourceTick, 0, 1);
+    updateDependencyWithinCluster(sourceMapping, retireTickTarget(), mappedSourceTick, 0, 1);
     auto mappedTarget = clusterImpl(source.cluster()).createMappedTarget(source, sourceMapping, sourceTick);
     impl.registerMappedTarget(mappedTarget, mappedSourceTick);
     updateDependencyWithinCluster(source, mappedTarget, sourceTick, 0, 1);
     return { sourceMapping, mappedSourceTick };
 }
 
-/* ==============> Data <============== */
-
-ClusterImpl& DependencyGraph::clusterImpl(Cluster cluster) {
-    return m_clusterImpls[cluster.id];
+void DependencyGraph::initializeClusterTick(Cluster cluster, utick_t tick) {
 }
 
-MappedSourceNodeImpl& DependencyGraph::findMappedSource(CompleteTarget target, utick_t tick) {
-    return clusterImpl(target.cluster()).findMappedSource(target, tick);
+static bool containsBitFlip(utick_t a, utick_t b, int bit) {
+    return (a ^ b) & -((utick_t)1 << bit);
 }
 
-AtomicArrayBuilder<SourceUpdate>& DependencyGraph::updateQueue(CompleteSource source, utick_t tick) {
-    return clusterImpl(source.cluster()).updateQueue(source, tick);
+void DependencyGraph::beginClusterTick(Cluster cluster, utick_t tick) {
+    auto& impl = clusterImpl(cluster);
+
+    auto& prevExtTicks = externalTicks(cluster, tick - 1);
+    auto& currentExtTicks = externalTicks(cluster, tick);
+
+    for (Cluster otherCluster : interactingClusters(cluster)) {
+        utick_t prevTick = prevExtTicks.tick(otherCluster);
+        utick_t currentTick = currentTick(otherCluster);
+        bool dependence = prevTick != currentTick;
+        currentExtTicks.setTick(otherCluster, currentTick, dependence);
+        if (dependence)
+            refClusterData(otherCluster, currentTick);
+    }
+
+    signalSource(impl.delayedRootSourceImpl, delayedRootSource(cluster), tick - 1);
+    for (auto mappedTarget : impl.getMappedTargets()) {
+        utick_t prevTargetTick = prevExtTicks.tick(mappedTarget.cluster());
+        utick_t currentTragetTick = currentExtTicks.tick(mappedTarget.cluster());
+        bool shouldDepend = containsBitFlip(prevTargetTick, currentTragetTick, mappedTarget.harmonic);
+        if (shouldDepend) {
+            utick_t targetTickToDependOn = floorTickToHarmonic(mappedTarget.harmonic, currentTragetTick);
+            EXPECT(Task, translateTickCeil(mappedTarget.cluster(), cluster, targetTickToDependOn), tick); // this used for the inverse tick mapping
+            unlockTarget(mappedTarget, targetTickToDependOn, 1);
+        } else {
+            auto& impl = findMappedSource(mappedTarget, currentTragetTick);
+            utick_t sourceTick = tick; // mapped sources are always in the 0th harmonic
+            signalSource(impl, impl.source, sourceTick);
+        }
+    }
+    signalSource(impl.rootSourceImpl, rootSource(cluster), tick);
 }
-
-AtomicArrayBuilder<TargetUpdate>& DependencyGraph::updateQueue(CompleteTarget target, utick_t tick) {
-    return clusterImpl(target.cluster()).updateQueue(target, tick);
-}
-
-/* ==============> ? <============== */
-
-Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick);
-    utick_t spawnTick = ceilTickToHarmonic(harmonic, tick);
-    Task task = clusterImpl(cluster).createTask(prom, cluster, harmonic, spawnTick);
-    updateDependencyWithinCluster(task.source(), retireTickTask(cluster).target(), spawnTick, 0, 1);
-    return task;
-}
-
-void DependencyGraph::initializeCluster(Cluster cluster, int_t firstTick) {
-    ClusterImpl& impl = clusterImpl(cluster);
-    impl.initialize();
-
-    // Don't call newTask() to avoid circular self dependence.
-    Task createdRetireTickTask = impl.createTask(..., cluster, 0, firstTick);
-    VERIFY(Task, createdRetireTickTask == retireTickTask(cluster));
-
-    CompleteSource createdRootSource = impl.createPsudoMapping(cluster, firstTick);
-    VERIFY(Task, createdRootSource == rootSource(cluster));
-    updateDependencyWithinCluster(rootSource(cluster), retireTickTask(cluster).target(), firstTick, 0, 1);
-}
-
-/* ==============> ? <============== */
 
 void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, utick_t utick) {
     auto updates = graphUpdateQueue(cluster, utick).takeUnsafe();
@@ -209,8 +260,111 @@ void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, u
     int_t deallocateRangeBegin = impl.nextTickToDeallocate;
     int_t deallocateRangeEnd = std::max(deallocateRangeBegin, tick - impl.maxDelay + 1);
     for (int_t i = deallocateRangeBegin; i < deallocateRangeEnd; i++) {
-        deallocateData(cluster, (utick_t)i);
+        deallocateData(impl, cluster, (utick_t)i);
     }
     impl.nextTickToDeallocate = deallocateRangeEnd;
+}
 
+void DependencyGraph::deallocateData(Cluster cluster, utick_t tick) {
+    for (Cluster otherCluster : interactingClusters(cluster)) {
+        // deallocateData(tick) always happens after beginClusterTick(tick + 1)
+        if (isCarringDependence(cluster, otherCluster, tick + 1))
+            unrefClusterData(otherCluster, translateTickFloor(cluster, otherCluster, tick));
+    }
+    unrefClusterData(cluster, tick);
+}
+
+utick_t DependencyGraph::translateTick(Cluster from, Cluster to, utick_t tick) {
+    auto& extTicks = externalTicks(from, tick);
+    VERIFY(Task, extTicks.carriesDependence(to));
+    return extTicks.tick(to);
+}
+
+utick_t DependencyGraph::translateTickFloor(Cluster from, Cluster to, utick_t tick) {
+    auto& extTicks = externalTicks(from, tick);
+    return extTicks.tick(to);
+}
+
+utick_t DependencyGraph::translateTickCeil(Cluster from, Cluster to, utick_t tick) {
+    auto& extTicks = externalTicks(from, tick);
+    utick_t ret = extTicks.tick(to);
+    return extTicks.carriesDependence(to) ? ret : ret + 1;
+}
+
+bool DependencyGraph::isCarringDependence(Cluster from, Cluster to, utick_t tick) {
+    auto& extTicks = externalTicks(from, tick);
+    return extTicks.carriesDependence(to);
+}
+
+/* ==============> Data structure <============== */
+
+ClusterImpl& DependencyGraph::clusterImpl(Cluster cluster) {
+    return m_clusterImpls[cluster.id].value;
+}
+
+MappedSourceNodeImpl& DependencyGraph::findMappedSource(CompleteTarget target, utick_t tick) {
+    return clusterImpl(target.cluster()).findMappedSource(target, tick);
+}
+
+AtomicArrayBuilder<SourceUpdate>& DependencyGraph::updateQueue(CompleteSource source, utick_t tick) {
+    return clusterImpl(source.cluster()).updateQueue(source, tick);
+}
+
+AtomicArrayBuilder<TargetUpdate>& DependencyGraph::updateQueue(CompleteTarget target, utick_t tick) {
+    return clusterImpl(target.cluster()).updateQueue(target, tick);
+}
+
+/* ==============> ? <============== */
+
+Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick) {
+    verifyValidTick(harmonic, tick);
+    Task task = clusterImpl(cluster).createTask(prom, cluster, harmonic, tick);
+    updateDependencyWithinCluster(task.source(), retireTickTarget(cluster), tick, 0, 1);
+    return task;
+}
+
+Cluster DependencyGraph::newCluster(int_t firstTick, int_t maxTasks, int_t maxMappedTargets, int_t maxSourceMappings, int_t maxInterfaceTicksDelay) {
+    Cluster cluster;
+    {
+        std::unique_lock g(clusterIdFreeMaskLock);
+        auto [id, mask] = SmallPoolAllocator<uint32_t>::allocate<1, 1>(clusterIdFreeMask);
+        clusterIdFreeMask &= ~mask;
+        cluster.id = id;
+    }
+
+    ClusterImpl& impl = clusterImpl(cluster);
+    new (&impl) ClusterImpl(
+        maxTasks + FIRST_USER_TASK_ID,
+        maxMappedTargets + FIRST_USER_MAPPED_TARGET_ID,
+        maxSourceMappings + FIRST_USER_SOURCE_MAPPING_ID);
+
+    // Don't call newTask() to avoid circular self dependence.
+    Task createdRetireTickTask = impl.createTask(..., cluster, 0, firstTick);
+    EXPECT(Task, createdRetireTickTask, retireTickTask(cluster));
+
+    CompleteSource createdRootSource = impl.createPsudoMapping(cluster, firstTick);
+    EXPECT(Task, createdRootSource, rootSource(cluster));
+    updateDependencyWithinCluster(rootSource(cluster), retireTickTarget(cluster), firstTick, 0, 1);
+
+    CompleteSource createdDelayedRootSource = impl.createPsudoMapping(cluster, firstTick);
+    EXPECT(Task, createdDelayedRootSource, delayedRootSource(cluster));
+    updateDependencyWithinCluster(delayedRootSource(cluster), retireTickTarget(cluster), firstTick, 0, 1);
+
+    return cluster;
+}
+
+/* ==============> ? <============== */
+
+void DependencyGraph::refClusterData(Cluster cluster, utick_t tick) {
+    auto oldCount = clusterDataRefCount(cluster, tick).fetch_add(1, std::memory_order_relaxed);
+    VERIFY(Task, oldCount > 0);
+}
+
+void DependencyGraph::unrefClusterData(Cluster cluster, utick_t tick) {
+    auto oldCount = clusterDataRefCount(cluster, tick).fetch_sub(1, std::memory_order_relaxed);
+    VERIFY(Task, oldCount > 0);
+    auto newCount = oldCount - 1;
+    if (newCount == 0) {
+        // actually free the pages...
+    }
 }
