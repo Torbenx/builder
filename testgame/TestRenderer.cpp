@@ -366,10 +366,6 @@ void TestRenderer<G>::updatePointLightData() {
     }
 }
 
-uint32_t testStuff(CacheMap<uint32_t, 1>& map, uint16_t key) {
-    return map[&key];
-}
-
 template<Gapi G>
 void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     Framebuffer::DEFAULT.viewport(newWidth, newHeight);
@@ -463,9 +459,38 @@ void TestRenderer<G>::pointer(PointerEvent event) {
     trackPointerEvent(event);
 }
 
+#include <math/lp/SparseVector.hpp>
+
 template<Gapi G>
 void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
+
+    log("\n\n--------------------------------------");
+    sparse::Inverse inv;
+    {
+        LogTimer timer;
+        uint32_t matSize = 1000;
+        for (uint32_t i = 0; i < matSize; i++) {
+            sparse::Vector col = sparse::allocateEmpty(3);
+            sparse::Vector row = sparse::allocateEmpty(3);
+            /*if (i >= 100)
+                col.appendEntry({ i / 2, 1.0f });
+            if (i >= 500)
+                row.appendEntry({ i / 4, 1.0f });*/
+            if (i == 999) {
+                col.appendEntry({ 0, 1.0f });
+                row.appendEntry({ 1, 1.0f });
+            }
+            inv.expand(col, row, 1.0f);
+        }
+    }
+    int_t count = 0;
+    for (sparse::VectorView view : inv.inverse.m_columns) {
+        count += view.size();
+    }
+    //log("count = {}", count);
+    //inv.inverse.debug();
+    //inv.inverseTranspose.debug();
 }
 
 template<Gapi G>

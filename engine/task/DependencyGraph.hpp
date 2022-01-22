@@ -3,29 +3,26 @@
 namespace task {
 
 template<typename T>
-class UpdateQueue : public FlatSet<T> {
-public:
-    template<typename Callback, typename Condition>
-    void apply(Callback&& callback, Condition&& cond) {
-        removeIf([](auto update) {
-            if (cond(update)) {
+class TickUpdateQueue : public FlatSet<T> {
+    template<typename Callback>
+    void apply(Callback&& callback, utick_t utick, TickExpander expander) {
+        auto tick = expander.tick(utick);
+        removeIf([&](auto update) {
+            if (expander.tick(update.startTick) <= tick) {
                 callback(update);
                 return true;
             }
             return false;
         });
     }
-};
 
-template<typename T>
-class TickUpdateQueue : public UpdateQueue<T> {
-    template<typename Callback>
     void apply(Callback&& callback, utick_t utick, TickExpander expander) {
         auto tick = expander.tick(utick);
-        apply(callback,
-            [&](auto update) {
-                return expander.tick(update.startTick) <= tick;
-            });
+        for (auto update : *this) {
+            if (expander.tick(update.startTick) <= tick) {
+                callback(update);
+            }
+        }
     }
 };
 
@@ -37,7 +34,6 @@ using tickdiff_t = int16_t;
 constexpr size_t HARMONICS_BITS = 3;
 constexpr size_t NUM_HARMONICS = (size_t)1 << HARMONICS_BITS;
 constexpr size_t CLUSTER_BITS = 8 - HARMONICS_BITS;
-constexpr size_t MAX_GROUPS = 256;
 
 struct Cluster {
     uint8_t id = 0;
@@ -207,6 +203,14 @@ struct GraphUpdate {
     }
 };
 
+struct ClusterInitializaionBounds {
+    int_t maxTasks;
+    int_t maxMappedTargets;
+    int_t maxSourceMappings;
+    int_t maxInterfaceTicksDelay;
+    int_t maxDataHeapBytes;
+};
+
 constexpr uint16_t FIRST_VALID_TASK_ID = 1;
 constexpr uint16_t FIRST_VALID_SOURCE_MAPPING_ID = 1;
 constexpr uint16_t FIRST_VALID_MAPPED_TARGET_ID = 1;
@@ -221,6 +225,22 @@ constexpr uint16_t DELAYED_ROOT_SOURCE_ID = 2;
 constexpr uint16_t FIRST_USER_TASK_ID = 2;
 constexpr uint16_t FIRST_USER_SOURCE_MAPPING_ID = 3;
 constexpr uint16_t FIRST_USER_MAPPED_TARGET_ID = 1;
+
+constexpr size_t DATA_HEAP_SLAB_SIZE = 16;
+constexpr size_t DATA_HEAP_BLOCK_SIZE = DATA_HEAP_SLAB_SIZE * 64;
+
+constexpr int_t ADDRESS_BITS = 24;
+constexpr uint32_t TEMPORARY_INTERFACE_HEAP_BEGIN = 0;
+constexpr uint32_t PERSISTENT_INTERFACE_HEAP_BEGIN = (uint32_t)1 << 16;
+constexpr uint32_t PERSISTENT_DATA_HEAP_BEGIN = (uint32_t)1 << (ADDRESS_BITS - 2);
+constexpr uint32_t TEMPORARY_DATA_HEAP_BEGIN = (uint32_t)1 << (ADDRESS_BITS - 1);
+constexpr uint32_t DATA_HEAP_BEGIN = PERSISTENT_DATA_HEAP_BEGIN;
+
+constexpr int_t ADDRESS_SPACE_END = (int_t)1 << ADDRESS_BITS;
+constexpr int_t TEMPORARY_DATA_HEAP_SIZE = ADDRESS_SPACE_END - TEMPORARY_DATA_HEAP_BEGIN;
+constexpr int_t PERSISTENT_DATA_HEAP_SIZE = TEMPORARY_DATA_HEAP_BEGIN - PERSISTENT_DATA_HEAP_BEGIN;
+constexpr int_t PERSISTENT_INTERFACE_HEAP_SIZE = PERSISTENT_DATA_HEAP_BEGIN - PERSISTENT_INTERFACE_HEAP_BEGIN;
+constexpr int_t DATA_HEAP_SIZE = ADDRESS_SPACE_END - DATA_HEAP_BEGIN;
 
 struct ClusterImpl {
     /* ==============> Task allocator <============== */
@@ -282,12 +302,20 @@ struct ClusterImpl {
     SourceNodeImpl rootSourceImpl;
     SourceNodeImpl delayedRootSourceImpl;
 
-    /* ==============> initializeClusterTick <============== */
-    int_t nextTickToAllocate;
-    int_t maxInterfaceTicksDelay;
+    /* ==============> Data heap pages <============== */
+    std::mutex dataHeapPageLock;
+    sIdAllocator dataHeapPageMap;
+    FlatSet<utick_t> committedDataHeapTicks;
 
     /* ==============> Globals <============== */
-    void ClusterImpl(int_t firstTick, int_t maxTasks, int_t maxMappedTargets, int_t maxSourceMappings, int_t maxInterfaceTicksDelay);
+    ClusterInitializaionBounds bounds;
+    int_t nextTickToInitialize;
+    utick_t currentTick;
+    int_t numInteractingClusters;
+    std::array<Cluster, 32> interactingClusters;
+    std::unique_ptr<std::atomic<uint64_t>[]> dataHeapBitmap;
+
+    void ClusterImpl(int_t firstTick, ClusterInitializaionBounds bounds);
     ~ClusterImpl();
 };
 
@@ -313,6 +341,9 @@ struct ExternalTicks {
         return dependenceMask.test(cluster.id);
     }
 };
+struct Address {
+
+};
 
 struct DependencyGraph {
 
@@ -337,16 +368,32 @@ struct DependencyGraph {
         utick_t mask = ((utick_t)1 << harmonic) - 1;
         return tick & ~mask;
     }
+    static Address tickBase(Cluster cluster, utick_t tick) {
+        return;
+    }
 
     /* ==============>  Data structure <============== */
     uninitialized<ClusterImpl> m_clusterImpls[32];
 
-    ClusterImpl& clusterImpl(Cluster cluster);
-    AtomicArrayBuilder<SourceUpdate>& updateQueue(CompleteSource);
-    AtomicArrayBuilder<TargetUpdate>& updateQueue(CompleteTarget);
-    MappedSourceNodeImpl& findMappedSource(CompleteTarget, utick_t);
-    utick_t currentTick(Cluster);
-    ArrayView<const Cluster> interactingClusters(Cluster);
+    ClusterImpl& clusterImpl(Cluster cluster) {
+        return m_clusterImpls[cluster.id].value;
+    }
+    MappedSourceNodeImpl& findMappedSource(CompleteTarget target, utick_t tick) {
+        return clusterImpl(target.cluster()).findMappedSource(target, tick);
+    }
+    AtomicArrayBuilder<SourceUpdate>& updateQueue(CompleteSource source, utick_t tick) {
+        return clusterImpl(source.cluster()).updateQueue(source, tick);
+    }
+    AtomicArrayBuilder<TargetUpdate>& updateQueue(CompleteTarget target, utick_t tick) {
+        return clusterImpl(target.cluster()).updateQueue(target, tick);
+    }
+    utick_t currentTick(Cluster cluster) {
+        return clusterImpl(cluster).currentTick;
+    }
+    ArrayView<const Cluster> interactingClusters(Cluster cluster) {
+        auto& impl = clusterImpl(cluster);
+        return { impl.interactingClusters.data(), impl.numInteractingClusters };
+    }
 
     std::atomic<urefcnt_t>& signal(CompleteTarget, utick_t);
     HalfAtomicArrayBuilder<GraphUpdate>& graphUpdateQueue(Cluster, utick_t);
@@ -381,10 +428,12 @@ struct DependencyGraph {
 
     /* ==============> ? <============== */
     std::mutex clusterIdFreeMaskLock;
-    uint32_t clusterIdFreeMask;
+    uint32_t clusterIdFreeMask = std::numeric_limits<uint32_t>::max();
 
     Task newTask(Promise* prom, Cluster, uint8_t harmonic, utick_t);
     Cluster newCluster(int_t firstTick);
+
+    /* ==============> Data allocation <============== */
 };
 
 }

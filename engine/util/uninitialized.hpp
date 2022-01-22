@@ -10,7 +10,7 @@ union uninitialized {
         new (&value) T(std::forward<Args>(args)...);
     }
 
-    void release() {
+    void uninitialize() {
         value.~T();
     }
 };

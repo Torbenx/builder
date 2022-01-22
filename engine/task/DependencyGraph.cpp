@@ -3,7 +3,7 @@
 namespace task {
 
 static void verifyValidTick(uint8_t harmonic, utick_t tick) {
-    VERIFY(Task, tick & (((tick_t)1 << harmonic) - 1) == 0);
+    VERIFY(Task, tick & (((utick_t)1 << harmonic) - 1) == 0);
 }
 
 /* ------------------------------------------- *
@@ -53,22 +53,58 @@ MappedSourceNodeImpl& ClusterImpl::findMappedSource(CompleteTarget target, utick
     return mappedSourceNodes[target.id];
 }
 
+/* ==============> Data heap pages <============== */
+
+void ClusterImpl::commitDataPages(Cluster cluster, utick_t tick) {
+    std::unique_lock g(dataHeapPageLock);
+    Address base = tickBase(cluster, tick).withAddr(PERSISTENT_DATA_HEAP_BEGIN);
+    auto pageSize = platform::pageSize();
+    dataHeapPageMap.enumerateFreeIdRanges([&](uint16_t begin, size_t size)) {
+        platform::commitMemory(base.addToAddr(begin * pageSize).ptr(), size * pageSize);
+    }
+    committedDataHeapTicks.insert(tick);
+}
+
+void ClusterImpl::decommitDataPages(Cluster cluster, utick_t tick) {
+    std::unique_lock g(dataHeapPageLock);
+    platform::decommitMemory(tickBase(cluster, tick).withAddr(DATA_HEAP_BEGIN).ptr(), DATA_HEAP_SIZE);
+    int_t index = committedDataHeapTicks.find(tick);
+    VERIFY(Task, index != committedDataHeapTicks.size());
+    committedDataHeapTicks.removeAt(index);
+}
+
+std::pair<uint32_t, uint32_t> ClusterImpl::commitNewDataPage(Cluster cluster, utick_t allocUtick) {
+    std::unique_lock g(dataHeapPageLock);
+    uint16_t page = dataHeapPageMap.allocateId();
+    auto pageSize = platform::pageSize();
+    uint32_t addr = PERSISTENT_DATA_HEAP_BEGIN + page * pageSize;
+    Address address = Address().withCluster(cluster).withAddr(addr);
+    auto expander = tickExpander(cluster);
+    int_t allocTick = expander.tick(allocUtick);
+    for (utick_t utick : committedDataHeapTicks) {
+        int_t tick = expander.tick(utick);
+        if (tick >= allocTick)
+            platform::commitMemory(address.withTick(utick).ptr(), pageSize);
+    }
+    return { addr, pageSize };
+}
+
 /* ==============> Globals <============== */
 
-void ClusterImpl::ClusterImpl(int_t firstTick, int_t maxTasks, int_t maxMappedTargets, int_t maxSourceMappings)
-    : mappedSourceNodes(new MappedSourceNodeImpl[maxMappedTargets])
-    , mappedSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[maxSourceMappings])
-    , mappedTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[maxMappedTargets])
-    , taskSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[maxTasks])
-    , taskTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[maxTasks])
-    , taskPromises(new Promise*[maxTasks]())
+ClusterImpl::ClusterImpl(int_t firstTick, ClusterInitializaionBounds bounds)
+    : mappedSourceNodes(new MappedSourceNodeImpl[bounds.maxMappedTargets])
+    , mappedSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[bounds.maxSourceMappings])
+    , mappedTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[bounds.maxMappedTargets])
+    , taskSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[bounds.maxTasks])
+    , taskTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[bounds.maxTasks])
+    , taskPromises(new Promise*[bounds.maxTasks]())
     , taskIdAllocator(FIRST_VALID_TASK_ID)
     , sourceMappingAllocator(FIRST_VALID_SOURCE_MAPPING_ID)
     , mappedTargetAllocator(FIRST_VALID_MAPPED_TARGET_ID)
-    , nextTickToAllocate(firstTick + -1)
-    , maxInterfaceTicksDelay(maxInterfaceTicksDelay) { }
+    , bounds(bounds)
+    , dataHeapBitmap(new std::atomic<uint64_t>[(bounds.maxDataHeapBytes + DATA_HEAP_BLOCK_SIZE - 1) / DATA_HEAP_BLOCK_SIZE]()) { }
 
-void ClusterImpl::~ClusterImpl() { }
+ClusterImpl::~ClusterImpl() { }
 
 /* ----------------------------------------------- *
  * ==============> DependencyGraph <============== *
@@ -204,6 +240,9 @@ std::pair<CompleteSource, utick_t> DependencyGraph::maybeMapSource(CompleteSourc
 }
 
 void DependencyGraph::initializeClusterTick(Cluster cluster, utick_t tick) {
+    auto& impl = clusterImpl(cluster);
+    allocateClusterInterfaces(cluster, tick + impl.bounds.maxInterfaceTicksDelay);
+    impl.commitDataPages(cluster, tick);
 }
 
 static bool containsBitFlip(utick_t a, utick_t b, int bit) {
@@ -254,18 +293,18 @@ void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, u
             }
         }
     }
-    deallocateInterfaces(cluster, utick);
+    deallocateClusterInterfaces(cluster, utick);
     TickExpander expander = tickExpander(cluster);
     int_t tick = expander.tick(utick);
     int_t deallocateRangeBegin = impl.nextTickToDeallocate;
     int_t deallocateRangeEnd = std::max(deallocateRangeBegin, tick - impl.maxDelay + 1);
     for (int_t i = deallocateRangeBegin; i < deallocateRangeEnd; i++) {
-        deallocateData(impl, cluster, (utick_t)i);
+        deallocateClusterData(impl, cluster, (utick_t)i);
     }
     impl.nextTickToDeallocate = deallocateRangeEnd;
 }
 
-void DependencyGraph::deallocateData(Cluster cluster, utick_t tick) {
+void DependencyGraph::deallocateClusterData(Cluster cluster, utick_t tick) {
     for (Cluster otherCluster : interactingClusters(cluster)) {
         // deallocateData(tick) always happens after beginClusterTick(tick + 1)
         if (isCarringDependence(cluster, otherCluster, tick + 1))
@@ -296,24 +335,6 @@ bool DependencyGraph::isCarringDependence(Cluster from, Cluster to, utick_t tick
     return extTicks.carriesDependence(to);
 }
 
-/* ==============> Data structure <============== */
-
-ClusterImpl& DependencyGraph::clusterImpl(Cluster cluster) {
-    return m_clusterImpls[cluster.id].value;
-}
-
-MappedSourceNodeImpl& DependencyGraph::findMappedSource(CompleteTarget target, utick_t tick) {
-    return clusterImpl(target.cluster()).findMappedSource(target, tick);
-}
-
-AtomicArrayBuilder<SourceUpdate>& DependencyGraph::updateQueue(CompleteSource source, utick_t tick) {
-    return clusterImpl(source.cluster()).updateQueue(source, tick);
-}
-
-AtomicArrayBuilder<TargetUpdate>& DependencyGraph::updateQueue(CompleteTarget target, utick_t tick) {
-    return clusterImpl(target.cluster()).updateQueue(target, tick);
-}
-
 /* ==============> ? <============== */
 
 Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick) {
@@ -323,7 +344,7 @@ Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, 
     return task;
 }
 
-Cluster DependencyGraph::newCluster(int_t firstTick, int_t maxTasks, int_t maxMappedTargets, int_t maxSourceMappings, int_t maxInterfaceTicksDelay) {
+Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds bounds) {
     Cluster cluster;
     {
         std::unique_lock g(clusterIdFreeMaskLock);
@@ -333,10 +354,7 @@ Cluster DependencyGraph::newCluster(int_t firstTick, int_t maxTasks, int_t maxMa
     }
 
     ClusterImpl& impl = clusterImpl(cluster);
-    new (&impl) ClusterImpl(
-        maxTasks + FIRST_USER_TASK_ID,
-        maxMappedTargets + FIRST_USER_MAPPED_TARGET_ID,
-        maxSourceMappings + FIRST_USER_SOURCE_MAPPING_ID);
+    new (&impl) ClusterImpl(firstTick, bounds);
 
     // Don't call newTask() to avoid circular self dependence.
     Task createdRetireTickTask = impl.createTask(..., cluster, 0, firstTick);
@@ -361,10 +379,12 @@ void DependencyGraph::refClusterData(Cluster cluster, utick_t tick) {
 }
 
 void DependencyGraph::unrefClusterData(Cluster cluster, utick_t tick) {
+    auto& impl = clusterImpl(cluster);
     auto oldCount = clusterDataRefCount(cluster, tick).fetch_sub(1, std::memory_order_relaxed);
     VERIFY(Task, oldCount > 0);
     auto newCount = oldCount - 1;
-    if (newCount == 0) {
-        // actually free the pages...
-    }
+    if (newCount == 0)
+        impl.decommitDataPages(cluster, tick);
 }
+
+/* ==============> Data allocation <============== */

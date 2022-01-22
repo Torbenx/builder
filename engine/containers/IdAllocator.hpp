@@ -83,6 +83,23 @@ public:
         return buckets.size();
     }
 
+    template<typename Callback>
+    void enumerateFreeIdRanges(Callback&& callback) {
+        for (auto& bucket : buckets) {
+            if (bucket.isRange) {
+                auto begin = bucket.rangeFirst();
+                auto size = bucket.size;
+                callback(begin, size);
+            } else {
+                for (size_t i = N - bucket.size; i < N; i++) {
+                    auto begin = bucket.elements[i];
+                    auto size = 1;
+                    callback(begin, size);
+                }
+            }
+        }
+    }
+
 private:
     struct Bucket {
         mutable T elements[N];
