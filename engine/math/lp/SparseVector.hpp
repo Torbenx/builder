@@ -43,16 +43,26 @@ public:
             return;
         }
         log<Tag::Sparse>("sparse::Vector {{ {} }}", size());
-        int_t offset = 0;
-        uint32_t index;
-        do {
-            Entry e = (*this)[offset++];
-            index = e.index;
+        for (int_t i = 0; i < size(); i++) {
+            Entry e = (*this)[i];
             log<Tag::Sparse>("{{ {}, {} }}", e.index, e.value);
-        } while (index != MAX_INDEX);
+        }
     }
 
     Vector copy(int_t extraSize = 0) const;
+
+    int_t lowerBound(uint32_t index) const {
+        int_t i;
+        for (i = 0;; i++) {
+            if ((*this)[i].index >= index)
+                break;
+        }
+        return i;
+    }
+    float findValue(uint32_t index) const {
+        Entry e = (*this)[lowerBound(index)];
+        return e.index == index ? e.value : 0.0f;
+    }
 };
 
 class Vector : public VectorView {
@@ -109,6 +119,28 @@ public:
 
     void setSize(int_t newSize) {
         numEntries = newSize;
+    }
+
+    void add(Entry newEntry) {
+        int_t offset = lowerBound(newEntry.index);
+        Entry& entry = (*this)[offset];
+        if (entry.index == newEntry.index) {
+            entry.value += newEntry.value;
+            return;
+        }
+        std::copy_backward(entries + offset, entries + size() + 1, entries + offset + 1);
+        entry = newEntry;
+        setSize(size() + 1);
+    }
+
+    void removeAt(int_t offset) {
+        std::copy(entries + offset + 1, entries + size() + 1, entries + offset);
+    }
+
+    void removeIndex(uint32_t index) {
+        int_t offset = lowerBound(index);
+        if ((*this)[offset].index == index)
+            removeAt(index);
     }
 
     ~Vector() {
@@ -194,30 +226,44 @@ float dot(VectorView v1, VectorView v2) {
     return out;
 }
 
-void scalarMultiplyBy(Vector& v, float f) {
-    int_t offset = 0;
-    uint32_t index;
-    do {
-        Entry& e = v[offset++];
-        index = e.index;
-        e.value *= f;
-    } while (index != MAX_INDEX);
+template<typename Kernel>
+void elementwiseKernelInPlace(Vector& v, Kernel&& kernel) {
+    for (int_t offset = 0; offset < v.size(); offset++) {
+        Entry& e = v[offset];
+        e.value = kernel(e.value);
+    }
+}
+
+template<typename Kernel>
+Vector elementwiseKernelOutOfPlace(VectorView v, Kernel&& kernel, int_t extraSize = 0) {
+    Vector r = allocate(v.size() + extraSize);
+    for (int_t offset = 0; offset < v.size(); offset++) {
+        Entry in = v[offset];
+        Entry& out = r[offset];
+        out.value = kernel(in.value);
+    }
+    r.resizeTo(v.size());
+    return r;
+}
+
+void scalarMultiplyInplace(Vector& v, float f) {
+    elementwiseKernelInPlace(v, [f](float val) { return val * f; });
 }
 
 struct Matrix {
-    std::vector<Vector> m_columns;
+    std::vector<Vector> columns;
 
     template<typename Callback>
-    void columns(VectorView row, Callback&& callback) {
+    void forEachColumn(VectorView row, Callback&& callback) {
         for (int_t i = 0; i < row.size(); i++) {
             Entry entry = row[i];
-            callback(m_columns[entry.index], entry);
+            callback((*this)[entry.index], entry);
         }
     }
 
     Vector multiply(VectorView v, int_t extraSpace = 0) {
         Vector ret = allocateEmpty(extraSpace);
-        columns(v, [&](VectorView column, Entry entry) {
+        forEachColumn(v, [&](VectorView column, Entry entry) {
             Vector tmp = allocate(ret.size() + column.size() + extraSpace);
             add(tmp, ret, column, entry.value);
             ret = std::move(tmp);
@@ -225,13 +271,13 @@ struct Matrix {
         return ret;
     }
 
-    void appendColumn(uint32_t index, Vector column) {
-        m_columns.emplace_back(std::move(column));
+    void appendColumn(Vector column) {
+        columns.emplace_back(std::move(column));
     }
 
-    int_t size() const { return m_columns.size(); }
+    int_t size() const { return columns.size(); }
     Vector& operator[](int_t i) {
-        return m_columns[i];
+        return columns[i];
     }
 
     void debug() {
@@ -244,41 +290,38 @@ struct Matrix {
 };
 
 struct Inverse {
+public:
     Matrix inverse, inverseTranspose;
     void expandPreInverted(Vector invColumn, Vector invRow, float invF) {
         uint32_t newIndex = inverse.size();
-        inverse.columns(invRow, [&](Vector& oldColumn, Entry entry) {
+        inverse.forEachColumn(invRow, [&](Vector& oldColumn, Entry entry) {
             Vector newColumn = allocate(invColumn.size() + oldColumn.size() + 1);
             add(newColumn, oldColumn, invColumn, entry.value * invF);
             newColumn.appendEntry({ newIndex, -entry.value * invF });
             oldColumn = std::move(newColumn);
         });
 
-        inverseTranspose.columns(invColumn, [&](Vector& oldRow, Entry entry) {
+        inverseTranspose.forEachColumn(invColumn, [&](Vector& oldRow, Entry entry) {
             Vector newRow = allocate(invRow.size() + oldRow.size() + 1);
             add(newRow, oldRow, invRow, entry.value * invF);
             newRow.appendEntry({ newIndex, -entry.value * invF });
             oldRow = std::move(newRow);
         });
 
-        scalarMultiplyBy(invColumn, -invF);
+        scalarMultiplyInplace(invColumn, -invF);
         invColumn.appendEntry({ newIndex, invF });
-        inverse.appendColumn(newIndex, std::move(invColumn));
+        inverse.appendColumn(std::move(invColumn));
 
-        scalarMultiplyBy(invRow, -invF);
+        scalarMultiplyInplace(invRow, -invF);
         invRow.appendEntry({ newIndex, invF });
-        inverseTranspose.appendColumn(newIndex, std::move(invRow));
+        inverseTranspose.appendColumn(std::move(invRow));
     }
 
     Vector preInvertColumn(VectorView column) {
-        Vector invColumn = inverse.multiply(column, 1);
-        invColumn.appendEntry({ inverse.size(), -1.0f });
-        return invColumn;
+        return inverse.multiply(column, 1);
     }
     Vector preInvertRow(VectorView row) {
-        Vector invRow = inverseTranspose.multiply(row, 1);
-        invRow.appendEntry({ inverse.size(), -1.0f });
-        return invRow;
+        return inverseTranspose.multiply(row, 1);
     }
     float preInvertCornerWithColumn(VectorView invColumn, VectorView row, float corner) {
         return 1.0f / (corner - dot(row, invColumn));
@@ -289,8 +332,51 @@ struct Inverse {
     void expand(VectorView column, VectorView row, float corner) {
         Vector invColumn = preInvertColumn(column);
         Vector invRow = preInvertRow(row);
-        float invF = preInvertCornerWithColumn(invColumn, row);
+        float invF = preInvertCornerWithColumn(invColumn, row, corner);
         expandPreInverted(std::move(invColumn), std::move(invRow), invF);
+    }
+
+    void replaceColumnPreInverted(uint32_t columnIndex, Vector invColumn) {
+        replaceColumnPreInvertedImpl(inverse, inverseTranspose, columnIndex, std::move(invColumn));
+    }
+    void replaceColumn(uint32_t columnIndex, VectorView column) {
+        Vector invColumn = preInvertColumn(column);
+        replaceColumnPreInverted(columnIndex, std::move(invColumn));
+    }
+    void replaceRowPreInverted(uint32_t rowIndex, Vector invRow) {
+        replaceColumnPreInvertedImpl(inverseTranspose, inverse, rowIndex, std::move(invRow));
+    }
+    void replaceRow(uint32_t rowIndex, VectorView row) {
+        Vector invRow = preInvertRow(row);
+        replaceRowPreInverted(rowIndex, std::move(invRow));
+    }
+
+private:
+    static void replaceColumnPreInvertedImpl(Matrix& inv, Matrix& invTrans, uint32_t columnIndex, Vector invColumn) {
+        float invF;
+        {
+            int_t offset = invColumn.lowerBound(columnIndex);
+            Entry& entry = invColumn[offset];
+            VERIFY(Sparse, entry.index == columnIndex);
+            invF = 1.0f / entry.value;
+            entry.value -= 1.0f;
+        }
+        Vector& row = invTrans[columnIndex];
+
+        inv.forEachColumn(row, [&](Vector& oldColumn, Entry entry) {
+            Vector newColumn = allocate(oldColumn.size() + invColumn.size());
+            add(newColumn, oldColumn, invColumn, -entry.value * invF);
+            oldColumn = std::move(newColumn);
+        });
+
+        invTrans.forEachColumn(invColumn, [&](Vector& oldRow, Entry entry) {
+            if (entry.index == columnIndex)
+                return;
+            Vector newRow = allocate(oldRow.size() + row.size());
+            add(newRow, oldRow, row, -entry.value * invF);
+            oldRow = std::move(newRow);
+        });
+        scalarMultiplyInplace(row, invF);
     }
 };
 

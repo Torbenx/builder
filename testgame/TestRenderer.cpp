@@ -469,28 +469,35 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     sparse::Inverse inv;
     {
         LogTimer timer;
-        uint32_t matSize = 1000;
+        uint32_t matSize = 5;
         for (uint32_t i = 0; i < matSize; i++) {
             sparse::Vector col = sparse::allocateEmpty(3);
             sparse::Vector row = sparse::allocateEmpty(3);
+            if (i > 0) {
+                col.appendEntry({ i - 1, -0.5f });
+                row.appendEntry({ i - 1, -0.5f });
+            }
             /*if (i >= 100)
                 col.appendEntry({ i / 2, 1.0f });
             if (i >= 500)
                 row.appendEntry({ i / 4, 1.0f });*/
-            if (i == 999) {
+            /*if (i == 999) {
                 col.appendEntry({ 0, 1.0f });
                 row.appendEntry({ 1, 1.0f });
-            }
+            }*/
             inv.expand(col, row, 1.0f);
         }
     }
-    int_t count = 0;
-    for (sparse::VectorView view : inv.inverse.m_columns) {
-        count += view.size();
-    }
-    //log("count = {}", count);
     //inv.inverse.debug();
-    //inv.inverseTranspose.debug();
+    inv.inverseTranspose.debug();
+
+    sparse::Vector col = sparse::allocateEmpty(2);
+    col.appendEntry({ 3, -1.0f });
+    col.appendEntry({ 4, 1.0f });
+    inv.replaceColumn(4, col);
+
+    //inv.inverse.debug();
+    inv.inverseTranspose.debug();
 }
 
 template<Gapi G>
