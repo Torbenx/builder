@@ -459,7 +459,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
     trackPointerEvent(event);
 }
 
-#include <math/lp/SparseVector.hpp>
+#include <3d/BindingSolver.hpp>
 
 template<Gapi G>
 void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
@@ -469,35 +469,46 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     sparse::Inverse inv;
     {
         LogTimer timer;
-        uint32_t matSize = 5;
+        uint32_t matSize = 4000;
         for (uint32_t i = 0; i < matSize; i++) {
             sparse::Vector col = sparse::allocateEmpty(3);
             sparse::Vector row = sparse::allocateEmpty(3);
-            if (i > 0) {
+            /*if (i > 0) {
                 col.appendEntry({ i - 1, -0.5f });
                 row.appendEntry({ i - 1, -0.5f });
-            }
-            /*if (i >= 100)
-                col.appendEntry({ i / 2, 1.0f });
-            if (i >= 500)
-                row.appendEntry({ i / 4, 1.0f });*/
-            /*if (i == 999) {
-                col.appendEntry({ 0, 1.0f });
-                row.appendEntry({ 1, 1.0f });
             }*/
             inv.expand(col, row, 1.0f);
         }
     }
-    //inv.inverse.debug();
-    inv.inverseTranspose.debug();
+    // inv.inverse.debug();
+    // inv.inverseTranspose.debug();
 
     sparse::Vector col = sparse::allocateEmpty(2);
     col.appendEntry({ 3, -1.0f });
     col.appendEntry({ 4, 1.0f });
     inv.replaceColumn(4, col);
 
-    //inv.inverse.debug();
-    inv.inverseTranspose.debug();
+    // inv.inverse.debug();
+    // inv.inverseTranspose.debug();
+
+    BindingSolver solver;
+    //uint32_t r0 = solver.addResource();
+    //uint32_t r1 = solver.addResource();
+    for (int_t i = 0; i < 1000; i++) {
+        solver.addUsage(std::array<uint32_t, 4> {
+            solver.addResource(),
+            solver.addResource(),
+            solver.addResource(),
+            solver.addResource() });
+    }
+    int_t iterations = 0;
+    {
+        LogTimer timer;
+        do {
+            iterations++;
+        } while (solver.iterate());
+    }
+    VDUMP(iterations);
 }
 
 template<Gapi G>

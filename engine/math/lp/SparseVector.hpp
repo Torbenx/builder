@@ -1,5 +1,8 @@
 #pragma once
 
+#include "util/types.hpp"
+#include "util/log.hpp"
+
 namespace Tag {
 struct Sparse {
     static constexpr char tag[] = "sparse";
@@ -47,7 +50,13 @@ public:
             Entry e = (*this)[i];
             log<Tag::Sparse>("{{ {}, {} }}", e.index, e.value);
         }
+        Entry endEntry = (*this)[size()];
+        if (endEntry.index != MAX_INDEX || endEntry.value != 0.0f)
+            log<Tag::Sparse>("END INVALID: idx={}, val={}", endEntry.index, endEntry.value);
     }
+
+    const Entry* begin() const { return entries; }
+    const Entry* end() const { return entries + size(); }
 
     Vector copy(int_t extraSize = 0) const;
 
@@ -128,7 +137,7 @@ public:
             entry.value += newEntry.value;
             return;
         }
-        std::copy_backward(entries + offset, entries + size() + 1, entries + offset + 1);
+        std::copy_backward(entries + offset, entries + size() + 1, entries + size() + 2);
         entry = newEntry;
         setSize(size() + 1);
     }
@@ -141,6 +150,13 @@ public:
         int_t offset = lowerBound(index);
         if ((*this)[offset].index == index)
             removeAt(index);
+    }
+
+    void sort() {
+        std::sort(entries, entries + size(),
+            [](const Entry& e1, const Entry& e2) {
+                return e1.index < e2.index;
+            });
     }
 
     ~Vector() {
@@ -161,11 +177,12 @@ Vector allocate(int_t size) {
 
 Vector allocateEmpty(int_t extraSize = 0) {
     Vector r = allocate(extraSize);
-    r[0] = END_ENTRY;
+    r.resizeTo(0);
     return r;
 }
 
-void add(Vector& out, VectorView v1, VectorView v2, float factor = 1.0f) {
+Vector add(VectorView v1, VectorView v2, float factor = 1.0f, int_t extraSize = 0) {
+    Vector out = allocate(v1.size() + v2.size() + extraSize);
     int_t offset1 = 0;
     int_t offset2 = 0;
     int_t offset3 = 0;
@@ -193,8 +210,8 @@ void add(Vector& out, VectorView v1, VectorView v2, float factor = 1.0f) {
         out[offset3] = { i3, r };
     } while (i3 != MAX_INDEX);
 
-    out[offset3] = END_ENTRY;
-    out.setSize(offset3);
+    out.resizeTo(offset3);
+    return out;
 }
 
 void addTo(float* dense, VectorView v, float factor = 1.0f) {
@@ -250,6 +267,27 @@ void scalarMultiplyInplace(Vector& v, float f) {
     elementwiseKernelInPlace(v, [f](float val) { return val * f; });
 }
 
+template<typename Transform, typename Finalize>
+Vector entrywiseTransformOutOfPlace(VectorView v, Transform&& transform, int_t extraSize, Finalize&& finalize) {
+    Vector r = allocate(v.size() + extraSize);
+    int_t rOffset = 0;
+    for (int_t vOffset = 0; vOffset < v.size(); vOffset++) {
+        Entry in = v[vOffset];
+        Entry& out = r[rOffset];
+        out = transform(in);
+        rOffset += out.index != MAX_INDEX ? 1 : 0;
+    }
+    r.resizeTo(rOffset);
+    finalize(r);
+    r.sort();
+    return r;
+}
+
+template<typename Transform>
+Vector entrywiseTransformOutOfPlace(VectorView v, Transform&& transform, int_t extraSize = 0) {
+    return entrywiseTransformOutOfPlace(v, std::forward<Transform>(transform), extraSize, [](Vector&) {});
+}
+
 struct Matrix {
     std::vector<Vector> columns;
 
@@ -261,11 +299,10 @@ struct Matrix {
         }
     }
 
-    Vector multiply(VectorView v, int_t extraSpace = 0) {
-        Vector ret = allocateEmpty(extraSpace);
+    Vector multiply(VectorView v, int_t extraSize = 0) {
+        Vector ret = allocateEmpty(extraSize);
         forEachColumn(v, [&](VectorView column, Entry entry) {
-            Vector tmp = allocate(ret.size() + column.size() + extraSpace);
-            add(tmp, ret, column, entry.value);
+            Vector tmp = add(ret, column, entry.value, extraSize);
             ret = std::move(tmp);
         });
         return ret;
@@ -293,17 +330,16 @@ struct Inverse {
 public:
     Matrix inverse, inverseTranspose;
     void expandPreInverted(Vector invColumn, Vector invRow, float invF) {
+        VERIFY(Sparse, std::abs(invF) < 1.0f / EPSILON);
         uint32_t newIndex = inverse.size();
         inverse.forEachColumn(invRow, [&](Vector& oldColumn, Entry entry) {
-            Vector newColumn = allocate(invColumn.size() + oldColumn.size() + 1);
-            add(newColumn, oldColumn, invColumn, entry.value * invF);
+            Vector newColumn = add(oldColumn, invColumn, entry.value * invF, 1);
             newColumn.appendEntry({ newIndex, -entry.value * invF });
             oldColumn = std::move(newColumn);
         });
 
         inverseTranspose.forEachColumn(invColumn, [&](Vector& oldRow, Entry entry) {
-            Vector newRow = allocate(invRow.size() + oldRow.size() + 1);
-            add(newRow, oldRow, invRow, entry.value * invF);
+            Vector newRow =  add(oldRow, invRow, entry.value * invF, 1);
             newRow.appendEntry({ newIndex, -entry.value * invF });
             oldRow = std::move(newRow);
         });
@@ -364,17 +400,13 @@ private:
         Vector& row = invTrans[columnIndex];
 
         inv.forEachColumn(row, [&](Vector& oldColumn, Entry entry) {
-            Vector newColumn = allocate(oldColumn.size() + invColumn.size());
-            add(newColumn, oldColumn, invColumn, -entry.value * invF);
-            oldColumn = std::move(newColumn);
+            oldColumn = add(oldColumn, invColumn, -entry.value * invF);
         });
 
         invTrans.forEachColumn(invColumn, [&](Vector& oldRow, Entry entry) {
             if (entry.index == columnIndex)
                 return;
-            Vector newRow = allocate(oldRow.size() + row.size());
-            add(newRow, oldRow, row, -entry.value * invF);
-            oldRow = std::move(newRow);
+            oldRow = add(oldRow, row, -entry.value * invF);
         });
         scalarMultiplyInplace(row, invF);
     }

@@ -16,17 +16,6 @@ struct Containers {
 template<typename T>
 class ArrayView {
 public:
-    struct iterator {
-        T* ptr;
-        auto operator<=>(const iterator&) const = default;
-        iterator& operator++(int) {
-            ++ptr;
-            return *this;
-        }
-        iterator operator++() { return { ptr++ }; }
-        T& operator*() { return *ptr; }
-    };
-
     ArrayView() { }
 
     template<int_t N>
@@ -50,8 +39,8 @@ public:
     T* data() const { return m_data; }
     int_t size() const { return m_size; }
     T& operator[](int_t i) const { return data()[i]; }
-    iterator begin() const { return { data() }; }
-    iterator end() const { return { data() + size() }; }
+    T* begin() const { return data(); }
+    T* end() const { return data() + size(); }
 
     void release() {
         delete[] m_data;
