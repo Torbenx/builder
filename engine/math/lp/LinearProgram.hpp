@@ -15,10 +15,6 @@ class LinearProgram {
      *   s.x = 0; dual.q = 0
      *   x >= 0; dual >= 0; s >= 0; q >= 0
      */
-
-private:
-    Inverse inverse;
-
 public:
     class NewVariable {
     public:
@@ -58,20 +54,10 @@ public:
             other.clearFields();
         }*/
 
-    private:
         float invF = std::numeric_limits<float>::quiet_NaN();
         Vector invConstraint;
-
-        void clearFields() {
-            index = MAX_INDEX;
-            oldS = std::numeric_limits<float>::quiet_NaN();
-            column = {};
-            constraint = {};
-            invF = std::numeric_limits<float>::quiet_NaN();
-        }
-
-        friend LinearProgram;
     };
+    Inverse inverse;
 
     // Adds a variable, thats violating the KKT conditions, to the basis.
     NewVariable newVariable() {
@@ -108,7 +94,7 @@ public:
     }
 };
 
-class UnderConstraintLinearProgram : LinearProgram {
+class UnderConstraintLinearProgram : public LinearProgram {
 private:
     struct LimitingFactor {
         union {
@@ -134,13 +120,13 @@ private:
         }
     };
 
+public:
     std::vector<float> q;
     std::vector<uint32_t> internalIndices;
     Matrix A, transposeA;
     std::vector<float> x;
     std::vector<uint32_t> userIndices;
 
-public:
     uint32_t addConstraint(float b) {
         uint32_t index = q.size();
         VERIFY(Sparse, internalIndices.size() == index);
@@ -156,15 +142,34 @@ public:
         return index;
     }
 
+    void debug() {
+        log<Tag::Sparse>("x:");
+        for (int_t i = 0; i < x.size(); i++) {
+            log<Tag::Sparse>("{}: {}", i, x[i]);
+        }
+    }
+
+    std::array<uint64_t, 8> clocks {};
+    int_t iterations = 0;
+
     Vector subOptimalVariable(Vector column, float oldS) {
-        auto var = newVariable();
+        // column.debug();
+        // clocks[0] += __rdtsc();
+        auto var = NewVariable();
         Vector internalColumn = translateToInternalIndices(column);
         var.oldS = oldS;
         var.column = internalColumn;
         computeDeltaX(var);
 
+        // clocks[1] += __rdtsc();
+
         Vector deltaConstraint = add(A.multiply(var.deltaX), column, -1.0f);
+        // clocks[2] += __rdtsc();
         auto limit = findLimitingFactor(var.deltaX, deltaConstraint);
+        // log("newX={} limited by {} {}", limit.newXValue, limit.isVariable ? "variable" : "constraint", limit.isVariable ? limit.variableIndex : limit.constraintIndex);
+
+        // clocks[3] += __rdtsc();
+
         if (limit.isVariable) {
             var.index = limit.variableIndex;
             limitingVariable(var);
@@ -186,6 +191,8 @@ public:
             internalIndices[limit.constraintIndex] = var.index;
         }
 
+        // clocks[4] += __rdtsc();
+
         for (Entry e : column) {
             Vector& oldRow = transposeA[e.index];
             Vector newRow = oldRow.copy(1);
@@ -197,8 +204,13 @@ public:
         x[var.index] = limit.newXValue;
         addTo(q.data(), deltaConstraint, limit.newXValue);
 
+        // clocks[5] += __rdtsc();
+
         Vector dualUpdate = computeDualUpdate(var, limit);
+        // clocks[6] += __rdtsc();
         completeVariable(std::move(var));
+        // clocks[7] += __rdtsc();
+        iterations += 1;
         return dualUpdate;
     }
 
@@ -217,26 +229,37 @@ private:
     }
 
     LimitingFactor findLimitingFactor(VectorView deltaX, VectorView deltaConstraint) {
-        LimitingFactor l;
-        l.newXValue = std::numeric_limits<float>::infinity();
-
-        for (int_t i = 0; i < deltaX.size(); i++) {
-            Entry e = deltaX[i];
-            if (e.value < EPSILON)
+        float minVariable = std::numeric_limits<float>::infinity();
+        uint32_t minVariableIndex;
+        for (Entry e : deltaX) {
+            if (!(e.value > EPSILON))
                 continue;
             float newX = x[e.index] / e.value;
-            if (newX + EPSILON < l.newXValue)
-                l = LimitingFactor::variable(e.index, newX);
+            if (newX + EPSILON < minVariable) {
+                minVariable = newX;
+                minVariableIndex = e.index;
+            }
         }
 
+        float minConstraint = std::numeric_limits<float>::infinity();
+        uint32_t minConstraintIndex;
         for (Entry e : deltaConstraint) {
-            if (e.value > -EPSILON)
+            if (!(e.value < -EPSILON))
                 continue;
             float newX = -q[e.index] / e.value;
-            if (newX + EPSILON < l.newXValue)
-                l = LimitingFactor::constraint(e.index, newX);
+            if (newX + EPSILON < minConstraint) {
+                minConstraint = newX;
+                minConstraintIndex = e.index;
+            }
         }
 
+        LimitingFactor l;
+        l.isVariable = minVariable <= minConstraint;
+        l.newXValue = l.isVariable ? minVariable : minConstraint;
+        if (l.isVariable)
+            l.variableIndex = minVariableIndex;
+        else
+            l.constraintIndex = minConstraintIndex;
         VERIFY(Sparse, std::isfinite(l.newXValue));
         return l;
     }

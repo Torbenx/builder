@@ -466,17 +466,17 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
 
     log("\n\n--------------------------------------");
-    sparse::Inverse inv;
+    /*sparse::Inverse inv;
     {
         LogTimer timer;
         uint32_t matSize = 4000;
         for (uint32_t i = 0; i < matSize; i++) {
             sparse::Vector col = sparse::allocateEmpty(3);
             sparse::Vector row = sparse::allocateEmpty(3);
-            /*if (i > 0) {
-                col.appendEntry({ i - 1, -0.5f });
-                row.appendEntry({ i - 1, -0.5f });
-            }*/
+            //if (i > 0) {
+            //    col.appendEntry({ i - 1, -0.5f });
+            //    row.appendEntry({ i - 1, -0.5f });
+            //}
             inv.expand(col, row, 1.0f);
         }
     }
@@ -489,26 +489,45 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     inv.replaceColumn(4, col);
 
     // inv.inverse.debug();
-    // inv.inverseTranspose.debug();
+    // inv.inverseTranspose.debug();*/
 
     BindingSolver solver;
-    //uint32_t r0 = solver.addResource();
-    //uint32_t r1 = solver.addResource();
-    for (int_t i = 0; i < 1000; i++) {
-        solver.addUsage(std::array<uint32_t, 4> {
-            solver.addResource(),
-            solver.addResource(),
-            solver.addResource(),
-            solver.addResource() });
-    }
-    int_t iterations = 0;
+    uint32_t r0 = solver.addResource();
+    uint32_t r1 = solver.addResource();
+    uint32_t r2 = solver.addResource();
+    uint32_t r3 = solver.addResource();
+    solver.addUsage(std::array<uint32_t, 4> {
+        r0,
+        r2,
+        solver.addResource(),
+        solver.addResource() });
+    solver.addUsage(std::array<uint32_t, 4> {
+        r1,
+        r2,
+        solver.addResource(),
+        solver.addResource() });
+    solver.addUsage(std::array<uint32_t, 4> {
+        r0,
+        r3,
+        solver.addResource(),
+        solver.addResource() });
+    solver.addUsage(std::array<uint32_t, 4> {
+        r1,
+        r3,
+        solver.addResource(),
+        solver.addResource() });
     {
         LogTimer timer;
-        do {
-            iterations++;
-        } while (solver.iterate());
+        while (solver.iterate()) { }
     }
-    VDUMP(iterations);
+    //solver.debug();
+    //solver.A.debug();
+    /*VDUMP(solver.iterations);
+    constexpr int_t clocksCount = std::tuple_size_v<decltype(solver.clocks)> - 1;
+    for (int_t i = 0; i < clocksCount; i++) {
+        log("{}: {}", i, (solver.clocks[i + 1] - solver.clocks[i]) / solver.iterations);
+    }
+    log("total: {}", (solver.clocks[clocksCount - 1] - solver.clocks[0]) / solver.iterations);*/
 }
 
 template<Gapi G>

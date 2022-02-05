@@ -2,7 +2,7 @@
 
 #include "math/lp/LinearProgram.hpp"
 
-class BindingSolver : sparse::UnderConstraintLinearProgram {
+class BindingSolver : public sparse::UnderConstraintLinearProgram {
 private:
     struct Usage {
         std::array<uint32_t, 4> resources;
@@ -66,7 +66,8 @@ public:
                 if (maxDiffOffset != n) {
                     handleViolation(u, maxDiffOffset, maxDiff);
                     anyViolations = true;
-                    //anyViolationsInUsage = true;
+                    // anyViolationsInUsage = true;
+                    //debug();
                 }
             } while(anyViolationsInUsage);
         }
@@ -74,6 +75,7 @@ public:
     }
 
     void debug() {
+        sparse::UnderConstraintLinearProgram::debug();
         for (int_t i = 0; i < resources.size(); i++) {
             log("{}: {}", i, resources[i].value);
         }

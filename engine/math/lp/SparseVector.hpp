@@ -1,7 +1,7 @@
 #pragma once
 
-#include "util/types.hpp"
 #include "util/log.hpp"
+#include "util/types.hpp"
 
 namespace Tag {
 struct Sparse {
@@ -34,6 +34,10 @@ protected:
     }
 
 public:
+    VectorView() { }
+    VectorView(const Entry* entries, int_t size)
+        : entries(const_cast<Entry*>(entries)), numEntries(size) { }
+
     const Entry& operator[](int_t i) const {
         return entries[i];
     }
@@ -61,27 +65,39 @@ public:
     Vector copy(int_t extraSize = 0) const;
 
     int_t lowerBound(uint32_t index) const {
-        int_t i;
+        Entry e0 = (*this)[0];
+        Entry e1 = (*this)[1];
+        Entry e2 = (*this)[2];
+        Entry e3 = (*this)[3];
+        int_t r = e3.index >= index ? 3 : 4;
+        r = e2.index >= index ? 2 : r;
+        r = e1.index >= index ? 1 : r;
+        r = e0.index >= index ? 0 : r;
+        return r;
+        /*int_t i;
         for (i = 0;; i++) {
             if ((*this)[i].index >= index)
                 break;
         }
-        return i;
+        return i;*/
     }
     float findValue(uint32_t index) const {
         Entry e = (*this)[lowerBound(index)];
         return e.index == index ? e.value : 0.0f;
     }
+
+    const Entry* data() const { return entries; }
 };
 
 class Vector : public VectorView {
 public:
     Vector() { }
 
+    static constexpr int_t space_size = 256 * (1 << 20);
+    static inline char* space = new char[space_size];
+
     Vector(int_t size) {
-        constexpr int_t space_size = 256 * (1 << 20);
-        static char* space = new char[space_size];
-        static int_t offset;
+        static int_t offset = 0;
         entries = (Entry*)(space + offset);
         offset += (size + 1) * sizeof(Entry);
         VERIFY(Sparse, offset < space_size);
@@ -130,6 +146,8 @@ public:
         numEntries = newSize;
     }
 
+    Entry* data() { return entries; }
+
     void add(Entry newEntry) {
         int_t offset = lowerBound(newEntry.index);
         Entry& entry = (*this)[offset];
@@ -137,23 +155,24 @@ public:
             entry.value += newEntry.value;
             return;
         }
-        std::copy_backward(entries + offset, entries + size() + 1, entries + size() + 2);
+        std::copy_backward(data() + offset, data() + size() + 1, data() + size() + 2);
         entry = newEntry;
         setSize(size() + 1);
     }
 
     void removeAt(int_t offset) {
-        std::copy(entries + offset + 1, entries + size() + 1, entries + offset);
+        std::copy(data() + offset + 1, data() + size() + 1, data() + offset);
+        setSize(size() - 1);
     }
 
     void removeIndex(uint32_t index) {
         int_t offset = lowerBound(index);
         if ((*this)[offset].index == index)
-            removeAt(index);
+            removeAt(offset);
     }
 
     void sort() {
-        std::sort(entries, entries + size(),
+        std::sort(data(), data() + size(),
             [](const Entry& e1, const Entry& e2) {
                 return e1.index < e2.index;
             });
@@ -166,7 +185,7 @@ public:
 
 inline Vector VectorView::copy(int_t extraSize) const {
     Vector r = Vector(size() + extraSize);
-    std::copy(entries, entries + size() + 1, r.entries);
+    std::copy(data(), data() + size() + 1, r.data());
     r.setSize(size());
     return r;
 }
@@ -181,8 +200,7 @@ Vector allocateEmpty(int_t extraSize = 0) {
     return r;
 }
 
-Vector add(VectorView v1, VectorView v2, float factor = 1.0f, int_t extraSize = 0) {
-    Vector out = allocate(v1.size() + v2.size() + extraSize);
+int_t addImpl(Entry* out, const Entry* v1, const Entry* v2, float factor) {
     int_t offset1 = 0;
     int_t offset2 = 0;
     int_t offset3 = 0;
@@ -209,8 +227,14 @@ Vector add(VectorView v1, VectorView v2, float factor = 1.0f, int_t extraSize = 
 
         out[offset3] = { i3, r };
     } while (i3 != MAX_INDEX);
+    out[offset3] = END_ENTRY;
+    return offset3;
+}
 
-    out.resizeTo(offset3);
+Vector add(VectorView v1, VectorView v2, float factor = 1.0f, int_t extraSize = 0) {
+    Vector out = allocate(v1.size() + v2.size() + extraSize);
+    int_t size = addImpl(out.data(), v1.data(), v2.data(), factor);
+    out.setSize(size);
     return out;
 }
 
@@ -257,6 +281,7 @@ Vector elementwiseKernelOutOfPlace(VectorView v, Kernel&& kernel, int_t extraSiz
     for (int_t offset = 0; offset < v.size(); offset++) {
         Entry in = v[offset];
         Entry& out = r[offset];
+        out.index = in.index;
         out.value = kernel(in.value);
     }
     r.resizeTo(v.size());
@@ -300,12 +325,27 @@ struct Matrix {
     }
 
     Vector multiply(VectorView v, int_t extraSize = 0) {
-        Vector ret = allocateEmpty(extraSize);
-        forEachColumn(v, [&](VectorView column, Entry entry) {
-            Vector tmp = add(ret, column, entry.value, extraSize);
-            ret = std::move(tmp);
-        });
-        return ret;
+        /*Vector ret = allocateEmpty(extraSize);
+        for (Entry e : v)
+            ret = add(ret, (*this)[e.index], e.value, extraSize);
+        return ret;*/
+
+        if (v.size() == 0)
+            return allocateEmpty(extraSize);
+
+        std::array<Entry, 10> scratch1;
+        std::array<Entry, 10> scratch2;
+        Entry* in = scratch1.data();
+        Entry* out = scratch2.data();
+        int_t size = 0;
+        in[0] = END_ENTRY;
+        for (int_t i = 0; i < v.size() - 1; i++) {
+            Entry e = v[i];
+            size = addImpl(out, in, (*this)[e.index].data(), e.value);
+            std::swap(in, out);
+        }
+        Entry e = v[v.size() - 1];
+        return add({ in, size }, (*this)[e.index], e.value, extraSize);
     }
 
     void appendColumn(Vector column) {
@@ -339,7 +379,7 @@ public:
         });
 
         inverseTranspose.forEachColumn(invColumn, [&](Vector& oldRow, Entry entry) {
-            Vector newRow =  add(oldRow, invRow, entry.value * invF, 1);
+            Vector newRow = add(oldRow, invRow, entry.value * invF, 1);
             newRow.appendEntry({ newIndex, -entry.value * invF });
             oldRow = std::move(newRow);
         });
@@ -354,10 +394,10 @@ public:
     }
 
     Vector preInvertColumn(VectorView column) {
-        return inverse.multiply(column, 1);
+        return inverse.multiply(column, 6);
     }
     Vector preInvertRow(VectorView row) {
-        return inverseTranspose.multiply(row, 1);
+        return inverseTranspose.multiply(row, 6);
     }
     float preInvertCornerWithColumn(VectorView invColumn, VectorView row, float corner) {
         return 1.0f / (corner - dot(row, invColumn));
