@@ -53,13 +53,13 @@ MappedSourceNodeImpl& ClusterImpl::findMappedSource(CompleteTarget target, utick
     return mappedSourceNodes[target.id];
 }
 
-/* ==============> Data heap pages <============== */
+/* ==============> Data heap <============== */
 
 void ClusterImpl::commitDataPages(Cluster cluster, utick_t tick) {
     std::unique_lock g(dataHeapPageLock);
     Address base = tickBase(cluster, tick).withAddr(PERSISTENT_DATA_HEAP_BEGIN);
     auto pageSize = platform::pageSize();
-    dataHeapPageMap.enumerateFreeIdRanges([&](uint16_t begin, size_t size)) {
+    dataHeapPageMap.enumerateUsedIdRanges([&](uint16_t begin, size_t size)) {
         platform::commitMemory(base.addToAddr(begin * pageSize).ptr(), size * pageSize);
     }
     committedDataHeapTicks.insert(tick);
@@ -101,8 +101,21 @@ ClusterImpl::ClusterImpl(int_t firstTick, ClusterInitializaionBounds bounds)
     , taskIdAllocator(FIRST_VALID_TASK_ID)
     , sourceMappingAllocator(FIRST_VALID_SOURCE_MAPPING_ID)
     , mappedTargetAllocator(FIRST_VALID_MAPPED_TARGET_ID)
-    , bounds(bounds)
-    , dataHeapBitmap(new std::atomic<uint64_t>[(bounds.maxDataHeapBytes + DATA_HEAP_BLOCK_SIZE - 1) / DATA_HEAP_BLOCK_SIZE]()) { }
+    , bounds(bounds) {
+
+    interfaceHeapAllocator.expandRange(bounds.totalInfaceHeapSize());
+    int_t taskSignalOffset = sizeof(InterfaceHeapHeader);
+    m_mappedTargetSignalOffset = taskSignalOffset + maxTasks * sizeof(urefcnt_t);
+    int_t dynamicAllocationOffset = m_mappedTargetSignalOffset + maxMappedTargets * sizeof(urefcnt_t);
+    uint32_t allocatedInterfaceHeapHeaderOffset = interfaceHeapAllocator.allocate(1, dynamicAllocationOffset);
+    EXPECT(Task, allocatedInterfaceHeapHeaderOffset, 0);
+
+    [[maybe_unused]] auto [offset, allocSize] = commitNewDataPage(cluster, /* doesn't matter */ 0);
+    VERIFY(Task, sizeof(DataHeapHeader) < allocSize));
+    dataHeapAllocator.expandRange(allocSize);
+    uint32_t allocatedDataHeapHeaderOffset = dataHeapAllocator.allocate(1, sizeof(DataHeapHeader));
+    EXPECT(Task, allocatedDataHeapHeaderOffset, 0);
+}
 
 ClusterImpl::~ClusterImpl() { }
 
@@ -232,7 +245,7 @@ std::pair<CompleteSource, utick_t> DependencyGraph::maybeMapSource(CompleteSourc
     if (!wasAllocated)
         return { sourceMapping, mappedSourceTick };
 
-    updateDependencyWithinCluster(sourceMapping, retireTickTarget(), mappedSourceTick, 0, 1);
+    updateDependencyWithinCluster(sourceMapping, retireTickTarget(cluster), mappedSourceTick, 0, 1); // is this necessary?
     auto mappedTarget = clusterImpl(source.cluster()).createMappedTarget(source, sourceMapping, sourceTick);
     impl.registerMappedTarget(mappedTarget, mappedSourceTick);
     updateDependencyWithinCluster(source, mappedTarget, sourceTick, 0, 1);
@@ -240,9 +253,8 @@ std::pair<CompleteSource, utick_t> DependencyGraph::maybeMapSource(CompleteSourc
 }
 
 void DependencyGraph::initializeClusterTick(Cluster cluster, utick_t tick) {
-    auto& impl = clusterImpl(cluster);
-    allocateClusterInterfaces(cluster, tick + impl.bounds.maxInterfaceTicksDelay);
-    impl.commitDataPages(cluster, tick);
+    initializeClusterData(cluster, tick);
+    initializeClusterInterfaces(cluster, tick + impl.bounds.maxInterfaceTicksDelay);
 }
 
 static bool containsBitFlip(utick_t a, utick_t b, int bit) {
@@ -283,6 +295,8 @@ void DependencyGraph::beginClusterTick(Cluster cluster, utick_t tick) {
 }
 
 void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, utick_t utick) {
+    auto& clusterImpl = clusterImpl(cluster);
+
     auto updates = graphUpdateQueue(cluster, utick).takeUnsafe();
     for (auto block : updates) {
         for (auto update : block) {
@@ -293,24 +307,33 @@ void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, u
             }
         }
     }
-    deallocateClusterInterfaces(cluster, utick);
+
+    {
+        std::unique_lock g(clusterImpl.dataHeapAllocatorLock);
+        auto allocations = freedDataHeapAllocations(cluster, utick).takeUnsafe();
+        for (auto block : allocations) {
+            for (auto allocation : block)
+                clusterImpl.dataHeapAllocator.free(allocation.offset);
+        }
+    }
+    {
+        std::unique_lock g(clusterImpl.interfaceHeapAllocatorLock);
+        auto allocations = freedInterfaceHeapAllocations(cluster, utick).takeUnsafe();
+        for (auto block : allocations) {
+            for (auto allocation : block)
+                clusterImpl.interfaceHeapAllocator.free(allocation.offset);
+        }
+    }
+
+    finalizeClusterInterfaces(cluster, utick);
     TickExpander expander = tickExpander(cluster);
     int_t tick = expander.tick(utick);
-    int_t deallocateRangeBegin = impl.nextTickToDeallocate;
-    int_t deallocateRangeEnd = std::max(deallocateRangeBegin, tick - impl.maxDelay + 1);
-    for (int_t i = deallocateRangeBegin; i < deallocateRangeEnd; i++) {
-        deallocateClusterData(impl, cluster, (utick_t)i);
+    int_t finalizeRangeBegin = impl.nextTickToFinalize;
+    int_t finalizeRangeEnd = std::max(finalizeRangeBegin, tick - impl.maxDelay + 1);
+    for (int_t i = finalizeRangeBegin; i < finalizeRangeEnd; i++) {
+        finalizeClusterData(impl, cluster, (utick_t)i);
     }
-    impl.nextTickToDeallocate = deallocateRangeEnd;
-}
-
-void DependencyGraph::deallocateClusterData(Cluster cluster, utick_t tick) {
-    for (Cluster otherCluster : interactingClusters(cluster)) {
-        // deallocateData(tick) always happens after beginClusterTick(tick + 1)
-        if (isCarringDependence(cluster, otherCluster, tick + 1))
-            unrefClusterData(otherCluster, translateTickFloor(cluster, otherCluster, tick));
-    }
-    unrefClusterData(cluster, tick);
+    impl.nextTickToFinalize = finalizeRangeEnd;
 }
 
 utick_t DependencyGraph::translateTick(Cluster from, Cluster to, utick_t tick) {
@@ -373,6 +396,44 @@ Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds 
 
 /* ==============> ? <============== */
 
+uint32_t DependencyGraph::allocateData(Cluster cluster, utick_t tick, size_t alignment, int_t size) {
+    auto& impl = clusterImpl(cluster);
+    std::unique_lock g(impl.dataHeapAllocatorLock);
+    return impl.dataHeapAllocator.allocate(alignment, size);
+}
+
+uint32_t DependencyGraph::allocateInterface(Cluster cluster, utick_t tick, size_t alignment, int_t size) {
+    auto& impl = clusterImpl(cluster);
+    std::unique_lock g(impl.interfaceHeapAllocatorLock);
+    return impl.interfaceHeapAllocator.allocate(alignment, size);
+}
+
+void DependencyGraph::initializeClusterData(Cluster cluster, utick_t tick) {
+    clusterImpl(cluster).commitDataPages(cluster, tick);
+}
+
+void DependencyGraph::finalizeClusterData(Cluster cluster, utick_t tick) {
+    for (Cluster otherCluster : interactingClusters(cluster)) {
+        // deallocateData(tick) always happens after beginClusterTick(tick + 1)
+        if (isCarringDependence(cluster, otherCluster, tick + 1))
+            unrefClusterData(otherCluster, translateTickFloor(cluster, otherCluster, tick));
+    }
+    unrefClusterData(cluster, tick);
+}
+
+void DependencyGraph::initializeClusterInterfaces(Cluster cluster, utick_t tick) {
+    int_t interfaceHeapBytes = alignmentCeil(cluster.bounds.totalInfaceHeapSize(), platform::pageSize());
+    platform::commitMemory(tickBase(cluster, tick).withAddr(PERSISTENT_INTERFACE_HEAP_BEGIN).ptr(), interfaceHeapBytes);
+    auto& header = interfaceHeapHeader(cluster, tick);
+    // ensure we have a zero page
+    header.bumpAllocatorOffset = platform::pageSize();
+    header.bumpAllocatorPageOffset = 1;
+}
+
+void DependencyGraph::finalizeClusterInterfaces(Cluster cluster, utick_t tick) {
+    platform::decommitMemory(tickBase(cluster, tick).withAddr(INTERFACE_HEAP_BEGIN).ptr(), INTERFACE_HEAP_SIZE);
+}
+
 void DependencyGraph::refClusterData(Cluster cluster, utick_t tick) {
     auto oldCount = clusterDataRefCount(cluster, tick).fetch_add(1, std::memory_order_relaxed);
     VERIFY(Task, oldCount > 0);
@@ -386,5 +447,3 @@ void DependencyGraph::unrefClusterData(Cluster cluster, utick_t tick) {
     if (newCount == 0)
         impl.decommitDataPages(cluster, tick);
 }
-
-/* ==============> Data allocation <============== */

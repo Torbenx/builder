@@ -1,5 +1,7 @@
 #pragma once
 
+#include "task/task.hpp"
+
 namespace task {
 
 template<typename T>
@@ -23,75 +25,6 @@ class TickUpdateQueue : public FlatSet<T> {
                 callback(update);
             }
         }
-    }
-};
-
-using utick_t = uint32_t;
-using urefcnt_t = uint16_t;
-using refcnt_t = std::make_signed_t<urefcnt_t>;
-using tickdiff_t = int16_t;
-
-constexpr size_t HARMONICS_BITS = 3;
-constexpr size_t NUM_HARMONICS = (size_t)1 << HARMONICS_BITS;
-constexpr size_t CLUSTER_BITS = 8 - HARMONICS_BITS;
-
-struct Cluster {
-    uint8_t id = 0;
-};
-
-struct CompleteNode {
-    uint16_t id = 0;
-    uint8_t clusterId : CLUSTER_BITS = 0;
-    uint8_t harmonic : HARMONICS_BITS = 0;
-    bool mapping = false;
-
-    Cluster cluster() { return { clusterId }; }
-    bool isMapping() { return mapping; }
-};
-
-struct CompleteSource : CompleteNode {
-    static CompleteSource mapping(uint16_t id, Cluster cluster) {
-        return { {
-            .id = id,
-            .clusterId = cluster.id,
-            .harmonic = 0,
-            .mapping = true,
-        } };
-    }
-};
-
-struct CompleteTarget : CompleteNode {
-    static CompleteTarget mapped(uint16_t id, CompleteSource source) {
-        return { {
-            .id = id,
-            .clusterId = source.clusterId,
-            .harmonic = source.harmonic,
-            .mapping = true,
-        } };
-    }
-};
-
-struct Task {
-    uint16_t id = 0;
-    uint8_t clusterId : CLUSTER_BITS = 0;
-    uint8_t harmonic : HERMONIC_BITS = 0;
-
-    Cluster cluster() { return { clusterId }; }
-    CompleteSource source() {
-        return { {
-            .id = id,
-            .clusterId = clusterId,
-            .harmonic = harmonic,
-            .mapping = false,
-        } };
-    }
-    CompleteTarget target() {
-        return { {
-            .id = id,
-            .clusterId = clusterId,
-            .harmonic = harmonic,
-            .mapping = false,
-        } };
     }
 };
 
@@ -203,12 +136,9 @@ struct GraphUpdate {
     }
 };
 
-struct ClusterInitializaionBounds {
-    int_t maxTasks;
-    int_t maxMappedTargets;
-    int_t maxSourceMappings;
-    int_t maxInterfaceTicksDelay;
-    int_t maxDataHeapBytes;
+struct RetireTaskImpl {
+    tickdiff_t maxDelay = 0;
+    int_t nextTickToDeallocate = 0;
 };
 
 constexpr uint16_t FIRST_VALID_TASK_ID = 1;
@@ -225,22 +155,6 @@ constexpr uint16_t DELAYED_ROOT_SOURCE_ID = 2;
 constexpr uint16_t FIRST_USER_TASK_ID = 2;
 constexpr uint16_t FIRST_USER_SOURCE_MAPPING_ID = 3;
 constexpr uint16_t FIRST_USER_MAPPED_TARGET_ID = 1;
-
-constexpr size_t DATA_HEAP_SLAB_SIZE = 16;
-constexpr size_t DATA_HEAP_BLOCK_SIZE = DATA_HEAP_SLAB_SIZE * 64;
-
-constexpr int_t ADDRESS_BITS = 24;
-constexpr uint32_t TEMPORARY_INTERFACE_HEAP_BEGIN = 0;
-constexpr uint32_t PERSISTENT_INTERFACE_HEAP_BEGIN = (uint32_t)1 << 16;
-constexpr uint32_t PERSISTENT_DATA_HEAP_BEGIN = (uint32_t)1 << (ADDRESS_BITS - 2);
-constexpr uint32_t TEMPORARY_DATA_HEAP_BEGIN = (uint32_t)1 << (ADDRESS_BITS - 1);
-constexpr uint32_t DATA_HEAP_BEGIN = PERSISTENT_DATA_HEAP_BEGIN;
-
-constexpr int_t ADDRESS_SPACE_END = (int_t)1 << ADDRESS_BITS;
-constexpr int_t TEMPORARY_DATA_HEAP_SIZE = ADDRESS_SPACE_END - TEMPORARY_DATA_HEAP_BEGIN;
-constexpr int_t PERSISTENT_DATA_HEAP_SIZE = TEMPORARY_DATA_HEAP_BEGIN - PERSISTENT_DATA_HEAP_BEGIN;
-constexpr int_t PERSISTENT_INTERFACE_HEAP_SIZE = PERSISTENT_DATA_HEAP_BEGIN - PERSISTENT_INTERFACE_HEAP_BEGIN;
-constexpr int_t DATA_HEAP_SIZE = ADDRESS_SPACE_END - DATA_HEAP_BEGIN;
 
 struct ClusterImpl {
     /* ==============> Task allocator <============== */
@@ -302,47 +216,30 @@ struct ClusterImpl {
     SourceNodeImpl rootSourceImpl;
     SourceNodeImpl delayedRootSourceImpl;
 
-    /* ==============> Data heap pages <============== */
+    /* ==============> Data heap <============== */
     std::mutex dataHeapPageLock;
     sIdAllocator dataHeapPageMap;
     FlatSet<utick_t> committedDataHeapTicks;
+    std::mutex dataHeapAllocatorLock;
+    RangeAllocator dataHeapAllocator;
+
+    /* ==============> Interface heap <============== */
+    std::mutex interfaceHeapAllocatorLock;
+    RangeAllocator interfaceHeapAllocator;
 
     /* ==============> Globals <============== */
+    int_t m_mappedTargetSignalOffset;
     ClusterInitializaionBounds bounds;
     int_t nextTickToInitialize;
     utick_t currentTick;
     int_t numInteractingClusters;
     std::array<Cluster, 32> interactingClusters;
-    std::unique_ptr<std::atomic<uint64_t>[]> dataHeapBitmap;
+
+    int_t mappedTargetSignalOffset() { return m_mappedTargetSignalOffset; }
+    int_t taskSignalOffset() { return sizeof(InterfaceHeapHeader); }
 
     void ClusterImpl(int_t firstTick, ClusterInitializaionBounds bounds);
     ~ClusterImpl();
-};
-
-struct RetireTaskImpl {
-    tickdiff_t maxDelay = 0;
-    int_t nextTickToDeallocate = 0;
-};
-
-struct ExternalTicks {
-    std::bitmask<32> dependenceMask = 0;
-    utick_t ticks[32] {};
-
-    utick_t tick(Cluster cluster) const {
-        return ticks[cluster.id];
-    }
-
-    void setTick(Cluster cluster, utick_t tick, bool carriesDependence) {
-        ticks[cluster.id] = tick;
-        dependenceMask.set(cluster.id, carriesDependence);
-    }
-
-    bool carriesDependence(Cluster cluster) const {
-        return dependenceMask.test(cluster.id);
-    }
-};
-struct Address {
-
 };
 
 struct DependencyGraph {
@@ -395,13 +292,41 @@ struct DependencyGraph {
         return { impl.interactingClusters.data(), impl.numInteractingClusters };
     }
 
-    std::atomic<urefcnt_t>& signal(CompleteTarget, utick_t);
-    HalfAtomicArrayBuilder<GraphUpdate>& graphUpdateQueue(Cluster, utick_t);
-    ExternalTicks& externalTicks(Cluster, utick_t);
-    std::atomic<int8_t>& clusterDataRefCount(Cluster, utick_t);
+    DataHeapHeader& dataHeapHeader(Cluster cluster, utick_t tick) {
+        return *(DataHeapHeader*)tickBase(cluster, tick).withAddr(PERSISTENT_DATA_HEAP_BEGIN).ptr();
+    }
+    InterfaceHeapHeader& interfaceHeapHeader(Cluster cluster, utick_t tick) {
+        return *(InterfaceHeapHeader*)tickBase(cluster, tick).withAddr(PERSISTENT_INTERFACE_HEAP_BEGIN).ptr();
+    }
+
+    std::atomic<urefcnt_t>& signal(CompleteTarget target, utick_t tick) {
+        auto& impl = clusterImpl(target.cluster());
+        Address addr = tickBase(target.cluster(), tick).withAddr(PERSISTENT_INTERFACE_HEAP_BEGIN);
+
+        int_t taskOffset = impl.taskSignalOffset();
+        int_t mappedTargetOffset = impl.mappedTargetSignalOffset();
+        int_t offset = target.mapped() ? mappedTargetOffset : taskOffset;
+        addr.addToAddr(offset);
+
+        return ((std::atomic<urefcnt_t>*)(bytePtr + offset))[target.id];
+    }
+    HalfAtomicArrayBuilder<GraphUpdate>& graphUpdateQueue(Cluster cluster, utick_t tick) {
+        return dataHeapHeader(cluster, tick).graphUpdates;
+    }
+    HalfAtomicArrayBuilder<HeapAllocation>& freedDataHeapAllocations(Cluster cluster, utick_t tick) {
+        return dataHeapHeader(cluster, tick).freedHeapAllocations;
+    }
+    HalfAtomicArrayBuilder<HeapAllocation>& freedInterfaceHeapAllocations(Cluster cluster, utick_t tick) {
+        return interfaceHeapHeader(cluster, tick).freedHeapAllocations;
+    }
+    ExternalTicks& externalTicks(Cluster cluster, utick_t tick) {
+        return dataHeapHeader(cluster, tick).ticks;
+    }
+    std::atomic<int8_t>& clusterDataRefCount(Cluster cluster, utick_t tick) {
+        return dataHeapHeader(cluster, tick).refCount;
+    }
 
     /* ==============> TODO <============== */
-
     TickExpander tickExpander(Cluster);
     // Translating using this method is only valid if the tick is carring dependence.
     utick_t translateTick(Cluster from, Cluster to, utick_t);
@@ -432,8 +357,6 @@ struct DependencyGraph {
 
     Task newTask(Promise* prom, Cluster, uint8_t harmonic, utick_t);
     Cluster newCluster(int_t firstTick);
-
-    /* ==============> Data allocation <============== */
 };
 
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "containers/ArrayView.hpp"
+#include "memory/SubAllocator.hpp"
 #include "util/log.hpp"
 #include <atomic>
 
@@ -38,5 +39,96 @@ private:
         uint32_t newCapacity = callback(oldCapacity);
         VERIFY(Containers, newCapacity > oldCapacity);
         capacity.store(newCapacity, std::memory_order_release);
+    }
+};
+
+template<typename BaseAllocator, size_t defaultAlignment, int_t blockSize>
+struct ContinuousAtomicBumpAllocator : SubAllocatorBase<ContinuousAtomicBumpAllocator<BaseAllocator, defaultAlignment, blockSize>, BaseAllocator> {
+    using SubAllocatorBase = SubAllocatorBase<ContinuousAtomicBumpAllocator<BaseAllocator, defaultAlignment, blockSize>, BaseAllocator>;
+    using uintptr_t = typename SubAllocatorBase::uintptr_t;
+    template<typename T = void>
+    using Ptr = typename SubAllocatorBase::template Ptr<T>;
+
+    struct Data {
+        Data(Ptr<> begin, size_t initialSize = 0)
+            : begin(begin), end(begin + initialSize) { }
+        std::atomic<uintptr_t> begin = 0;
+        std::atomic<uintptr_t> end = 0;
+    };
+
+    Data& data;
+
+    ContinuousAtomicBumpAllocator(Data& data, BaseAllocator allocator)
+        : SubAllocatorBase(allocator), data(data) { }
+
+    template<size_t alignment>
+    Ptr<> allocate(int_t size) {
+        if constexpr (alignment > defaultAlignment) {
+            size += alignment;
+        }
+        size = alignmentCeil(defaultAlignment, size);
+
+        uintptr_t offset = data.begin.fetch_add(size, std::memory_order_relaxed);
+        while (true) {
+            uintptr_t end = data.end.load(std::memory_order_acquire);
+
+            if (offset + size <= end)
+                break;
+
+            // ensure a new block is allocated exactly once
+            if (offset <= end) {
+                Ptr<> p = this->baseAllocator.template allocate<defaultAlignment, blockSize>();
+                EXPECT(Containers, p.offset, end);
+                data.end.store(end + blockSize, std::memory_order_release);
+            }
+        }
+        return { alignmentCeil(alignment, offset) };
+    }
+
+    template<size_t alignment>
+    void free([[maybe_unused]] Ptr<> ptr, [[maybe_unused]] int_t size) { }
+};
+
+template<typename BaseAllocator>
+struct PageBlockAllocator : SubAllocatorBase<PageBlockAllocator<BaseAllocator>, BaseAllocator> {
+    using SubAllocatorBase = SubAllocatorBase<PageBlockAllocator<BaseAllocator>, BaseAllocator>;
+    using uintptr_t = typename SubAllocatorBase::uintptr_t;
+    template<typename T = void>
+    using Ptr = typename SubAllocatorBase::template Ptr<T>;
+
+    static constexpr int_t LOG_BLOCK_SIZE = 12;
+    static constexpr int_t BLOCK_SIZE = (int_t)1 << LOG_BLOCK_SIZE;
+
+    struct Data {
+        int_t blockCounter = 0;
+    };
+
+    Data& data;
+
+    PageBlockAllocator(Data& data, BaseAllocator allocator)
+        : SubAllocatorBase(allocator), data(data) { }
+
+    template<size_t alignment, int_t size>
+    Ptr<> allocate() {
+        static_assert(size == BLOCK_SIZE);
+        auto logPageSize = platform::logPageSize();
+        std::byte* beginAddress = (std::byte*)this->baseAllocator.bumpBeginAddress();
+        if (LOG_BLOCK_SIZE >= logPageSize) {
+            int_t logFactor = LOG_BLOCK_SIZE - logPageSize;
+            platform::commitMemory(beginAddress + (data.blockCounter << logFactor), BLOCK_SIZE);
+        } else {
+            int_t logFactor = logPageSize - LOG_BLOCK_SIZE;
+            size_t mask = ((size_t)1 << logFactor) - 1;
+            if ((data.blockCounter & mask) == 0)
+                platform::commitMemory(beginAddress + (data.blockCounter >> logFactor), (size_t)1 << logPageSize);
+        }
+        // VERIFY(Allocators, data.blockCounter < data.maxBlocks);
+        uintptr_t address = this->baseAllocator.internalBumpBeginAddress() + data.blockCounter * BLOCK_SIZE;
+        data.blockCounter += 1;
+        return { address };
+    }
+
+    void skipPage(int_t count = 1) {
+        data.blockCounter += std::max<int_t>((count << platform::logPageSize()) >> LOG_BLOCK_SIZE, 1);
     }
 };

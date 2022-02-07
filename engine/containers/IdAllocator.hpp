@@ -100,6 +100,16 @@ public:
         }
     }
 
+    template<typename Callback>
+    void enumerateUsedIdRanges(Callback&& callback, T min = 0) {
+        T prevEnd = min;
+        enumerateFreeIdRanges([&](T begin, size_t size) {
+            size_t s = begin - prevEnd;
+            callback(prevEnd, s);
+            prevEnd = begin + size;
+        });
+    }
+
 private:
     struct Bucket {
         mutable T elements[N];

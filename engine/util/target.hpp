@@ -1,6 +1,7 @@
 #pragma once
 
 #include "util/types.hpp"
+#include <bit>
 
 // PLATFORM
 
@@ -81,6 +82,7 @@ namespace detail {
 
 static consteval size_t cachelineSize() { return 64; }
 inline size_t pageSize() { return detail::pageSize; }
+inline int_t logPageSize() { return std::countr_zero(pageSize()); }
 inline bool isPageAligned(uintptr_t addr) { return (addr & (pageSize() - 1)) == 0; }
 inline bool isPageAligned(void* addr) { return isPageAligned((uintptr_t)addr); }
 

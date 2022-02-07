@@ -394,7 +394,7 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
 
     std::mt19937 gen(2);
 
-    constexpr int_t DIM = 1;
+    /*constexpr int_t DIM = 1;
     CacheMapBase<uint32_t, AVX2CacheSet<uint32_t, DIM>, DIM> map;
     int_t step = 4;
     int_t items = 0;
@@ -426,7 +426,7 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     for (auto i : v) {
         str << ((float)i.first / i.second) << ",";
     }
-    log("{}", str.str());
+    log("{}", str.str());*/
 }
 
 template<Gapi G>

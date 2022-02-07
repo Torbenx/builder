@@ -18,7 +18,7 @@ template<typename RawPtr, typename T = void>
 struct Ptr : PtrBase<RawPtr, T> {
     using uintptr_t = typename RawPtr::uintptr_t;
     template<typename S = void>
-    using RetPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
+    using BasicPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
     using ptrdiff_t = std::make_signed_t<uintptr_t>;
 
     constexpr Ptr() { }
@@ -41,14 +41,14 @@ struct Ptr : PtrBase<RawPtr, T> {
     template<typename S>
     constexpr explicit operator Ptr<RawPtr, S> const { return { *(RawPtr*)this }; }
     constexpr operator Ptr<RawPtr>() const { return { *(RawPtr*)this }; }
-    constexpr operator RetPtr<T>() const { return { this->addr() }; }
+    constexpr operator BasicPtr<T>() const { return { this->addr() }; }
 
     template<typename S>
-    constexpr explicit operator RetPtr<S>() const { return { this->addr() }; }
-    constexpr operator RetPtr<>() const { return { this->addr() }; }
+    constexpr explicit operator BasicPtr<S>() const { return { this->addr() }; }
+    constexpr operator BasicPtr<>() const { return { this->addr() }; }
 
-    constexpr RetPtr<T> operator+(ptrdiff_t i) { return { this->addr() + i * sizeof(T) }; }
-    constexpr RetPtr<T> operator-(ptrdiff_t i) { return { this->addr() - i * sizeof(T) }; }
+    constexpr BasicPtr<T> operator+(ptrdiff_t i) { return { this->addr() + i * sizeof(T) }; }
+    constexpr BasicPtr<T> operator-(ptrdiff_t i) { return { this->addr() - i * sizeof(T) }; }
 };
 template<typename RawPtr, typename T>
 constexpr RawPtr::ptrdiff_t operator-(Ptr<RawPtr, T> a, Ptr<RawPtr, T> b) {
@@ -60,11 +60,11 @@ requires std::is_class_v<T>
 struct PtrBase<RawPtr, T> : RawPtr {
     using uintptr_t = typename RawPtr::uintptr_t;
     template<typename S = void>
-    using RetPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
+    using BasicPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
     using ptrdiff_t = std::make_signed_t<uintptr_t>;
 
     template<typename S>
-    constexpr RetPtr<S> operator->*(S T::*ptr) {
+    constexpr BasicPtr<S> operator->*(S T::*ptr) {
         T* t = nullptr;
         S* s = &(t->*ptr);
         return { this->addr() + (ptrdiff_t)((std::byte*)s - (std::byte*)t) };
@@ -75,18 +75,18 @@ template<typename RawPtr, typename... Types>
 struct PtrBase<RawPtr, std::tuple<Types...>> : PtrRaw {
     using uintptr_t = typename RawPtr::uintptr_t;
     template<typename S = void>
-    using RetPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
+    using BasicPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
     using ptrdiff_t = std::make_signed_t<uintptr_t>;
 
     template<typename S>
-    constexpr RetPtr<S> get() {
+    constexpr BasicPtr<S> get() {
         std::tuple<Types...>* tuple = nullptr;
         S* s = &std::get<S>(*tuple);
         return { this->addr() + (ptrdiff_t)((std::byte*)s - (std::byte*)tuple) };
     }
 
     template<size_t I>
-    constexpr RetPtr<std::tuple_element_t<I, std::tuple<Types...>>> get() {
+    constexpr BasicPtr<std::tuple_element_t<I, std::tuple<Types...>>> get() {
         std::tuple<Types...>* tuple = nullptr;
         std::tuple_element_t<I, std::tuple<Types...>>* s = &std::get<I>(*tuple);
         return { this->addr() + (ptrdiff_t)((std::byte*)s - (std::byte*)tuple) };
@@ -98,12 +98,12 @@ requires std::is_array_v<T>
 struct PtrBase<RawPtr, T> : RawPtr {
     using uintptr_t = typename RawPtr::uintptr_t;
     template<typename S = void>
-    using RetPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
+    using BasicPtr = Ptr<BasicRawPtr<uintptr_t>, S>;
     using ptrdiff_t = std::make_signed_t<uintptr_t>;
 
     constexpr auto get(int_t i) {
         using type = std::remove_extent_t<T>;
-        return RetPtr<type> { (uintptr_t)(this->addr() + i * sizeof(type)) };
+        return BasicPtr<type> { (uintptr_t)(this->addr() + i * sizeof(type)) };
     }
 };
 
