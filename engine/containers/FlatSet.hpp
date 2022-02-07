@@ -35,9 +35,7 @@ public:
         m_data.push_back(t);
     }
     void insert(ArrayView<T> arr) {
-        int_t oldSize = size();
-        m_data.resize(oldSize + arr.size());
-        std::memcpy(data() + oldSize, arr.data(), arr.size() * sizeof(T));
+        m_data.insert(end(), arr.begin(), arr.end());
     }
 
     void removeAt(int_t i) {
@@ -64,6 +62,10 @@ public:
                 i--;
             }
         }
+    }
+
+    void clear() {
+        m_data.clear();
     }
 
 private:

@@ -93,6 +93,7 @@ add_library(engine ${linkage}
     "containers/MemoryAllocator32.cpp"
     "graphics/GAllocator.cpp"
     "task/Scheduler.cpp"
+    "task/DependencyGraph.cpp"
     "ui/renderer/ComputeShader.cpp"
     ${platform_source}
     ${vulkan_source}

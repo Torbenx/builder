@@ -1,15 +1,30 @@
 #pragma once
 
+#include "containers/FlatSet.hpp"
+#include "containers/IdAllocator.hpp"
+#include "containers/RangeAllocator.hpp"
+#include "containers/SmallPoolAllocator.hpp"
 #include "task/task.hpp"
+#include "util/uninitialized.hpp"
+#include <memory>
+#include <unordered_map>
+
+template<>
+struct std::hash<task::CompleteSource> {
+    auto operator()(const task::CompleteSource& source) const {
+        std::hash<uint32_t> h;
+        return h(std::bit_cast<uint32_t>(source));
+    }
+};
 
 namespace task {
 
 template<typename T>
-class TickUpdateQueue : public FlatSet<T> {
+struct TickUpdateQueue : FlatSet<T> {
     template<typename Callback>
     void apply(Callback&& callback, utick_t utick, TickExpander expander) {
         auto tick = expander.tick(utick);
-        removeIf([&](auto update) {
+        this->removeIf([&](auto update) {
             if (expander.tick(update.startTick) <= tick) {
                 callback(update);
                 return true;
@@ -18,6 +33,7 @@ class TickUpdateQueue : public FlatSet<T> {
         });
     }
 
+    /*template<typename Callback>
     void apply(Callback&& callback, utick_t utick, TickExpander expander) {
         auto tick = expander.tick(utick);
         for (auto update : *this) {
@@ -25,13 +41,13 @@ class TickUpdateQueue : public FlatSet<T> {
                 callback(update);
             }
         }
-    }
+    }*/
 };
 
 struct Dependency {
     uint16_t id = 0;
     uint8_t padding : CLUSTER_BITS = 0;
-    uint8_t harmonic : HARMONICS_BITS = 0;
+    uint8_t harmonic : HARMONIC_BITS = 0;
     bool mapping = false;
     tickdiff_t delay = 0;
     refcnt_t refCount = 0;
@@ -54,9 +70,9 @@ struct Dependency {
     CompleteTarget target(Cluster cluster) {
         return { {
             .id = id,
-            .mapping = mapping,
             .clusterId = cluster.id,
             .harmonic = harmonic,
+            .mapping = mapping,
         } };
     }
 
@@ -101,44 +117,51 @@ struct MappedSourceNodeImpl : SourceNodeImpl {
     CompleteSource source;
 };
 
+struct MappedTargetNodeImpl : TargetNodeImpl {
+    CompleteTarget target;
+
+    MappedTargetNodeImpl(CompleteTarget target)
+        : target(target) { }
+};
+
 struct GraphUpdate {
     uint16_t sourceId = 0;
     uint8_t clusterId : CLUSTER_BITS = 0;
-    uint8_t sourceHarmonic : HARMONICS_BITS = 0;
+    uint8_t sourceHarmonic : HARMONIC_BITS = 0;
     uint16_t targetId = 0;
     bool removal : 1 = false;
     bool sourceMapping : 1 = false;
     bool targetMapping : 1 = false;
     uint8_t padding : (CLUSTER_BITS - 3) = 0;
-    uint8_t targetHaromic : HARMONICS_BITS = 0;
+    uint8_t targetHaromic : HARMONIC_BITS = 0;
     tickdiff_t delay = 0;
 
     static GraphUpdate update(bool removal, CompleteSource source, Dependency dep) {
         return {
-            .removal = removal,
             .sourceId = source.id,
             .clusterId = source.clusterId,
             .sourceHarmonic = source.harmonic,
-            .sourceMapping = source.isMapping(),
             .targetId = dep.id,
-            .targetHaromic = dep.harmonic,
+            .removal = removal,
+            .sourceMapping = source.isMapping(),
             .targetMapping = dep.isMapping(),
+            .targetHaromic = dep.harmonic,
             .delay = dep.delay,
         };
     }
 
     static GraphUpdate removeDependency(CompleteSource source, Dependency dep) {
-        return update(true, source, target);
+        return update(true, source, dep);
     }
 
     static GraphUpdate createDependency(CompleteSource source, Dependency dep) {
-        return update(false, source, target);
+        return update(false, source, dep);
     }
 };
 
 struct RetireTaskImpl {
     tickdiff_t maxDelay = 0;
-    int_t nextTickToDeallocate = 0;
+    int_t nextTickToFinalize = 0;
 };
 
 constexpr uint16_t FIRST_VALID_TASK_ID = 1;
@@ -177,7 +200,7 @@ struct ClusterImpl {
     /* ==============> Mapped target allocator <============== */
     std::mutex mappedTargetAllocatorLock;
     sIdAllocator mappedTargetAllocator;
-    // The mapped sources in other clusters associated with mappedTargets in this cluster.
+    // The mapped sources in other clusters associated with mapped targets in this cluster.
     std::unique_ptr<MappedSourceNodeImpl[]> mappedSourceNodes;
 
     // Create the target associated to the mapping sourceMapping of source,
@@ -188,14 +211,16 @@ struct ClusterImpl {
     /* ==============> Mapped target tracking <============== */
     // All the mapped targets in other clusters that are associated with
     // a source mapping into this cluster.
-    FlatSet<CompleteTarget> mappedTargets;
+    std::vector<MappedTargetNodeImpl> mappedTargets;
     AtomicArrayBuilder<CompleteTarget> mappedTargetQueue;
 
     void registerMappedTarget(CompleteTarget target, utick_t) {
         mappedTargetQueue.pushBack(target);
     }
-    FlatSet<CompleteTarget>& getMappedTargets(utick_t) {
-        mappedTargets.insert(mappedTargetQueue.take());
+    std::vector<MappedTargetNodeImpl>& getMappedTargets(utick_t) {
+        auto queue = mappedTargetQueue.take();
+        for (auto target : *queue)
+            mappedTargets.emplace_back(target);
         return mappedTargets;
     }
 
@@ -223,6 +248,10 @@ struct ClusterImpl {
     std::mutex dataHeapAllocatorLock;
     RangeAllocator dataHeapAllocator;
 
+    void commitDataPages(Cluster cluster, utick_t tick);
+    void decommitDataPages(Cluster cluster, utick_t tick);
+    std::pair<uint32_t, uint32_t> commitNewDataPage(Cluster cluster, utick_t allocUtick);
+
     /* ==============> Interface heap <============== */
     std::mutex interfaceHeapAllocatorLock;
     RangeAllocator interfaceHeapAllocator;
@@ -232,15 +261,28 @@ struct ClusterImpl {
     ClusterInitializaionBounds bounds;
     int_t nextTickToInitialize;
     utick_t currentTick;
+    TickExpander tickExpander;
     int_t numInteractingClusters;
     std::array<Cluster, 32> interactingClusters;
 
     int_t mappedTargetSignalOffset() { return m_mappedTargetSignalOffset; }
     int_t taskSignalOffset() { return sizeof(InterfaceHeapHeader); }
 
-    void ClusterImpl(int_t firstTick, ClusterInitializaionBounds bounds);
+    ClusterImpl(Cluster cluster, int_t firstTick, ClusterInitializaionBounds bounds);
     ~ClusterImpl();
 };
+
+inline utick_t ceilTickToHarmonic(uint8_t harmonic, utick_t tick) {
+    utick_t mask = ((utick_t)1 << harmonic) - 1;
+    return (tick + mask) & ~mask;
+}
+inline utick_t floorTickToHarmonic(uint8_t harmonic, utick_t tick) {
+    utick_t mask = ((utick_t)1 << harmonic) - 1;
+    return tick & ~mask;
+}
+inline Address tickBase(Cluster cluster, utick_t tick) {
+    return Address().withCluster(cluster).withTick(tick);
+}
 
 struct DependencyGraph {
 
@@ -256,17 +298,6 @@ struct DependencyGraph {
     }
     static CompleteSource delayedRootSource(Cluster cluster) {
         return CompleteSource::mapping(DELAYED_ROOT_SOURCE_ID, cluster);
-    }
-    static utick_t ceilTickToHarmonic(uint8_t harmonic, utick_t tick) {
-        utick_t mask = ((utick_t)1 << harmonic) - 1;
-        return (tick + mask) & ~mask;
-    }
-    static utick_t floorTickToHarmonic(uint8_t harmonic, utick_t tick) {
-        utick_t mask = ((utick_t)1 << harmonic) - 1;
-        return tick & ~mask;
-    }
-    static Address tickBase(Cluster cluster, utick_t tick) {
-        return;
     }
 
     /* ==============>  Data structure <============== */
@@ -291,6 +322,9 @@ struct DependencyGraph {
         auto& impl = clusterImpl(cluster);
         return { impl.interactingClusters.data(), impl.numInteractingClusters };
     }
+    TickExpander tickExpander(Cluster cluster) {
+        return clusterImpl(cluster).tickExpander;
+    }
 
     DataHeapHeader& dataHeapHeader(Cluster cluster, utick_t tick) {
         return *(DataHeapHeader*)tickBase(cluster, tick).withAddr(PERSISTENT_DATA_HEAP_BEGIN).ptr();
@@ -305,19 +339,19 @@ struct DependencyGraph {
 
         int_t taskOffset = impl.taskSignalOffset();
         int_t mappedTargetOffset = impl.mappedTargetSignalOffset();
-        int_t offset = target.mapped() ? mappedTargetOffset : taskOffset;
+        int_t offset = target.mapping ? mappedTargetOffset : taskOffset;
         addr.addToAddr(offset);
 
-        return ((std::atomic<urefcnt_t>*)(bytePtr + offset))[target.id];
+        return ((std::atomic<urefcnt_t>*)addr.ptr())[target.id];
     }
-    HalfAtomicArrayBuilder<GraphUpdate>& graphUpdateQueue(Cluster cluster, utick_t tick) {
+    HalfAtomicArrayBuilder<GraphUpdate, InterfaceHeapBumpAllocator>& graphUpdateQueue(Cluster cluster, utick_t tick) {
         return dataHeapHeader(cluster, tick).graphUpdates;
     }
-    HalfAtomicArrayBuilder<HeapAllocation>& freedDataHeapAllocations(Cluster cluster, utick_t tick) {
-        return dataHeapHeader(cluster, tick).freedHeapAllocations;
+    HalfAtomicArrayBuilder<HeapAllocation, InterfaceHeapBumpAllocator>& freedDataHeapAllocations(Cluster cluster, utick_t tick) {
+        return dataHeapHeader(cluster, tick).freedAllocations;
     }
-    HalfAtomicArrayBuilder<HeapAllocation>& freedInterfaceHeapAllocations(Cluster cluster, utick_t tick) {
-        return interfaceHeapHeader(cluster, tick).freedHeapAllocations;
+    HalfAtomicArrayBuilder<HeapAllocation, InterfaceHeapBumpAllocator>& freedInterfaceHeapAllocations(Cluster cluster, utick_t tick) {
+        return interfaceHeapHeader(cluster, tick).freedAllocations;
     }
     ExternalTicks& externalTicks(Cluster cluster, utick_t tick) {
         return dataHeapHeader(cluster, tick).ticks;
@@ -327,36 +361,43 @@ struct DependencyGraph {
     }
 
     /* ==============> TODO <============== */
-    TickExpander tickExpander(Cluster);
-    // Translating using this method is only valid if the tick is carring dependence.
-    utick_t translateTick(Cluster from, Cluster to, utick_t);
-    utick_t translateTickCeil(Cluster from, Cluster to, utick_t);
-    utick_t translateTickFloor(Cluster from, Cluster to, utick_t);
-    bool isCarringDependence(Cluster from, Cluster to, utick_t);
-
     void scheduleTask(Task, utick_t);
 
     /* ==============> Concurrency <============== */
     static constexpr urefcnt_t TARGET_UNLOCKED_FLAG = (urefcnt_t)1 << (std::numeric_limits<urefcnt_t>::digits - 1);
+    void signalTarget(CompleteTarget target, utick_t tick, urefcnt_t delta);
+    void unlockTarget(TargetNodeImpl& impl, CompleteTarget target, utick_t tick);
+    void signalSource(SourceNodeImpl& impl, CompleteSource source, utick_t tick);
+    void updateDependencyWithinCluster(CompleteSource source, CompleteTarget target, utick_t sourceUtick, tickdiff_t ticksDelay, refcnt_t delta);
 
-    void signalTarget(CompleteTarget, utick_t, urefcnt_t);
-    void unlockTarget(TargetNodeImpl&, CompleteTarget, utick_t);
-    void signalSource(SourceNodeImpl&, CompleteSource, utick_t);
-    void updateDependencyWithinCluster(CompleteSource, CompleteTarget, utick_t sourceTick, tickdiff_t ticksDelay, refcnt_t delta);
-
-    /* ==============> ? <============== */
+    /* ==============> External handling and Tick lifecycle <============== */
     CompleteSource updateDependency(CompleteSource source, CompleteTarget target, utick_t sourceTick, tickdiff_t targetTicksDelay, refcnt_t delta);
-    void onDepedenciesFulfilled(CompleteTarget, utick_t);
-    Target updateDependency(Task source, Task target, utick_t sourceTick, tickdiff_t sourceTicksDelay, refcnt_t delta);
-    void beginClusterTick(Cluster cluster, utick_t tick, const std::bitset<MAX_GROUPS>& firstTimeUsingTick);
-    CompleteSource maybeMapSource(Cluster, CompleteSource, utick_t);
+    void onDepedenciesFulfilled(CompleteTarget target, utick_t tick);
+    std::pair<CompleteSource, utick_t> maybeMapSource(CompleteSource source, Cluster cluster, utick_t sourceTick);
+    void initializeClusterTick(Cluster cluster, utick_t tick);
+    void beginClusterTick(Cluster cluster, utick_t tick);
+    void retireClusterTick(RetireTaskImpl& impl, Cluster cluster, utick_t utick);
+    utick_t translateTick(Cluster from, Cluster to, utick_t tick);
+    utick_t translateTickFloor(Cluster from, Cluster to, utick_t tick);
+    utick_t translateTickCeil(Cluster from, Cluster to, utick_t tick);
+    bool isCarringDependence(Cluster from, Cluster to, utick_t tick);
 
     /* ==============> ? <============== */
     std::mutex clusterIdFreeMaskLock;
     uint32_t clusterIdFreeMask = std::numeric_limits<uint32_t>::max();
 
-    Task newTask(Promise* prom, Cluster, uint8_t harmonic, utick_t);
-    Cluster newCluster(int_t firstTick);
+    Task newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick);
+    Cluster newCluster(int_t firstTick, ClusterInitializaionBounds bounds);
+
+    /* ==============> ? <============== */
+    uint32_t allocateData(Cluster cluster, utick_t tick, size_t alignment, int_t size);
+    uint32_t allocateInterface(Cluster cluster, utick_t tick, size_t alignment, int_t size);
+    void initializeClusterData(Cluster cluster, utick_t tick);
+    void finalizeClusterData(Cluster cluster, utick_t tick);
+    void initializeClusterInterfaces(Cluster cluster, utick_t tick);
+    void finalizeClusterInterfaces(Cluster cluster, utick_t tick);
+    void refClusterData(Cluster cluster, utick_t tick);
+    void unrefClusterData(Cluster cluster, utick_t tick);
 };
 
 }

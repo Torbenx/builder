@@ -50,7 +50,7 @@ struct ContinuousAtomicBumpAllocator : SubAllocatorBase<ContinuousAtomicBumpAllo
     using Ptr = typename SubAllocatorBase::template Ptr<T>;
 
     struct Data {
-        Data(Ptr<> begin, size_t initialSize = 0)
+        Data(uintptr_t begin, size_t initialSize = 0)
             : begin(begin), end(begin + initialSize) { }
         std::atomic<uintptr_t> begin = 0;
         std::atomic<uintptr_t> end = 0;
@@ -78,11 +78,11 @@ struct ContinuousAtomicBumpAllocator : SubAllocatorBase<ContinuousAtomicBumpAllo
             // ensure a new block is allocated exactly once
             if (offset <= end) {
                 Ptr<> p = this->baseAllocator.template allocate<defaultAlignment, blockSize>();
-                EXPECT(Containers, p.offset, end);
+                EXPECT(Containers, p.addr(), end);
                 data.end.store(end + blockSize, std::memory_order_release);
             }
         }
-        return { alignmentCeil(alignment, offset) };
+        return { (uintptr_t)alignmentCeil(alignment, offset) };
     }
 
     template<size_t alignment>
@@ -101,6 +101,13 @@ struct PageBlockAllocator : SubAllocatorBase<PageBlockAllocator<BaseAllocator>, 
 
     struct Data {
         int_t blockCounter = 0;
+
+        int_t skipPage(int_t count = 1) {
+            int_t blocksSkipped = std::max<int_t>((count << platform::logPageSize()) >> LOG_BLOCK_SIZE, 1);
+            int_t sizeSkipped = blocksSkipped * BLOCK_SIZE;
+            blockCounter += blocksSkipped;
+            return sizeSkipped;
+        }
     };
 
     Data& data;
@@ -126,9 +133,5 @@ struct PageBlockAllocator : SubAllocatorBase<PageBlockAllocator<BaseAllocator>, 
         uintptr_t address = this->baseAllocator.internalBumpBeginAddress() + data.blockCounter * BLOCK_SIZE;
         data.blockCounter += 1;
         return { address };
-    }
-
-    void skipPage(int_t count = 1) {
-        data.blockCounter += std::max<int_t>((count << platform::logPageSize()) >> LOG_BLOCK_SIZE, 1);
     }
 };

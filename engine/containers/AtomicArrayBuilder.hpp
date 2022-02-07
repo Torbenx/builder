@@ -11,7 +11,7 @@ template<typename T>
 class AtomicArrayBuilder {
 public:
     template<typename Callback>
-    uint32_t pushBack(T item, Callback&& callback) {
+    uint32_t pushBack(const T& item, Callback&& callback) {
         while (true) {
             int_t capacity;
             {
@@ -19,7 +19,7 @@ public:
                 int_t offset = this->offset.fetch_add(1, std::memory_order_relaxed);
                 capacity = this->capacity;
                 if (offset < capacity) {
-                    storage[offset] = item;
+                    std::construct_at(storage + offset, item);
                     callback(payload);
                     return payload;
                 }
@@ -28,7 +28,7 @@ public:
         }
     }
 
-    uint32_t pushBack(T item) {
+    uint32_t pushBack(const T& item) {
         return pushBack(
             item, [](uint32_t) {});
     }
@@ -64,10 +64,12 @@ private:
             return;
 
         int_t newCapacity = capacity == 0 ? 4 : capacity * 2;
-        T* newStorage = new T[newCapacity];
+        std::allocator<T> allocator;
+        T* newStorage = allocator.allocate(newCapacity);
 
-        std::memcpy(newStorage, storage, capacity * sizeof(T));
-        delete[] storage;
+        std::copy(storage, storage + capacity, newStorage);
+
+        allocator.deallocate(storage, capacity);
 
         storage = newStorage;
         offset.store(capacity, std::memory_order_relaxed);

@@ -2,8 +2,8 @@
 
 #include "memory/Allocator.hpp"
 
-template<typename SubAllocator, typename BaseAllocator>
-class SubAllocatorBase : public AllocatorBase<SubAllocator> {
+template<typename SubAllocator, typename BaseAllocator, typename uintptr_t_p = typename BaseAllocator::uintptr_t, typename RawPtr_p = BasicRawPtr<uintptr_t_p>>
+class SubAllocatorBase : public AllocatorBase<SubAllocator, uintptr_t_p, RawPtr_p> {
 public:
     // SubAllocator should have a constructor taking Data& and BaseAllocator
     struct Inline : SubAllocator {
@@ -38,9 +38,10 @@ public:
             : SubAllocator(param.data, BaseAllocator { object, param }) { }
     };
 
-    using uintptr_t = typename BaseAllocator::uintptr_t;
+    using uintptr_t = uintptr_t_p;
+    using RawPtr = RawPtr_p;
     template<typename T = void>
-    using Ptr = typename BaseAllocator::template Ptr<T>::BasicPtr;
+    using Ptr = ::Ptr<RawPtr, T>;
 
     BaseAllocator baseAllocator;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "util/types.hpp"
+#include "memory/Ptr.hpp"
 #include <bit>
 #include <type_traits>
 
@@ -20,14 +21,16 @@ private:
     [[no_unique_address]] typename Allocator::Object object;
 };
 
-template<typename Impl>
+template<typename Impl, typename uintptr_t_p, typename RawPtr_p = BasicRawPtr<uintptr_t_p>>
 class AllocatorBase {
 public:
     struct Parameter { };
     struct Object { };
 
+    using uintptr_t = uintptr_t_p;
+    using RawPtr = RawPtr_p;
     template<typename T = void>
-    using Ptr = typename Impl::template Ptr<T>;
+    using Ptr = ::Ptr<RawPtr, T>;
 
     Impl* impl() { return static_cast<Impl*>(this); }
 
