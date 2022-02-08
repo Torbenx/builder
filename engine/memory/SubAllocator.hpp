@@ -3,8 +3,7 @@
 #include "memory/Allocator.hpp"
 
 template<typename SubAllocator, typename BaseAllocator, typename uintptr_t_p = typename BaseAllocator::uintptr_t, typename RawPtr_p = BasicRawPtr<uintptr_t_p>>
-class SubAllocatorBase : public AllocatorBase<SubAllocator, uintptr_t_p, RawPtr_p> {
-public:
+struct SubAllocatorBase : AllocatorBase<SubAllocator, uintptr_t_p, RawPtr_p> {
     // SubAllocator should have a constructor taking Data& and BaseAllocator
     struct Inline : SubAllocator {
         struct Object : BaseAllocator::Object, SubAllocator::Data { };

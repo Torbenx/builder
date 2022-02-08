@@ -43,7 +43,7 @@ struct SmallPoolAllocator {
     }
 
     static constexpr int_t primeFactor(int_t size) {
-        constexpr int_t primes[] = { 1, 2, 3, 5, 7 };
+        constexpr int_t primes[] = { 2, 3, 5, 7 };
         for (int_t prime : primes) {
             if (size % prime == 0)
                 return prime;
@@ -54,9 +54,11 @@ struct SmallPoolAllocator {
     template<int_t size, int_t stride = 1>
     static mask_t availableMask(mask_t in) {
         constexpr int_t factor = primeFactor(size);
-        static_assert(factor != 0);
-        constexpr int_t base = size / factor;
-        if constexpr (base != 1) {
+        if constexpr (size == 1) {
+            return in;
+        } else if constexpr (size > factor) {
+            static_assert(factor != 0);
+            constexpr int_t base = size / factor;
             return availableMask<factor, stride * base>(availableMask<base, stride>(in));
         } else if constexpr (factor == 2) {
             return (in >> stride) & in;

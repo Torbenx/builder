@@ -11,12 +11,11 @@ public:
     StdAllocator(Object, Parameter) { }
 
     template<size_t alignment>
-    void* allocate<alignment>(int_t size) {
+    void* allocateImpl(size_t alignment, int_t size) {
         return ::operator new (size, std::align_val_t { alignment });
     }
 
-    template<size_t alignment>
-    void free(void* ptr, int_t size) {
+    void freeImpl(size_t alignment, void* ptr, int_t size) {
         ::operator delete (ptr, std::align_val_t { alignment });
     }
 

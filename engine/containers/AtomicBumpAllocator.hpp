@@ -61,9 +61,8 @@ struct ContinuousAtomicBumpAllocator : SubAllocatorBase<ContinuousAtomicBumpAllo
     ContinuousAtomicBumpAllocator(Data& data, BaseAllocator allocator)
         : SubAllocatorBase(allocator), data(data) { }
 
-    template<size_t alignment>
-    Ptr<> allocate(int_t size) {
-        if constexpr (alignment > defaultAlignment) {
+    Ptr<> allocateImpl(size_t alignment, int_t size) {
+        if (alignment > defaultAlignment) {
             size += alignment;
         }
         size = alignmentCeil(defaultAlignment, size);
@@ -85,8 +84,7 @@ struct ContinuousAtomicBumpAllocator : SubAllocatorBase<ContinuousAtomicBumpAllo
         return { (uintptr_t)alignmentCeil(alignment, offset) };
     }
 
-    template<size_t alignment>
-    void free([[maybe_unused]] Ptr<> ptr, [[maybe_unused]] int_t size) { }
+    void freeImpl([[maybe_unused]] size_t alignment, [[maybe_unused]] Ptr<> ptr, [[maybe_unused]] int_t size) { }
 };
 
 template<typename BaseAllocator>

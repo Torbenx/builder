@@ -358,6 +358,14 @@ bool DependencyGraph::isCarringDependence(Cluster from, Cluster to, utick_t tick
 
 /* ==============> ? <============== */
 
+void DependencyGraph::globalInitialize() {
+    platform::reserveMemoryRegion(ADDRESS_SPACE_END, 0, Address().ptr());
+}
+
+void DependencyGraph::globalFinalize() {
+    platform::releaseMemoryRegion(Address().ptr(), ADDRESS_SPACE_END);
+}
+
 Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick) {
     verifyValidTick(harmonic, tick);
     Task task = clusterImpl(cluster).createTask(prom, cluster, harmonic, tick);
@@ -376,6 +384,8 @@ Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds 
 
     ClusterImpl& impl = clusterImpl(cluster);
     new (&impl) ClusterImpl(cluster, firstTick, bounds);
+
+    initializeClusterTick(cluster, firstTick);
 
     // Don't call newTask() to avoid circular self dependence.
     Task createdRetireTickTask = impl.createTask(/* FIXME */ {}, cluster, 0, firstTick);

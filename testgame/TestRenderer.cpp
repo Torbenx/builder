@@ -12,7 +12,7 @@
 #include <resource/asset_istream.hpp>
 #include <script/events.hpp>
 #include <string>
-#include <task/Promise.hpp>
+//#include <task/Promise.hpp>
 #include <thread>
 #include <util/LogTimer.hpp>
 #include <util/draw_util.hpp>
@@ -24,6 +24,8 @@
 #ifdef PLATFORM_WINDOWS
 #include <windows/fullscreen.hpp>
 #endif
+
+#include <task/DependencyGraph.hpp>
 
 /*struct Test {
     int_t registerEvent(EventReceiver*, uint64_t bitmask) {
@@ -53,7 +55,7 @@ Script<int> test() {
     co_await r;
 }*/
 
-struct MyData {
+/*struct MyData {
     int i;
 };
 
@@ -100,6 +102,17 @@ task::Task<> testParent([[context]] task::TaskInfo taskInfo) {
         counter++;
         co_yield 0;
     }
+}*/
+
+void myTest(task::DependencyGraph& graph, task::Cluster cluster, task::utick_t tick) {
+    auto param = graph.interfaceHeapHeader(cluster, tick).bumpParameter(cluster, tick);
+    graph.dataHeapHeader(cluster, tick).freedAllocations.pushBack({}, param);
+}
+
+namespace task {
+void DependencyGraph::scheduleTask(Task task, utick_t tick) {
+    log("scheduling {} at {}", task.id, tick);
+}
 }
 
 template<Gapi G>
@@ -113,12 +126,25 @@ TestRenderer<G>::TestRenderer()
     , reflectionPass(&reflectionFB)
     , pointLightPosition(0, 1, -2) {
 
-    task::CoroutineScheduler* sched = new task::CoroutineScheduler;
+    task::DependencyGraph graph;
+    graph.globalInitialize();
+    task::ClusterInitializaionBounds bounds = {
+        .maxTasks = 10,
+        .maxMappedTargets = 10,
+        .maxSourceMappings = 10,
+        .maxInterfaceTicksDelay = 10,
+        .maxInterfaceHeapSize = 10,
+        .maxDataHeapSize = 10,
+    };
+    auto cluster = graph.newCluster(1, bounds);
+    graph.globalFinalize();
+
+    /*task::CoroutineScheduler* sched = new task::CoroutineScheduler;
     task::RootHandle root = sched->newRoot();
     task::detail::scheduler = sched;
     task::TaskInfo info { { root, 0 }, 0 };
     task::Spawn<testParent>(info).execute(info);
-    task::detail::getNext().resume();
+    task::detail::getNext().resume();*/
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));
@@ -520,8 +546,8 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
         LogTimer timer;
         while (solver.iterate()) { }
     }
-    //solver.debug();
-    //solver.A.debug();
+    // solver.debug();
+    // solver.A.debug();
     /*VDUMP(solver.iterations);
     constexpr int_t clocksCount = std::tuple_size_v<decltype(solver.clocks)> - 1;
     for (int_t i = 0; i < clocksCount; i++) {

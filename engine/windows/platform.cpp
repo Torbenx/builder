@@ -15,13 +15,14 @@ void RendererState::exit() {
 
 void log_print(const std::string& tag, const std::string& msg) {
     std::string str = '[' + tag + "] " + msg + '\n';
-    OutputDebugStringA(str.c_str());
+    //OutputDebugStringA(str.c_str());
     std::cout << str;
 }
 
-void* platform::reserveMemoryRegion(size_t size, size_t alignment) {
+void* platform::reserveMemoryRegion(size_t size, size_t alignment, void* baseAddress) {
     VERIFY(Windows, isPageAligned(alignment));
     VERIFY(Windows, isPageAligned(size));
+    VERIFY(Windows, isPageAligned(baseAddress));
 
     SYSTEM_INFO info;
     GetSystemInfo(&info);
@@ -36,8 +37,12 @@ void* platform::reserveMemoryRegion(size_t size, size_t alignment) {
     parameter.Reserved = 0;
     parameter.Pointer = &requirements;
 
-    void* addr = VirtualAlloc2(nullptr, nullptr, size, MEM_RESERVE, PAGE_READWRITE, &parameter, 1);
+    void* addr = VirtualAlloc2(nullptr, baseAddress, size, MEM_RESERVE, PAGE_READWRITE, &parameter, 1);
+
     VERIFY(Windows, addr != nullptr);
+    if (baseAddress != nullptr)
+        EXPECT(Windows, (size_t)addr, (size_t)baseAddress);
+
     return addr;
 }
 

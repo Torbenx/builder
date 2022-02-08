@@ -49,13 +49,18 @@ public:
         return impl()->allocate<alignment>(size);
     }
 
+    template<size_t alignment>
+    Ptr<> allocate(int_t size) {
+        return impl()->allocateImpl(alignment, size);
+    }
+
     template<typename T>
     Ptr<T> allocatePowerOf2(int_t exponent) {
         if constexpr (std::has_single_bit(sizeof(T))) {
             constexpr int_t sizeExponent = std::countl_zero(sizeof(T));
-            return allocatePowerOf2<alignof(T)>(exponent + sizeExponent);
+            return impl()->allocatePowerOf2<alignof(T)>(exponent + sizeExponent);
         } else
-            return allocate<T>((int_t)1 << exponent);
+            return impl()->template allocate<T>((int_t)1 << exponent);
     }
 
     template<size_t alignment>
@@ -71,5 +76,10 @@ public:
     template<size_t alignment, int_t size>
     void free(Ptr<> ptr) {
         impl()->free<alignment>(ptr, size);
+    }
+
+    template<size_t alignment>
+    void free(Ptr<> ptr, int_t size) {
+        impl()->freeImpl(alignment, ptr, size);
     }
 };

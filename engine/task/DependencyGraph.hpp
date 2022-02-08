@@ -386,6 +386,9 @@ struct DependencyGraph {
     std::mutex clusterIdFreeMaskLock;
     uint32_t clusterIdFreeMask = std::numeric_limits<uint32_t>::max();
 
+    void globalInitialize();
+    void globalFinalize();
+
     Task newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick);
     Cluster newCluster(int_t firstTick, ClusterInitializaionBounds bounds);
 

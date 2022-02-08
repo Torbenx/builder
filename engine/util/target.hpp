@@ -87,7 +87,7 @@ inline bool isPageAligned(uintptr_t addr) { return (addr & (pageSize() - 1)) == 
 inline bool isPageAligned(void* addr) { return isPageAligned((uintptr_t)addr); }
 
 // use alignment = 0 for default alignment
-void* reserveMemoryRegion(size_t size, size_t alignment = 0);
+void* reserveMemoryRegion(size_t size, size_t alignment = 0, void* baseAddress = nullptr);
 void commitMemory(void* addr, size_t size);
 void decommitMemory(void* addr, size_t size);
 // can only release the entire region at once

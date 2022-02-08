@@ -4,6 +4,7 @@ template<typename T>
 union uninitialized {
     T value;
     uninitialized() { }
+    ~uninitialized() { }
 
     template<typename... Args>
     void initialize(Args&&... args) {

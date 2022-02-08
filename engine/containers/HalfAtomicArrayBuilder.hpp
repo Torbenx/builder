@@ -68,40 +68,12 @@ public:
         while (true) {
             storage_t pos = position.fetch_add(1, std::memory_order_acquire);
             Info info { pos };
-            uint_t newCapacity;
-            BlockHeader* currentHeader;
-            if (info.storage) {
-                currentHeader = allocator[info.storage];
-                if (info.offset < currentHeader->capacity) {
-                    std::construct_at(currentHeader->array() + info.offset, item);
-                    return;
-                }
-                newCapacity = std::min<uint_t>(2 * currentHeader->capacity, MAX_CAPACITY);
-            } else {
-                currentHeader = nullptr;
-                newCapacity = 4;
+            BlockHeader* currentHeader = allocator[info.storage];
+            if (info.storage && info.offset < currentHeader->capacity) {
+                std::construct_at(currentHeader->array() + info.offset, item);
+                break;
             }
-
-            Ptr<BlockHeader> newStorage = BlockHeader::allocate(newCapacity, allocator);
-            BlockHeader* newHeader = allocator[newStorage];
-            newHeader->size = newCapacity;
-            newHeader->capacity = newCapacity;
-            if (currentHeader) {
-                // This information might be out of date, but it doesn't matter
-                // since in that case we are guaranteed ot fail.
-                newHeader->next = currentHeader->next;
-            } else
-                newHeader->next = newStorage;
-
-            Info newInfo = Info::freshStorage(newStorage);
-            bool success;
-            do {
-                success = position.compare_exchange_weak(pos, newInfo.pos(), std::memory_order_release);
-            } while (Info { pos }.storage == info.storage);
-            if (success && currentHeader)
-                currentHeader->next = newStorage;
-            if (!success)
-                BlockHeader::free(newStorage, newCapacity, allocator);
+            allocateNewStorage(pos, currentHeader, allocator);
         }
     }
 
@@ -128,7 +100,8 @@ public:
     }
 
     void clearUnsafe(typename Allocator::Parameter alloc = {}) {
-        for ([[maybe_unused]] auto _ : takeUnsafe(alloc)) { }
+        auto blocks = takeUnsafe(alloc);
+        for (auto it = blocks.begin(); it != blocks.end(); ++it) { }
     }
 
     ~HalfAtomicArrayBuilder(typename Allocator::Parameter alloc = {}) {
@@ -156,4 +129,36 @@ private:
     };
 
     std::atomic<storage_t> position = 0;
+
+    __attribute__((noinline)) void allocateNewStorage(storage_t oldPos, BlockHeader* currentHeader, Allocator allocator) {
+        uint_t newCapacity;
+        Info info { oldPos };
+        if (info.storage) {
+            newCapacity = std::min<uint_t>(2 * currentHeader->capacity, MAX_CAPACITY);
+        } else {
+            newCapacity = 4;
+            currentHeader = nullptr;
+        }
+
+        Ptr<BlockHeader> newStorage = BlockHeader::allocate(newCapacity, allocator);
+        BlockHeader* newHeader = allocator[newStorage];
+        newHeader->size = newCapacity;
+        newHeader->capacity = newCapacity;
+        if (currentHeader) {
+            // This information might be out of date, but it doesn't matter
+            // since in that case we are guaranteed to fail.
+            newHeader->next = currentHeader->next;
+        } else
+            newHeader->next = newStorage;
+
+        Info newInfo = Info::freshStorage(newStorage);
+        bool success;
+        do {
+            success = position.compare_exchange_weak(oldPos, newInfo.pos(), std::memory_order_release);
+        } while (Info { oldPos }.storage == info.storage);
+        if (success && currentHeader)
+            currentHeader->next = newStorage;
+        if (!success)
+            BlockHeader::free(newStorage, newCapacity, allocator);
+    }
 };
