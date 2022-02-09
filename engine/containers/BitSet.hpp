@@ -223,4 +223,4 @@ void swap(BitSetBase<T>& a, BitSetBase<T>& b) {
     std::swap(a.m_size, b.m_size);
 }
 
-typedef BitSetBase<uint64_t> BitSet;
+using BitSet = BitSetBase<size_t>;

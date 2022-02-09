@@ -109,9 +109,16 @@ void myTest(task::DependencyGraph& graph, task::Cluster cluster, task::utick_t t
     graph.dataHeapHeader(cluster, tick).freedAllocations.pushBack({}, param);
 }
 
+task::Promise promises[2][10];
+
+constexpr int_t MAX_TICKS = 20;
+std::list<task::Task> queue[MAX_TICKS];
+
 namespace task {
 void DependencyGraph::scheduleTask(Task task, utick_t tick) {
-    log("scheduling {} at {}", task.id, tick);
+    if (tick < MAX_TICKS)
+        queue[tick].push_back(task);
+    // log("scheduling {{{},{}}} at tick={}", task.cluster().id, task.id, tick);
 }
 }
 
@@ -126,18 +133,76 @@ TestRenderer<G>::TestRenderer()
     , reflectionPass(&reflectionFB)
     , pointLightPosition(0, 1, -2) {
 
+    log("=========================================");
     task::DependencyGraph graph;
     graph.globalInitialize();
+
     task::ClusterInitializaionBounds bounds = {
         .maxTasks = 10,
         .maxMappedTargets = 10,
         .maxSourceMappings = 10,
-        .maxInterfaceTicksDelay = 10,
+        .maxInterfaceTicksDelay = 4,
         .maxInterfaceHeapSize = 10,
         .maxDataHeapSize = 10,
     };
-    auto cluster = graph.newCluster(1, bounds);
+    auto cluster1 = graph.newCluster(1, bounds);
+    auto cluster2 = graph.newCluster(1, bounds);
+    graph.clusterImpl(cluster1).interactingClusters[0] = cluster2;
+    graph.clusterImpl(cluster1).numInteractingClusters = 1;
+    graph.clusterImpl(cluster2).interactingClusters[0] = cluster1;
+    graph.clusterImpl(cluster2).numInteractingClusters = 1;
+
+    auto task1 = graph.newTask(&promises[0][2], cluster1, 0, 1);
+    auto task2 = graph.newTask(&promises[1][2], cluster2, 0, 1);
+
+    graph.updateDependency(task1.source(), task2.target(), 1, 0, 1);
+
+    graph.taskCompleted(promises[0][2], task1, 0);
+    graph.taskCompleted(promises[1][2], task2, 0);
+    graph.beginClusterTicks({ cluster1, cluster2 });
+
+    task::utick_t nextTickToInitialize[2] = { 2, 2 };
+    while (true) {
+        bool scheduled = false;
+        for (int_t tick = 1; tick < MAX_TICKS; tick++) {
+            if (!queue[tick].empty()) {
+                auto task = queue[tick].front();
+                queue[tick].pop_front();
+                scheduled = true;
+                if (tick == nextTickToInitialize[0]) {
+                    graph.initializeClusterTick(cluster1, tick);
+                    graph.initializeClusterTick(cluster2, tick);
+                    log("begin tick={}", tick);
+
+                    std::vector<task::Cluster> clusters;
+                    clusters.push_back(cluster1);
+                    if (tick % 4 == 0 && tick / 4 > 1)
+                        clusters.push_back(cluster2);
+                    graph.beginClusterTicks(clusters);
+
+                    nextTickToInitialize[0]++;
+                }
+                if (task.id == 1) {
+                    auto& prom = graph.clusterImpl(task.cluster()).retireTaskPromise;
+                    graph.retireClusterTick(prom.retireImpl, task.cluster(), tick);
+                    //log("{{{},{}}} complete at tick={}", task.cluster().id, task.id, tick);
+                    graph.taskCompleted(prom, task, tick);
+                    break;
+                }
+                log("{{{},{}}} complete at tick={}", task.cluster().id, task.id, tick);
+                if (task == task2) {
+                    log("depending on floor={}, ceil={}", graph.translateTickFloor(cluster2, cluster1, tick), graph.translateTickCeil(cluster2, cluster1, tick));
+                }
+                graph.taskCompleted(promises[task.cluster().id][task.id], task, tick);
+                break;
+            }
+        }
+        if (!scheduled)
+            break;
+    }
+
     graph.globalFinalize();
+    log("=========================================");
 
     /*task::CoroutineScheduler* sched = new task::CoroutineScheduler;
     task::RootHandle root = sched->newRoot();

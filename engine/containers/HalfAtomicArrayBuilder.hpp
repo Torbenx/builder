@@ -73,7 +73,7 @@ public:
                 std::construct_at(currentHeader->array() + info.offset, item);
                 break;
             }
-            allocateNewStorage(pos, currentHeader, allocator);
+            allocateNewStorage(pos + 1, currentHeader, allocator);
         }
     }
 
@@ -90,7 +90,7 @@ public:
             first = last->next;
             last->next = nullptr;
             last->size = info.offset;
-        };
+        }
         struct {
             BlockIterator it;
             BlockIterator begin() { return it; }
@@ -155,7 +155,7 @@ private:
         bool success;
         do {
             success = position.compare_exchange_weak(oldPos, newInfo.pos(), std::memory_order_release);
-        } while (Info { oldPos }.storage == info.storage);
+        } while (!success && Info { oldPos }.storage == info.storage);
         if (success && currentHeader)
             currentHeader->next = newStorage;
         if (!success)

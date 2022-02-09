@@ -113,6 +113,11 @@ struct TargetNodeImpl {
     }
 };
 
+struct Promise {
+    SourceNodeImpl sourceImpl;
+    TargetNodeImpl targetImpl;
+};
+
 struct MappedSourceNodeImpl : SourceNodeImpl {
     CompleteSource source;
 };
@@ -164,6 +169,10 @@ struct RetireTaskImpl {
     int_t nextTickToFinalize = 0;
 };
 
+struct RetireTaskPromise : Promise{
+    RetireTaskImpl retireImpl;
+};
+
 constexpr uint16_t FIRST_VALID_TASK_ID = 1;
 constexpr uint16_t FIRST_VALID_SOURCE_MAPPING_ID = 1;
 constexpr uint16_t FIRST_VALID_MAPPED_TARGET_ID = 1;
@@ -211,16 +220,14 @@ struct ClusterImpl {
     /* ==============> Mapped target tracking <============== */
     // All the mapped targets in other clusters that are associated with
     // a source mapping into this cluster.
-    std::vector<MappedTargetNodeImpl> mappedTargets;
+    FlatSet<CompleteTarget> mappedTargets;
     AtomicArrayBuilder<CompleteTarget> mappedTargetQueue;
 
     void registerMappedTarget(CompleteTarget target, utick_t) {
         mappedTargetQueue.pushBack(target);
     }
-    std::vector<MappedTargetNodeImpl>& getMappedTargets(utick_t) {
-        auto queue = mappedTargetQueue.take();
-        for (auto target : *queue)
-            mappedTargets.emplace_back(target);
+    FlatSet<CompleteTarget>& getMappedTargets(utick_t) {
+        mappedTargets.insert(*mappedTargetQueue.take());
         return mappedTargets;
     }
 
@@ -234,7 +241,8 @@ struct ClusterImpl {
         return (source.isMapping() ? mappedSourceUpdateQueues : taskSourceUpdateQueues)[source.id];
     }
     AtomicArrayBuilder<TargetUpdate>& updateQueue(CompleteTarget target, utick_t) {
-        return (target.isMapping() ? mappedTargetUpdateQueues : taskTargetUpdateQueues)[target.id];
+        VERIFY(Task, !target.isMapping());
+        return taskTargetUpdateQueues[target.id];
     }
 
     /* ==============> System source mappings <============== */
@@ -262,8 +270,9 @@ struct ClusterImpl {
     int_t nextTickToInitialize;
     utick_t currentTick;
     TickExpander tickExpander;
-    int_t numInteractingClusters;
+    int_t numInteractingClusters = 0;
     std::array<Cluster, 32> interactingClusters;
+    RetireTaskPromise retireTaskPromise;
 
     int_t mappedTargetSignalOffset() { return m_mappedTargetSignalOffset; }
     int_t taskSignalOffset() { return sizeof(InterfaceHeapHeader); }
@@ -315,9 +324,6 @@ struct DependencyGraph {
     AtomicArrayBuilder<TargetUpdate>& updateQueue(CompleteTarget target, utick_t tick) {
         return clusterImpl(target.cluster()).updateQueue(target, tick);
     }
-    utick_t currentTick(Cluster cluster) {
-        return clusterImpl(cluster).currentTick;
-    }
     ArrayView<const Cluster> interactingClusters(Cluster cluster) {
         auto& impl = clusterImpl(cluster);
         return { impl.interactingClusters.data(), impl.numInteractingClusters };
@@ -366,7 +372,8 @@ struct DependencyGraph {
     /* ==============> Concurrency <============== */
     static constexpr urefcnt_t TARGET_UNLOCKED_FLAG = (urefcnt_t)1 << (std::numeric_limits<urefcnt_t>::digits - 1);
     void signalTarget(CompleteTarget target, utick_t tick, urefcnt_t delta);
-    void unlockTarget(TargetNodeImpl& impl, CompleteTarget target, utick_t tick);
+    void unlockMappedTarget(CompleteTarget target, utick_t tick);
+    void unlockNextTarget(TargetNodeImpl& impl, CompleteTarget target, utick_t tick);
     void signalSource(SourceNodeImpl& impl, CompleteSource source, utick_t tick);
     void updateDependencyWithinCluster(CompleteSource source, CompleteTarget target, utick_t sourceUtick, tickdiff_t ticksDelay, refcnt_t delta);
 
@@ -375,7 +382,7 @@ struct DependencyGraph {
     void onDepedenciesFulfilled(CompleteTarget target, utick_t tick);
     std::pair<CompleteSource, utick_t> maybeMapSource(CompleteSource source, Cluster cluster, utick_t sourceTick);
     void initializeClusterTick(Cluster cluster, utick_t tick);
-    void beginClusterTick(Cluster cluster, utick_t tick);
+    void beginClusterTicks(ArrayView<const Cluster> incrementClusters);
     void retireClusterTick(RetireTaskImpl& impl, Cluster cluster, utick_t utick);
     utick_t translateTick(Cluster from, Cluster to, utick_t tick);
     utick_t translateTickFloor(Cluster from, Cluster to, utick_t tick);
@@ -390,6 +397,7 @@ struct DependencyGraph {
     void globalFinalize();
 
     Task newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick);
+    void taskCompleted(Promise& prom, Task task, utick_t tick);
     Cluster newCluster(int_t firstTick, ClusterInitializaionBounds bounds);
 
     /* ==============> ? <============== */

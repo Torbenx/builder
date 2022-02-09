@@ -3,8 +3,8 @@
 #include "util/log.hpp"
 #include <bit>
 
-RangeAllocator::RangeAllocator(size_type size)
-    : totalSize(size) {
+RangeAllocator::RangeAllocator(size_type size, size_type max) {
+    ranges.insert({ max, false });
     if (size > 0)
         ranges.insert({ size, true });
 }
@@ -33,13 +33,21 @@ RangeAllocator::size_type RangeAllocator::allocate(size_type alignment, size_typ
 
         return aligned_start;
     }
-    //VERIFY_NOT_REACHED(Containers);
     return INVALID_OFFSET;
 }
 
-void RangeAllocator::extendRange(size_type size) {
-    ranges.insert({ totalSize + size, true });
-    totalSize += size;
+void RangeAllocator::addRange(size_type begin, size_type size) {
+    auto it = ranges.upper_bound({ begin, false });
+    VERIFY(Containers, it != ranges.end());
+    VERIFY(Containers, !it->free());
+    size_type prevEnd;
+    if (it == ranges.begin())
+        prevEnd = 0;
+    else
+        prevEnd = (--it)->end();
+    if (begin != prevEnd)
+        ranges.insert({ begin, false });
+    ranges.insert({ begin + size, true });
 }
 
 void RangeAllocator::debug() {

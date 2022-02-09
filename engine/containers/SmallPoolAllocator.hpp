@@ -30,7 +30,7 @@ struct SmallPoolAllocator {
 
     static mask_t getMask(int offset, int_t size) {
         mask_t sizeMask = ((mask_t)1 << size) - 1;
-        return sizeMask << (offset ^ std::numeric_limits<mask_t>::digits);
+        return sizeMask << (offset ^ (std::numeric_limits<mask_t>::digits - 1));
     }
 
     template<size_t alignment>

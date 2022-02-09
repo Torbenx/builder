@@ -90,7 +90,6 @@ add_library(engine ${linkage}
     "3d/Shaderpass.cpp"
     "3d/Renderpass.cpp"
     "containers/RangeAllocator.cpp"
-    "containers/MemoryAllocator32.cpp"
     "graphics/GAllocator.cpp"
     "task/Scheduler.cpp"
     "task/DependencyGraph.cpp"

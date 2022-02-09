@@ -112,8 +112,9 @@ struct Address {
     uint64_t addr : 24;
     uint64_t cluster : 5;
     uint64_t padding : 3 = 0;
-    uint64_t tick : 24;
-    uint64_t base : 8 = 0x3c;
+    uint64_t tick : 8;
+    uint64_t base : 24 = 0x3c;
+    static constexpr size_t ADDRESS_SPACE_SIZE = (size_t)1 << 40;
 
     Address& withAddr(uint32_t addr) {
         this->addr = addr;
@@ -145,8 +146,6 @@ struct TickExpander {
         return (utick ^ (uint32_t)high) + high;
     }
 };
-
-static constexpr std::uintptr_t HEAP_BASE_ADDRESS = 0x3c00'0000'0000'0000;
 
 // heap layout
 constexpr int_t ADDRESS_BITS = 24;
@@ -274,7 +273,5 @@ struct ClusterInitializaionBounds {
         return sizeof(DataHeapHeader) + maxDataHeapSize;
     }
 };
-
-struct Promise { };
 
 }

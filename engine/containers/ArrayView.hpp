@@ -2,6 +2,7 @@
 
 #include "util/types.hpp"
 #include <array>
+#include <vector>
 #include <compare>
 #include <concepts>
 #include <type_traits>
@@ -23,7 +24,7 @@ public:
         : m_data(data), m_size(N) { }
 
     template<size_t N>
-    ArrayView(const std::array<T, N>& data)
+    ArrayView(std::array<T, N>& data)
         : m_data(data.data()), m_size(N) { }
 
     template<size_t N>
@@ -32,6 +33,15 @@ public:
 
     ArrayView(T* data, int_t size)
         : m_data(data), m_size(size) { }
+
+    ArrayView(std::remove_const_t<T>* data, int_t size) requires std::is_const_v<T>
+        : m_data(data), m_size(size) { }
+
+    ArrayView(std::vector<T>& data)
+        : m_data(data.data()), m_size(data.size()) { }
+
+    ArrayView(const std::vector<std::remove_const_t<T>>& data) requires std::is_const_v<T>
+        : m_data(data.data()), m_size(data.size()) { }
 
     ArrayView(const std::initializer_list<T>& data)
         : m_data(std::data(data)), m_size(data.size()) { }

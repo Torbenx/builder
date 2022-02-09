@@ -9,12 +9,11 @@ public:
     using size_type = uint32_t;
     static constexpr size_type INVALID_OFFSET = std::numeric_limits<size_type>::max();
     static constexpr bool isValid(size_type offset) { return offset != INVALID_OFFSET; }
-    RangeAllocator(size_type size = 0);
+    RangeAllocator(size_type size = 0, size_type max = std::numeric_limits<size_type>::max() / 2);
     size_type allocate(size_type alignment, size_type size);
-    void extendRange(size_type size);
+    void addRange(size_type begin, size_type size);
     void free(size_type start);
     void debug();
-    size_type rangeSize() { return totalSize; }
 
 private:
     struct Range {
@@ -33,5 +32,4 @@ private:
     };
 
     std::set<Range, std::less<>> ranges;
-    size_type totalSize;
 };

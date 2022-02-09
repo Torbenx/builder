@@ -119,13 +119,12 @@ struct PageBlockAllocator : SubAllocatorBase<PageBlockAllocator<BaseAllocator>, 
         auto logPageSize = platform::logPageSize();
         std::byte* beginAddress = (std::byte*)this->baseAllocator.bumpBeginAddress();
         if (LOG_BLOCK_SIZE >= logPageSize) {
-            int_t logFactor = LOG_BLOCK_SIZE - logPageSize;
-            platform::commitMemory(beginAddress + (data.blockCounter << logFactor), BLOCK_SIZE);
+            platform::commitMemory(beginAddress + (data.blockCounter << LOG_BLOCK_SIZE), BLOCK_SIZE);
         } else {
             int_t logFactor = logPageSize - LOG_BLOCK_SIZE;
             size_t mask = ((size_t)1 << logFactor) - 1;
             if ((data.blockCounter & mask) == 0)
-                platform::commitMemory(beginAddress + (data.blockCounter >> logFactor), (size_t)1 << logPageSize);
+                platform::commitMemory(beginAddress + (data.blockCounter << LOG_BLOCK_SIZE), (size_t)1 << logPageSize);
         }
         // VERIFY(Allocators, data.blockCounter < data.maxBlocks);
         uintptr_t address = this->baseAllocator.internalBumpBeginAddress() + data.blockCounter * BLOCK_SIZE;

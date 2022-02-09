@@ -85,7 +85,7 @@ std::pair<uint32_t, uint32_t> ClusterImpl::commitNewDataPage(Cluster cluster, ut
         if (tick >= allocTick)
             platform::commitMemory(address.withTick(utick).ptr(), pageSize);
     }
-    return { addr, pageSize };
+    return { page * pageSize, pageSize };
 }
 
 /* ==============> Globals <============== */
@@ -100,20 +100,23 @@ ClusterImpl::ClusterImpl(Cluster cluster, int_t firstTick, ClusterInitializaionB
     , mappedTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[bounds.maxMappedTargets])
     , taskSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[bounds.maxTasks])
     , taskTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[bounds.maxTasks])
-    , bounds(bounds) {
+    , bounds(bounds)
+    , currentTick(firstTick - 1) {
 
-    interfaceHeapAllocator.extendRange(bounds.totalInfaceHeapSize());
+    interfaceHeapAllocator.addRange(0, bounds.totalInfaceHeapSize());
     int_t taskSignalOffset = sizeof(InterfaceHeapHeader);
     m_mappedTargetSignalOffset = taskSignalOffset + bounds.maxTasks * sizeof(urefcnt_t);
     int_t dynamicAllocationOffset = m_mappedTargetSignalOffset + bounds.maxMappedTargets * sizeof(urefcnt_t);
     uint32_t allocatedInterfaceHeapHeaderOffset = interfaceHeapAllocator.allocate(1, dynamicAllocationOffset);
     EXPECT(Task, allocatedInterfaceHeapHeaderOffset, (uint32_t)0);
 
-    [[maybe_unused]] auto [offset, allocSize] = commitNewDataPage(cluster, /* doesn't matter */ 0);
+    auto [offset, allocSize] = commitNewDataPage(cluster, /* doesn't matter */ 0);
+    EXPECT(Task, offset, (uint32_t)0);
     VERIFY(Task, sizeof(DataHeapHeader) < allocSize);
-    dataHeapAllocator.extendRange(allocSize);
+    dataHeapAllocator.addRange(0, allocSize);
     uint32_t allocatedDataHeapHeaderOffset = dataHeapAllocator.allocate(1, sizeof(DataHeapHeader));
     EXPECT(Task, allocatedDataHeapHeaderOffset, (uint32_t)0);
+    retireTaskPromise.retireImpl.nextTickToFinalize = firstTick;
 }
 
 ClusterImpl::~ClusterImpl() { }
@@ -128,11 +131,23 @@ void DependencyGraph::signalTarget(CompleteTarget target, utick_t tick, urefcnt_
     verifyValidTick(target.harmonic, tick);
     urefcnt_t i = signal(target, tick).fetch_add(delta, std::memory_order_acq_rel);
     i += delta;
+    /*if (i <= TARGET_UNLOCKED_FLAG / 2 && delta <= TARGET_UNLOCKED_FLAG / 2) {
+        log<Tag::Task>("signaled {{{},{}{}}} at tick={} {}-time(s), has been signaled {}-time(s) in total", target.cluster().id, target.id, target.isMapping() ? "m" : "", tick, delta, i);
+    } else if (delta <= TARGET_UNLOCKED_FLAG / 2) {
+        log<Tag::Task>("signaled {{{},{}{}}} at tick={} {}-time(s), waiting for {} more signal(s)", target.cluster().id, target.id, target.isMapping() ? "m" : "", tick, delta, TARGET_UNLOCKED_FLAG - i);
+    } else {
+        log<Tag::Task>("unlocked {{{},{}{}}} at tick={}, waiting for {} more signal(s), total was {}", target.cluster().id, target.id, target.isMapping() ? "m" : "", tick, TARGET_UNLOCKED_FLAG - i, TARGET_UNLOCKED_FLAG - delta);
+    }*/
     if (i == TARGET_UNLOCKED_FLAG)
         onDepedenciesFulfilled(target, tick);
 }
 
-void DependencyGraph::unlockTarget(TargetNodeImpl& impl, CompleteTarget target, utick_t tick) {
+void DependencyGraph::unlockMappedTarget(CompleteTarget target, utick_t tick) {
+    verifyValidTick(target.harmonic, tick);
+    signalTarget(target, tick, TARGET_UNLOCKED_FLAG - 1);
+}
+
+void DependencyGraph::unlockNextTarget(TargetNodeImpl& impl, CompleteTarget target, utick_t tick) {
     verifyValidTick(target.harmonic, tick);
     impl.updates.insert(*updateQueue(target, tick).take());
     impl.updates.apply(
@@ -142,7 +157,7 @@ void DependencyGraph::unlockTarget(TargetNodeImpl& impl, CompleteTarget target, 
         },
         tick, tickExpander(target.cluster()));
     utick_t nextTick = tick + ((utick_t)1 << target.harmonic);
-    int relHarmonic = std::countr_zero(nextTick) - target.harmonic;
+    int_t relHarmonic = std::min<int_t>(std::countr_zero(nextTick) - target.harmonic, NUM_HARMONICS - 1);
     signalTarget(target, nextTick, TARGET_UNLOCKED_FLAG - impl.refCounts[relHarmonic]);
 }
 
@@ -181,7 +196,7 @@ void DependencyGraph::signalSource(SourceNodeImpl& impl, CompleteSource source, 
     }
 }
 
-// must never be called after unlockTarget(..., target, sourceTick + ticksDelay)
+// must never be called after unlockNextTarget(..., target, sourceTick + ticksDelay)
 void DependencyGraph::updateDependencyWithinCluster(CompleteSource source, CompleteTarget target, utick_t sourceUtick, tickdiff_t ticksDelay, refcnt_t delta) {
     verifyValidTick(source.harmonic, sourceUtick);
     verifyValidTick(target.harmonic, ticksDelay);
@@ -222,7 +237,7 @@ void DependencyGraph::onDepedenciesFulfilled(CompleteTarget target, utick_t tick
     verifyValidTick(target.harmonic, tick);
     if (target.isMapping()) {
         auto& impl = findMappedSource(target, tick);
-        // we only get here after unlockTarget in beginClusterTick().
+        // we only get here after unlockMappedTarget in beginClusterTick().
         utick_t sourceTick = translateTickCeil(target.cluster(), impl.source.cluster(), tick);
         signalSource(impl, impl.source, sourceTick);
     } else {
@@ -245,7 +260,9 @@ std::pair<CompleteSource, utick_t> DependencyGraph::maybeMapSource(CompleteSourc
     updateDependencyWithinCluster(sourceMapping, retireTickTarget(cluster), mappedSourceTick, 0, 1); // is this necessary?
     auto mappedTarget = clusterImpl(source.cluster()).createMappedTarget(source, sourceMapping, sourceTick);
     impl.registerMappedTarget(mappedTarget, mappedSourceTick);
-    updateDependencyWithinCluster(source, mappedTarget, sourceTick, 0, 1);
+
+    updateQueue(source, sourceTick).pushBack({ { mappedTarget, 0, 1 }, sourceTick });
+
     return { sourceMapping, mappedSourceTick };
 }
 
@@ -258,37 +275,51 @@ static bool containsBitFlip(utick_t a, utick_t b, int bit) {
     return (a ^ b) & -((utick_t)1 << bit);
 }
 
-void DependencyGraph::beginClusterTick(Cluster cluster, utick_t tick) {
-    auto& impl = clusterImpl(cluster);
+void DependencyGraph::beginClusterTicks(ArrayView<const Cluster> incrementClusters) {
 
-    auto& prevExtTicks = externalTicks(cluster, tick - 1);
-    auto& currentExtTicks = externalTicks(cluster, tick);
-
-    for (Cluster otherCluster : interactingClusters(cluster)) {
-        utick_t prevTick = prevExtTicks.tick(otherCluster);
-        utick_t currentTick = this->currentTick(otherCluster);
-        bool dependence = prevTick != currentTick;
-        currentExtTicks.setTick(otherCluster, currentTick, dependence);
-        if (dependence)
-            refClusterData(otherCluster, currentTick);
+    for (Cluster cluster : incrementClusters) {
+        clusterImpl(cluster).currentTick += 1;
     }
 
-    signalSource(impl.delayedRootSourceImpl, delayedRootSource(cluster), tick - 1);
-    for (auto mappedTarget : impl.getMappedTargets(tick)) {
-        utick_t prevTargetTick = prevExtTicks.tick(mappedTarget.target.cluster());
-        utick_t currentTragetTick = currentExtTicks.tick(mappedTarget.target.cluster());
-        bool shouldDepend = containsBitFlip(prevTargetTick, currentTragetTick, mappedTarget.target.harmonic);
-        if (shouldDepend) {
-            utick_t targetTickToDependOn = floorTickToHarmonic(mappedTarget.target.harmonic, currentTragetTick);
-            EXPECT(Task, translateTickCeil(mappedTarget.target.cluster(), cluster, targetTickToDependOn), tick); // this used for the inverse tick mapping
-            unlockTarget(mappedTarget, mappedTarget.target, targetTickToDependOn);
-        } else {
-            auto& impl = findMappedSource(mappedTarget.target, currentTragetTick);
-            utick_t sourceTick = tick; // mapped sources are always in the 0th harmonic
-            signalSource(impl, impl.source, sourceTick);
+    for (Cluster cluster : incrementClusters) {
+        utick_t tick = clusterImpl(cluster).currentTick;
+        auto& prevExtTicks = externalTicks(cluster, tick - 1);
+        auto& currentExtTicks = externalTicks(cluster, tick);
+
+        for (Cluster otherCluster : interactingClusters(cluster)) {
+            utick_t prevTick = prevExtTicks.tick(otherCluster);
+            utick_t currentTick = clusterImpl(otherCluster).currentTick;
+            bool dependence = prevTick != currentTick;
+            currentExtTicks.setTick(otherCluster, currentTick, dependence);
+            if (dependence)
+                refClusterData(otherCluster, currentTick);
         }
     }
-    signalSource(impl.rootSourceImpl, rootSource(cluster), tick);
+
+    for (Cluster cluster : incrementClusters) {
+        auto& impl = clusterImpl(cluster);
+        utick_t tick = impl.currentTick;
+        auto& prevExtTicks = externalTicks(cluster, tick - 1);
+        auto& currentExtTicks = externalTicks(cluster, tick);
+
+        signalSource(impl.delayedRootSourceImpl, delayedRootSource(cluster), tick - 1);
+        for (auto mappedTarget : impl.getMappedTargets(tick)) {
+            utick_t prevTargetTick = prevExtTicks.tick(mappedTarget.cluster());
+            utick_t currentTragetTick = currentExtTicks.tick(mappedTarget.cluster());
+            bool shouldDepend = containsBitFlip(prevTargetTick, currentTragetTick, mappedTarget.harmonic);
+            if (shouldDepend) {
+                utick_t targetTickToDependOn = floorTickToHarmonic(mappedTarget.harmonic, currentTragetTick);
+                VDUMP(targetTickToDependOn);
+                EXPECT(Task, translateTickCeil(mappedTarget.cluster(), cluster, targetTickToDependOn), tick); // this used for the inverse tick mapping
+                unlockMappedTarget(mappedTarget, targetTickToDependOn);
+            } else {
+                auto& impl = findMappedSource(mappedTarget, currentTragetTick);
+                utick_t sourceTick = tick; // mapped sources are always in the 0th harmonic
+                signalSource(impl, impl.source, sourceTick);
+            }
+        }
+        signalSource(impl.rootSourceImpl, rootSource(cluster), tick);
+    }
 }
 
 void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, utick_t utick) {
@@ -298,6 +329,7 @@ void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, u
     auto updates = graphUpdateQueue(cluster, utick).takeUnsafe(param);
     for (auto block : updates) {
         for (auto update : block) {
+            log("{} {{{}{}}} [{}]-> {{{}{}}}", update.removal ? "-" : "+", update.sourceId, update.sourceMapping ? "m" : "", update.delay, update.targetId, update.targetMapping ? "m" : "");
             if (!update.removal) {
                 tickdiff_t effDelay = update.delay + ((tickdiff_t)1 << update.sourceHarmonic) - 1;
                 if (effDelay > impl.maxDelay)
@@ -359,11 +391,11 @@ bool DependencyGraph::isCarringDependence(Cluster from, Cluster to, utick_t tick
 /* ==============> ? <============== */
 
 void DependencyGraph::globalInitialize() {
-    platform::reserveMemoryRegion(ADDRESS_SPACE_END, 0, Address().ptr());
+    platform::reserveMemoryRegion(Address::ADDRESS_SPACE_SIZE, 0, Address().ptr());
 }
 
 void DependencyGraph::globalFinalize() {
-    platform::releaseMemoryRegion(Address().ptr(), ADDRESS_SPACE_END);
+    platform::releaseMemoryRegion(Address().ptr(), Address::ADDRESS_SPACE_SIZE);
 }
 
 Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, utick_t tick) {
@@ -373,11 +405,16 @@ Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, 
     return task;
 }
 
+void DependencyGraph::taskCompleted(Promise& prom, Task task, utick_t tick) {
+    signalSource(prom.sourceImpl, task.source(), tick);
+    unlockNextTarget(prom.targetImpl, task.target(), tick);
+}
+
 Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds bounds) {
     Cluster cluster;
     {
         std::unique_lock g(clusterIdFreeMaskLock);
-        auto [id, mask] = SmallPoolAllocator<uint32_t>::allocate<1, 1>(clusterIdFreeMask);
+        auto [mask, id] = SmallPoolAllocator<uint32_t>::allocate<1, 1>(clusterIdFreeMask);
         clusterIdFreeMask &= ~mask;
         cluster.id = id;
     }
@@ -385,10 +422,14 @@ Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds 
     ClusterImpl& impl = clusterImpl(cluster);
     new (&impl) ClusterImpl(cluster, firstTick, bounds);
 
+    initializeClusterData(cluster, firstTick - 1);
+    for (int_t i = -1; i < bounds.maxInterfaceTicksDelay; i++) {
+        initializeClusterInterfaces(cluster, firstTick + i);
+    }
     initializeClusterTick(cluster, firstTick);
 
     // Don't call newTask() to avoid circular self dependence.
-    Task createdRetireTickTask = impl.createTask(/* FIXME */ {}, cluster, 0, firstTick);
+    Task createdRetireTickTask = impl.createTask(&impl.retireTaskPromise, cluster, 0, firstTick);
     VERIFY(Task, createdRetireTickTask == retireTickTask(cluster));
 
     CompleteSource createdRootSource = impl.createPsudoMapping(cluster, firstTick);
@@ -398,6 +439,8 @@ Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds 
     CompleteSource createdDelayedRootSource = impl.createPsudoMapping(cluster, firstTick);
     VERIFY(Task, createdDelayedRootSource == delayedRootSource(cluster));
     updateDependencyWithinCluster(delayedRootSource(cluster), retireTickTarget(cluster), firstTick, 0, 1);
+
+    taskCompleted(impl.retireTaskPromise, retireTickTask(cluster), firstTick - 1);
 
     return cluster;
 }
@@ -418,6 +461,7 @@ uint32_t DependencyGraph::allocateInterface(Cluster cluster, utick_t, size_t ali
 
 void DependencyGraph::initializeClusterData(Cluster cluster, utick_t tick) {
     clusterImpl(cluster).commitDataPages(cluster, tick);
+    clusterDataRefCount(cluster, tick).store(1, std::memory_order_relaxed);
 }
 
 void DependencyGraph::finalizeClusterData(Cluster cluster, utick_t tick) {
