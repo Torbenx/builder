@@ -1,7 +1,7 @@
 #pragma once
 
-#include "util/types.hpp"
 #include "memory/Ptr.hpp"
+#include "util/types.hpp"
 #include <bit>
 #include <type_traits>
 
@@ -22,7 +22,10 @@ private:
 };
 
 template<typename Impl, typename uintptr_t_p, typename RawPtr_p = BasicRawPtr<uintptr_t_p>>
-class AllocatorBase {
+struct AllocatorUtil {
+private:
+    Impl* impl() { return static_cast<Impl*>(this); }
+
 public:
     struct Parameter { };
     struct Object { };
@@ -32,54 +35,71 @@ public:
     template<typename T = void>
     using Ptr = ::Ptr<RawPtr, T>;
 
+    template<typename T>
+    T* operator[](Ptr<T> ptr) {
+        return (T*)impl()->toAddress(ptr.addr());
+    }
+};
+
+template<typename Impl, typename uintptr_t, typename RawPtr = BasicRawPtr<uintptr_t>>
+struct AllocatorMethods {
+private:
+    template<typename T = void>
+    using Ptr_ = ::Ptr<RawPtr, T>;
+
     Impl* impl() { return static_cast<Impl*>(this); }
 
+public:
     template<typename T>
-    Ptr<T> allocate() {
+    Ptr_<T> allocate() {
         return (Ptr<T>)impl()->template allocate<alignof(T), sizeof(T)>();
     }
 
     template<typename T>
-    Ptr<T> allocate(int_t count) {
-        return (Ptr<T>)impl()->allocate<alignof(T)>(count * sizeof(T));
+    Ptr_<T> allocate(int_t count) {
+        return (Ptr<T>)impl()->template allocate<alignof(T)>(count * sizeof(T));
     }
 
     template<size_t alignment, int_t size>
-    Ptr<> allocate() {
-        return impl()->allocate<alignment>(size);
+    Ptr_<> allocate() {
+        return impl()->template allocate<alignment>(size);
     }
 
     template<size_t alignment>
-    Ptr<> allocate(int_t size) {
+    Ptr_<> allocate(int_t size) {
         return impl()->allocateImpl(alignment, size);
     }
 
     template<typename T>
-    Ptr<T> allocatePowerOf2(int_t exponent) {
+    Ptr_<T> allocatePowerOf2(int_t exponent) {
         if constexpr (std::has_single_bit(sizeof(T))) {
             constexpr int_t sizeExponent = std::countl_zero(sizeof(T));
-            return impl()->allocatePowerOf2<alignof(T)>(exponent + sizeExponent);
+            return impl()->template allocatePowerOf2<alignof(T)>(exponent + sizeExponent);
         } else
             return impl()->template allocate<T>((int_t)1 << exponent);
     }
 
     template<size_t alignment>
-    Ptr<> allocatePowerOf2(int_t exponent) {
-        return impl()->allocate<alignment>((int_t)1 << exponent);
+    Ptr_<> allocatePowerOf2(int_t exponent) {
+        return impl()->template allocate<alignment>((int_t)1 << exponent);
     }
 
     template<typename T>
-    void free(Ptr<T> ptr) {
-        impl()->free<alignof(T), sizeof(T)>(ptr);
+    void free(Ptr_<T> ptr) {
+        impl()->template free<alignof(T), sizeof(T)>(ptr);
     }
 
     template<size_t alignment, int_t size>
-    void free(Ptr<> ptr) {
-        impl()->free<alignment>(ptr, size);
+    void free(Ptr_<> ptr) {
+        impl()->template free<alignment>(ptr, size);
     }
 
     template<size_t alignment>
-    void free(Ptr<> ptr, int_t size) {
+    void free(Ptr_<> ptr, int_t size) {
         impl()->freeImpl(alignment, ptr, size);
     }
 };
+
+template<typename Impl, typename uintptr_t_p, typename RawPtr_p = BasicRawPtr<uintptr_t_p>>
+struct AllocatorBase : AllocatorUtil<Impl, uintptr_t_p, RawPtr_p>,
+                       AllocatorMethods<Impl, uintptr_t_p, RawPtr_p> { };

@@ -9,6 +9,13 @@
 #include <memory>
 #include <unordered_map>
 
+struct TickExpander {
+    uint64_t high = 0;
+    int_t tick(uint32_t utick) {
+        return (utick ^ (uint32_t)high) + high;
+    }
+};
+
 template<>
 struct std::hash<task::CompleteSource> {
     auto operator()(const task::CompleteSource& source) const {
@@ -233,7 +240,6 @@ struct ClusterImpl {
 
     /* ==============> Update queues <============== */
     std::unique_ptr<AtomicArrayBuilder<SourceUpdate>[]> mappedSourceUpdateQueues;
-    std::unique_ptr<AtomicArrayBuilder<TargetUpdate>[]> mappedTargetUpdateQueues;
     std::unique_ptr<AtomicArrayBuilder<SourceUpdate>[]> taskSourceUpdateQueues;
     std::unique_ptr<AtomicArrayBuilder<TargetUpdate>[]> taskTargetUpdateQueues;
 
@@ -350,20 +356,23 @@ struct DependencyGraph {
 
         return ((std::atomic<urefcnt_t>*)addr.ptr())[target.id];
     }
-    HalfAtomicArrayBuilder<GraphUpdate, InterfaceHeapBumpAllocator>& graphUpdateQueue(Cluster cluster, utick_t tick) {
-        return dataHeapHeader(cluster, tick).graphUpdates;
+    auto& graphUpdateQueue(Cluster cluster, utick_t tick) {
+        return interfaceHeapHeader(cluster, tick).graphUpdates;
     }
-    HalfAtomicArrayBuilder<HeapAllocation, InterfaceHeapBumpAllocator>& freedDataHeapAllocations(Cluster cluster, utick_t tick) {
-        return dataHeapHeader(cluster, tick).freedAllocations;
+    auto& freedDataHeapAllocations(Cluster cluster, utick_t tick) {
+        return interfaceHeapHeader(cluster, tick).freedDataAllocations;
     }
-    HalfAtomicArrayBuilder<HeapAllocation, InterfaceHeapBumpAllocator>& freedInterfaceHeapAllocations(Cluster cluster, utick_t tick) {
-        return interfaceHeapHeader(cluster, tick).freedAllocations;
+    auto& freedInterfaceHeapAllocations(Cluster cluster, utick_t tick) {
+        return interfaceHeapHeader(cluster, tick).freedInterfaceAllocations;
     }
     ExternalTicks& externalTicks(Cluster cluster, utick_t tick) {
         return dataHeapHeader(cluster, tick).ticks;
     }
     std::atomic<int8_t>& clusterDataRefCount(Cluster cluster, utick_t tick) {
         return dataHeapHeader(cluster, tick).refCount;
+    }
+    auto temporaryInterfaceParameter(Cluster cluster, utick_t tick) {
+        return interfaceHeapHeader(cluster, tick).temporaryInterfaceParameter({ cluster, tick });
     }
 
     /* ==============> TODO <============== */
@@ -376,6 +385,7 @@ struct DependencyGraph {
     void unlockNextTarget(TargetNodeImpl& impl, CompleteTarget target, utick_t tick);
     void signalSource(SourceNodeImpl& impl, CompleteSource source, utick_t tick);
     void updateDependencyWithinCluster(CompleteSource source, CompleteTarget target, utick_t sourceUtick, tickdiff_t ticksDelay, refcnt_t delta);
+    void addDependencyToMappedTarget(CompleteSource source, CompleteTarget mappedTarget, utick_t sourceTick);
 
     /* ==============> External handling and Tick lifecycle <============== */
     CompleteSource updateDependency(CompleteSource source, CompleteTarget target, utick_t sourceTick, tickdiff_t targetTicksDelay, refcnt_t delta);
@@ -410,5 +420,7 @@ struct DependencyGraph {
     void refClusterData(Cluster cluster, utick_t tick);
     void unrefClusterData(Cluster cluster, utick_t tick);
 };
+
+inline DependencyGraph dependencyGraphGlobal;
 
 }

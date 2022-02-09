@@ -2,8 +2,7 @@
 
 #include "memory/Allocator.hpp"
 
-class StdAllocator {
-public:
+struct StdAllocator : AllocatorBase<StdAllocator> {
     template<typename T = void>
     using Ptr = T*;
     using uintptr_t = std::uintptr_t;
@@ -19,8 +18,7 @@ public:
         ::operator delete (ptr, std::align_val_t { alignment });
     }
 
-    template<typename T>
-    T* operator[](T* ptr) {
-        return ptr;
+    void* toAddress(uintptr_t addr) {
+        return (void*)addr;
     }
 };

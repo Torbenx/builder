@@ -7,8 +7,8 @@ struct BasicRawPtr {
     using uintptr_t = uint_type;
     uintptr_t m_addr = 0;
 
-    BasicRawPtr() { }
-    BasicRawPtr(uintptr_t addr)
+    constexpr BasicRawPtr() { }
+    constexpr BasicRawPtr(uintptr_t addr)
         : m_addr(addr) { }
     constexpr uintptr_t addr() const { return m_addr; }
     constexpr void setNull() { m_addr = 0; }
@@ -18,7 +18,7 @@ struct BasicRawPtr {
 template<typename RawPtr, typename T>
 struct PtrBase : RawPtr {
     using RawPtr::RawPtr;
-    PtrBase(const RawPtr& rawPtr)
+    constexpr PtrBase(const RawPtr& rawPtr)
         : RawPtr(rawPtr) { }
 };
 
@@ -73,7 +73,7 @@ struct PtrBase<RawPtr, T> : RawPtr {
     using ptrdiff_t = std::make_signed_t<uintptr_t>;
 
     using RawPtr::RawPtr;
-    PtrBase(const RawPtr& rawPtr)
+    constexpr PtrBase(const RawPtr& rawPtr)
         : RawPtr(rawPtr) { }
 
     template<typename S>
@@ -92,7 +92,7 @@ struct PtrBase<RawPtr, std::tuple<Types...>> : RawPtr {
     using ptrdiff_t = std::make_signed_t<uintptr_t>;
 
     using RawPtr::RawPtr;
-    PtrBase(const RawPtr& rawPtr)
+    constexpr PtrBase(const RawPtr& rawPtr)
         : RawPtr(rawPtr) { }
 
     template<typename S>
@@ -119,7 +119,7 @@ struct PtrBase<RawPtr, T> : RawPtr {
     using ptrdiff_t = std::make_signed_t<uintptr_t>;
 
     using RawPtr::RawPtr;
-    PtrBase(const RawPtr& rawPtr)
+    constexpr PtrBase(const RawPtr& rawPtr)
         : RawPtr(rawPtr) { }
 
     constexpr auto get(int_t i) {

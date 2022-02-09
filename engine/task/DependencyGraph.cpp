@@ -97,7 +97,6 @@ ClusterImpl::ClusterImpl(Cluster cluster, int_t firstTick, ClusterInitializaionB
     , mappedTargetAllocator(FIRST_VALID_MAPPED_TARGET_ID)
     , mappedSourceNodes(new MappedSourceNodeImpl[bounds.maxMappedTargets])
     , mappedSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[bounds.maxSourceMappings])
-    , mappedTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[bounds.maxMappedTargets])
     , taskSourceUpdateQueues(new AtomicArrayBuilder<SourceUpdate>[bounds.maxTasks])
     , taskTargetUpdateQueues(new AtomicArrayBuilder<TargetUpdate>[bounds.maxTasks])
     , bounds(bounds)
@@ -116,6 +115,7 @@ ClusterImpl::ClusterImpl(Cluster cluster, int_t firstTick, ClusterInitializaionB
     dataHeapAllocator.addRange(0, allocSize);
     uint32_t allocatedDataHeapHeaderOffset = dataHeapAllocator.allocate(1, sizeof(DataHeapHeader));
     EXPECT(Task, allocatedDataHeapHeaderOffset, (uint32_t)0);
+
     retireTaskPromise.retireImpl.nextTickToFinalize = firstTick;
 }
 
@@ -167,7 +167,7 @@ void DependencyGraph::signalSource(SourceNodeImpl& impl, CompleteSource source, 
     utick_t nextTick = tick + ((utick_t)1 << source.harmonic);
     impl.updates.insert(*updateQueue(source, tick).take(nextTick));
 
-    auto param = interfaceHeapHeader(source.cluster(), tick).bumpParameter(source.cluster(), tick);
+    auto param = temporaryInterfaceParameter(source.cluster(), tick);
     auto& graphUpdates = graphUpdateQueue(source.cluster(), tick);
     impl.updates.apply(
         [&](auto update) {
@@ -208,9 +208,13 @@ void DependencyGraph::updateDependencyWithinCluster(CompleteSource source, Compl
         int_t currentSourceTick = expander.tick(currentSourceUtick);
         firstEmittingTick = std::max(currentSourceTick, sourceTick);
         firstReceivingTick = firstEmittingTick + ticksDelay;
-        signal(target, firstReceivingTick).fetch_sub(delta, std::memory_order_relaxed);
+        signalTarget(target, firstReceivingTick, -delta);
     });
     updateQueue(target, firstReceivingTick).pushBack({ (uint8_t)std::max<int_t>(0, -relHarmonic), delta, (utick_t)firstReceivingTick });
+}
+
+void DependencyGraph::addDependencyToMappedTarget(CompleteSource source, CompleteTarget mappedTarget, utick_t sourceTick) {
+    updateQueue(source, sourceTick).pushBack({ { mappedTarget, 0, 1 }, sourceTick });
 }
 
 /* ==============> External handling and Tick lifecycle <============== */
@@ -237,7 +241,7 @@ void DependencyGraph::onDepedenciesFulfilled(CompleteTarget target, utick_t tick
     verifyValidTick(target.harmonic, tick);
     if (target.isMapping()) {
         auto& impl = findMappedSource(target, tick);
-        // we only get here after unlockMappedTarget in beginClusterTick().
+        // we only get here after unlockMappedTarget in beginClusterTicks().
         utick_t sourceTick = translateTickCeil(target.cluster(), impl.source.cluster(), tick);
         signalSource(impl, impl.source, sourceTick);
     } else {
@@ -256,12 +260,11 @@ std::pair<CompleteSource, utick_t> DependencyGraph::maybeMapSource(CompleteSourc
     auto [sourceMapping, wasAllocated] = impl.findOrCreateMapping(source, cluster, mappedSourceTick);
     if (!wasAllocated)
         return { sourceMapping, mappedSourceTick };
-
     updateDependencyWithinCluster(sourceMapping, retireTickTarget(cluster), mappedSourceTick, 0, 1); // is this necessary?
+
     auto mappedTarget = clusterImpl(source.cluster()).createMappedTarget(source, sourceMapping, sourceTick);
     impl.registerMappedTarget(mappedTarget, mappedSourceTick);
-
-    updateQueue(source, sourceTick).pushBack({ { mappedTarget, 0, 1 }, sourceTick });
+    addDependencyToMappedTarget(source, mappedTarget, sourceTick);
 
     return { sourceMapping, mappedSourceTick };
 }
@@ -276,7 +279,6 @@ static bool containsBitFlip(utick_t a, utick_t b, int bit) {
 }
 
 void DependencyGraph::beginClusterTicks(ArrayView<const Cluster> incrementClusters) {
-
     for (Cluster cluster : incrementClusters) {
         clusterImpl(cluster).currentTick += 1;
     }
@@ -309,7 +311,6 @@ void DependencyGraph::beginClusterTicks(ArrayView<const Cluster> incrementCluste
             bool shouldDepend = containsBitFlip(prevTargetTick, currentTragetTick, mappedTarget.harmonic);
             if (shouldDepend) {
                 utick_t targetTickToDependOn = floorTickToHarmonic(mappedTarget.harmonic, currentTragetTick);
-                VDUMP(targetTickToDependOn);
                 EXPECT(Task, translateTickCeil(mappedTarget.cluster(), cluster, targetTickToDependOn), tick); // this used for the inverse tick mapping
                 unlockMappedTarget(mappedTarget, targetTickToDependOn);
             } else {
@@ -325,7 +326,7 @@ void DependencyGraph::beginClusterTicks(ArrayView<const Cluster> incrementCluste
 void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, utick_t utick) {
     auto& clusterImpl = this->clusterImpl(cluster);
 
-    auto param = interfaceHeapHeader(cluster, utick).bumpParameter(cluster, utick);
+    auto param = temporaryInterfaceParameter(cluster, utick);
     auto updates = graphUpdateQueue(cluster, utick).takeUnsafe(param);
     for (auto block : updates) {
         for (auto update : block) {
@@ -343,7 +344,7 @@ void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, u
         auto allocations = freedDataHeapAllocations(cluster, utick).takeUnsafe(param);
         for (auto block : allocations) {
             for (auto allocation : block)
-                clusterImpl.dataHeapAllocator.free(allocation.offset);
+                clusterImpl.dataHeapAllocator.free(allocation.ptr.addr() - PERSISTENT_DATA_HEAP_BEGIN);
         }
     }
     {
@@ -351,7 +352,7 @@ void DependencyGraph::retireClusterTick(RetireTaskImpl& impl, Cluster cluster, u
         auto allocations = freedInterfaceHeapAllocations(cluster, utick).takeUnsafe(param);
         for (auto block : allocations) {
             for (auto allocation : block)
-                clusterImpl.interfaceHeapAllocator.free(allocation.offset);
+                clusterImpl.interfaceHeapAllocator.free(allocation.ptr.addr() - PERSISTENT_INTERFACE_HEAP_BEGIN);
         }
     }
 
@@ -447,10 +448,16 @@ Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds 
 
 /* ==============> ? <============== */
 
-uint32_t DependencyGraph::allocateData(Cluster cluster, utick_t, size_t alignment, int_t size) {
+uint32_t DependencyGraph::allocateData(Cluster cluster, utick_t tick, size_t alignment, int_t size) {
     auto& impl = clusterImpl(cluster);
     std::unique_lock g(impl.dataHeapAllocatorLock);
-    return impl.dataHeapAllocator.allocate(alignment, size);
+    while (true) {
+        uint32_t ret = impl.dataHeapAllocator.allocate(alignment, size);
+        if (ret != RangeAllocator::INVALID_OFFSET)
+            return ret;
+        auto [allocOffset, allocSize] = impl.commitNewDataPage(cluster, tick);
+        impl.dataHeapAllocator.addRange(allocOffset, allocSize);
+    }
 }
 
 uint32_t DependencyGraph::allocateInterface(Cluster cluster, utick_t, size_t alignment, int_t size) {
@@ -466,7 +473,7 @@ void DependencyGraph::initializeClusterData(Cluster cluster, utick_t tick) {
 
 void DependencyGraph::finalizeClusterData(Cluster cluster, utick_t tick) {
     for (Cluster otherCluster : interactingClusters(cluster)) {
-        // deallocateData(tick) always happens after beginClusterTick(tick + 1)
+        // deallocateData(tick) always happens after beginClusterTicks(tick + 1)
         if (isCarringDependence(cluster, otherCluster, tick + 1))
             unrefClusterData(otherCluster, translateTickFloor(cluster, otherCluster, tick));
     }
@@ -499,10 +506,18 @@ void DependencyGraph::unrefClusterData(Cluster cluster, utick_t tick) {
         impl.decommitDataPages(cluster, tick);
 }
 
-DataHeapHeader::DataHeapHeader()
-    : bumpAllocator(TEMPORARY_DATA_HEAP_BEGIN) { }
+DataHeapHeader::DataHeapHeader() { }
 
 InterfaceHeapHeader::InterfaceHeapHeader()
-    : bumpAllocator(TEMPORARY_INTERFACE_HEAP_BEGIN + bumpBlockAllocator.skipPage()) { }
+    : temporaryInterfaceAllocator(TEMPORARY_INTERFACE_HEAP_BEGIN + temporaryInterfaceBlockAllocator.skipPage())
+    , temporaryDataAllocator(TEMPORARY_DATA_HEAP_BEGIN) { }
+
+StubAllocator::Ptr<> PersistentDataAllocator::allocateInternal(StubAllocator stub, size_t alignment, int_t size) {
+    return { PERSISTENT_DATA_HEAP_BEGIN + dependencyGraphGlobal.allocateData(stub.cluster, stub.tick, alignment, size) };
+}
+
+StubAllocator::Ptr<> PersistentInterfaceAllocator::allocateInternal(StubAllocator stub, size_t alignment, int_t size) {
+    return { PERSISTENT_INTERFACE_HEAP_BEGIN + dependencyGraphGlobal.allocateInterface(stub.cluster, stub.tick, alignment, size) };
+}
 
 }

@@ -104,14 +104,9 @@ task::Task<> testParent([[context]] task::TaskInfo taskInfo) {
     }
 }*/
 
-void myTest(task::DependencyGraph& graph, task::Cluster cluster, task::utick_t tick) {
-    auto param = graph.interfaceHeapHeader(cluster, tick).bumpParameter(cluster, tick);
-    graph.dataHeapHeader(cluster, tick).freedAllocations.pushBack({}, param);
-}
-
 task::Promise promises[2][10];
 
-constexpr int_t MAX_TICKS = 20;
+constexpr int_t MAX_TICKS = 25;
 std::list<task::Task> queue[MAX_TICKS];
 
 namespace task {
@@ -134,7 +129,7 @@ TestRenderer<G>::TestRenderer()
     , pointLightPosition(0, 1, -2) {
 
     log("=========================================");
-    task::DependencyGraph graph;
+    task::DependencyGraph& graph = task::dependencyGraphGlobal;
     graph.globalInitialize();
 
     task::ClusterInitializaionBounds bounds = {
@@ -161,7 +156,17 @@ TestRenderer<G>::TestRenderer()
     graph.taskCompleted(promises[1][2], task2, 0);
     graph.beginClusterTicks({ cluster1, cluster2 });
 
-    task::utick_t nextTickToInitialize[2] = { 2, 2 };
+    for (task::utick_t tick = 2; tick < MAX_TICKS; tick++) {
+        graph.initializeClusterTick(cluster1, tick);
+        graph.initializeClusterTick(cluster2, tick);
+        log("begin tick={}", tick);
+
+        std::vector<task::Cluster> clusters;
+        clusters.push_back(cluster1);
+        if (tick % 4 == 0 && tick / 4 > 1)
+            clusters.push_back(cluster2);
+        graph.beginClusterTicks(clusters);
+    }
     while (true) {
         bool scheduled = false;
         for (int_t tick = 1; tick < MAX_TICKS; tick++) {
@@ -169,29 +174,23 @@ TestRenderer<G>::TestRenderer()
                 auto task = queue[tick].front();
                 queue[tick].pop_front();
                 scheduled = true;
-                if (tick == nextTickToInitialize[0]) {
-                    graph.initializeClusterTick(cluster1, tick);
-                    graph.initializeClusterTick(cluster2, tick);
-                    log("begin tick={}", tick);
-
-                    std::vector<task::Cluster> clusters;
-                    clusters.push_back(cluster1);
-                    if (tick % 4 == 0 && tick / 4 > 1)
-                        clusters.push_back(cluster2);
-                    graph.beginClusterTicks(clusters);
-
-                    nextTickToInitialize[0]++;
-                }
                 if (task.id == 1) {
                     auto& prom = graph.clusterImpl(task.cluster()).retireTaskPromise;
                     graph.retireClusterTick(prom.retireImpl, task.cluster(), tick);
-                    //log("{{{},{}}} complete at tick={}", task.cluster().id, task.id, tick);
+                    // log("{{{},{}}} complete at tick={}", task.cluster().id, task.id, tick);
                     graph.taskCompleted(prom, task, tick);
                     break;
                 }
                 log("{{{},{}}} complete at tick={}", task.cluster().id, task.id, tick);
                 if (task == task2) {
                     log("depending on floor={}, ceil={}", graph.translateTickFloor(cluster2, cluster1, tick), graph.translateTickCeil(cluster2, cluster1, tick));
+                }
+                if (task == task1 && tick == 20) {
+                    graph.updateDependency(task1.source(), task2.target(), tick, 0, -1);
+                    task::StubAllocator stub(task.cluster(), tick);
+                    auto allocator = stub.interfaceHeapHeader().persistentDataParameter(stub);
+                    auto ptr = allocator.template allocate<1, 4000>();
+                    allocator.template free<1, 4000>(ptr);
                 }
                 graph.taskCompleted(promises[task.cluster().id][task.id], task, tick);
                 break;
@@ -253,10 +252,11 @@ TestRenderer<G>::TestRenderer()
     spotLightFB.bind();
     spotLightFB.attach(spotLightDepthMap);
     spotLightFB.viewport(2048, 2048);
-    Mat4x4 mat = Mat4x4::make({ 0.5f, 0.0f, 0.0f, 0.0f,
-        0.0f, 0.5f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.5f, 0.0f,
-        0.5f, 0.5f, 0.5f - 0.001f, 1.0f });
+    Mat4x4 mat = Mat4x4::make(
+        { 0.5f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.5f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.5f, 0.0f,
+            0.5f, 0.5f, 0.5f - 0.001f, 1.0f });
     spotLightDepthPass.viewProjectionMatrix = Mat4x4::frustumVH(F_PI * 0.2f, F_PI * 0.4f, 0.7f, 30.0f) * Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
     spotLight.fragmentUniform.staticUpdate() = { .color = Vec3(1, 1, 1) * 8.0f, .lightPos = Vec3(0, 3.4f, 0) };
     spotLight.vertexUniform.staticUpdate() = { .mvpMatrix = mat * spotLightDepthPass.viewProjectionMatrix };

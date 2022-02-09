@@ -10,7 +10,7 @@ RangeAllocator::RangeAllocator(size_type size, size_type max) {
 }
 
 RangeAllocator::size_type RangeAllocator::allocate(size_type alignment, size_type size) {
-    //VERIFY(Containers, std::has_single_bit(alignment));
+    // VERIFY(Containers, std::has_single_bit(alignment));
     size_type start = 0;
     for (auto it = ranges.begin(); it != ranges.end(); start = it->end(), it++) {
         if (!it->free())
@@ -40,14 +40,24 @@ void RangeAllocator::addRange(size_type begin, size_type size) {
     auto it = ranges.upper_bound({ begin, false });
     VERIFY(Containers, it != ranges.end());
     VERIFY(Containers, !it->free());
-    size_type prevEnd;
-    if (it == ranges.begin())
-        prevEnd = 0;
-    else
-        prevEnd = (--it)->end();
-    if (begin != prevEnd)
-        ranges.insert({ begin, false });
-    ranges.insert({ begin + size, true });
+    if (it == ranges.begin()) {
+        if (begin != 0)
+            ranges.insert({ begin, false });
+        ranges.insert({ begin + size, true });
+    } else {
+        auto prev = it;
+        prev--;
+        if (prev->end() == begin) {
+            if (prev->free()) {
+                prev->m_end += size;
+            } else {
+                ranges.insert({ begin + size, true });
+            }
+        } else {
+            ranges.insert({ begin, false });
+            ranges.insert({ begin + size, true });
+        }
+    }
 }
 
 void RangeAllocator::debug() {
