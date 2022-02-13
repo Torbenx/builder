@@ -121,10 +121,8 @@ struct TemporaryInterfaceStubAllocator : StubAllocator {
 using TemporaryDataBlockAllocator = typename PageBlockAllocator<TemporaryDataStubAllocator>::ParameterRef;
 using TemporaryInterfaceBlockAllocator = typename PageBlockAllocator<TemporaryInterfaceStubAllocator>::ParameterRef;
 
-template<typename BlockAllocator>
-using TemporaryAllocator = typename ContinuousAtomicBumpAllocator<BlockAllocator, 16, BlockAllocator::BLOCK_SIZE>::ParameterRef;
-using TemporaryDataAllocator = TemporaryAllocator<TemporaryDataBlockAllocator>;
-using TemporaryInterfaceAllocator = TemporaryAllocator<TemporaryInterfaceBlockAllocator>;
+using TemporaryDataAllocator = typename ContinuousAtomicBumpSubAllocator<TemporaryDataBlockAllocator, 16>::ParameterRef;
+using TemporaryInterfaceAllocator = typename ContinuousAtomicBumpSubAllocator<TemporaryInterfaceBlockAllocator, 16>::ParameterRef;
 
 /* ==============> Persistent allocators <============== */
 

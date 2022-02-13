@@ -132,3 +132,6 @@ struct PageBlockAllocator : SubAllocatorBase<PageBlockAllocator<BaseAllocator>, 
         return { address };
     }
 };
+
+template<typename BlockAllocator, size_t defaultAlignment>
+using ContinuousAtomicBumpSubAllocator = ContinuousAtomicBumpAllocator<BlockAllocator, defaultAlignment, BlockAllocator::BLOCK_SIZE>;

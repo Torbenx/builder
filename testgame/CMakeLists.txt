@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.13)
 set(source
     "main.cpp"
     "TestRenderer.cpp"
+    "tests.cpp"
 )
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")

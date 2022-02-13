@@ -83,3 +83,13 @@ private:
     int_t readableDynamicIndex() { return (pumpCount + 2) % dynamicQueueDepth; }
     int_t uploadDynamicIndex() { return writableDynamicIndex(); }
 };
+
+struct GAllocator2 {
+    GPtr allocateDynamic(size_t alignment, int_t size);
+    void* firstDynamicUpdate(GPtr);
+    GPtr receivePermanentPtr(GPtr);
+    void* dynamicUpdate(GPtr);
+
+    GPtr allocateStatic(size_t alignment, int_t size);
+    void* staticUpdate(GPtr);
+};

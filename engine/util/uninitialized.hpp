@@ -1,17 +1,19 @@
 #pragma once
 
+#include <memory>
+
 template<typename T>
 union uninitialized {
     T value;
-    uninitialized() { }
-    ~uninitialized() { }
+    constexpr uninitialized() { }
+    constexpr ~uninitialized() { }
 
     template<typename... Args>
-    void initialize(Args&&... args) {
-        new (&value) T(std::forward<Args>(args)...);
+    constexpr void initialize(Args&&... args) {
+        std::construct_at<T, Args...>(&value, std::forward<Args>(args)...);
     }
 
-    void uninitialize() {
-        value.~T();
+    constexpr void destroy() {
+        std::destroy_at(&value);
     }
 };

@@ -117,6 +117,8 @@ void DependencyGraph::scheduleTask(Task task, utick_t tick) {
 }
 }
 
+void runShadergenTest();
+
 template<Gapi G>
 TestRenderer<G>::TestRenderer()
     : up(0, 1, 0)
@@ -129,7 +131,12 @@ TestRenderer<G>::TestRenderer()
     , pointLightPosition(0, 1, -2) {
 
     log("=========================================");
-    task::DependencyGraph& graph = task::dependencyGraphGlobal;
+
+    runShadergenTest();
+
+    log("=========================================");
+
+    /*task::DependencyGraph& graph = task::dependencyGraphGlobal;
     graph.globalInitialize();
 
     task::ClusterInitializaionBounds bounds = {
@@ -201,14 +208,7 @@ TestRenderer<G>::TestRenderer()
     }
 
     graph.globalFinalize();
-    log("=========================================");
-
-    /*task::CoroutineScheduler* sched = new task::CoroutineScheduler;
-    task::RootHandle root = sched->newRoot();
-    task::detail::scheduler = sched;
-    task::TaskInfo info { { root, 0 }, 0 };
-    task::Spawn<testParent>(info).execute(info);
-    task::detail::getNext().resume();*/
+    log("=========================================");*/
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));
