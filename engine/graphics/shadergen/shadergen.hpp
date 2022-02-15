@@ -183,14 +183,15 @@ struct Expr {
     static constexpr Type<T> type() { return {}; }
 };
 
-template<typename T, ConstexprString name_>
+template<typename T, fixed_string name_>
 struct VarExpr : Expr<T> {
+    static constexpr bool IS_VAR_EXPR = true;
     static constexpr std::string_view name() { return name_.view(); }
 };
 
-template<typename T, ConstexprString name>
+template<typename T, fixed_string name>
 static constexpr VarExpr<T, name> makeVariable() { return {}; }
-template<ConstexprString name, typename T>
+template<fixed_string name, typename T>
 static constexpr VarExpr<T, name> makeVariable(Type<T>) { return {}; }
 
 // Binary operators
@@ -432,7 +433,7 @@ struct ASTVisitor {
     constexpr auto dispatchVisit(Expr<T> e) {
         return impl()->visitExpr(impl()->wrap(e));
     }
-    template<typename T, ConstexprString name>
+    template<typename T, fixed_string name>
     constexpr auto dispatchVisit(VarExpr<T, name> e) {
         return impl()->visitVarExpr(impl()->wrap(e));
     }
@@ -457,73 +458,87 @@ struct DynamicName {
     char storage[MAX_NAME_LENGTH + 1] = {};
     int8_t m_length = 0;
     template<int_t N>
-    constexpr DynamicName(ConstexprString<N> str) {
+    constexpr DynamicName(fixed_string<N> str) {
         static_assert(str.length() <= MAX_NAME_LENGTH);
         std::copy(str.data(), str.data() + N, storage);
     }
     constexpr char* data() {
         return storage;
     }
+    constexpr std::string_view view() const { return { data(), (size_t)length() }; }
     constexpr const char* data() const {
         return storage;
     }
     constexpr int_t length() const { return m_length; }
 };
 
-struct TypeInfo;
-
-struct VarDecl {
-    TypeInfo* type = nullptr;
-    DynamicName name;
-};
-
-struct FieldDecl : VarDecl {
-    int_t offset = -1;
-};
-
 struct TypeInfo {
     size_t alignment = 0;
     int_t sizeInBytes = -1;
     DynamicName name;
-    StaticVector<FieldDecl, 20> fields;
+    // StaticVector<FieldDecl, 20> fields;
     TypeIdentifier typeId;
 };
-
 struct TypeHandle {
     int_t index = -1;
+    TypeInfo* ptr;
+    constexpr TypeInfo* operator->() {
+        return ptr;
+    }
+    constexpr TypeInfo& operator*() {
+        return *ptr;
+    }
+};
+struct TypeContext {
+    template<typename T>
+    constexpr TypeHandle findType(Type<T>) {
+        return {};
+    }
+};
+
+struct VarDecl {
+    DynamicName name;
 };
 struct VarHandle {
     int_t index = -1;
-};
-
-struct TypeContext {
-    template<typename T>
-    constexpr TypeInfo* findType(Type<T>) {
-        return nullptr;
+    VarDecl* ptr = nullptr;
+    constexpr VarDecl* operator->() {
+        return ptr;
+    }
+    constexpr VarDecl& operator*() {
+        return *ptr;
     }
 };
 
 struct VarDeclContext {
-    template<typename T, ConstexprString name>
-    constexpr VarDecl* findVarDecl(VarExpr<T, name>) {
-        return nullptr;
+    StaticVector<VarDecl, 100> variables;
+    template<typename T, fixed_string name>
+    constexpr VarHandle findVarDecl(VarExpr<T, name>) {
+        for (int_t i = 0; i < variables.size(); i++) {
+            if (variables[i].name.view() == name.view()) {
+                return { i, &variables[i] };
+            }
+        }
+        variables.pushBack(VarDecl { name });
+        return { variables.size() - 1, &variables[variables.size() - 1] };
     }
 };
+
+template<typename T>
+concept IsExpr = T::IS_EXPR;
 
 template<typename Impl>
 struct CheckedASTVisitor : ASTVisitor<Impl> {
     template<typename E>
     struct ExprWrapper : E {
-        TypeInfo* m_type;
-        TypeHandle m_typeHandle;
-        constexpr TypeHandle typeHandle() { return m_typeHandle; };
+        TypeHandle m_type;
+        constexpr TypeHandle typeHandle() { return m_type; };
         constexpr TypeInfo& type() { return *m_type; }
     };
     template<typename E>
     struct VarExprWrapper : ExprWrapper<E> {
-        VarDecl* m_varDecl;
-        VarHandle m_varHandle;
-        constexpr VarHandle varHandle() { return m_varHandle; }
+        VarHandle m_varDecl;
+        constexpr VarHandle varHandle() { return m_varDecl; }
         constexpr VarDecl& varDecl() { return *m_varDecl; }
     };
 
@@ -536,14 +551,14 @@ struct CheckedASTVisitor : ASTVisitor<Impl> {
     }
 
     template<typename E>
-    constexpr auto wrap(E e) requires E::IS_EXPR {
+    constexpr auto wrap(E e) requires IsExpr<E> {
         return wrapExpr(e);
     }
 
     template<typename E>
-    constexpr auto wrap(E e) requires E::IS_VAR_EXPR && E::IS_EXPR {
+    constexpr auto wrap(E e) requires IsExpr<E> && E::IS_VAR_EXPR {
         VarDeclContext& declContext = impl()->varDeclContext();
-        return VarExprWrapper { wrapExpr(e), declContext.findVarDecl(e) };
+        return VarExprWrapper<E> { wrapExpr(e), declContext.findVarDecl(e) };
     }
 };
 

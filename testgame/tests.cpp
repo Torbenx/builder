@@ -12,7 +12,8 @@ static PersistentAST constexprTest() {
     PersistentAST::Builder builder(ast);
     builder.dispatchVisit(foo + foo + foo + bar);
     ASTDumper dumper;
-    dumper.dispatchVisit(!(foo * bar < baz + bar));
+    dumper.dispatchVisit(!(foo * foo + bar < baz + bar));
+    log("vars: {}", ast.varContext.variables.size());
     return ast;
 }
 
@@ -31,4 +32,9 @@ struct A {
 
 void runShadergenTest() {
     PersistentAST ast = constexprTest();
+    A aVal;
+    aVal.b2.i = 123;
+    auto a = reflect(aVal);
+    log("leafFieldCount: {}", a.leafFieldCount());
+    log("test: {}", a.b2.i(aVal));
 }
