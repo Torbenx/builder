@@ -72,31 +72,41 @@ template<auto ptr>
 static constexpr int OffsetOf = __builtin_offsetof(MemberPointerBase<ptr>, __builtin_member_ptr[ptr]);
 
 // reflection
-template<typename B, typename T>
+template<typename B = void, typename T = void, int_t N = 0>
 struct FieldInfo {
+    using Base = B;
     int_t index = -1;
-    fixed_string name = "";
-    T B::*memberPtr = nullptr;
+    fixed_string<N> name = "";
+    T B::*ptr = nullptr;
+    constexpr explicit operator bool() const { return true; }
 };
-template<typename T, template<typename, typename, int_t, fixed_string, auto> typename Field, typename parent>
+template<>
+struct FieldInfo<void, void, 0> {
+    constexpr explicit operator bool() const { return false; }
+};
+template<typename B, typename T, int_t M>
+FieldInfo(int_t, const char (&)[M], T B::*) -> FieldInfo<B, T, M - 1>;
+static constexpr FieldInfo<void, void, 0> nonFieldInfo() { return {}; }
+
+template<typename T, template<typename, typename, FieldInfo> typename Field, typename parent>
 struct ref_fields_or_empty_t {
     struct type { };
     static constexpr bool IS_REFLECTED_TYPE = false;
 };
-template<typename T, template<typename, typename, int_t, fixed_string, auto> typename Field, typename parent>
+template<typename T, template<typename, typename, FieldInfo> typename Field, typename parent>
 requires requires { typename T::template _ref_store_<Field, parent>; }
 struct ref_fields_or_empty_t<T, Field, parent> {
     using type = typename T::template _ref_store_<Field, parent>;
     static constexpr bool IS_REFLECTED_TYPE = true;
 };
-template<typename T, template<typename, typename, int_t, fixed_string, auto> typename Field, typename parent>
+template<typename T, template<typename, typename, FieldInfo> typename Field, typename parent>
 using ref_fields_or_empty = typename ref_fields_or_empty_t<T, Field, parent>::type;
 
-template<typename parent_, typename type_, int_t index_, fixed_string name_, auto ptr>
-struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, index_, name_, ptr>> {
+template<typename parent_, typename type_, FieldInfo info_>
+struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, info_>> {
     using Type = type_;
 
-    static constexpr bool isField() { return ptr != nullptr; }
+    static constexpr bool isField() { return (bool)info_; }
     static constexpr bool hasParent() { return !std::is_void_v<parent_>; }
     static constexpr bool hasReflectedType() { return ref_fields_or_empty_t<Type, RefField, parent_>::IS_REFLECTED_TYPE; }
     static constexpr auto parent() requires(hasParent()) { return parent_(); }
@@ -122,7 +132,9 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
     static constexpr void forEachField(Callback&& callback) {
         forEachFieldBefore<fieldCount()>(std::forward<Callback>(callback));
     }
-    static constexpr int_t indexInParent() { return index_; }
+
+    static constexpr auto fieldInfo() { return info_; }
+    static constexpr int_t indexInParent() { return fieldInfo().index; }
     static constexpr int_t leafIndexInParent() requires(hasParent()) {
         int_t leafIndex = 0;
         parent().template forEachFieldBefore<indexInParent()>([&](auto field) {
@@ -133,14 +145,13 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
         });
         return leafIndex;
     }
-
-    static constexpr auto name() requires(isField()) { return name_; }
-    static constexpr auto memberPtr() { return ptr; }
+    static constexpr auto name() requires(isField()) { return fieldInfo().name; }
+    static constexpr auto memberPtr() { return fieldInfo().ptr; }
     static constexpr auto parentOrRoot() {
         if constexpr (hasParent()) {
             return parent();
         } else {
-            return RefField<void, MemberPointerBase<ptr>, -1, "", nullptr>();
+            return RefField<void, typename decltype(fieldInfo())::Base, nonFieldInfo()>();
         }
     }
     static constexpr int_t offsetInParent() { return OffsetOf<memberPtr()>; }
@@ -154,8 +165,8 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
         }
     }
 
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp, typename Callback>
-    static constexpr auto traverseDownFrom(RefField<par, T, idx, str, mp> field, Callback&& callback) {
+    template<typename par, typename T, FieldInfo info, typename Callback>
+    static constexpr auto traverseDownFrom(RefField<par, T, info> field, Callback&& callback) {
         if constexpr (field.self() == parentOrRoot()) {
             return callback(self());
         } else if constexpr (hasParent()) {
@@ -165,8 +176,8 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
         }
     }
 
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp, typename Callback>
-    static constexpr auto traverseUpTo_helper(RefField<par, T, idx, str, mp> field, Callback&& callback, auto value) {
+    template<typename par, typename T, FieldInfo info, typename Callback>
+    static constexpr auto traverseUpTo_helper(RefField<par, T, info> field, Callback&& callback, auto value) {
         if constexpr (field.self() == parentOrRoot()) {
             return callback(self(), value);
         } else if constexpr (hasParent()) {
@@ -175,18 +186,18 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
             static_assert(field.self() == parentOrRoot() || hasParent(), "field not found");
         }
     }
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp, typename Callback>
-    static constexpr auto traverseUpTo(RefField<par, T, idx, str, mp> field, Callback&& callback) {
+    template<typename par, typename T, FieldInfo info, typename Callback>
+    static constexpr auto traverseUpTo(RefField<par, T, info> field, Callback&& callback) {
         static_assert(hasParent());
         return parent().traverseUpTo_helper(field, std::forward<Callback>(callback), callback(self()));
     }
 
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp, typename Callback>
-    static constexpr auto traverseDownTo(RefField<par, T, idx, str, mp> field, Callback&& callback) {
+    template<typename par, typename T, FieldInfo info, typename Callback>
+    static constexpr auto traverseDownTo(RefField<par, T, info> field, Callback&& callback) {
         return field.traverseDownFrom(self(), std::forward<Callback>(callback));
     }
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp, typename Callback>
-    static constexpr auto traverseUpFrom(RefField<par, T, idx, str, mp> field, Callback&& callback) {
+    template<typename par, typename T, FieldInfo info, typename Callback>
+    static constexpr auto traverseUpFrom(RefField<par, T, info> field, Callback&& callback) {
         return field.traverseUpTo(self(), std::forward<Callback>(callback));
     }
 
@@ -197,12 +208,12 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
         else
             return str + separator + node.name();
     };
-    template<fixed_string separator = ".", typename par, typename T, int_t idx, fixed_string str, auto mp>
-    static constexpr auto nameIn(RefField<par, T, idx, str, mp> field) {
+    template<fixed_string separator = ".", typename par, typename T, FieldInfo info>
+    static constexpr auto nameIn(RefField<par, T, info> field) {
         return traverseDownFrom(field, NAME_LAMBDA<separator>);
     }
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp>
-    static constexpr auto nameOf(RefField<par, T, idx, str, mp> field) {
+    template<typename par, typename T, FieldInfo info>
+    static constexpr auto nameOf(RefField<par, T, info> field) {
         return field.nameIn(self());
     }
     template<fixed_string separator = ".">
@@ -213,12 +224,12 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
     static constexpr auto OFFSET_LAMBDA = [](auto node, int_t offset = 0) {
         return offset + node.offsetInParent();
     };
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp>
-    static constexpr int_t offsetIn(RefField<par, T, idx, str, mp> field) {
+    template<typename par, typename T, FieldInfo info>
+    static constexpr int_t offsetIn(RefField<par, T, info> field) {
         return traverseDownFrom(field, OFFSET_LAMBDA);
     }
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp>
-    static constexpr auto offsetOf(RefField<par, T, idx, str, mp> field) {
+    template<typename par, typename T, FieldInfo info>
+    static constexpr auto offsetOf(RefField<par, T, info> field) {
         return field.offsetIn(self());
     }
     static constexpr int_t fullOffset() {
@@ -228,12 +239,12 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
     static constexpr auto LEAF_INDEX_LAMBDA = [](auto node, int_t leafIndex = 0) {
         return leafIndex + node.leafIndexInParent();
     };
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp>
-    static constexpr int_t leafIndexIn(RefField<par, T, idx, str, mp> field) {
+    template<typename par, typename T, FieldInfo info>
+    static constexpr int_t leafIndexIn(RefField<par, T, info> field) {
         return traverseDownFrom(field, LEAF_INDEX_LAMBDA);
     }
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp>
-    static constexpr int_t leafIndexOf(RefField<par, T, idx, str, mp> field) {
+    template<typename par, typename T, FieldInfo info>
+    static constexpr int_t leafIndexOf(RefField<par, T, info> field) {
         return field.leafIndexIn(self());
     }
     static constexpr int_t fullLeafIndex() {
@@ -251,8 +262,8 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
     }
 
     constexpr bool operator==(const RefField&) const { return true; }
-    template<typename par, typename T, int_t idx, fixed_string str, auto mp>
-    constexpr bool operator==(const RefField<par, T, idx, str, mp>&) const { return false; }
+    template<typename par, typename T, FieldInfo info>
+    constexpr bool operator==(const RefField<par, T, info>&) const { return false; }
     template<typename T>
     constexpr auto& operator()(T& root) {
         return access(root);
@@ -260,7 +271,7 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
 };
 
 template<typename T>
-struct reflect : RefField<void, T, -1, "", nullptr> {
+struct reflect : RefField<void, T, nonFieldInfo()> {
     constexpr reflect() { }
     constexpr reflect(const T&) { }
 };
@@ -280,26 +291,26 @@ static constexpr int_t computeLeafFieldCount() {
     return count;
 }
 
-#define BEGIN_REF_STRUCT(base)                                                                                           \
-    template<int_t field_index, template<typename, typename, int_t, fixed_string, auto> typename Field, typename parent> \
-    struct _ref_fields_;                                                                                                 \
-    template<template<typename, typename, int_t, fixed_string, auto> typename Field, typename parent>                    \
-    struct _ref_fields_<-1, Field, parent> { };                                                                          \
-    using _ref_base_alias_ = base;                                                                                       \
+#define BEGIN_REF_STRUCT(base)                                                                           \
+    template<int_t field_index, template<typename, typename, FieldInfo> typename Field, typename parent> \
+    struct _ref_fields_;                                                                                 \
+    template<template<typename, typename, FieldInfo> typename Field, typename parent>                    \
+    struct _ref_fields_<-1, Field, parent> { };                                                          \
+    using _ref_base_alias_ = base;                                                                       \
     static constexpr int_t _ref_counter_offset_ = __COUNTER__ + 1;
 
-#define REF_FIELD_HELPER(name, counter)                                                                                                        \
-    name;                                                                                                                                      \
-    template<template<typename, typename, int_t, fixed_string, auto> typename Field, typename parent>                                          \
-    struct _ref_fields_<counter - _ref_counter_offset_, Field, parent> : _ref_fields_<counter - _ref_counter_offset_ - 1, Field, parent> {     \
-        using current_field = Field<parent, decltype(_ref_base_alias_::name), counter - _ref_counter_offset_, #name, &_ref_base_alias_::name>; \
-        current_field name;                                                                                                                    \
+#define REF_FIELD_HELPER(name, counter)                                                                                                                      \
+    name;                                                                                                                                                    \
+    template<template<typename, typename, FieldInfo> typename Field, typename parent>                                                                        \
+    struct _ref_fields_<counter - _ref_counter_offset_, Field, parent> : _ref_fields_<counter - _ref_counter_offset_ - 1, Field, parent> {                   \
+        using current_field = Field<parent, decltype(_ref_base_alias_::name), FieldInfo { counter - _ref_counter_offset_, #name, &_ref_base_alias_::name }>; \
+        current_field name;                                                                                                                                  \
     };
 
 #define REF_FIELD(name) REF_FIELD_HELPER(name, __COUNTER__)
 
-#define END_REF_STRUCT()                                                                              \
-    static constexpr int_t _ref_field_count_ = __COUNTER__ - _ref_counter_offset_;                    \
-    template<template<typename, typename, int_t, fixed_string, auto> typename Field, typename parent> \
-    using _ref_store_ = _ref_fields_<_ref_field_count_ - 1, Field, parent>;                           \
+#define END_REF_STRUCT()                                                              \
+    static constexpr int_t _ref_field_count_ = __COUNTER__ - _ref_counter_offset_;    \
+    template<template<typename, typename, FieldInfo> typename Field, typename parent> \
+    using _ref_store_ = _ref_fields_<_ref_field_count_ - 1, Field, parent>;           \
     static constexpr int_t _ref_leaf_field_count_ = computeLeafFieldCount<_ref_base_alias_>();

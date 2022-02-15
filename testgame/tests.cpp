@@ -4,17 +4,20 @@
 using namespace shadergen;
 using namespace shadergen::code;
 
-static PersistentAST constexprTest() {
+static void constexprTest() {
     auto foo = makeVariable<"foo">(makeVectorType<float, 1>());
     auto bar = makeVariable<"bar">(makeVectorType<float, 4>());
     auto baz = makeVariable<"baz">(makeVectorType<float, 4>());
+
     PersistentAST ast;
     PersistentAST::Builder builder(ast);
-    builder.dispatchVisit(foo + foo + foo + bar);
-    ASTDumper dumper;
-    dumper.dispatchVisit(!(foo * foo + bar < baz + bar));
-    log("vars: {}", ast.varContext.variables.size());
-    return ast;
+    ASTDumper dumper(ast);
+
+    auto expr = (foo * foo + bar < baz + bar);
+    dumper.dispatchVisit(expr);
+
+    auto node = builder.dispatchVisit(expr);
+    dumper.dispatchVisit(node);
 }
 
 struct A {
@@ -31,10 +34,10 @@ struct A {
 };
 
 void runShadergenTest() {
-    PersistentAST ast = constexprTest();
+    constexprTest();
     A aVal;
     aVal.b2.i = 123;
     auto a = reflect(aVal);
     log("leafFieldCount: {}", a.leafFieldCount());
-    log("test: {}", a.b2.i(aVal));
+    log("test: {}", a.nameOf(a.b2.d).view());
 }

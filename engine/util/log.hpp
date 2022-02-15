@@ -30,27 +30,27 @@ static void log(fmt::format_string<Args...> str, Args&&... args) {
 }
 
 template<VerifyTag tag>
-void verify(bool, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
+constexpr void verify(bool, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
 
 template<VerifyTag tag, typename T>
-void expect(T, T, const char*, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
+constexpr void expect(T, T, const char*, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
 
 template<VerifyTag tag>
-void verify(bool cond, const char* condStr, const char* file, int line, const char* func) requires tag::verifyEnabled {
+constexpr void verify(bool cond, const char* condStr, const char* file, int line, const char* func) requires tag::verifyEnabled {
     if (!cond) {
         log<tag>("VERIFY failed {}:{}: {}(): {}", file, line, func, condStr);
     }
 }
 
 template<VerifyTag tag, typename F>
-void expect(F lhs, F rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_floating_point_v<F> && tag::verifyEnabled {
+constexpr void expect(F lhs, F rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_floating_point_v<F> && tag::verifyEnabled {
     if (std::abs(lhs - rhs) > 0.00001f) {
         log<tag>("EXPECT failed {}:{}: {}(): {} {{{}}} == {} {{{}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
     }
 }
 
 template<VerifyTag tag, typename T>
-void expect(const T& lhs, const T& rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires tag::verifyEnabled &&(!std::is_floating_point_v<T>) {
+constexpr void expect(const T& lhs, const T& rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires tag::verifyEnabled &&(!std::is_floating_point_v<T>) {
     if (lhs != rhs) {
         log<tag>("EXPECT failed {}:{}: {}(): {} {{{:#x}}} == {} {{{:#x}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
     }
