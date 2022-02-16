@@ -8,16 +8,25 @@ static void constexprTest() {
     auto foo = makeVariable<"foo">(makeVectorType<float, 1>());
     auto bar = makeVariable<"bar">(makeVectorType<float, 4>());
     auto baz = makeVariable<"baz">(makeVectorType<float, 4>());
+    auto haha = makeVariable<"haha">(makeVectorType<float, 1>());
 
     PersistentAST ast;
     PersistentAST::Builder builder(ast);
     ASTDumper dumper(ast);
 
-    auto expr = (foo * foo + bar < baz + bar);
+    auto expr = !(foo * foo + bar < baz + bar);
     dumper.dispatchVisit(expr);
 
+    builder.dispatchVisit(haha);
     auto node = builder.dispatchVisit(expr);
     dumper.dispatchVisit(node);
+
+    PersistentAST ast2;
+    PersistentAST::Builder builder2(ast, ast2);
+    ASTDumper dumper2(ast2);
+
+    auto node2 = builder2.dispatchVisit(node);
+    dumper2.dispatchVisit(node2);
 }
 
 struct A {

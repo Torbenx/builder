@@ -20,7 +20,8 @@ struct ExprNode {
     constexpr TypeHandle type() { return m_type; }
 };
 struct VarExprNode : ExprNode {
-    VarHandle variable;
+    VarHandle m_varDecl;
+    constexpr VarHandle varDecl() { return m_varDecl; }
 };
 struct ElementwiseBinaryOperatorExprNode : ExprNode {
     BinaryOperatorEnum m_op;
@@ -66,6 +67,10 @@ struct PersistentAST {
 
     template<typename T>
     constexpr const NodeStorage& node(NodeHandle<T> handle) const {
+        return nodes[handle.index];
+    }
+    template<typename T>
+    constexpr NodeStorage& node(NodeHandle<T> handle) {
         return nodes[handle.index];
     }
 

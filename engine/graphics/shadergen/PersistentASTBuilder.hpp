@@ -8,7 +8,7 @@ struct PersistentAST::Builder : CheckedASTVisitor<Builder, NodeHandle<ExprNode>>
     PersistentAST& outAst;
     constexpr Builder(PersistentAST& outAst)
         : outAst(outAst) { }
-    constexpr Builder(PersistentAST& inAst, PersistentAST& outAst)
+    constexpr Builder(const PersistentAST& inAst, PersistentAST& outAst)
         : CheckedASTVisitor<Builder, NodeHandle<ExprNode>>(inAst), outAst(outAst) { }
     constexpr TypeContext& typeContext() { return outAst.typeContext; }
     constexpr VarDeclContext& varDeclContext() { return outAst.varContext; }

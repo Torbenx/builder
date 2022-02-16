@@ -14,43 +14,43 @@ struct ASTVisitor {
         : ast(&ast) { }
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
-    constexpr RetT visitExpr(auto) {
+    constexpr RetT visitExpr(const auto&) {
         return void();
     }
-    constexpr RetT visitVarExpr(auto e) {
+    constexpr RetT visitVarExpr(const auto& e) {
         return impl()->visitExpr(e);
     }
-    constexpr RetT visitElementwiseBinaryOperatorExpr(auto e) {
+    constexpr RetT visitElementwiseBinaryOperatorExpr(const auto& e) {
         dispatchVisit(e.left());
         dispatchVisit(e.right());
         return impl()->visitExpr(e);
     }
-    constexpr RetT visitVectorByScalarBinaryOperatorExpr(auto e) {
+    constexpr RetT visitVectorByScalarBinaryOperatorExpr(const auto& e) {
         dispatchVisit(e.vector());
         dispatchVisit(e.scalar());
         return impl()->visitExpr(e);
     }
-    constexpr RetT visitUnaryOperatorExpr(auto e) {
+    constexpr RetT visitUnaryOperatorExpr(const auto& e) {
         dispatchVisit(e.subExpr());
         return impl()->visitExpr(e);
     }
 
     template<typename T>
     constexpr Type<T> getType(Type<T>) { return {}; }
-    constexpr TypeInfo getType(TypeHandle handle) {
-        return impl()->typeContext().type(handle);
+    template<fixed_string name>
+    constexpr auto getVarDecl(TemplateVarDecl<name> decl) {
+        return decl;
     }
 
-    template<typename T>
-    constexpr VarDecl getVarDecl(VarHandle handle) {
-        return impl()->varContext().varDecl(handle);
+    constexpr const TypeInfo& getType(TypeHandle handle) {
+        return ast->typeContext.type(handle);
     }
-
-    constexpr const TypeContext& typeContext() { return ast->typeContext; }
-    constexpr const VarDeclContext& varContext() { return ast->varContext; }
+    constexpr const VarDecl& getVarDecl(VarHandle handle) {
+        return ast->varContext.varDecl(handle);
+    }
 
     template<typename E>
-    constexpr E wrap(E e) { return e; }
+    constexpr const E& wrap(const E& e) { return e; }
 
     // template dispatch
     template<typename T>
@@ -76,19 +76,20 @@ struct ASTVisitor {
 
     // persistent dispatch
     constexpr RetT dispatchVisit(NodeHandle<ExprNode> handle) {
-        NodeStorage storage = ast->node(handle);
+        const NodeStorage& storage = ast->node(handle);
         return std::visit(
-            [&](auto node) -> RetT {
-                if constexpr (std::is_same_v<decltype(node), ExprNode>)
-                    return impl()->visitExpr(node);
-                else if constexpr (std::is_same_v<decltype(node), VarExprNode>)
-                    return impl()->visitVarExpr(node);
-                else if constexpr (std::is_same_v<decltype(node), ElementwiseBinaryOperatorExprNode>)
-                    return impl()->visitElementwiseBinaryOperatorExpr(node);
-                else if constexpr (std::is_same_v<decltype(node), VectorByScalarBinaryOperatorExprNode>)
-                    return impl()->visitVectorByScalarBinaryOperatorExpr(node);
-                else if constexpr (std::is_same_v<decltype(node), UnaryOperatorExprNode>)
-                    return impl()->visitUnaryOperatorExpr(node);
+            [&]<typename T>(const T& node) -> RetT {
+                const auto& wrapped = impl()->wrap(node);
+                if constexpr (std::is_same_v<T, ExprNode>)
+                    return impl()->visitExpr(wrapped);
+                else if constexpr (std::is_same_v<T, VarExprNode>)
+                    return impl()->visitVarExpr(wrapped);
+                else if constexpr (std::is_same_v<T, ElementwiseBinaryOperatorExprNode>)
+                    return impl()->visitElementwiseBinaryOperatorExpr(wrapped);
+                else if constexpr (std::is_same_v<T, VectorByScalarBinaryOperatorExprNode>)
+                    return impl()->visitVectorByScalarBinaryOperatorExpr(wrapped);
+                else if constexpr (std::is_same_v<T, UnaryOperatorExprNode>)
+                    return impl()->visitUnaryOperatorExpr(wrapped);
                 else
                     VERIFY_NOT_REACHED(ShaderGen);
             },

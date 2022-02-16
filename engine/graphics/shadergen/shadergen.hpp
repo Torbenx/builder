@@ -21,7 +21,7 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         dump("{} Expr", getType(e.type()));
     }
     void visitVarExpr(auto e) {
-        dump("{} VarExpr \"\"", getType(e.type()));
+        dump("{} VarExpr \"{}\"", getType(e.type()), getVarDecl(e.varDecl()).name());
     }
     void visitElementwiseBinaryOperatorExpr(auto e) {
         dump("{} ElementwiseBinaryOperatorExpr '{}'", getType(e.type()), toString(e.op()));
@@ -51,33 +51,3 @@ void dump(Stmt stmt) {
     dumper.dispatchVisit(stmt);
 }
 }
-
-template<typename T>
-struct fmt::formatter<shadergen::Type<T>> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
-
-    template<typename FormatContext>
-    auto format(shadergen::Type<T> type, FormatContext& ctx) {
-        if constexpr (type.isScalar()) {
-            return format_to(ctx.out(), "[{}]", toString(type.scalarType()));
-        } else if constexpr (type.isVector()) {
-            return format_to(ctx.out(), "[{} x{}]", toString(type.scalarType()), type.vectorSize());
-        } else {
-            return format_to(ctx.out(), "[unknown]");
-        }
-    }
-};
-
-template<>
-struct fmt::formatter<shadergen::TypeInfo> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
-
-    template<typename FormatContext>
-    auto format(shadergen::TypeInfo type, FormatContext& ctx) {
-        return format_to(ctx.out(), "[unknown]");
-    }
-};

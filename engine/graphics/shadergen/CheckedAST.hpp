@@ -20,10 +20,36 @@ struct CheckedASTVisitor : ASTVisitor<Impl, RetT> {
 
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
+    constexpr const TypeInfo& getType(TypeHandle handle) {
+        return impl()->typeContext().type(handle);
+    }
+
+    constexpr const VarDecl& getVarDecl(VarHandle handle) {
+        return impl()->varContext().varDecl(handle);
+    }
     template<typename E>
     constexpr ExprWrapper<E> wrapExpr(E e) {
         TypeContext& typeContext = impl()->typeContext();
-        return ExprWrapper<E> { e, typeContext.findType(e.type()) };
+        auto oldType = ASTVisitor<Impl, RetT>::getType(e.type());
+        auto newType = typeContext.findType(oldType);
+        return ExprWrapper<E> { e, newType };
+    }
+    template<typename E>
+    constexpr VarExprWrapper<E> wrapVarExpr(E e) {
+        VarDeclContext& declContext = impl()->varDeclContext();
+        auto oldDecl = ASTVisitor<Impl, RetT>::getVarDecl(e.varDecl());
+        auto newDecl = declContext.findVarDecl(oldDecl.name());
+        return VarExprWrapper<E> { wrapExpr(e), newDecl };
+    }
+
+    template<typename E>
+    constexpr auto wrap(const E& e) requires std::derived_from<E, ExprNode> {
+        return wrapExpr(e);
+    }
+
+    template<typename E>
+    constexpr auto wrap(const E& e) requires std::derived_from<E, ExprNode> && std::derived_from<E, VarExprNode> {
+        return wrapVarExpr(e);
     }
 
     template<typename E>
@@ -33,8 +59,7 @@ struct CheckedASTVisitor : ASTVisitor<Impl, RetT> {
 
     template<typename E>
     constexpr auto wrap(E e) requires IsExpr<E> && E::IS_VAR_EXPR {
-        VarDeclContext& declContext = impl()->varDeclContext();
-        return VarExprWrapper<E> { wrapExpr(e), declContext.findVarDecl(e) };
+        return wrapVarExpr(e);
     }
 };
 

@@ -46,6 +46,7 @@ template<typename T>
 struct Type {
     using Traits = TypeTraits<T>;
     static constexpr Traits traits;
+    static constexpr bool isBuiltin() { return true; }
     static constexpr bool isScalar() { return traits.kind == TypeKind::SCALAR; }
     static constexpr bool isVector() { return isScalar() || traits.kind == TypeKind::VECTOR; }
     static constexpr ScalarType scalarType() { return traits.scalarType; }
@@ -100,11 +101,16 @@ struct Expr {
 template<typename T>
 concept IsExpr = T::IS_EXPR;
 
+template<fixed_string name_>
+struct TemplateVarDecl {
+    static constexpr std::string_view name() { return name_.view(); }
+};
+
 // Variables
 template<typename T, fixed_string name_>
 struct VarExpr : Expr<T> {
     static constexpr bool IS_VAR_EXPR = true;
-    static constexpr std::string_view name() { return name_.view(); }
+    static constexpr TemplateVarDecl<name_> varDecl() { return {}; }
 };
 
 template<typename T, fixed_string name>
