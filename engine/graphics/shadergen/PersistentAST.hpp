@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TemplateASTVisitor.hpp"
 #include "context.hpp"
 #include <variant>
 
@@ -10,42 +11,40 @@ struct NodeHandle {
     int_t index = -1;
 
     template<typename S>
-    constexpr operator NodeHandle<S>() requires std::is_base_of_v<S, T> { return { index }; }
+    constexpr operator NodeHandle<S>() const requires std::is_base_of_v<S, T> { return { index }; }
     template<typename S>
-    constexpr explicit operator NodeHandle<S>() { return { index }; }
+    constexpr explicit operator NodeHandle<S>() const { return { index }; }
 };
 
-struct ExprNode {
-    TypeHandle m_type;
-    constexpr TypeHandle type() { return m_type; }
+struct StmtNode { };
+struct ExprNode : StmtNode {
+    TypeHandle type;
 };
 struct VarExprNode : ExprNode {
-    VarHandle m_varDecl;
-    constexpr VarHandle varDecl() { return m_varDecl; }
+    VarHandle varDecl;
 };
 struct ElementwiseBinaryOperatorExprNode : ExprNode {
     BinaryOperatorEnum m_op;
-    NodeHandle<ExprNode> m_left;
-    NodeHandle<ExprNode> m_right;
+    NodeHandle<ExprNode> left;
+    NodeHandle<ExprNode> right;
     constexpr BinaryOperatorEnum op() { return m_op; }
-    constexpr NodeHandle<ExprNode> left() { return m_left; }
-    constexpr NodeHandle<ExprNode> right() { return m_right; }
 };
 struct VectorByScalarBinaryOperatorExprNode : ExprNode {
     BinaryOperatorEnum m_op;
-    NodeHandle<ExprNode> m_vector;
-    NodeHandle<ExprNode> m_scalar;
+    NodeHandle<ExprNode> vector;
+    NodeHandle<ExprNode> scalar;
     bool scalarIsLeft;
     constexpr BinaryOperatorEnum op() { return m_op; }
-    constexpr NodeHandle<ExprNode> vector() { return m_vector; }
-    constexpr NodeHandle<ExprNode> scalar() { return m_scalar; }
     constexpr bool isScalarLeft() { return scalarIsLeft; }
 };
 struct UnaryOperatorExprNode : ExprNode {
     UnaryOperatorEnum m_op;
-    NodeHandle<ExprNode> m_subExpr;
+    NodeHandle<ExprNode> subExpr;
     constexpr UnaryOperatorEnum op() { return m_op; }
-    constexpr NodeHandle<ExprNode> subExpr() { return m_subExpr; }
+};
+struct AssignmentStmtNode : StmtNode {
+    NodeHandle<ExprNode> left;
+    NodeHandle<ExprNode> right;
 };
 
 using NodeStorage = std::variant<
@@ -53,10 +52,10 @@ using NodeStorage = std::variant<
     VarExprNode,
     ElementwiseBinaryOperatorExprNode,
     VectorByScalarBinaryOperatorExprNode,
-    UnaryOperatorExprNode>;
+    UnaryOperatorExprNode,
+    AssignmentStmtNode>;
 
 struct PersistentAST {
-
     StaticVector<NodeStorage, 100> nodes;
 
     template<typename T>
@@ -78,6 +77,7 @@ struct PersistentAST {
     VarDeclContext varContext;
 
     struct Builder;
+    struct CheckExprUsage;
 };
 
 }

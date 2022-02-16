@@ -9,8 +9,9 @@
 
 namespace shadergen {
 
-struct ASTDumper : ASTVisitor<ASTDumper> {
-    using ASTVisitor<ASTDumper>::ASTVisitor;
+template<template<typename> typename Visitor>
+struct ASTDumper : Visitor<ASTDumper<Visitor>> {
+    using Visitor<ASTDumper>::Visitor;
     int_t indent = 0;
     template<typename... Args>
     void dump(fmt::format_string<Args...> str, Args&&... args) {
@@ -18,36 +19,41 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
     }
 
     void visitExpr(auto e) {
-        dump("{} Expr", getType(e.type()));
+        dump("{} Expr", this->getType(e));
     }
     void visitVarExpr(auto e) {
-        dump("{} VarExpr \"{}\"", getType(e.type()), getVarDecl(e.varDecl()).name());
+        dump("{} VarExpr \"{}\"", this->getType(e), this->getVarDecl(e).name());
     }
     void visitElementwiseBinaryOperatorExpr(auto e) {
-        dump("{} ElementwiseBinaryOperatorExpr '{}'", getType(e.type()), toString(e.op()));
-        visit(e.left());
-        visit(e.right());
+        dump("{} ElementwiseBinaryOperatorExpr '{}'", this->getType(e), toString(e.op()));
+        visit(e.left);
+        visit(e.right);
     }
     void visitVectorByScalarBinaryOperatorExpr(auto e) {
-        dump("{} VectorByScalarBinaryOperatorExpr '{}'", getType(e.type()), toString(e.op()));
-        visit(e.vector());
-        visit(e.scalar());
+        dump("{} VectorByScalarBinaryOperatorExpr '{}'", this->getType(e), toString(e.op()));
+        visit(e.vector);
+        visit(e.scalar);
     }
     void visitUnaryOperatorExpr(auto e) {
-        dump("{} UnaryOperatorExpr '{}'", getType(e.type()), toString(e.op()));
-        visit(e.subExpr());
+        dump("{} UnaryOperatorExpr '{}'", this->getType(e), toString(e.op()));
+        visit(e.subExpr);
+    }
+    void visitAssignmentStmt(auto e) {
+        dump("AssignmentStmt");
+        visit(e.left);
+        visit(e.right);
     }
 
     void visit(auto e) {
         indent += 2;
-        dispatchVisit(e);
+        this->dispatchVisit(e);
         indent -= 2;
     }
 };
 
-template<typename Stmt>
-void dump(Stmt stmt) {
-    ASTDumper dumper;
-    dumper.dispatchVisit(stmt);
-}
+template<typename Impl>
+using PersistentASTVisitorHelper = PersistentASTVisitor<Impl>;
+using TemplateASTDumper = ASTDumper<TemplateASTVisitor>;
+using PersistentASTDumper = ASTDumper<PersistentASTVisitorHelper>;
+
 }

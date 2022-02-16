@@ -1,9 +1,9 @@
 #pragma once
 
-#include "TemplateAST.hpp"
 #include "util/reflection.hpp"
 #include "util/types.hpp"
 #include "util/uninitialized.hpp"
+#include "TemplateAST.hpp"
 
 // TypeIdentifier
 template<typename T>
@@ -64,47 +64,6 @@ struct StaticVector {
 namespace shadergen {
 
 // Name and Type validation
-static constexpr int_t MAX_NAME_LENGTH = 22;
-
-struct DynamicName {
-    char storage[MAX_NAME_LENGTH + 1] = {};
-    int8_t m_length = 0;
-
-    constexpr DynamicName() { }
-    template<int_t N>
-    constexpr DynamicName(fixed_string<N> str)
-        : m_length(N) {
-        static_assert(str.length() <= MAX_NAME_LENGTH);
-        std::copy_n(str.data(), length() + 1, storage);
-    }
-    constexpr DynamicName(std::string_view view)
-        : m_length(view.length()) {
-        std::copy_n(view.data(), length() + 1, storage);
-    }
-
-    constexpr char* data() {
-        return storage;
-    }
-    constexpr std::string_view view() const { return { data(), (size_t)length() }; }
-    constexpr const char* data() const {
-        return storage;
-    }
-    constexpr int_t length() const { return m_length; }
-};
-
-struct TypeInfo {
-    bool scalar = false;
-    bool vector = false;
-    ScalarType m_scalarType;
-    int_t m_vectorSize = 0;
-    constexpr bool isBuiltin() const { return true; }
-    constexpr bool isVector() const { return vector; }
-    constexpr bool isScalar() const { return scalar; }
-    constexpr ScalarType scalarType() const { return m_scalarType; }
-    constexpr int_t vectorSize() const { return m_vectorSize; }
-    // StaticVector<FieldDecl, 20> fields;
-    // TypeIdentifier typeId;
-};
 static constexpr TypeInfo builtinTypeInfos[] = {
     { true, true, ScalarType::BOOL, 1 },
     { false, true, ScalarType::BOOL, 2 },
@@ -118,10 +77,6 @@ static constexpr TypeInfo builtinTypeInfos[] = {
     { false, true, ScalarType::FLOAT, 2 },
     { false, true, ScalarType::FLOAT, 3 },
     { false, true, ScalarType::FLOAT, 4 },
-};
-struct TypeHandle {
-    bool builtin = false;
-    int_t index = -1;
 };
 struct TypeContext {
     constexpr TypeHandle findType(const auto& type) {
@@ -150,29 +105,16 @@ struct TypeContext {
     }
 };
 
-struct VarDecl {
-    DynamicName m_name;
-    bool isInitialized = false;
-    constexpr std::string_view name() const { return m_name.view(); }
-};
-struct VarHandle {
-    int_t index = -1;
-};
-
 struct VarDeclContext {
     StaticVector<VarDecl, 100> variables;
-    constexpr VarHandle findVarDecl(std::string_view name) {
-        for (int_t i = 0; i < variables.size(); i++) {
-            if (variables[i].name() == name) {
-                return { i };
-            }
-        }
+    template<typename T, fixed_string name>
+    constexpr VarExpr<T, name> declareVariable() {
         variables.pushBack(VarDecl { name });
-        return { variables.size() - 1 };
+        return { {}, { variables.size() - 1 } };
     }
-    template<int_t N>
-    constexpr VarHandle findVarDecl(fixed_string<N> name) {
-        return findVarDecl(name.view());
+    template<fixed_string name, typename T>
+    constexpr VarExpr<T, name> declareVariable(Type<T>) {
+        return declareVariable<T, name>();
     }
 
     constexpr const VarDecl& varDecl(VarHandle handle) const {

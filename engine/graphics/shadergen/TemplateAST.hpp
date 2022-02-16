@@ -61,6 +61,11 @@ struct Type {
     }
 };
 
+template<typename T1, typename T2>
+static constexpr bool isSameType(Type<T1>, Type<T2>) {
+    return std::is_same_v<T1, T2>;
+}
+
 template<ScalarType base>
 struct ScalarTypeToCXX_t;
 template<>
@@ -92,25 +97,41 @@ static constexpr auto makeVectorType() {
 }
 
 // Expr
-template<typename T>
+template<typename T, ValueKind valueKind_ = ValueKind::RVALUE>
 struct Expr {
-    static constexpr bool IS_EXPR = true;
     static constexpr Type<T> type() { return {}; }
-};
-
-template<typename T>
-concept IsExpr = T::IS_EXPR;
-
-template<fixed_string name_>
-struct TemplateVarDecl {
-    static constexpr std::string_view name() { return name_.view(); }
+    static constexpr ValueKind valueKind() { return valueKind_; }
+    static constexpr bool isLValue() { return valueKind() == ValueKind::LVALUE; }
 };
 
 // Variables
+template<typename Left, typename Right>
+struct AssignmentStmt {
+    Left left;
+    Right right;
+    constexpr AssignmentStmt(Left left, Right right)
+        : left(left), right(right) { }
+};
+
+template<typename Left, typename Right>
+static constexpr auto buildAssignment(Left left, Right right) {
+    VERIFY(ShaderGen, isSameType(left.type(), right.type()));
+    VERIFY(ShaderGen, left.isLValue());
+    return AssignmentStmt(left, right);
+}
+
 template<typename T, fixed_string name_>
-struct VarExpr : Expr<T> {
-    static constexpr bool IS_VAR_EXPR = true;
-    static constexpr TemplateVarDecl<name_> varDecl() { return {}; }
+struct VarExpr : Expr<T, ValueKind::LVALUE> {
+    VarHandle varDecl;
+    static constexpr std::string_view name() { return name_.view(); }
+
+    constexpr auto operator=(VarExpr right) {
+        return buildAssignment(*this, right);
+    };
+    template<typename Right>
+    constexpr auto operator=(Right right) {
+        return buildAssignment(*this, right);
+    }
 };
 
 template<typename T, fixed_string name>
@@ -125,22 +146,22 @@ struct BinaryOperator {
 };
 template<typename T, BinaryOperatorEnum opEnum, typename Left, typename Right>
 struct ElementwiseBinaryOperatorExpr : Expr<T> {
-    static constexpr Left left() { return {}; }
-    static constexpr Right right() { return {}; }
+    Left left;
+    Right right;
     static constexpr BinaryOperatorEnum op() { return opEnum; }
 
-    constexpr ElementwiseBinaryOperatorExpr() { }
-    constexpr ElementwiseBinaryOperatorExpr(Type<T>, BinaryOperator<opEnum>, Left, Right) { }
+    constexpr ElementwiseBinaryOperatorExpr(Type<T>, BinaryOperator<opEnum>, Left left, Right right)
+        : left(left), right(right) { }
 };
 template<typename T, BinaryOperatorEnum opEnum, typename Vector, typename Scalar, bool scalarIsLeft>
 struct VectorByScalarBinaryOperatorExpr : Expr<T> {
-    static constexpr Vector vector() { return {}; }
-    static constexpr Scalar scalar() { return {}; }
+    Vector vector;
+    Scalar scalar;
     static constexpr BinaryOperatorEnum op() { return opEnum; }
     static constexpr bool isScalarLeft() { return scalarIsLeft; }
 
-    constexpr VectorByScalarBinaryOperatorExpr() { }
-    constexpr VectorByScalarBinaryOperatorExpr(Type<T>, BinaryOperator<opEnum>, Vector, Scalar, std::bool_constant<scalarIsLeft>) { }
+    constexpr VectorByScalarBinaryOperatorExpr(Type<T>, BinaryOperator<opEnum>, Vector vector, Scalar scalar, std::bool_constant<scalarIsLeft>)
+        : vector(vector), scalar(scalar) { }
 };
 
 template<BinaryOperatorEnum opEnum, typename Left, typename Right>
@@ -161,14 +182,13 @@ static constexpr auto buildBinaryOperator(BinaryOperator<opEnum> op, Left left, 
         VERIFY(ShaderGen, left.type().isLogical() && right.type().isLogical());
         VERIFY(ShaderGen, left.type().scalarType() == right.type().scalarType());
         VERIFY(ShaderGen, left.type().vectorSize() == right.type().vectorSize());
-        return ElementwiseBinaryOperatorExpr(left.type(), op, left, right, std::false_type());
+        return ElementwiseBinaryOperatorExpr(left.type(), op, left, right);
     } else if constexpr (isComparisonOp(op.op())) {
         VERIFY(ShaderGen, left.type().isArithmetic() && right.type().isArithmetic());
         VERIFY(ShaderGen, left.type().scalarType() == right.type().scalarType());
         VERIFY(ShaderGen, left.type().vectorSize() == right.type().vectorSize());
         return ElementwiseBinaryOperatorExpr(
-            makeVectorType<ScalarType::BOOL, left.type().vectorSize()>(),
-            op, left, right);
+            makeVectorType<ScalarType::BOOL, left.type().vectorSize()>(), op, left, right);
     } else {
         VERIFY_NOT_REACHED(ShaderGen);
     }
@@ -211,11 +231,11 @@ struct UnaryOperator {
 
 template<typename T, UnaryOperatorEnum opEnum, typename SubExpr>
 struct UnaryOperatorExpr : Expr<T> {
-    static constexpr SubExpr subExpr() { return {}; }
+    SubExpr subExpr;
     static constexpr UnaryOperatorEnum op() { return opEnum; }
 
-    constexpr UnaryOperatorExpr() { }
-    constexpr UnaryOperatorExpr(Type<T>, UnaryOperator<opEnum>, SubExpr) { }
+    constexpr UnaryOperatorExpr(Type<T>, UnaryOperator<opEnum>, SubExpr subExpr)
+        : subExpr(subExpr) { }
 };
 
 template<UnaryOperatorEnum opEnum, typename SubExpr>

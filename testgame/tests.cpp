@@ -4,29 +4,27 @@
 using namespace shadergen;
 using namespace shadergen::code;
 
-static void constexprTest() {
-    auto foo = makeVariable<"foo">(makeVectorType<float, 1>());
-    auto bar = makeVariable<"bar">(makeVectorType<float, 4>());
-    auto baz = makeVariable<"baz">(makeVectorType<float, 4>());
-    auto haha = makeVariable<"haha">(makeVectorType<float, 1>());
-
+static constexpr auto constexprTest() {
     PersistentAST ast;
-    PersistentAST::Builder builder(ast);
-    ASTDumper dumper(ast);
 
-    auto expr = !(foo * foo + bar < baz + bar);
-    dumper.dispatchVisit(expr);
+    auto emit = [&](auto stmt) {
+        TemplateASTDumper dumper0;
+        dumper0.dispatchVisit(stmt);
 
-    builder.dispatchVisit(haha);
-    auto node = builder.dispatchVisit(expr);
-    dumper.dispatchVisit(node);
+        PersistentAST::Builder builder(ast);
+        auto node = ast.emit(builder.dispatchVisit(stmt));
+        PersistentASTDumper dumper1(ast);
+        dumper1.dispatchVisit(node);
+    };
+    auto foo = ast.varContext.declareVariable<"foo">(makeVectorType<float, 4>());
+    auto bar = ast.varContext.declareVariable<"bar">(makeVectorType<float, 4>());
+    auto baz = ast.varContext.declareVariable<"baz">(makeVectorType<float, 4>());
+    auto res = ast.varContext.declareVariable<"res">(makeVectorType<bool, 4>());
 
-    PersistentAST ast2;
-    PersistentAST::Builder builder2(ast, ast2);
-    ASTDumper dumper2(ast2);
-
-    auto node2 = builder2.dispatchVisit(node);
-    dumper2.dispatchVisit(node2);
+    emit(foo = foo);
+    emit(bar = foo);
+    emit(baz = bar);
+    emit(res = !(foo * foo + bar < baz + bar));
 }
 
 struct A {

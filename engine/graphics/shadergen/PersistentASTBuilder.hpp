@@ -1,46 +1,85 @@
 #pragma once
 
-#include "CheckedAST.hpp"
+#include "PersistentASTVisitor.hpp"
 
 namespace shadergen {
 
-struct PersistentAST::Builder : CheckedASTVisitor<Builder, NodeHandle<ExprNode>> {
-    PersistentAST& outAst;
-    constexpr Builder(PersistentAST& outAst)
-        : outAst(outAst) { }
-    constexpr Builder(const PersistentAST& inAst, PersistentAST& outAst)
-        : CheckedASTVisitor<Builder, NodeHandle<ExprNode>>(inAst), outAst(outAst) { }
-    constexpr TypeContext& typeContext() { return outAst.typeContext; }
-    constexpr VarDeclContext& varDeclContext() { return outAst.varContext; }
-    constexpr ExprNode buildExpr(auto e) {
-        return { e.type() };
+struct PersistentAST::CheckExprUsage : PersistentASTVisitor<CheckExprUsage> {
+    constexpr CheckExprUsage(PersistentAST& ast)
+        : PersistentASTVisitor<CheckExprUsage>(ast) { }
+
+    constexpr void visitVarExpr(const VarExprNode& e) {
+        VERIFY(ShaderGen, getVarDecl(e).isInitialized);
     }
-    constexpr NodeHandle<ExprNode> visitExpr(auto e) {
-        return outAst.emit(buildExpr(e));
+};
+
+struct PersistentAST::Builder : TemplateASTVisitor<Builder> {
+    PersistentAST& ast;
+    constexpr Builder(PersistentAST& ast)
+        : ast(ast) { }
+
+    constexpr ExprNode visitExpr(auto e) {
+        return { {}, ast.typeContext.findType(e.type()) };
     }
-    constexpr NodeHandle<ExprNode> visitVarExpr(auto e) {
-        return outAst.emit(VarExprNode { buildExpr(e), e.varDecl() });
+
+    constexpr VarExprNode visitVarExpr(auto e) {
+        VERIFY(ShaderGen, ast.varContext.varDecl(e.varDecl).name() == e.name());
+        return { visitExpr(e), e.varDecl };
     }
-    constexpr NodeHandle<ExprNode> visitElementwiseBinaryOperatorExpr(auto e) {
-        return outAst.emit(ElementwiseBinaryOperatorExprNode {
-            buildExpr(e),
+
+    constexpr ElementwiseBinaryOperatorExprNode visitElementwiseBinaryOperatorExpr(auto e) {
+        return {
+            visitExpr(e),
             e.op(),
-            dispatchVisit(e.left()),
-            dispatchVisit(e.right()) });
+            ast.emit(dispatchVisit(e.left)),
+            ast.emit(dispatchVisit(e.right))
+        };
     }
-    constexpr NodeHandle<ExprNode> visitVectorByScalarBinaryOperatorExpr(auto e) {
-        return outAst.emit(VectorByScalarBinaryOperatorExprNode {
-            buildExpr(e),
+
+    constexpr VectorByScalarBinaryOperatorExprNode visitVectorByScalarBinaryOperatorExpr(auto e) {
+        return {
+            visitExpr(e),
             e.op(),
-            dispatchVisit(e.vector()),
-            dispatchVisit(e.scalar()),
-            e.isScalarLeft() });
+            ast.emit(dispatchVisit(e.vector)),
+            ast.emit(dispatchVisit(e.scalar)),
+            e.isScalarLeft()
+        };
     }
-    constexpr NodeHandle<ExprNode> visitUnaryOperatorExpr(auto e) {
-        return outAst.emit(UnaryOperatorExprNode {
-            buildExpr(e),
+
+    constexpr UnaryOperatorExprNode visitUnaryOperatorExpr(auto e) {
+        return {
+            visitExpr(e),
             e.op(),
-            dispatchVisit(e.subExpr()) });
+            ast.emit(dispatchVisit(e.subExpr))
+        };
+    }
+
+    constexpr void checkExprUse(NodeHandle<ExprNode> e) {
+        CheckExprUsage use(ast);
+        use.dispatchVisit(e);
+    }
+    constexpr void markInitialized(NodeHandle<ExprNode> handle) {
+        NodeStorage& storage = ast.node(handle);
+        std::visit(
+            [&]<typename T>(T& node) {
+                if constexpr (std::is_same_v<T, VarExprNode>) {
+                    ast.varContext.varDecl(node.varDecl).isInitialized = true;
+                } else {
+                    VERIFY_NOT_REACHED(ShaderGen);
+                }
+            },
+            storage);
+    }
+    constexpr AssignmentStmtNode visitAssignmentStmt(auto s) {
+        auto left = ast.emit(dispatchVisit(s.left));
+        auto right = ast.emit(dispatchVisit(s.right));
+        checkExprUse(right);
+        markInitialized(left);
+        return {
+            {},
+            left,
+            right
+        };
     }
 };
 
