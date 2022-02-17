@@ -46,6 +46,15 @@ struct AssignmentStmtNode : StmtNode {
     NodeHandle<ExprNode> left;
     NodeHandle<ExprNode> right;
 };
+// must match builtinTypeInfos
+using LiternalStorage = std::variant<
+    bool, vec<bool, 2>, vec<bool, 3>, vec<bool, 4>,
+    int, vec<int, 2>, vec<int, 3>, vec<int, 4>,
+    float, vec<float, 2>, vec<float, 3>, vec<float, 4>>;
+
+struct LiteralExprNode : ExprNode {
+    LiternalStorage value;
+};
 
 using NodeStorage = std::variant<
     ExprNode,
@@ -53,7 +62,8 @@ using NodeStorage = std::variant<
     ElementwiseBinaryOperatorExprNode,
     VectorByScalarBinaryOperatorExprNode,
     UnaryOperatorExprNode,
-    AssignmentStmtNode>;
+    AssignmentStmtNode,
+    LiteralExprNode>;
 
 struct PersistentAST {
     StaticVector<NodeStorage, 100> nodes;
@@ -77,7 +87,53 @@ struct PersistentAST {
     VarDeclContext varContext;
 
     struct Builder;
-    struct CheckExprUsage;
+};
+
+struct PersistentAST::Builder : TemplateASTVisitor<Builder> {
+    PersistentAST& ast;
+    constexpr Builder(PersistentAST& ast)
+        : ast(ast) { }
+
+    constexpr ExprNode visitExpr(auto e) {
+        return { {}, ast.typeContext.findType(e.type()) };
+    }
+    constexpr VarExprNode visitVarExpr(auto e) {
+        return { visitExpr(e), e.varDecl };
+    }
+    constexpr ElementwiseBinaryOperatorExprNode visitElementwiseBinaryOperatorExpr(auto e) {
+        return {
+            visitExpr(e),
+            e.op(),
+            ast.emit(dispatchVisit(e.left)),
+            ast.emit(dispatchVisit(e.right))
+        };
+    }
+    constexpr VectorByScalarBinaryOperatorExprNode visitVectorByScalarBinaryOperatorExpr(auto e) {
+        return {
+            visitExpr(e),
+            e.op(),
+            ast.emit(dispatchVisit(e.vector)),
+            ast.emit(dispatchVisit(e.scalar)),
+            e.isScalarLeft()
+        };
+    }
+    constexpr UnaryOperatorExprNode visitUnaryOperatorExpr(auto e) {
+        return {
+            visitExpr(e),
+            e.op(),
+            ast.emit(dispatchVisit(e.subExpr))
+        };
+    }
+    constexpr AssignmentStmtNode visitAssignmentStmt(auto s) {
+        return {
+            {},
+            ast.emit(dispatchVisit(s.left)),
+            ast.emit(dispatchVisit(s.right))
+        };
+    }
+    constexpr LiteralExprNode visitLiteralExpr(auto e) {
+        return { visitExpr(e), e.value };
+    }
 };
 
 }

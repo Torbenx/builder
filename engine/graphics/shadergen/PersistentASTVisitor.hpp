@@ -40,6 +40,9 @@ struct PersistentASTVisitor {
         dispatchVisit(e.right);
         return impl()->visitStmt(e);
     }
+    constexpr auto visitLiteralExpr(const LiteralExprNode& e) {
+        return impl()->visitExpr(e);
+    }
 
     constexpr const TypeInfo& getType(const ExprNode& e) {
         return ast.typeContext.type(e.type);
@@ -65,6 +68,8 @@ struct PersistentASTVisitor {
                     return impl()->visitUnaryOperatorExpr(node);
                 else if constexpr (std::is_same_v<T, AssignmentStmtNode>)
                     return impl()->visitAssignmentStmt(node);
+                else if constexpr (std::is_same_v<T, LiteralExprNode>)
+                    return impl()->visitLiteralExpr(node);
                 else
                     VERIFY_NOT_REACHED(ShaderGen);
             },

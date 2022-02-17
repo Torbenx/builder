@@ -35,7 +35,10 @@ struct TemplateASTVisitor {
     constexpr auto visitAssignmentStmt(auto s) {
         dispatchVisit(s.left);
         dispatchVisit(s.right);
-        return visitStmt(s);
+        return impl()->visitStmt(s);
+    }
+    constexpr auto visitLiteralExpr(auto e) {
+        return impl()->visitExpr(e);
     }
 
     template<typename T, ValueKind valKind>
@@ -72,6 +75,10 @@ struct TemplateASTVisitor {
     template<typename Left, typename Right>
     constexpr auto dispatchVisit(AssignmentStmt<Left, Right> s) {
         return impl()->visitAssignmentStmt(s);
+    }
+    template<typename T>
+    constexpr auto dispatchVisit(LiteralExpr<T> e) {
+        return impl()->visitLiteralExpr(e);
     }
 };
 

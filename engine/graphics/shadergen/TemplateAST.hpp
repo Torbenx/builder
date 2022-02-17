@@ -33,7 +33,9 @@ struct TypeTraits<int> {
 };
 
 template<typename T, int_t size>
-struct vec { };
+struct vec {
+    T elements[size];
+};
 
 template<typename T, int_t size>
 struct TypeTraits<vec<T, size>> {
@@ -257,5 +259,13 @@ namespace code {
     template<typename SubExpr>
     constexpr auto operator!(SubExpr subExpr) { return buildUnaryOperator(UnaryOperator<UnaryOperatorEnum::NOT>(), subExpr); }
 }
+
+// Literals
+template<typename T>
+struct LiteralExpr : Expr<T> {
+    T value;
+    constexpr LiteralExpr(T value)
+        : value(value) { }
+};
 
 }

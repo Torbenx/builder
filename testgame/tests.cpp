@@ -9,20 +9,22 @@ static constexpr auto constexprTest() {
 
     auto emit = [&](auto stmt) {
         TemplateASTDumper dumper0;
-        dumper0.dispatchVisit(stmt);
+        dumper0.dump(stmt);
+        ASTChecker checker(ast.varContext);
+        checker.dispatchVisit(stmt);
 
         PersistentAST::Builder builder(ast);
         auto node = ast.emit(builder.dispatchVisit(stmt));
         PersistentASTDumper dumper1(ast);
-        dumper1.dispatchVisit(node);
+        dumper1.dump(node);
     };
-    auto foo = ast.varContext.declareVariable<"foo">(makeVectorType<float, 4>());
+    auto foo = ast.varContext.declareVariable<"foo">(makeVectorType<float, 1>());
     auto bar = ast.varContext.declareVariable<"bar">(makeVectorType<float, 4>());
     auto baz = ast.varContext.declareVariable<"baz">(makeVectorType<float, 4>());
     auto res = ast.varContext.declareVariable<"res">(makeVectorType<bool, 4>());
 
-    emit(foo = foo);
-    emit(bar = foo);
+    emit(foo = LiteralExpr(1.0f));
+    emit(bar = LiteralExpr(vec<float, 4>()));
     emit(baz = bar);
     emit(res = !(foo * foo + bar < baz + bar));
 }
