@@ -21,7 +21,7 @@ enum class ASTNodeKind {
 
 // Types
 enum class TypeKind {
-    UNKNOWN,
+    USER,
     SCALAR,
     VECTOR,
 };
@@ -32,6 +32,7 @@ enum class ValueKind {
 };
 
 enum class ScalarType {
+    UNKNOWN,
     BOOL,
     INT,
     FLOAT,
@@ -160,25 +161,7 @@ struct DynamicName {
     constexpr int_t length() const { return m_length; }
 };
 
-// Handles
-struct TypeInfo {
-    bool scalar = false;
-    bool vector = false;
-    ScalarType m_scalarType;
-    int_t m_vectorSize = 0;
-    constexpr bool isBuiltin() const { return true; }
-    constexpr bool isVector() const { return vector; }
-    constexpr bool isScalar() const { return scalar; }
-    constexpr ScalarType scalarType() const { return m_scalarType; }
-    constexpr int_t vectorSize() const { return m_vectorSize; }
-    // StaticVector<FieldDecl, 20> fields;
-    // TypeIdentifier typeId;
-};
-struct TypeHandle {
-    bool builtin = false;
-    int_t index = -1;
-};
-
+// VarHandle
 static constexpr int_t BLOCK_SHIFT = 8;
 using blockidx_t = size_t;
 static constexpr blockidx_t SUB_BLOCK_MASK = ((blockidx_t)1 << BLOCK_SHIFT) - 1;

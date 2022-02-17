@@ -22,14 +22,16 @@ struct NodeHandle {
 
 struct StmtNode { };
 struct ExprNode : StmtNode {
-    TypeHandle type;
+    TypeHandle m_type;
+    constexpr TypeHandle type() const { return m_type; }
 };
 struct VarDeclStmtNode : StmtNode {
+    TypeHandle type;
     DynamicName m_name;
     constexpr std::string_view name() const { return m_name.view(); }
 };
 struct VarExprNode : ExprNode {
-     NodeHandle<VarDeclStmtNode> varDecl;
+    NodeHandle<VarDeclStmtNode> varDecl;
 };
 struct ElementwiseBinaryOperatorExprNode : ExprNode {
     BinaryOperatorEnum m_op;
@@ -79,6 +81,12 @@ struct CompoundStmtNode : StmtNode {
 struct BlockStmtNode : CompoundStmtNode {
     NodeHandle<BlockStmtNode> parent;
 };
+struct FieldAccessExprNode : ExprNode {
+    NodeHandle<ExprNode> base;
+    TypeHandle baseType;
+    int_t m_fieldIndex = -1;
+    constexpr int_t fieldIndex() const { return m_fieldIndex; }
+};
 
 using NodeStorage = std::variant<
     StmtNode,
@@ -92,11 +100,15 @@ using NodeStorage = std::variant<
     VarDeclStmtNode,
     CompoundStmtNode,
     CompoundStmtNode::Entry,
-    BlockStmtNode>;
+    BlockStmtNode,
+    FieldAccessExprNode>;
 
 struct PersistentAST {
     StaticVector<NodeStorage, 100> nodes;
     StaticVector<NodeHandle<VarDeclStmtNode>, 100> varDecls;
+
+    TypeContext typeContext;
+    NodeHandle<BlockStmtNode> currentBlock;
 
     constexpr PersistentAST() {
         currentBlock = allocate(BlockStmtNode {});
@@ -131,7 +143,8 @@ struct PersistentAST {
                 return &node;
             else
                 return nullptr;
-        }, ns);
+        },
+            ns);
     }
     template<typename T>
     constexpr T& node(NodeHandle<T> handle) {
@@ -147,7 +160,8 @@ struct PersistentAST {
                 return &node;
             else
                 return nullptr;
-        }, ns);
+        },
+            ns);
     }
     template<typename T>
     constexpr const T& node(NodeHandle<T> handle) const {
@@ -156,11 +170,11 @@ struct PersistentAST {
         return *ptr;
     }
 
-    TypeContext typeContext;
-    NodeHandle<BlockStmtNode> currentBlock;
-
     struct NodeBuilder : TemplateASTVisitor<NodeBuilder> {
         PersistentAST& ast;
+
+        constexpr NodeBuilder(PersistentAST& ast)
+            : ast(ast) { }
 
         constexpr ExprNode visitExpr(auto e) {
             return { {}, ast.typeContext.findType(e.type()) };
@@ -202,17 +216,25 @@ struct PersistentAST {
         constexpr LiteralExprNode visitLiteralExpr(auto e) {
             return { visitExpr(e), e.value };
         }
+        constexpr FieldAccessExprNode visitFieldAccessExpr(auto e) {
+            return {
+                visitExpr(e),
+                ast.allocate(dispatchVisit(e.base)),
+                ast.typeContext.findType(e.base.type()),
+                e.fieldIndex()
+            };
+        }
     };
 
     template<typename T, fixed_string name>
     constexpr void declareVariable(StmtConsumerBase&, VarHandle handle) {
         EXPECT(ShaderGen, handle.index, varDecls.size());
-        varDecls.pushBack(emitStmt(VarDeclStmtNode { {}, name }));
+        varDecls.pushBack(emitStmt(VarDeclStmtNode { {}, typeContext.findType<T>(), name }));
     }
 
     template<typename Stmt>
     constexpr void consumeStmt(StmtConsumerBase&, Stmt stmt) {
-        NodeBuilder builder { {}, *this };
+        NodeBuilder builder { *this };
         emitStmt(builder.dispatchVisit(stmt));
     }
 
@@ -220,7 +242,8 @@ struct PersistentAST {
         currentBlock = emitStmt(BlockStmtNode { {}, currentBlock });
     }
     constexpr void popBlock() {
-        currentBlock = node(currentBlock).parent;
+        NodeHandle<BlockStmtNode> tmp = node(currentBlock).parent;
+        currentBlock = tmp;
     }
     constexpr void beginBlock(StmtConsumerBase&) { pushBlock(); }
     constexpr void endBlock(StmtConsumerBase&) { popBlock(); }

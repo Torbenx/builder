@@ -55,9 +55,13 @@ struct PersistentASTVisitor {
     constexpr RetT visitBlockStmt(const BlockStmtNode& e) {
         return impl()->visitCompoundStmt(e);
     }
+    constexpr RetT visitFieldAccessExpr(const FieldAccessExprNode& e) {
+        impl()->dispatchVisit(e.base);
+        return impl()->visitExpr(e);
+    }
 
-    constexpr const TypeInfo& getType(const ExprNode& e) {
-        return ast.typeContext.type(e.type);
+    constexpr const TypeInfo& getType(const TypeHandle& type) {
+        return ast.typeContext.type(type);
     }
     constexpr const VarDeclStmtNode& getVarDecl(const VarExprNode& e) {
         return ast.node(e.varDecl);
@@ -88,6 +92,8 @@ struct PersistentASTVisitor {
                     return impl()->visitCompoundStmt(node);
                 else if constexpr (std::is_same_v<T, BlockStmtNode>)
                     return impl()->visitBlockStmt(node);
+                else if constexpr (std::is_same_v<T, FieldAccessExprNode>)
+                    return impl()->visitFieldAccessExpr(node);
                 else
                     VERIFY_NOT_REACHED(ShaderGen);
             },

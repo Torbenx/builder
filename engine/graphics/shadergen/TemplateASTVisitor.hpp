@@ -40,9 +40,13 @@ struct TemplateASTVisitor {
     constexpr auto visitLiteralExpr(auto e) {
         return impl()->visitExpr(e);
     }
+    constexpr auto visitFieldAccessExpr(auto e) {
+        impl()->dispatchVisit(e.base);
+        return impl()->visitExpr(e);
+    }
 
-    template<typename T, ValueKind valKind>
-    constexpr Type<T> getType(Expr<T, valKind>) { return {}; }
+    template<typename T>
+    constexpr Type<T> getType(Type<T> type) { return type; }
 
     template<fixed_string name_>
     struct MockVarDecl {
@@ -52,8 +56,8 @@ struct TemplateASTVisitor {
     constexpr MockVarDecl<name> getVarDecl(VarExpr<T, name>) { return {}; }
 
     // dispatch
-    template<typename T>
-    constexpr auto dispatchVisit(Expr<T> e) {
+    template<typename T, ValueKind valKind>
+    constexpr auto dispatchVisit(Expr<T, valKind> e) {
         return impl()->visitExpr(e);
     }
     template<typename T, fixed_string name>
@@ -79,6 +83,10 @@ struct TemplateASTVisitor {
     template<typename T>
     constexpr auto dispatchVisit(LiteralExpr<T> e) {
         return impl()->visitLiteralExpr(e);
+    }
+    template<typename Base, typename T, FieldInfo info>
+    constexpr auto dispatchVisit(FieldAccessExpr<Base, T, info> e) {
+        return impl()->visitFieldAccessExpr(e);
     }
 };
 

@@ -62,8 +62,25 @@ struct StaticVector {
 };
 
 namespace shadergen {
+// Types
+struct TypeInfo {
+    bool scalar = false;
+    bool vector = false;
+    ScalarType m_scalarType;
+    int_t m_vectorSize = 0;
+    constexpr bool isBuiltin() const { return true; }
+    constexpr bool isVector() const { return vector; }
+    constexpr bool isScalar() const { return scalar; }
+    constexpr ScalarType scalarType() const { return m_scalarType; }
+    constexpr int_t vectorSize() const { return m_vectorSize; }
+    // StaticVector<FieldDecl, 20> fields;
+    // TypeIdentifier typeId;
+};
+struct TypeHandle {
+    bool builtin = false;
+    int_t index = -1;
+};
 
-// Name and Type validation
 static constexpr TypeInfo builtinTypeInfos[] = {
     { true, true, ScalarType::BOOL, 1 },
     { false, true, ScalarType::BOOL, 2 },
@@ -79,25 +96,28 @@ static constexpr TypeInfo builtinTypeInfos[] = {
     { false, true, ScalarType::FLOAT, 4 },
 };
 struct TypeContext {
-    constexpr TypeHandle findType(const auto& type) {
-        VERIFY(ShaderGen, type.isBuiltin());
-        VERIFY(ShaderGen, type.vectorSize() <= 4);
-        int_t index;
-        switch (type.scalarType()) {
-        case ScalarType::BOOL:
-            index = 0;
-            break;
-        case ScalarType::INT:
-            index = 1;
-            break;
-        case ScalarType::FLOAT:
-            index = 2;
-            break;
-        default:
-            VERIFY_NOT_REACHED(ShaderGen);
+    template<typename T>
+    constexpr TypeHandle findType(Type<T> type = {}) {
+        if constexpr (type.isBuiltin()) {
+            VERIFY(ShaderGen, type.vectorSize() <= 4);
+            int_t index;
+            switch (type.scalarType()) {
+            case ScalarType::BOOL:
+                index = 0;
+                break;
+            case ScalarType::INT:
+                index = 1;
+                break;
+            case ScalarType::FLOAT:
+                index = 2;
+                break;
+            default:
+                VERIFY_NOT_REACHED(ShaderGen);
+            }
+            TypeHandle ret = { true, index * 4 + type.vectorSize() - 1 };
+            return ret;
         }
-        TypeHandle ret = { true, index * 4 + type.vectorSize() - 1 };
-        return ret;
+        return {};
     }
     constexpr const TypeInfo& type(TypeHandle handle) const {
         VERIFY(ShaderGen, handle.builtin);
@@ -105,6 +125,7 @@ struct TypeContext {
     }
 };
 
+// Statement consumer
 struct StmtConsumerBase {
     size_t localSubBlockCount = 0;
     blockidx_t currentBlockIndex = 1;
@@ -131,15 +152,21 @@ struct StmtConsumer : StmtConsumerBase {
     }
 
     template<typename Stmt>
-    constexpr void operator,(Stmt stmt) {
+    constexpr void operator,(Stmt wrappedStmt) {
+        auto stmt = unwrap(wrappedStmt);
         forEachConsumer([&](auto& consumer) { consumer.consumeStmt(*this, stmt); });
     }
-    template<fixed_string name, typename T>
-    constexpr VarExpr<T, name> declareVariable(Type<T> = {}) {
+    template<typename T, fixed_string name>
+    constexpr auto declareVariable() {
         VarHandle handle = { nextVarIndex++, currentBlockIndex };
         forEachConsumer([&](auto& consumer) { consumer.template declareVariable<T, name>(*this, handle); });
-        return { {}, handle };
+        return wrap(VarExpr<T, name> { handle });
     }
+    template<fixed_string name, typename T>
+    constexpr auto declareVariable(Type<T>) {
+        return declareVariable<T, name>();
+    }
+
     constexpr void beginBlock() {
         StmtConsumerBase::beginBlock();
         forEachConsumer([&](auto& consumer) { consumer.beginBlock(*this); });
@@ -161,14 +188,19 @@ struct StmtConsumerStub {
 
 }
 
+// Formatting
 template<typename FormatContext>
 static auto format_type(auto type, FormatContext& ctx) {
-    if (type.isScalar()) {
-        return fmt::format_to(ctx.out(), "[{}]", toString(type.scalarType()));
-    } else if (type.isVector()) {
-        return fmt::format_to(ctx.out(), "[{} x{}]", toString(type.scalarType()), type.vectorSize());
+    if (type.isBuiltin()) {
+        if (type.isScalar()) {
+            return fmt::format_to(ctx.out(), "[{}]", toString(type.scalarType()));
+        } else if (type.isVector()) {
+            return fmt::format_to(ctx.out(), "[{} x{}]", toString(type.scalarType()), type.vectorSize());
+        } else {
+            return fmt::format_to(ctx.out(), "[unknown]");
+        }
     } else {
-        return fmt::format_to(ctx.out(), "[unknown]");
+        return fmt::format_to(ctx.out(), "[user type]");
     }
 }
 

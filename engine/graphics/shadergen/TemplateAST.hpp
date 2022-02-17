@@ -8,7 +8,7 @@ namespace shadergen {
 // Types
 template<typename T>
 struct TypeTraits {
-    static constexpr TypeKind kind = TypeKind::UNKNOWN;
+    static constexpr TypeKind kind = TypeKind::USER;
 };
 
 template<>
@@ -48,11 +48,19 @@ template<typename T>
 struct Type {
     using Traits = TypeTraits<T>;
     static constexpr Traits traits;
-    static constexpr bool isBuiltin() { return true; }
+    static constexpr bool isBuiltin() { return traits.kind != TypeKind::USER; }
     static constexpr bool isScalar() { return traits.kind == TypeKind::SCALAR; }
     static constexpr bool isVector() { return isScalar() || traits.kind == TypeKind::VECTOR; }
-    static constexpr ScalarType scalarType() { return traits.scalarType; }
-    static constexpr int_t vectorSize() { return traits.vectorSize; }
+    static constexpr ScalarType scalarType() {
+        if constexpr (isBuiltin())
+            return traits.scalarType;
+        return ScalarType::UNKNOWN;
+    }
+    static constexpr int_t vectorSize() {
+        if constexpr (isBuiltin())
+            return traits.vectorSize;
+        return 0;
+    }
     static constexpr bool isArithmetic() {
         return isVector()
             && (scalarType() == ScalarType::FLOAT
@@ -101,12 +109,31 @@ static constexpr auto makeVectorType() {
 // Expr
 template<typename T, ValueKind valueKind_ = ValueKind::RVALUE>
 struct Expr {
+    using CXXType = T;
     static constexpr Type<T> type() { return {}; }
     static constexpr ValueKind valueKind() { return valueKind_; }
     static constexpr bool isLValue() { return valueKind() == ValueKind::LVALUE; }
 };
 
 // Variables
+template<typename T, fixed_string name_>
+struct VarExpr : Expr<T, ValueKind::LVALUE> {
+    VarHandle varHandle;
+    constexpr VarExpr(VarHandle varHandle)
+        : varHandle(varHandle) { }
+    static constexpr std::string_view name() { return name_.view(); }
+};
+
+// Field access
+template<typename Base, typename T, FieldInfo fieldInfo>
+struct FieldAccessExpr : Expr<T, Base::valueKind()> {
+    Base base;
+    static constexpr int_t fieldIndex() { return fieldInfo.index; }
+    constexpr FieldAccessExpr(Base base)
+        : base(base) { }
+    static constexpr std::string_view fieldName() { return fieldInfo.name.view(); }
+};
+
 template<typename Left, typename Right>
 struct AssignmentStmt {
     Left left;
@@ -122,18 +149,29 @@ static constexpr auto buildAssignment(Left left, Right right) {
     return AssignmentStmt(left, right);
 }
 
-template<typename T, fixed_string name_>
-struct VarExpr : Expr<T, ValueKind::LVALUE> {
-    VarHandle varHandle;
-    static constexpr std::string_view name() { return name_.view(); }
+template<typename E>
+struct wrapped;
 
-    constexpr auto operator=(VarExpr right) {
-        return buildAssignment(*this, right);
-    };
+template<typename E>
+constexpr E unwrap(wrapped<E> wrapped) { return (E)wrapped; }
+template<typename E>
+constexpr wrapped<E> wrap(E e) { return { e }; }
+
+template<typename Base, typename T, FieldInfo fieldInfo>
+using WrappedFieldAccessExpr = wrapped<FieldAccessExpr<Base, T, fieldInfo>>;
+template<typename E>
+struct wrapped : E {
+    constexpr wrapped(const E& e)
+        : E(e) { }
+};
+template<typename E>
+requires requires { typename E::CXXType; }
+struct wrapped<E> : E, ref_fields_or_empty<typename E::CXXType, WrappedFieldAccessExpr, E> {
+    constexpr wrapped(const E& e)
+        : E(e), ref_fields_or_empty<typename E::CXXType, WrappedFieldAccessExpr, E>(e) { }
+    constexpr auto operator=(wrapped<E> right) { return wrap(buildAssignment(unwrap(*this), unwrap(right))); }
     template<typename Right>
-    constexpr auto operator=(Right right) {
-        return buildAssignment(*this, right);
-    }
+    constexpr auto operator=(Right right) { return wrap(buildAssignment(unwrap(*this), unwrap(right))); }
 };
 
 template<typename T, fixed_string name>
@@ -198,31 +236,31 @@ static constexpr auto buildBinaryOperator(BinaryOperator<opEnum> op, Left left, 
 
 namespace code {
     template<typename Left, typename Right>
-    constexpr auto operator+(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::PLUS>(), left, right); }
+    constexpr auto operator+(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::PLUS>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator-(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::MINUS>(), left, right); }
+    constexpr auto operator-(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::MINUS>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator*(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::MULTIPLY>(), left, right); }
+    constexpr auto operator*(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::MULTIPLY>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator/(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::DIVIDE>(), left, right); }
+    constexpr auto operator/(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::DIVIDE>(), unwrap(left), unwrap(right))); }
 
     template<typename Left, typename Right>
-    constexpr auto operator&&(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::AND>(), left, right); }
+    constexpr auto operator&&(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::AND>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator||(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::OR>(), left, right); }
+    constexpr auto operator||(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::OR>(), unwrap(left), unwrap(right))); }
 
     template<typename Left, typename Right>
-    constexpr auto operator<(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_L>(), left, right); }
+    constexpr auto operator<(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_L>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator<=(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_LE>(), left, right); }
+    constexpr auto operator<=(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_LE>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator==(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_EQ>(), left, right); }
+    constexpr auto operator==(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_EQ>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator>=(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_GE>(), left, right); }
+    constexpr auto operator>=(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_GE>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator>(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_G>(), left, right); }
+    constexpr auto operator>(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_G>(), unwrap(left), unwrap(right))); }
     template<typename Left, typename Right>
-    constexpr auto operator!=(Left left, Right right) { return buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_NE>(), left, right); }
+    constexpr auto operator!=(Left left, Right right) { return wrap(buildBinaryOperator(BinaryOperator<BinaryOperatorEnum::CMP_NE>(), unwrap(left), unwrap(right))); }
 }
 
 // Unary operators
@@ -255,9 +293,9 @@ static constexpr auto buildUnaryOperator(UnaryOperator<opEnum> op, SubExpr subEx
 
 namespace code {
     template<typename SubExpr>
-    constexpr auto operator-(SubExpr subExpr) { return buildUnaryOperator(UnaryOperator<UnaryOperatorEnum::NEGATE>(), subExpr); }
+    constexpr auto operator-(SubExpr subExpr) { return wrap(buildUnaryOperator(UnaryOperator<UnaryOperatorEnum::NEGATE>(), unwrap(subExpr))); }
     template<typename SubExpr>
-    constexpr auto operator!(SubExpr subExpr) { return buildUnaryOperator(UnaryOperator<UnaryOperatorEnum::NOT>(), subExpr); }
+    constexpr auto operator!(SubExpr subExpr) { return wrap(buildUnaryOperator(UnaryOperator<UnaryOperatorEnum::NOT>(), unwrap(subExpr))); }
 }
 
 // Literals

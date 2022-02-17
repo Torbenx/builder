@@ -20,7 +20,7 @@ struct ASTDumper : Visitor<ASTDumper<Visitor>> {
     using Base = Visitor<ASTDumper<Visitor>>;
     using Visitor<ASTDumper>::Visitor;
     int_t curContext = -1;
-    int_t indent = -2;
+    int_t indent = -1;
     struct DumpContext {
         int_t parent;
         int_t indent;
@@ -30,12 +30,13 @@ struct ASTDumper : Visitor<ASTDumper<Visitor>> {
         std::vector<std::string> infos;
 
         void print() {
-            std::string out = "";
+            std::string out(indent * 2, ' ');
+            out += nodeType;
             for (auto info : infos) {
                 out += ' ';
                 out += info;
             }
-            log("{:{}}{}{}", "", indent, nodeType, out);
+            log("{}", out);
             nodeType = "";
             infos.clear();
         }
@@ -51,7 +52,7 @@ struct ASTDumper : Visitor<ASTDumper<Visitor>> {
     }
 
     void visitExpr(const auto& e) {
-        info("Expr", fmt::format("{}", this->getType(e)));
+        info("Expr", fmt::format("{}", this->getType(e.type())));
         Base::visitExpr(e);
     }
     void visitVarExpr(const auto& e) {
@@ -79,7 +80,7 @@ struct ASTDumper : Visitor<ASTDumper<Visitor>> {
         Base::visitLiteralExpr(e);
     }
     void visitVarDeclStmt(const auto& e) {
-        info("VarDeclStmt", fmt::format("\"{}\"", e.name()));
+        info("VarDeclStmt", fmt::format("{}", this->getType(e.type)), fmt::format("\"{}\"", e.name()));
         Base::visitVarDeclStmt(e);
     }
     void visitBlockStmt(const auto& e) {
@@ -90,14 +91,18 @@ struct ASTDumper : Visitor<ASTDumper<Visitor>> {
         info("CompoundStmt", fmt::format("({} children)", e.childCount));
         Base::visitCompoundStmt(e);
     }
+    void visitFieldAccessExpr(const auto& e) {
+        info("FieldAccessExpr", fmt::format("[{}]", e.fieldIndex()));
+        Base::visitFieldAccessExpr(e);
+    }
 
     void dispatchVisit(auto e) {
-        indent += 2;
+        indent += 1;
         stack.emplace_back(curContext, indent);
         curContext = stack.size() - 1;
         Base::dispatchVisit(e);
         curContext = stack[curContext].parent;
-        indent -= 2;
+        indent -= 1;
     }
 
     void dump(auto e) {

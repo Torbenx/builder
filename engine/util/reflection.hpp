@@ -88,9 +88,13 @@ template<typename B, typename T, int_t M>
 FieldInfo(int_t, const char (&)[M], T B::*) -> FieldInfo<B, T, M - 1>;
 static constexpr FieldInfo<void, void, 0> nonFieldInfo() { return {}; }
 
+struct EmptyReflectedType {
+    constexpr EmptyReflectedType() = default;
+    constexpr EmptyReflectedType(auto) { }
+};
 template<typename T, template<typename, typename, FieldInfo> typename Field, typename parent>
 struct ref_fields_or_empty_t {
-    struct type { };
+    using type = EmptyReflectedType;
     static constexpr bool IS_REFLECTED_TYPE = false;
 };
 template<typename T, template<typename, typename, FieldInfo> typename Field, typename parent>
@@ -295,7 +299,10 @@ static constexpr int_t computeLeafFieldCount() {
     template<int_t field_index, template<typename, typename, FieldInfo> typename Field, typename parent> \
     struct _ref_fields_;                                                                                 \
     template<template<typename, typename, FieldInfo> typename Field, typename parent>                    \
-    struct _ref_fields_<-1, Field, parent> { };                                                          \
+    struct _ref_fields_<-1, Field, parent> {                                                             \
+        constexpr _ref_fields_() = default;                                                              \
+        constexpr _ref_fields_(auto) { }                                                                 \
+    };                                                                                                   \
     using _ref_base_alias_ = base;                                                                       \
     static constexpr int_t _ref_counter_offset_ = __COUNTER__ + 1;
 
@@ -305,6 +312,8 @@ static constexpr int_t computeLeafFieldCount() {
     struct _ref_fields_<counter - _ref_counter_offset_, Field, parent> : _ref_fields_<counter - _ref_counter_offset_ - 1, Field, parent> {                   \
         using current_field = Field<parent, decltype(_ref_base_alias_::name), FieldInfo { counter - _ref_counter_offset_, #name, &_ref_base_alias_::name }>; \
         current_field name;                                                                                                                                  \
+        constexpr _ref_fields_() = default;                                                                                                                  \
+        constexpr _ref_fields_(auto init) : _ref_fields_<counter - _ref_counter_offset_ - 1, Field, parent>(init), name(init) { }                            \
     };
 
 #define REF_FIELD(name) REF_FIELD_HELPER(name, __COUNTER__)

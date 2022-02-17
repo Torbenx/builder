@@ -14,6 +14,8 @@ struct Checker {
 
     struct CheckExprUsage : TemplateASTVisitor<CheckExprUsage> {
         Checker& ctx;
+        constexpr CheckExprUsage(Checker& ctx)
+            : ctx(ctx) { }
 
         constexpr void visitVarExpr(auto e) {
             VERIFY(ShaderGen, ctx.variables[e.varHandle.index].isInitialized);
@@ -23,6 +25,8 @@ struct Checker {
     struct ASTChecker : TemplateASTVisitor<ASTChecker> {
         Checker& ctx;
         StmtConsumerBase& scb;
+        constexpr ASTChecker(Checker& ctx, StmtConsumerBase& scb)
+            : ctx(ctx), scb(scb) { }
 
         constexpr void visitVarExpr(auto e) {
             VERIFY(ShaderGen, ctx.variables[e.varHandle.index].name.view() == e.name());
@@ -30,7 +34,7 @@ struct Checker {
         }
 
         constexpr void checkExprUse(auto e) {
-            CheckExprUsage use { {}, ctx };
+            CheckExprUsage use { ctx };
             use.dispatchVisit(e);
         }
         template<typename T, fixed_string name>
@@ -53,7 +57,7 @@ struct Checker {
 
     template<typename Stmt>
     constexpr void consumeStmt(StmtConsumerBase& scb, Stmt stmt) {
-        ASTChecker checker { {}, *this, scb };
+        ASTChecker checker { *this, scb };
         checker.dispatchVisit(stmt);
     }
 

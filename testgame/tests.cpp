@@ -4,24 +4,6 @@
 using namespace shadergen;
 using namespace shadergen::code;
 
-static auto constexprTest() {
-    StmtConsumer<StmtDumper, Checker, PersistentAST> consumer;
-    auto foo = consumer.declareVariable<"foo">(makeVectorType<float, 1>());
-    auto bar = consumer.declareVariable<"bar">(makeVectorType<float, 4>());
-    auto baz = consumer.declareVariable<"baz">(makeVectorType<float, 4>());
-    auto res = consumer.declareVariable<"res">(makeVectorType<bool, 4>());
-    consumer.beginBlock();
-    consumer, foo = LiteralExpr(1.0f);
-    consumer, bar = LiteralExpr(vec<float, 4>());
-    consumer, baz = bar;
-    consumer, res = !(foo * foo + bar < baz + bar);
-    consumer.endBlock();
-
-    PersistentAST& ast = std::get<PersistentAST>(consumer.consumers);
-    PersistentASTDumper dumper(ast);
-    dumper.dump(ast.currentBlock);
-}
-
 struct A {
     struct B {
         BEGIN_REF_STRUCT(B);
@@ -32,11 +14,33 @@ struct A {
     BEGIN_REF_STRUCT(A);
     B REF_FIELD(b1);
     B REF_FIELD(b2);
+    float REF_FIELD(f);
     END_REF_STRUCT();
 };
 
+static auto constexprTest() {
+    StmtConsumer<Checker, PersistentAST, StmtDumper> consumer;
+    auto a = consumer.declareVariable<A, "a">();
+    auto foo = consumer.declareVariable<float, "foo">();
+    auto bar = consumer.declareVariable<"bar">(makeVectorType<float, 4>());
+    auto baz = consumer.declareVariable<"baz">(makeVectorType<float, 4>());
+    auto res = consumer.declareVariable<"res">(makeVectorType<bool, 4>());
+    consumer.beginBlock();
+    consumer, foo = a.f;
+    consumer, foo = wrap(LiteralExpr(1.0f));
+    consumer, bar = wrap(LiteralExpr(vec<float, 4>()));
+    consumer, baz = bar;
+    consumer, res = !(foo * foo + bar < baz + bar);
+    consumer.endBlock();
+
+    return std::get<PersistentAST>(consumer.consumers);
+}
+
 void runShadergenTest() {
-    constexprTest();
+    PersistentAST ast = constexprTest();
+    PersistentASTDumper dumper(ast);
+    dumper.dump(ast.currentBlock);
+
     A aVal;
     aVal.b2.i = 123;
     auto a = reflect(aVal);
