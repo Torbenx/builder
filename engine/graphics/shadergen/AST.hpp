@@ -178,13 +178,23 @@ struct TypeHandle {
     bool builtin = false;
     int_t index = -1;
 };
-struct VarDecl {
-    DynamicName m_name;
-    bool isInitialized = false;
-    constexpr std::string_view name() const { return m_name.view(); }
-};
+
+static constexpr int_t BLOCK_SHIFT = 8;
+using blockidx_t = size_t;
+static constexpr blockidx_t SUB_BLOCK_MASK = ((blockidx_t)1 << BLOCK_SHIFT) - 1;
+
+static constexpr bool isSubBlock(blockidx_t parentIndex, blockidx_t childIndex) {
+    int_t parentDepth = (std::numeric_limits<blockidx_t>::digits - std::countl_zero(parentIndex) - 1) / BLOCK_SHIFT;
+    int_t childDepth = (std::numeric_limits<blockidx_t>::digits - std::countl_zero(childIndex) - 1) / BLOCK_SHIFT;
+    if (parentDepth > childDepth)
+        return false;
+    blockidx_t relChildIndex = childIndex >> ((childDepth - parentDepth) * BLOCK_SHIFT);
+    return relChildIndex == parentIndex;
+}
+
 struct VarHandle {
     int_t index = -1;
+    blockidx_t block = 0;
 };
 
 }

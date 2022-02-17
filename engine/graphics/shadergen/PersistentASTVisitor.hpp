@@ -22,38 +22,50 @@ struct PersistentASTVisitor {
         return impl()->visitExpr(e);
     }
     constexpr RetT visitElementwiseBinaryOperatorExpr(const ElementwiseBinaryOperatorExprNode& e) {
-        dispatchVisit(e.left);
-        dispatchVisit(e.right);
+        impl()->dispatchVisit(e.left);
+        impl()->dispatchVisit(e.right);
         return impl()->visitExpr(e);
     }
     constexpr RetT visitVectorByScalarBinaryOperatorExpr(const VectorByScalarBinaryOperatorExprNode& e) {
-        dispatchVisit(e.vector);
-        dispatchVisit(e.scalar);
+        impl()->dispatchVisit(e.vector);
+        impl()->dispatchVisit(e.scalar);
         return impl()->visitExpr(e);
     }
     constexpr RetT visitUnaryOperatorExpr(const UnaryOperatorExprNode& e) {
-        dispatchVisit(e.subExpr);
+        impl()->dispatchVisit(e.subExpr);
         return impl()->visitExpr(e);
     }
     constexpr RetT visitAssignmentStmt(const AssignmentStmtNode& e) {
-        dispatchVisit(e.left);
-        dispatchVisit(e.right);
+        impl()->dispatchVisit(e.left);
+        impl()->dispatchVisit(e.right);
         return impl()->visitStmt(e);
     }
-    constexpr auto visitLiteralExpr(const LiteralExprNode& e) {
+    constexpr RetT visitLiteralExpr(const LiteralExprNode& e) {
         return impl()->visitExpr(e);
+    }
+    constexpr RetT visitVarDeclStmt(const VarDeclStmtNode& e) {
+        return impl()->visitStmt(e);
+    }
+    constexpr RetT visitCompoundStmt(const CompoundStmtNode& e) {
+        e.forEachStmt(ast, [&](NodeHandle<StmtNode> handle) {
+            impl()->dispatchVisit(handle);
+        });
+        return impl()->visitStmt(e);
+    }
+    constexpr RetT visitBlockStmt(const BlockStmtNode& e) {
+        return impl()->visitCompoundStmt(e);
     }
 
     constexpr const TypeInfo& getType(const ExprNode& e) {
         return ast.typeContext.type(e.type);
     }
-    constexpr const VarDecl& getVarDecl(const VarExprNode& e) {
-        return ast.varContext.varDecl(e.varDecl);
+    constexpr const VarDeclStmtNode& getVarDecl(const VarExprNode& e) {
+        return ast.node(e.varDecl);
     }
 
     // dispatch
     constexpr RetT dispatchVisit(NodeHandle<StmtNode> handle) {
-        const NodeStorage& storage = ast.node(handle);
+        const NodeStorage& storage = ast.nodeStorage(handle);
         return std::visit(
             [&]<typename T>(const T& node) -> RetT {
                 if constexpr (std::is_same_v<T, ExprNode>)
@@ -70,6 +82,12 @@ struct PersistentASTVisitor {
                     return impl()->visitAssignmentStmt(node);
                 else if constexpr (std::is_same_v<T, LiteralExprNode>)
                     return impl()->visitLiteralExpr(node);
+                else if constexpr (std::is_same_v<T, VarDeclStmtNode>)
+                    return impl()->visitVarDeclStmt(node);
+                else if constexpr (std::is_same_v<T, CompoundStmtNode>)
+                    return impl()->visitCompoundStmt(node);
+                else if constexpr (std::is_same_v<T, BlockStmtNode>)
+                    return impl()->visitBlockStmt(node);
                 else
                     VERIFY_NOT_REACHED(ShaderGen);
             },

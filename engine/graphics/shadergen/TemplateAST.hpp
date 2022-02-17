@@ -124,7 +124,7 @@ static constexpr auto buildAssignment(Left left, Right right) {
 
 template<typename T, fixed_string name_>
 struct VarExpr : Expr<T, ValueKind::LVALUE> {
-    VarHandle varDecl;
+    VarHandle varHandle;
     static constexpr std::string_view name() { return name_.view(); }
 
     constexpr auto operator=(VarExpr right) {

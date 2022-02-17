@@ -1,9 +1,9 @@
 #pragma once
 
+#include "TemplateAST.hpp"
 #include "util/reflection.hpp"
 #include "util/types.hpp"
 #include "util/uninitialized.hpp"
-#include "TemplateAST.hpp"
 
 // TypeIdentifier
 template<typename T>
@@ -105,24 +105,58 @@ struct TypeContext {
     }
 };
 
-struct VarDeclContext {
-    StaticVector<VarDecl, 100> variables;
-    template<typename T, fixed_string name>
-    constexpr VarExpr<T, name> declareVariable() {
-        variables.pushBack(VarDecl { name });
-        return { {}, { variables.size() - 1 } };
+struct StmtConsumerBase {
+    size_t localSubBlockCount = 0;
+    blockidx_t currentBlockIndex = 1;
+    int_t nextVarIndex = 0;
+
+    constexpr void beginBlock() {
+        currentBlockIndex <<= BLOCK_SHIFT;
+        currentBlockIndex |= localSubBlockCount;
+        localSubBlockCount = 0;
     }
-    template<fixed_string name, typename T>
-    constexpr VarExpr<T, name> declareVariable(Type<T>) {
-        return declareVariable<T, name>();
+    constexpr void endBlock() {
+        localSubBlockCount = (currentBlockIndex & SUB_BLOCK_MASK) + 1;
+        currentBlockIndex >>= BLOCK_SHIFT;
+    }
+};
+
+template<typename... Consumers>
+struct StmtConsumer : StmtConsumerBase {
+    std::tuple<Consumers...> consumers;
+
+    template<typename Callback>
+    constexpr void forEachConsumer(Callback&& callback) {
+        (callback(std::get<Consumers>(consumers)), ...);
     }
 
-    constexpr const VarDecl& varDecl(VarHandle handle) const {
-        return variables[handle.index];
+    template<typename Stmt>
+    constexpr void operator,(Stmt stmt) {
+        forEachConsumer([&](auto& consumer) { consumer.consumeStmt(*this, stmt); });
     }
-    constexpr VarDecl& varDecl(VarHandle handle) {
-        return variables[handle.index];
+    template<fixed_string name, typename T>
+    constexpr VarExpr<T, name> declareVariable(Type<T> = {}) {
+        VarHandle handle = { nextVarIndex++, currentBlockIndex };
+        forEachConsumer([&](auto& consumer) { consumer.template declareVariable<T, name>(*this, handle); });
+        return { {}, handle };
     }
+    constexpr void beginBlock() {
+        StmtConsumerBase::beginBlock();
+        forEachConsumer([&](auto& consumer) { consumer.beginBlock(*this); });
+    }
+    constexpr void endBlock() {
+        forEachConsumer([&](auto& consumer) { consumer.endBlock(*this); });
+        StmtConsumerBase::endBlock();
+    }
+};
+
+struct StmtConsumerStub {
+    template<typename T, fixed_string name>
+    void declareVariable(StmtConsumerBase&, VarHandle) { }
+    template<typename Stmt>
+    void consumeStmt(StmtConsumerBase&, Stmt stmt) { }
+    void beginBlock(StmtConsumerBase&) { }
+    void endBlock(StmtConsumerBase&) { }
 };
 
 }

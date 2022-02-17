@@ -5,36 +5,60 @@
 
 namespace shadergen {
 
-struct CheckExprUsage : TemplateASTVisitor<CheckExprUsage> {
-    VarDeclContext& ctx;
-    constexpr CheckExprUsage(VarDeclContext& ctx)
-        : ctx(ctx) { }
+struct Checker {
+    struct VarInfo {
+        DynamicName name;
+        bool isInitialized = false;
+    };
+    StaticVector<VarInfo, 100> variables;
 
-    constexpr void visitVarExpr(auto e) {
-        VERIFY(ShaderGen, ctx.varDecl(e.varDecl).isInitialized);
-    }
-};
+    struct CheckExprUsage : TemplateASTVisitor<CheckExprUsage> {
+        Checker& ctx;
 
-struct ASTChecker : TemplateASTVisitor<ASTChecker> {
-    VarDeclContext& varContext;
-    constexpr ASTChecker(VarDeclContext& ctx)
-        : varContext(ctx) { }
-    constexpr void visitVarExpr(auto e) {
-        VERIFY(ShaderGen, varContext.varDecl(e.varDecl).name() == e.name());
-    }
+        constexpr void visitVarExpr(auto e) {
+            VERIFY(ShaderGen, ctx.variables[e.varHandle.index].isInitialized);
+        }
+    };
 
-    constexpr void checkExprUse(auto e) {
-        CheckExprUsage use(varContext);
-        use.dispatchVisit(e);
-    }
+    struct ASTChecker : TemplateASTVisitor<ASTChecker> {
+        Checker& ctx;
+        StmtConsumerBase& scb;
+
+        constexpr void visitVarExpr(auto e) {
+            VERIFY(ShaderGen, ctx.variables[e.varHandle.index].name.view() == e.name());
+            VERIFY(ShaderGen, isSubBlock(e.varHandle.block, scb.currentBlockIndex));
+        }
+
+        constexpr void checkExprUse(auto e) {
+            CheckExprUsage use { {}, ctx };
+            use.dispatchVisit(e);
+        }
+        template<typename T, fixed_string name>
+        constexpr void markInitialized(VarExpr<T, name> e) {
+            ctx.variables[e.varHandle.index].isInitialized = true;
+        }
+        constexpr void visitAssignmentStmt(auto s) {
+            dispatchVisit(s.left);
+            dispatchVisit(s.right);
+            checkExprUse(s.right);
+            markInitialized(s.left);
+        }
+    };
+
     template<typename T, fixed_string name>
-    constexpr void markInitialized(VarExpr<T, name> e) {
-        varContext.varDecl(e.varDecl).isInitialized = true;
+    constexpr void declareVariable(StmtConsumerBase& scb, VarHandle handle) {
+        EXPECT(ShaderGen, handle.index, variables.size());
+        variables.pushBack({ name });
     }
-    constexpr void visitAssignmentStmt(auto s) {
-        checkExprUse(s.right);
-        markInitialized(s.left);
+
+    template<typename Stmt>
+    constexpr void consumeStmt(StmtConsumerBase& scb, Stmt stmt) {
+        ASTChecker checker { {}, *this, scb };
+        checker.dispatchVisit(stmt);
     }
+
+    constexpr void beginBlock(StmtConsumerBase&) { }
+    constexpr void endBlock(StmtConsumerBase&) { }
 };
 
 };

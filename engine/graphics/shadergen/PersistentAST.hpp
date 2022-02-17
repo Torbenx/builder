@@ -6,6 +6,8 @@
 
 namespace shadergen {
 
+struct PersistentAST;
+
 template<typename T>
 struct NodeHandle {
     int_t index = -1;
@@ -14,33 +16,39 @@ struct NodeHandle {
     constexpr operator NodeHandle<S>() const requires std::is_base_of_v<S, T> { return { index }; }
     template<typename S>
     constexpr explicit operator NodeHandle<S>() const { return { index }; }
+
+    constexpr explicit operator bool() const { return index != -1; }
 };
 
 struct StmtNode { };
 struct ExprNode : StmtNode {
     TypeHandle type;
 };
+struct VarDeclStmtNode : StmtNode {
+    DynamicName m_name;
+    constexpr std::string_view name() const { return m_name.view(); }
+};
 struct VarExprNode : ExprNode {
-    VarHandle varDecl;
+     NodeHandle<VarDeclStmtNode> varDecl;
 };
 struct ElementwiseBinaryOperatorExprNode : ExprNode {
     BinaryOperatorEnum m_op;
     NodeHandle<ExprNode> left;
     NodeHandle<ExprNode> right;
-    constexpr BinaryOperatorEnum op() { return m_op; }
+    constexpr BinaryOperatorEnum op() const { return m_op; }
 };
 struct VectorByScalarBinaryOperatorExprNode : ExprNode {
     BinaryOperatorEnum m_op;
     NodeHandle<ExprNode> vector;
     NodeHandle<ExprNode> scalar;
     bool scalarIsLeft;
-    constexpr BinaryOperatorEnum op() { return m_op; }
-    constexpr bool isScalarLeft() { return scalarIsLeft; }
+    constexpr BinaryOperatorEnum op() const { return m_op; }
+    constexpr bool isScalarLeft() const { return scalarIsLeft; }
 };
 struct UnaryOperatorExprNode : ExprNode {
     UnaryOperatorEnum m_op;
     NodeHandle<ExprNode> subExpr;
-    constexpr UnaryOperatorEnum op() { return m_op; }
+    constexpr UnaryOperatorEnum op() const { return m_op; }
 };
 struct AssignmentStmtNode : StmtNode {
     NodeHandle<ExprNode> left;
@@ -55,85 +63,187 @@ using LiternalStorage = std::variant<
 struct LiteralExprNode : ExprNode {
     LiternalStorage value;
 };
+struct CompoundStmtNode : StmtNode {
+    struct Entry {
+        NodeHandle<StmtNode> stmt;
+        NodeHandle<Entry> next;
+    };
+    NodeHandle<Entry> first;
+    NodeHandle<Entry> last;
+    int_t childCount = 0;
+
+    constexpr void pushBack(PersistentAST& ast, NodeHandle<StmtNode> stmt);
+    template<typename Callback>
+    constexpr void forEachStmt(auto& ast, Callback&& callback) const;
+};
+struct BlockStmtNode : CompoundStmtNode {
+    NodeHandle<BlockStmtNode> parent;
+};
 
 using NodeStorage = std::variant<
+    StmtNode,
     ExprNode,
     VarExprNode,
     ElementwiseBinaryOperatorExprNode,
     VectorByScalarBinaryOperatorExprNode,
     UnaryOperatorExprNode,
     AssignmentStmtNode,
-    LiteralExprNode>;
+    LiteralExprNode,
+    VarDeclStmtNode,
+    CompoundStmtNode,
+    CompoundStmtNode::Entry,
+    BlockStmtNode>;
 
 struct PersistentAST {
     StaticVector<NodeStorage, 100> nodes;
+    StaticVector<NodeHandle<VarDeclStmtNode>, 100> varDecls;
+
+    constexpr PersistentAST() {
+        currentBlock = allocate(BlockStmtNode {});
+    }
 
     template<typename T>
-    constexpr NodeHandle<T> emit(T node) {
+    constexpr NodeHandle<T> allocate(T node) {
         nodes.pushBack(node);
         return { nodes.size() - 1 };
     }
 
     template<typename T>
-    constexpr const NodeStorage& node(NodeHandle<T> handle) const {
+    constexpr NodeHandle<T> emitStmt(T stmt) {
+        NodeHandle<T> node = allocate(stmt);
+        this->node(currentBlock).pushBack(*this, node);
+        return node;
+    }
+
+    template<typename T>
+    constexpr const NodeStorage& nodeStorage(NodeHandle<T> handle) const {
         return nodes[handle.index];
     }
     template<typename T>
-    constexpr NodeStorage& node(NodeHandle<T> handle) {
+    constexpr NodeStorage& nodeStorage(NodeHandle<T> handle) {
         return nodes[handle.index];
+    }
+    template<typename T>
+    constexpr T* nodeOrNull(NodeHandle<T> handle) {
+        NodeStorage& ns = nodeStorage(handle);
+        return std::visit([]<typename S>(S& node) -> T* {
+            if constexpr (std::derived_from<S, T>)
+                return &node;
+            else
+                return nullptr;
+        }, ns);
+    }
+    template<typename T>
+    constexpr T& node(NodeHandle<T> handle) {
+        T* ptr = nodeOrNull(handle);
+        VERIFY(ShaderGen, ptr != nullptr);
+        return *ptr;
+    }
+    template<typename T>
+    constexpr const T* nodeOrNull(NodeHandle<T> handle) const {
+        const NodeStorage& ns = nodeStorage(handle);
+        return std::visit([]<typename S>(const S& node) -> const T* {
+            if constexpr (std::derived_from<S, T>)
+                return &node;
+            else
+                return nullptr;
+        }, ns);
+    }
+    template<typename T>
+    constexpr const T& node(NodeHandle<T> handle) const {
+        const T* ptr = nodeOrNull(handle);
+        VERIFY(ShaderGen, ptr != nullptr);
+        return *ptr;
     }
 
     TypeContext typeContext;
-    VarDeclContext varContext;
+    NodeHandle<BlockStmtNode> currentBlock;
 
-    struct Builder;
+    struct NodeBuilder : TemplateASTVisitor<NodeBuilder> {
+        PersistentAST& ast;
+
+        constexpr ExprNode visitExpr(auto e) {
+            return { {}, ast.typeContext.findType(e.type()) };
+        }
+        constexpr VarExprNode visitVarExpr(auto e) {
+            return { visitExpr(e), ast.varDecls[e.varHandle.index] };
+        }
+        constexpr ElementwiseBinaryOperatorExprNode visitElementwiseBinaryOperatorExpr(auto e) {
+            return {
+                visitExpr(e),
+                e.op(),
+                ast.allocate(dispatchVisit(e.left)),
+                ast.allocate(dispatchVisit(e.right))
+            };
+        }
+        constexpr VectorByScalarBinaryOperatorExprNode visitVectorByScalarBinaryOperatorExpr(auto e) {
+            return {
+                visitExpr(e),
+                e.op(),
+                ast.allocate(dispatchVisit(e.vector)),
+                ast.allocate(dispatchVisit(e.scalar)),
+                e.isScalarLeft()
+            };
+        }
+        constexpr UnaryOperatorExprNode visitUnaryOperatorExpr(auto e) {
+            return {
+                visitExpr(e),
+                e.op(),
+                ast.allocate(dispatchVisit(e.subExpr))
+            };
+        }
+        constexpr AssignmentStmtNode visitAssignmentStmt(auto s) {
+            return {
+                {},
+                ast.allocate(dispatchVisit(s.left)),
+                ast.allocate(dispatchVisit(s.right))
+            };
+        }
+        constexpr LiteralExprNode visitLiteralExpr(auto e) {
+            return { visitExpr(e), e.value };
+        }
+    };
+
+    template<typename T, fixed_string name>
+    constexpr void declareVariable(StmtConsumerBase&, VarHandle handle) {
+        EXPECT(ShaderGen, handle.index, varDecls.size());
+        varDecls.pushBack(emitStmt(VarDeclStmtNode { {}, name }));
+    }
+
+    template<typename Stmt>
+    constexpr void consumeStmt(StmtConsumerBase&, Stmt stmt) {
+        NodeBuilder builder { {}, *this };
+        emitStmt(builder.dispatchVisit(stmt));
+    }
+
+    constexpr void pushBlock() {
+        currentBlock = emitStmt(BlockStmtNode { {}, currentBlock });
+    }
+    constexpr void popBlock() {
+        currentBlock = node(currentBlock).parent;
+    }
+    constexpr void beginBlock(StmtConsumerBase&) { pushBlock(); }
+    constexpr void endBlock(StmtConsumerBase&) { popBlock(); }
 };
 
-struct PersistentAST::Builder : TemplateASTVisitor<Builder> {
-    PersistentAST& ast;
-    constexpr Builder(PersistentAST& ast)
-        : ast(ast) { }
+constexpr void CompoundStmtNode::pushBack(PersistentAST& ast, NodeHandle<StmtNode> stmt) {
+    NodeHandle<Entry> newEntry = ast.allocate(Entry { stmt });
+    if (last)
+        ast.node(last).next = newEntry;
+    else
+        first = newEntry;
+    last = newEntry;
+    childCount += 1;
+}
 
-    constexpr ExprNode visitExpr(auto e) {
-        return { {}, ast.typeContext.findType(e.type()) };
+template<typename Callback>
+constexpr void CompoundStmtNode::forEachStmt(auto& ast, Callback&& callback) const {
+    NodeHandle<Entry> entry = first;
+    while (entry) {
+        auto& e = ast.node(entry);
+        callback(e.stmt);
+        entry = e.next;
     }
-    constexpr VarExprNode visitVarExpr(auto e) {
-        return { visitExpr(e), e.varDecl };
-    }
-    constexpr ElementwiseBinaryOperatorExprNode visitElementwiseBinaryOperatorExpr(auto e) {
-        return {
-            visitExpr(e),
-            e.op(),
-            ast.emit(dispatchVisit(e.left)),
-            ast.emit(dispatchVisit(e.right))
-        };
-    }
-    constexpr VectorByScalarBinaryOperatorExprNode visitVectorByScalarBinaryOperatorExpr(auto e) {
-        return {
-            visitExpr(e),
-            e.op(),
-            ast.emit(dispatchVisit(e.vector)),
-            ast.emit(dispatchVisit(e.scalar)),
-            e.isScalarLeft()
-        };
-    }
-    constexpr UnaryOperatorExprNode visitUnaryOperatorExpr(auto e) {
-        return {
-            visitExpr(e),
-            e.op(),
-            ast.emit(dispatchVisit(e.subExpr))
-        };
-    }
-    constexpr AssignmentStmtNode visitAssignmentStmt(auto s) {
-        return {
-            {},
-            ast.emit(dispatchVisit(s.left)),
-            ast.emit(dispatchVisit(s.right))
-        };
-    }
-    constexpr LiteralExprNode visitLiteralExpr(auto e) {
-        return { visitExpr(e), e.value };
-    }
-};
+}
 
 }

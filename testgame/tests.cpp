@@ -4,29 +4,22 @@
 using namespace shadergen;
 using namespace shadergen::code;
 
-static constexpr auto constexprTest() {
-    PersistentAST ast;
+static auto constexprTest() {
+    StmtConsumer<StmtDumper, Checker, PersistentAST> consumer;
+    auto foo = consumer.declareVariable<"foo">(makeVectorType<float, 1>());
+    auto bar = consumer.declareVariable<"bar">(makeVectorType<float, 4>());
+    auto baz = consumer.declareVariable<"baz">(makeVectorType<float, 4>());
+    auto res = consumer.declareVariable<"res">(makeVectorType<bool, 4>());
+    consumer.beginBlock();
+    consumer, foo = LiteralExpr(1.0f);
+    consumer, bar = LiteralExpr(vec<float, 4>());
+    consumer, baz = bar;
+    consumer, res = !(foo * foo + bar < baz + bar);
+    consumer.endBlock();
 
-    auto emit = [&](auto stmt) {
-        TemplateASTDumper dumper0;
-        dumper0.dump(stmt);
-        ASTChecker checker(ast.varContext);
-        checker.dispatchVisit(stmt);
-
-        PersistentAST::Builder builder(ast);
-        auto node = ast.emit(builder.dispatchVisit(stmt));
-        PersistentASTDumper dumper1(ast);
-        dumper1.dump(node);
-    };
-    auto foo = ast.varContext.declareVariable<"foo">(makeVectorType<float, 1>());
-    auto bar = ast.varContext.declareVariable<"bar">(makeVectorType<float, 4>());
-    auto baz = ast.varContext.declareVariable<"baz">(makeVectorType<float, 4>());
-    auto res = ast.varContext.declareVariable<"res">(makeVectorType<bool, 4>());
-
-    emit(foo = LiteralExpr(1.0f));
-    emit(bar = LiteralExpr(vec<float, 4>()));
-    emit(baz = bar);
-    emit(res = !(foo * foo + bar < baz + bar));
+    PersistentAST& ast = std::get<PersistentAST>(consumer.consumers);
+    PersistentASTDumper dumper(ast);
+    dumper.dump(ast.currentBlock);
 }
 
 struct A {

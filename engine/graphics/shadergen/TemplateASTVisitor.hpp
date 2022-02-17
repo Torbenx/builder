@@ -19,23 +19,23 @@ struct TemplateASTVisitor {
         return impl()->visitExpr(e);
     }
     constexpr auto visitElementwiseBinaryOperatorExpr(auto e) {
-        dispatchVisit(e.left);
-        dispatchVisit(e.right);
+        impl()->dispatchVisit(e.left);
+        impl()->dispatchVisit(e.right);
         return impl()->visitExpr(e);
     }
     constexpr auto visitVectorByScalarBinaryOperatorExpr(auto e) {
-        dispatchVisit(e.vector);
-        dispatchVisit(e.scalar);
+        impl()->dispatchVisit(e.vector);
+        impl()->dispatchVisit(e.scalar);
         return impl()->visitExpr(e);
     }
     constexpr auto visitUnaryOperatorExpr(auto e) {
-        dispatchVisit(e.subExpr);
+        impl()->dispatchVisit(e.subExpr);
         return impl()->visitExpr(e);
     }
-    constexpr auto visitAssignmentStmt(auto s) {
-        dispatchVisit(s.left);
-        dispatchVisit(s.right);
-        return impl()->visitStmt(s);
+    constexpr auto visitAssignmentStmt(auto e) {
+        impl()->dispatchVisit(e.left);
+        impl()->dispatchVisit(e.right);
+        return impl()->visitStmt(e);
     }
     constexpr auto visitLiteralExpr(auto e) {
         return impl()->visitExpr(e);
