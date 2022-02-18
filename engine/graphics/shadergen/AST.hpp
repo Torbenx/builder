@@ -1,183 +1,176 @@
 #pragma once
 
-#include <string>
-
-namespace Tag {
-struct ShaderGen {
-    static constexpr char tag[] = "shadergen";
-    static constexpr bool verifyEnabled = true;
-};
-}
+#include "ASTVisitor.hpp"
 
 namespace shadergen {
 
-enum class ASTNodeKind {
-    EXPR,
-    VAR_EXPR,
-    ELEMENTWISE_BINARY_OPERATOR_EXPR,
-    VECTOR_BY_SCALAR_BINARY_OPERATOR_EXPR,
-    UNARY_OPERATOR_EXPR,
-};
+// Storage
+union StmtStorage {
+#define AST_NODE(N) N N##_;
+    ENUMERATE_AST_NODES(AST_NODE)
+#undef AST_NODE
 
-// Types
-enum class TypeKind {
-    USER,
-    SCALAR,
-    VECTOR,
-};
+    constexpr Stmt& set(const Stmt& s) {
+        switch (s.stmtKind) {
+#define STMT_KIND(S)  \
+    case StmtKind::S: \
+        return *std::construct_at(&(S##_), (const S&)s);
 
-enum class ValueKind {
-    LVALUE,
-    RVALUE
-};
-
-enum class ScalarType {
-    UNKNOWN,
-    BOOL,
-    INT,
-    FLOAT,
-};
-static constexpr std::string_view toString(ScalarType type) {
-    switch (type) {
-    case ScalarType::BOOL:
-        return "bool";
-    case ScalarType::INT:
-        return "int";
-    case ScalarType::FLOAT:
-        return "float";
-    default:
-        return "unknown";
+            ENUMERATE_STMT_KINDS(STMT_KIND)
+#undef STMT_KIND
+        default:
+            VERIFY_NOT_REACHED(ShaderGen);
+        }
     }
-}
-
-// Binary operators
-enum class BinaryOperatorEnum {
-    PLUS,
-    MINUS,
-    MULTIPLY,
-    DIVIDE,
-    CMP_LE,
-    CMP_L,
-    CMP_EQ,
-    CMP_GE,
-    CMP_G,
-    CMP_NE,
-    AND,
-    OR,
-};
-static constexpr bool isArithmeticOp(BinaryOperatorEnum op) {
-    return op == BinaryOperatorEnum::PLUS
-        || op == BinaryOperatorEnum::MINUS
-        || op == BinaryOperatorEnum::MULTIPLY
-        || op == BinaryOperatorEnum::DIVIDE;
-}
-static constexpr bool isLogicalOp(BinaryOperatorEnum op) {
-    return op == BinaryOperatorEnum::AND
-        || op == BinaryOperatorEnum::OR;
-}
-static constexpr bool isComparisonOp(BinaryOperatorEnum op) {
-    return op == BinaryOperatorEnum::CMP_LE
-        || op == BinaryOperatorEnum::CMP_L
-        || op == BinaryOperatorEnum::CMP_EQ
-        || op == BinaryOperatorEnum::CMP_GE
-        || op == BinaryOperatorEnum::CMP_G
-        || op == BinaryOperatorEnum::CMP_NE;
-}
-static constexpr std::string_view toString(BinaryOperatorEnum op) {
-    switch (op) {
-    case BinaryOperatorEnum::PLUS:
-        return "+";
-    case BinaryOperatorEnum::MINUS:
-        return "-";
-    case BinaryOperatorEnum::MULTIPLY:
-        return "*";
-    case BinaryOperatorEnum::DIVIDE:
-        return "/";
-    case BinaryOperatorEnum::CMP_LE:
-        return "<=";
-    case BinaryOperatorEnum::CMP_L:
-        return "<";
-    case BinaryOperatorEnum::CMP_EQ:
-        return "==";
-    case BinaryOperatorEnum::CMP_GE:
-        return ">=";
-    case BinaryOperatorEnum::CMP_G:
-        return ">";
-    case BinaryOperatorEnum::CMP_NE:
-        return "!=";
-    case BinaryOperatorEnum::AND:
-        return "&&";
-    case BinaryOperatorEnum::OR:
-        return "||";
-    default:
-        return "unknown";
-    }
-}
-
-// Unary operators
-enum class UnaryOperatorEnum {
-    NEGATE,
-    NOT,
-};
-static constexpr bool isArithmeticOp(UnaryOperatorEnum op) { return op == UnaryOperatorEnum::NEGATE; }
-static constexpr bool isLogicalOp(UnaryOperatorEnum op) { return op == UnaryOperatorEnum::NOT; }
-static constexpr std::string_view toString(UnaryOperatorEnum op) {
-    switch (op) {
-    case UnaryOperatorEnum::NEGATE:
-        return "-";
-    case UnaryOperatorEnum::NOT:
-        return "!";
-    default:
-        return "unknown";
-    }
-}
-
-// DynamicName
-static constexpr int_t MAX_NAME_LENGTH = 22;
-
-struct DynamicName {
-    char storage[MAX_NAME_LENGTH + 1] = {};
-    int8_t m_length = 0;
-
-    constexpr DynamicName() { }
-    template<int_t N>
-    constexpr DynamicName(fixed_string<N> str)
-        : m_length(N) {
-        static_assert(str.length() <= MAX_NAME_LENGTH);
-        std::copy_n(str.data(), length() + 1, storage);
-    }
-    constexpr DynamicName(std::string_view view)
-        : m_length(view.length()) {
-        std::copy_n(view.data(), length() + 1, storage);
+    constexpr CompoundStmtEntry& setCompoundStmtEntry(const CompoundStmtEntry& e) {
+        return *std::construct_at(&CompoundStmtEntry_, e);
     }
 
-    constexpr char* data() {
-        return storage;
-    }
-    constexpr std::string_view view() const { return { data(), (size_t)length() }; }
-    constexpr const char* data() const {
-        return storage;
-    }
-    constexpr int_t length() const { return m_length; }
+    constexpr StmtStorage() { }
 };
 
-// VarHandle
-static constexpr int_t BLOCK_SHIFT = 8;
-using blockidx_t = size_t;
-static constexpr blockidx_t SUB_BLOCK_MASK = ((blockidx_t)1 << BLOCK_SHIFT) - 1;
+template<int_t N>
+struct StmtVector {
+    StmtStorage storage[N];
+    int_t size = 0;
+    constexpr StmtStorage& acquireBack() {
+        return storage[size++];
+    }
+    constexpr Stmt& pushBack(const Stmt& stmt) {
+        return acquireBack().set(stmt);
+    }
+};
 
-static constexpr bool isSubBlock(blockidx_t parentIndex, blockidx_t childIndex) {
-    int_t parentDepth = (std::numeric_limits<blockidx_t>::digits - std::countl_zero(parentIndex) - 1) / BLOCK_SHIFT;
-    int_t childDepth = (std::numeric_limits<blockidx_t>::digits - std::countl_zero(childIndex) - 1) / BLOCK_SHIFT;
-    if (parentDepth > childDepth)
-        return false;
-    blockidx_t relChildIndex = childIndex >> ((childDepth - parentDepth) * BLOCK_SHIFT);
-    return relChildIndex == parentIndex;
+struct AST {
+    StmtVector<100> storage;
+    BlockStmt* currentBlock = nullptr;
+
+    template<typename T>
+    constexpr T& allocate(const T& stmt) {
+        return (T&)storage.pushBack(stmt);
+    }
+
+    constexpr AST()
+        : currentBlock(&allocate<BlockStmt>({})) { }
+    constexpr AST(const AST&) = delete;
+
+    constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
+        auto& decl = allocate<VarDeclStmt>({ name, type });
+        currentBlock->pushBack(*this, decl);
+        return { decl };
+    }
+
+    struct StmtBuilder : ASTVisitor<StmtBuilder, Stmt&> {
+        AST& ast;
+        constexpr Stmt& visitStmt(const Stmt& stmt) {
+            VERIFY_NOT_REACHED(ShaderGen);
+            return ast.allocate<Stmt>({});
+        }
+        constexpr Stmt& visitVarRefExpr(const VarRefExpr& in) {
+            auto& e = ast.allocate<VarRefExpr>({ in.decl });
+            e.type = in.decl.type;
+            e.valueKind = ValueKind::LVALUE;
+            return e;
+        }
+        constexpr Stmt& visitMemberAccessExpr(const MemberAccessExpr& in) {
+            auto& base = castStmt<Expr>(dispatchVisit(in.base));
+            const auto* baseType = asVectorType(base.type);
+            auto& e = ast.allocate<MemberAccessExpr>({ base, in.memberIndex });
+            e.type = baseType->scalarType;
+            e.valueKind = base.valueKind;
+            return e;
+        }
+        constexpr Stmt& visitUnaryOperatorExpr(const UnaryOperatorExpr& in) {
+            auto& subExpr = castStmt<Expr>(dispatchVisit(in.subExpr));
+            const auto* type = asVectorType(subExpr.type);
+            if (isLogicalOp(in.op))
+                VERIFY(ShaderGen, type->isLogical);
+            else if (isArithmeticOp(in.op))
+                VERIFY(ShaderGen, type->isArithmetic);
+            auto& e = ast.allocate<UnaryOperatorExpr>({ in.op, subExpr });
+            e.type = type;
+            e.valueKind = ValueKind::RVALUE;
+            return e;
+        }
+        constexpr Stmt& visitElementwiseOperatorExpr(const ElementwiseOperatorExpr& in) {
+            auto& left = castStmt<Expr>(dispatchVisit(in.left));
+            auto& right = castStmt<Expr>(dispatchVisit(in.right));
+            const auto* lType = asVectorType(left.type);
+            const auto* rType = asVectorType(right.type);
+            VERIFY(ShaderGen, lType->scalarType == rType->scalarType);
+            VERIFY(ShaderGen, lType->vectorSize == rType->vectorSize);
+            auto& e = ast.allocate<ElementwiseOperatorExpr>({ in.op, left, right });
+            if (isComparisonOp(in.op)) {
+                e.type = BoolType.vectorType(lType->vectorSize);
+                if (lType->isLogical)
+                    VERIFY(ShaderGen, in.op == BinaryOperator::CMP_EQ || in.op == BinaryOperator::CMP_NE);
+            } else {
+                e.type = lType;
+                if (isLogicalOp(in.op))
+                    VERIFY(ShaderGen, lType->isLogical);
+                else if (isArithmeticOp(in.op))
+                    VERIFY(ShaderGen, lType->isArithmetic);
+            }
+            e.valueKind = ValueKind::RVALUE;
+            return e;
+        }
+        constexpr Stmt& visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr& in) {
+            auto& vector = castStmt<Expr>(dispatchVisit(in.vector));
+            auto& scalar = castStmt<Expr>(dispatchVisit(in.scalar));
+            const auto* vType = asVectorType(vector.type);
+            const auto* sType = asScalarType(scalar.type);
+            VERIFY(ShaderGen, isArithmeticOp(in.op));
+            VERIFY(ShaderGen, vType->scalarType == sType);
+            VERIFY(ShaderGen, vType->isArithmetic);
+            auto& e = ast.allocate<VectorByScalarOperatorExpr>({ in.op, vector, scalar, in.isVectorLeft });
+            e.type = vType;
+            return e;
+        }
+        constexpr Stmt& visitLiteralExpr(const LiteralExpr& in) {
+            auto& e = ast.allocate<LiteralExpr>({ in.literal });
+            e.type = in.type;
+            e.valueKind = ValueKind::RVALUE;
+            return e;
+        }
+        constexpr Stmt& visitAssignmentStmt(const AssignmentStmt& in) {
+            auto& left = castStmt<Expr>(dispatchVisit(in.left));
+            auto& right = castStmt<Expr>(dispatchVisit(in.right));
+            VERIFY(ShaderGen, left.type == right.type);
+            VERIFY(ShaderGen, left.valueKind == ValueKind::LVALUE);
+            return ast.allocate<AssignmentStmt>({ left, right });
+        }
+    };
+
+    constexpr Stmt& emitStmt(const Stmt& in)  {
+        StmtBuilder builder { {}, *this };
+        Stmt& stmt = builder.dispatchVisit(in);
+        currentBlock->pushBack(*this, stmt);
+        return stmt;
+    }
+};
+
+// Compound statement implementation
+constexpr CompoundStmtEntry& CompoundStmt::pushBack(AST& ast, Stmt& stmt) {
+    CompoundStmtEntry& newEntry = ast.storage.acquireBack().setCompoundStmtEntry({ stmt });
+
+    if (last)
+        last->next = &newEntry;
+    else
+        first = &newEntry;
+
+    last = &newEntry;
+    childCount += 1;
+    return newEntry;
 }
 
-struct VarHandle {
-    int_t index = -1;
-    blockidx_t block = 0;
+struct WrappedAST : AST {
+    template<typename Callback>
+    constexpr explicit WrappedAST(Callback&& callback) { callback(*this); }
+    constexpr wrapped<VarRefExpr, void> declareScalar(std::string_view name, const Type* type) {
+        return { AST::declareVariable(name, type) };
+    }
+    constexpr wrapped<VarRefExpr, vec_t> declareVector(std::string_view name, const VectorType* type) {
+        return { AST::declareVariable(name, type) };
+    }
 };
-
 }

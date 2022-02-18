@@ -1,4 +1,4 @@
-#include "graphics/shadergen2/AST.hpp"
+#include "graphics/shadergen/AST.hpp"
 #include "util/log.hpp"
 #include "util/reflection.hpp"
 
@@ -19,23 +19,6 @@ struct A {
     END_REF_STRUCT();
 };
 
-/*static auto constexprTest() {
-    StmtConsumer<Checker, PersistentAST, StmtDumper> consumer;
-    auto a = consumer.declareVariable<A, "a">();
-    auto foo = consumer.declareVariable<float, "foo">();
-    auto bar = consumer.declareVariable<"bar">(makeVectorType<float, 4>());
-    auto baz = consumer.declareVariable<"baz">(makeVectorType<float, 4>());
-    auto res = consumer.declareVariable<"res">(makeVectorType<bool, 4>());
-    consumer.beginBlock();
-    consumer, foo = a.f;
-    consumer, foo = wrap(LiteralExpr(1.0f));
-    consumer, bar = wrap(LiteralExpr(vec<float, 4>()));
-    consumer, baz = bar;
-    consumer, res = !(foo * foo + bar < baz + bar);
-    consumer.endBlock();
-
-    return std::get<PersistentAST>(consumer.consumers);
-}*/
 static constexpr void constexprTest(WrappedAST& ast) {
     auto foo = ast.declareScalar("foo", &FloatType);
     auto bar = ast.declareVector("bar", FloatType.vectorType(4));
@@ -52,10 +35,9 @@ static constexpr void constexprTest(WrappedAST& ast) {
 }
 
 void runShadergenTest() {
-    //PersistentAST ast = constexprTest();
-    //PersistentASTDumper dumper(ast);
-    //dumper.dump(ast.currentBlock);
     static constexpr auto ast = WrappedAST(constexprTest);
+    ASTDumper dumper;
+    dumper.dump(*ast.currentBlock);
 
     A aVal;
     aVal.b2.i = 123;

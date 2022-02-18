@@ -131,8 +131,15 @@ static constexpr T& castStmt(Stmt& stmt) {
     return (T&)stmt;
 }
 
+enum class ValueKind {
+    UNKNOWN,
+    LVALUE,
+    RVALUE,
+};
+
 struct Expr : Stmt {
     const Type* type = nullptr;
+    ValueKind valueKind = ValueKind::UNKNOWN;
     constexpr Expr(StmtKind kind = StmtKind::Expr)
         : Stmt(kind) { }
 };
