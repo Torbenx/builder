@@ -82,7 +82,6 @@ struct ASTVisitor {
         return impl()->visitExpr(e, args...);
     }
     constexpr RetT visitAssignmentStmt(const AssignmentStmt* e, Args... args) {
-
         helper h([&]() {
             impl()->dispatchVisit(e->left, args...);
             impl()->dispatchVisit(e->right, args...);
@@ -104,7 +103,10 @@ struct ASTVisitor {
         return impl()->visitStmt(e, args...);
     }
     constexpr RetT visitBlockStmt(const BlockStmt* e, Args... args) {
-        return impl()->visitCompoundStmt(e, args...);
+        helper h([&]() {
+            impl()->dispatchVisit(e->body, args...);
+        });
+        return impl()->visitStmt(e, args...);
     }
     constexpr RetT visitMemberAccessExpr(const MemberAccessExpr* e, Args... args) {
         helper h([&]() {
@@ -133,27 +135,91 @@ struct ASTVisitor {
     }
 };
 
-/*template<typename Impl>
+template<typename Impl>
 struct ASTTransform {
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
+
+    BlockStmt* currentBlock = nullptr;
 
     constexpr void transformStmt(Stmt* e) { }
     constexpr void transformExpr(Expr* e) {
         impl()->transformStmt(e);
     }
-    constexpr void transformVarRefExpr(VarRefExpr* e);
+    constexpr void transformVarRefExpr(VarRefExpr* e) {
+        BlockStmt* block = currentBlock;
+        VarDeclStmt* oldDecl = e->decl;
+        VarDeclStmt* newDecl = nullptr;
+        while (block) {
+            block->declContext.decls.forEachStmt([&](VarDeclStmt* decl) {
+                if (decl->name == oldDecl->name) {
+                    VERIFY(ShaderGen, !newDecl);
+                    newDecl = decl;
+                }
+            });
+            block = block->parent;
+        }
+        VERIFY(ShaderGen, newDecl);
+        e->decl = newDecl;
+    }
     constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {
-        e.left = dispatchTransform(e.left);
-        e.right = dispatchTransform(e.right);
+        impl()->transformExpr(e);
+        e->left = castStmt<Expr>(impl()->dispatchTransform(e->left));
+        e->right = castStmt<Expr>(impl()->dispatchTransform(e->right));
+    }
+    constexpr void transformVectorByScalarOperatorExpr(VectorByScalarOperatorExpr* e) {
+        impl()->transformExpr(e);
+        e->vector = castStmt<Expr>(impl()->dispatchTransform(e->vector));
+        e->scalar = castStmt<Expr>(impl()->dispatchTransform(e->scalar));
+    }
+    constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
+        impl()->transformExpr(e);
+        e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
+    }
+    constexpr void transformAssignmentStmt(AssignmentStmt* e) {
+        impl()->transformStmt(e);
+        e->left = castStmt<Expr>(impl()->dispatchTransform(e->left));
+        e->right = castStmt<Expr>(impl()->dispatchTransform(e->right));
+    }
+    constexpr void transformLiteralExpr(LiteralExpr* e) {
+        impl()->transformExpr(e);
+    }
+    constexpr void transformVarDeclStmt(VarDeclStmt* e) {
+        impl()->transformStmt(e);
+        e->declContext = &currentBlock->declContext;
+        e->next = nullptr;
+        currentBlock->declContext.decls.pushBack(e);
+    }
+    constexpr void transformCompoundStmt(CompoundStmt* e) {
+        impl()->transformStmt(e);
+        e->consumeStmts([&](const Stmt* stmt) {
+            auto* entry = impl()->allocate(StmtListEntry { {}, impl()->dispatchTransform(stmt) });
+            e->pushBack(entry);
+        });
+    }
+    constexpr void transformBlockStmt(BlockStmt* e) {
+        impl()->transformStmt(e);
+        e->parent = currentBlock;
+        e->declContext.decls.clear();
+        currentBlock = e;
+        e->body = impl()->dispatchTransform(e->body);
+        currentBlock = e->parent;
+    }
+    constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
+        impl()->transformExpr(e);
+        e->base = castStmt<Expr>(impl()->dispatchTransform(e->base));
+    }
+    constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
+        impl()->transformExpr(e);
+        e->base = castStmt<Expr>(impl()->dispatchTransform(e->base));
     }
 
-    constexpr Stmt* dispatchTransform(const Stmt* stmts) {
-        switch (stmt.stmtKind) {
-#define STMT_KIND(S)                                     \
-    case StmtKind::S: {                                  \
-        S* ret = impl()->allocate((const S*)stmt); \
-        impl()->transform##S(ret);                       \
-        return ret;                                      \
+    constexpr Stmt* dispatchTransform(const Stmt* stmt) {
+        switch (stmt->stmtKind) {
+#define STMT_KIND(S)                                \
+    case StmtKind::S: {                             \
+        S* ret = impl()->allocate(*(const S*)stmt); \
+        impl()->transform##S(ret);                  \
+        return ret;                                 \
     }
 
             ENUMERATE_STMT_KINDS(STMT_KIND)
@@ -162,40 +228,32 @@ struct ASTTransform {
             VERIFY_NOT_REACHED(ShaderGen);
         }
     }
-};*/
+};
 
 struct ASTDumper : ASTVisitor<ASTDumper> {
     using Base = ASTVisitor<ASTDumper>;
-    int_t curContext = -1;
-    int_t indent = -1;
-    struct DumpContext {
-        int_t parent;
-        int_t indent;
-        DumpContext(int_t parent, int_t indent)
-            : parent(parent), indent(indent) { }
-        std::string nodeType;
-        std::vector<std::string> infos;
-
-        void print() {
-            std::string out(indent * 2, ' ');
-            out += nodeType;
-            for (auto info : infos) {
-                out += ' ';
-                out += info;
-            }
-            log("{}", out);
-            nodeType = "";
-            infos.clear();
-        }
-    };
-    std::vector<DumpContext> stack;
+    int_t nextIndent = 0;
+    int_t indent = 0;
+    std::string nodeType;
+    std::vector<std::string> infos;
 
     template<typename... Args>
     void info(std::string type, Args&&... args) {
-        DumpContext& ctx = stack[curContext];
-        if (ctx.nodeType.empty())
-            ctx.nodeType = type;
-        (ctx.infos.emplace_back(std::forward<Args>(args)), ...);
+        if (nodeType.empty())
+            nodeType = type;
+        (infos.emplace_back(std::forward<Args>(args)), ...);
+    }
+
+    void print() {
+        std::string out(indent * 2, ' ');
+        out += nodeType;
+        for (auto info : infos) {
+            out += ' ';
+            out += info;
+        }
+        log("{}", out);
+        nodeType = "";
+        infos.clear();
     }
 
     void visitStmt(const Stmt* e) {
@@ -263,19 +321,18 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
     }
 
     void dispatchVisit(const Stmt* e) {
-        indent += 1;
-        stack.emplace_back(curContext, indent);
-        curContext = stack.size() - 1;
+        if (!nodeType.empty()) {
+            print();
+        }
+        indent = nextIndent;
+        nextIndent += 1;
         Base::dispatchVisit(e);
-        curContext = stack[curContext].parent;
-        indent -= 1;
+        nextIndent -= 1;
     }
 
     void dump(const Stmt* e) {
         this->dispatchVisit(e);
-        for (auto& ctx : stack)
-            ctx.print();
-        stack.clear();
+        print();
     }
 };
 

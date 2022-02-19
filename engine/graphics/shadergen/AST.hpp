@@ -50,8 +50,14 @@ struct AST {
         return (T*)storage.pushBack(stmt);
     }
 
+    constexpr BlockStmt* newBlock() {
+        auto* body = allocate<CompoundStmt>({});
+        auto* block = allocate<BlockStmt>({ body });
+        return block;
+    }
+
     constexpr AST()
-        : currentBlock(allocate<BlockStmt>({})) { }
+        : currentBlock(newBlock()) { }
     constexpr AST(const AST&) = delete;
 
     constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
@@ -227,11 +233,11 @@ struct AST {
 
     constexpr void emitStmt(Stmt* stmt) {
         StmtListEntry* entry = storage.acquireBack().setStmtListEntry({ {}, stmt });
-        currentBlock->pushBack(entry);
+        castStmt<CompoundStmt>(currentBlock->body)->pushBack(entry);
     }
 
     constexpr void beginBlock() {
-        auto* newBlock = allocate<BlockStmt>({});
+        auto* newBlock = this->newBlock();
         newBlock->parent = currentBlock;
         emitStmt(newBlock);
         currentBlock = newBlock;

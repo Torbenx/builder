@@ -35,6 +35,9 @@ struct DynamicName {
         return storage;
     }
     constexpr int_t length() const { return m_length; }
+    constexpr bool operator==(const DynamicName& other) const {
+        return view() == other.view();
+    }
 };
 
 // Fixed bitset
@@ -210,15 +213,28 @@ struct StmtList {
         last = newEntry;
         entryCount += 1;
     }
-
+    constexpr void clear() {
+        first = nullptr;
+        last = nullptr;
+        entryCount = 0;
+    }
     template<typename Callback>
     constexpr void forEachStmt(Callback&& callback) const {
-        const T* entry = first;
+        T* entry = first;
         while (entry) {
             callback(entry->stmt());
             entry = entry->next;
         }
     };
+    template<typename Callback>
+    constexpr void consumeStmts(Callback&& callback) {
+        const T* entry = first;
+        clear();
+        while (entry) {
+            callback(entry->stmt());
+            entry = entry->next;
+        }
+    }
 };
 
 // Expression
@@ -247,6 +263,7 @@ struct VarDeclStmt : Stmt {
     constexpr VarDeclStmt(DynamicName name, const Type* type, VarDeclContext* declContext)
         : Stmt(StmtKind::VarDeclStmt), name(name), type(type), declContext(declContext) { }
     constexpr const VarDeclStmt* stmt() const { return this; }
+    constexpr VarDeclStmt* stmt() { return this; }
 };
 struct VarDeclContext {
     StmtList<VarDeclStmt> decls;
@@ -589,16 +606,17 @@ struct LiteralExpr : Expr {
 };
 
 struct CompoundStmt : Stmt, StmtList<StmtListEntry> {
-    constexpr CompoundStmt(StmtKind kind = StmtKind::CompoundStmt)
-        : Stmt(kind) { }
+    constexpr CompoundStmt()
+        : Stmt(StmtKind::CompoundStmt) { }
 };
 
 // Block statement
-struct BlockStmt : CompoundStmt {
+struct BlockStmt : Stmt {
     BlockStmt* parent = nullptr;
+    Stmt* body;
     VarDeclContext declContext;
-    constexpr BlockStmt()
-        : CompoundStmt(StmtKind::BlockStmt) { }
+    constexpr BlockStmt(Stmt* body)
+        : Stmt(StmtKind::BlockStmt), body(body) { }
 };
 
 }
