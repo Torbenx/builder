@@ -4,6 +4,7 @@
 
 using namespace shadergen;
 using namespace shadergen::code;
+//using namespace shadergen::compressed;
 
 struct A {
     struct B {
@@ -19,7 +20,7 @@ struct A {
     END_REF_STRUCT();
 };
 
-static void constexprTest(WrappedAST& ast) {
+static constexpr void createAST(WrappedAST& ast) {
     ast.beginBlock();
     auto foo = ast.declareScalar("foo", &FloatType);
     auto bar = ast.declareVector("bar", FloatType.vectorType(4));
@@ -31,20 +32,23 @@ static void constexprTest(WrappedAST& ast) {
     lit1.type = &FloatType;
     auto lit2 = wrapped<LiteralExpr, vec_t>({ {} });
     lit2.type = FloatType.vectorType(2);
-    ast.emitStmt(foo = lit1);
-    ast.emitStmt(bar.xz() = lit2);
-    ast.emitStmt(bar.yw() = lit2);
-    ast.emitStmt(baz = bar);
-    ast.emitStmt(res = !(foo * foo + bar < bar + baz));
+    ast, foo = lit1;
+    ast, bar.xz() = lit2;
+    ast, bar.yw() = lit2;
+    ast, baz = bar;
+    ast, res = !(foo * foo + bar < bar + baz);
+    ast, res = res;
     ast.endBlock();
 
     ast.endBlock();
 }
 
+static constexpr auto ast = WrappedAST(createAST);
+
 void runShadergenTest() {
-    static auto ast = WrappedAST(constexprTest);
+    //constexpr auto tuple = createTuple<ASTHolder<createAST>>();
     ASTDumper dumper;
-    dumper.dump(*ast.currentBlock);
+    dumper.dump(ast.currentBlock);
 
     A aVal;
     aVal.b2.i = 123;

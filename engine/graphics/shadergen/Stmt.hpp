@@ -162,9 +162,10 @@ static constexpr ScalarType FloatType { "float", true, false };
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
-    callback(StmtList)                \
     callback(StmtListEntry)
 // clang-format on
+
+struct ASTNode { };
 
 // Statement
 enum class StmtKind {
@@ -173,39 +174,48 @@ enum class StmtKind {
 #undef STMT_KIND
 };
 
-struct Stmt {
+struct Stmt : ASTNode {
     const StmtKind stmtKind;
     constexpr Stmt(StmtKind kind = StmtKind::Stmt)
         : stmtKind(kind) { }
 };
 
 template<typename T>
-static constexpr T& castStmt(Stmt& stmt) {
-    return (T&)stmt;
+static constexpr T* castStmt(Stmt* stmt) {
+    return (T*)stmt;
 }
 template<typename T>
-static constexpr const T& castStmt(const Stmt& stmt) {
-    return (const T&)stmt;
+static constexpr const T* castStmt(const Stmt* stmt) {
+    return (const T*)stmt;
 }
 
 // Statement list
-struct StmtListEntry {
-    Stmt& stmt;
+struct StmtListEntry : ASTNode {
+    Stmt* m_stmt;
     StmtListEntry* next = nullptr;
+    constexpr Stmt* stmt() const { return m_stmt; };
 };
 
+template<typename T>
 struct StmtList {
-    StmtListEntry* first = nullptr;
-    StmtListEntry* last = nullptr;
-    int_t stmtCount = 0;
+    T* first = nullptr;
+    T* last = nullptr;
+    int_t entryCount = 0;
 
-    constexpr void pushBack(AST& ast, Stmt& stmt);
+    constexpr void pushBack(T* newEntry) {
+        if (last)
+            last->next = newEntry;
+        else
+            first = newEntry;
+        last = newEntry;
+        entryCount += 1;
+    }
 
     template<typename Callback>
     constexpr void forEachStmt(Callback&& callback) const {
-        const StmtListEntry* entry = first;
+        const T* entry = first;
         while (entry) {
-            callback(entry->stmt);
+            callback(entry->stmt());
             entry = entry->next;
         }
     };
@@ -230,26 +240,28 @@ struct VarDeclContext;
 struct VarDeclStmt : Stmt {
     DynamicName name;
     const Type* type;
-    VarDeclContext& declContext;
+    VarDeclContext* declContext;
     FixedBitset initMask = 0;
     FixedBitset usedMask = 0;
-    constexpr VarDeclStmt(DynamicName name, const Type* type, VarDeclContext& declContext)
+    VarDeclStmt* next = nullptr;
+    constexpr VarDeclStmt(DynamicName name, const Type* type, VarDeclContext* declContext)
         : Stmt(StmtKind::VarDeclStmt), name(name), type(type), declContext(declContext) { }
+    constexpr const VarDeclStmt* stmt() const { return this; }
 };
 struct VarDeclContext {
-    StmtList decls;
+    StmtList<VarDeclStmt> decls;
 };
 struct VarRefExpr : Expr {
-    VarDeclStmt& decl;
-    constexpr VarRefExpr(VarDeclStmt& decl)
+    VarDeclStmt* decl;
+    constexpr VarRefExpr(VarDeclStmt* decl)
         : Expr(StmtKind::VarRefExpr), decl(decl) { }
 };
 
 // Assignment
 struct AssignmentStmt : Stmt {
-    const Expr& left;
-    const Expr& right;
-    constexpr AssignmentStmt(const Expr& left, const Expr& right)
+    const Expr* left;
+    const Expr* right;
+    constexpr AssignmentStmt(const Expr* left, const Expr* right)
         : Stmt(StmtKind::AssignmentStmt), left(left), right(right) { }
 };
 
@@ -259,38 +271,38 @@ struct wrapped_base;
 template<typename S, typename T>
 struct wrapped : S, wrapped_base<T> {
     constexpr wrapped(const S& s)
-        : S(s), wrapped_base<T> { (S&)*this } { }
+        : S(s), wrapped_base<T> { (S*)this } { }
 
     constexpr AssignmentStmt operator=(const wrapped<S, T>& expr) {
-        return { *this, expr };
+        return { this, expr.wrappedExpr };
     }
     constexpr AssignmentStmt operator=(const wrapped_base<T>& expr) {
-        return { *this, expr.wrappedExpr };
+        return { this, expr.wrappedExpr };
     }
 };
 
 template<>
 struct wrapped_base<void> {
-    const Expr& wrappedExpr;
+    const Expr* wrappedExpr;
 };
 
 // Member access
 struct MemberAccessExpr : Expr {
-    const Expr& base;
+    const Expr* base;
     int_t memberIndex;
-    constexpr MemberAccessExpr(const Expr& base, int_t index)
+    constexpr MemberAccessExpr(const Expr* base, int_t index)
         : Expr(StmtKind::MemberAccessExpr), base(base), memberIndex(index) { }
 };
 
 // Vector components
 struct VectorComponentExpr : Expr {
-    const Expr& base;
+    const Expr* base;
     int32_t componentCount;
     int8_t components[4] = {};
-    constexpr VectorComponentExpr(const Expr& base, int_t n, const int8_t (&arr)[4])
+    constexpr VectorComponentExpr(const Expr* base, int_t n, const int8_t (&arr)[4])
         : Expr(StmtKind::VectorComponentExpr), base(base), componentCount(n) { std::copy_n(arr, n, components); }
     template<int_t N>
-    constexpr VectorComponentExpr(const Expr& base, const int8_t (&arr)[N])
+    constexpr VectorComponentExpr(const Expr* base, const int8_t (&arr)[N])
         : Expr(StmtKind::VectorComponentExpr), base(base), componentCount(N) { std::copy_n(arr, N, components); }
 };
 
@@ -298,7 +310,7 @@ struct vec_t { };
 
 template<>
 struct wrapped_base<vec_t> {
-    const Expr& wrappedExpr;
+    const Expr* wrappedExpr;
 
     wrapped<VectorComponentExpr, void> x { { wrappedExpr, { 0 } } };
     wrapped<VectorComponentExpr, void> y { { wrappedExpr, { 1 } } };
@@ -425,8 +437,8 @@ static constexpr std::string_view toString(UnaryOperator op) {
 }
 struct UnaryOperatorExpr : Expr {
     UnaryOperator op;
-    const Expr& subExpr;
-    constexpr UnaryOperatorExpr(UnaryOperator op, const Expr& subExpr)
+    const Expr* subExpr;
+    constexpr UnaryOperatorExpr(UnaryOperator op, const Expr* subExpr)
         : Expr(StmtKind::UnaryOperatorExpr), op(op), subExpr(subExpr) { }
 };
 namespace code {
@@ -503,9 +515,9 @@ static constexpr std::string_view toString(BinaryOperator op) {
 // Elementwise operators
 struct ElementwiseOperatorExpr : Expr {
     BinaryOperator op;
-    const Expr& left;
-    const Expr& right;
-    constexpr ElementwiseOperatorExpr(BinaryOperator op, const Expr& left, const Expr& right)
+    const Expr* left;
+    const Expr* right;
+    constexpr ElementwiseOperatorExpr(BinaryOperator op, const Expr* left, const Expr* right)
         : Expr(StmtKind::ElementwiseOperatorExpr), op(op), left(left), right(right) { }
 };
 namespace code {
@@ -543,10 +555,10 @@ namespace code {
 // Vector by Scalar operators
 struct VectorByScalarOperatorExpr : Expr {
     BinaryOperator op;
-    const Expr& vector;
-    const Expr& scalar;
+    const Expr* vector;
+    const Expr* scalar;
     bool isVectorLeft;
-    constexpr VectorByScalarOperatorExpr(BinaryOperator op, const Expr& vector, const Expr& scalar, bool isVectorLeft)
+    constexpr VectorByScalarOperatorExpr(BinaryOperator op, const Expr* vector, const Expr* scalar, bool isVectorLeft)
         : Expr(StmtKind::VectorByScalarOperatorExpr), op(op), vector(vector), scalar(scalar), isVectorLeft(isVectorLeft) { }
 };
 namespace code {
@@ -576,7 +588,7 @@ struct LiteralExpr : Expr {
         : Expr(StmtKind::LiteralExpr), literal(literal) { }
 };
 
-struct CompoundStmt : Stmt, StmtList {
+struct CompoundStmt : Stmt, StmtList<StmtListEntry> {
     constexpr CompoundStmt(StmtKind kind = StmtKind::CompoundStmt)
         : Stmt(kind) { }
 };
