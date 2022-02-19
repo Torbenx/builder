@@ -1,5 +1,6 @@
 #pragma once
 
+#include "containers/ArrayView.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
 #include <string>
@@ -36,16 +37,65 @@ struct DynamicName {
     constexpr int_t length() const { return m_length; }
 };
 
+// Fixed bitset
+struct FixedBitset {
+    size_t mask = 0;
+    static constexpr size_t bit(int_t i) { return (size_t)1 << i; }
+    static constexpr FixedBitset bitsBelow(int_t n) { return { bit(n) - 1 }; }
+    constexpr FixedBitset() = default;
+    constexpr FixedBitset(size_t mask)
+        : mask(mask) { }
+
+    constexpr bool test(int_t i) const { return mask & bit(i); }
+    constexpr void set(int_t i) {
+        mask |= bit(i);
+    }
+    constexpr void clear(int_t i) {
+        mask &= bit(i);
+    }
+    constexpr FixedBitset& operator|=(const FixedBitset& other) {
+        mask |= other.mask;
+        return *this;
+    }
+    constexpr FixedBitset& operator&=(const FixedBitset& other) {
+        mask &= other.mask;
+        return *this;
+    }
+    constexpr FixedBitset operator~() const {
+        return { ~mask };
+    }
+    constexpr explicit operator bool() const { return mask; }
+    constexpr bool operator==(const FixedBitset& other) const {
+        return mask == other.mask;
+    }
+};
+constexpr FixedBitset operator|(const FixedBitset& left, const FixedBitset& right) {
+    return { left.mask | right.mask };
+}
+constexpr FixedBitset operator&(const FixedBitset& left, const FixedBitset& right) {
+    return { left.mask & right.mask };
+}
+
 // forward declare AST
 struct AST;
 
 // Types
+struct Type;
+
+struct MemberInfo {
+    std::string_view name;
+    FixedBitset fieldMask;
+    const Type* type;
+};
+
 struct Type {
     bool isUser;
     bool isScalar;
     bool isVector;
-    constexpr Type(bool isUser = true, bool isScalar = false, bool isVector = false)
-        : isUser(isUser), isScalar(isScalar), isVector(isVector) { }
+    ArrayView<const MemberInfo> members;
+    int_t fieldCount;
+    constexpr Type(ArrayView<const MemberInfo> members, int_t fieldCount, bool isUser = true, bool isScalar = false, bool isVector = false)
+        : members(members), fieldCount(fieldCount), isUser(isUser), isScalar(isScalar), isVector(isVector) { }
 };
 
 struct ScalarType;
@@ -57,7 +107,7 @@ struct VectorType : Type {
     bool isLogical;
 
     constexpr VectorType(const ScalarType* scalarType, int_t vectorSize, bool isArithmetic, bool isLogical, bool isScalar = false)
-        : Type(false, isScalar, true), scalarType(scalarType), vectorSize(vectorSize), isArithmetic(isArithmetic), isLogical(isLogical) { }
+        : Type({}, 0, false, isScalar, true), scalarType(scalarType), vectorSize(vectorSize), isArithmetic(isArithmetic), isLogical(isLogical) { }
 };
 
 struct ScalarType : VectorType {
@@ -107,13 +157,16 @@ static constexpr ScalarType FloatType { "float", true, false };
     callback(CompoundStmt)               \
     callback(BlockStmt)                  \
     callback(LiteralExpr)                \
-    callback(AssignmentStmt)
+    callback(AssignmentStmt)             \
+    callback(VectorComponentExpr)
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
-    callback(CompoundStmtEntry)
+    callback(StmtList)                \
+    callback(StmtListEntry)
 // clang-format on
 
+// Statement
 enum class StmtKind {
 #define STMT_KIND(S) S,
     ENUMERATE_STMT_KINDS(STMT_KIND)
@@ -130,7 +183,35 @@ template<typename T>
 static constexpr T& castStmt(Stmt& stmt) {
     return (T&)stmt;
 }
+template<typename T>
+static constexpr const T& castStmt(const Stmt& stmt) {
+    return (const T&)stmt;
+}
 
+// Statement list
+struct StmtListEntry {
+    Stmt& stmt;
+    StmtListEntry* next = nullptr;
+};
+
+struct StmtList {
+    StmtListEntry* first = nullptr;
+    StmtListEntry* last = nullptr;
+    int_t stmtCount = 0;
+
+    constexpr void pushBack(AST& ast, Stmt& stmt);
+
+    template<typename Callback>
+    constexpr void forEachStmt(Callback&& callback) const {
+        const StmtListEntry* entry = first;
+        while (entry) {
+            callback(entry->stmt);
+            entry = entry->next;
+        }
+    };
+};
+
+// Expression
 enum class ValueKind {
     UNKNOWN,
     LVALUE,
@@ -140,16 +221,23 @@ enum class ValueKind {
 struct Expr : Stmt {
     const Type* type = nullptr;
     ValueKind valueKind = ValueKind::UNKNOWN;
-    constexpr Expr(StmtKind kind = StmtKind::Expr)
+    constexpr Expr(StmtKind kind)
         : Stmt(kind) { }
 };
 
 // Variables
+struct VarDeclContext;
 struct VarDeclStmt : Stmt {
     DynamicName name;
     const Type* type;
-    constexpr VarDeclStmt(DynamicName name, const Type* type)
-        : Stmt(StmtKind::VarDeclStmt), name(name), type(type) { }
+    VarDeclContext& declContext;
+    FixedBitset initMask = 0;
+    FixedBitset usedMask = 0;
+    constexpr VarDeclStmt(DynamicName name, const Type* type, VarDeclContext& declContext)
+        : Stmt(StmtKind::VarDeclStmt), name(name), type(type), declContext(declContext) { }
+};
+struct VarDeclContext {
+    StmtList decls;
 };
 struct VarRefExpr : Expr {
     VarDeclStmt& decl;
@@ -164,16 +252,6 @@ struct AssignmentStmt : Stmt {
     constexpr AssignmentStmt(const Expr& left, const Expr& right)
         : Stmt(StmtKind::AssignmentStmt), left(left), right(right) { }
 };
-
-// Member access
-struct MemberAccessExpr : Expr {
-    const Expr& base;
-    int_t memberIndex;
-    constexpr MemberAccessExpr(const Expr& base, int_t index)
-        : Expr(StmtKind::MemberAccessExpr), base(base), memberIndex(index) { }
-};
-
-struct vec_t { };
 
 template<typename T>
 struct wrapped_base;
@@ -196,13 +274,136 @@ struct wrapped_base<void> {
     const Expr& wrappedExpr;
 };
 
+// Member access
+struct MemberAccessExpr : Expr {
+    const Expr& base;
+    int_t memberIndex;
+    constexpr MemberAccessExpr(const Expr& base, int_t index)
+        : Expr(StmtKind::MemberAccessExpr), base(base), memberIndex(index) { }
+};
+
+// Vector components
+struct VectorComponentExpr : Expr {
+    const Expr& base;
+    int32_t componentCount;
+    int8_t components[4] = {};
+    constexpr VectorComponentExpr(const Expr& base, int_t n, const int8_t (&arr)[4])
+        : Expr(StmtKind::VectorComponentExpr), base(base), componentCount(n) { std::copy_n(arr, n, components); }
+    template<int_t N>
+    constexpr VectorComponentExpr(const Expr& base, const int8_t (&arr)[N])
+        : Expr(StmtKind::VectorComponentExpr), base(base), componentCount(N) { std::copy_n(arr, N, components); }
+};
+
+struct vec_t { };
+
 template<>
 struct wrapped_base<vec_t> {
     const Expr& wrappedExpr;
-    wrapped<MemberAccessExpr, void> x { { wrappedExpr, 0 } };
-    wrapped<MemberAccessExpr, void> y { { wrappedExpr, 1 } };
-    wrapped<MemberAccessExpr, void> z { { wrappedExpr, 2 } };
-    wrapped<MemberAccessExpr, void> w { { wrappedExpr, 3 } };
+
+    wrapped<VectorComponentExpr, void> x { { wrappedExpr, { 0 } } };
+    wrapped<VectorComponentExpr, void> y { { wrappedExpr, { 1 } } };
+    wrapped<VectorComponentExpr, void> z { { wrappedExpr, { 2 } } };
+    wrapped<VectorComponentExpr, void> w { { wrappedExpr, { 3 } } };
+
+    constexpr wrapped<VectorComponentExpr, vec_t> xx() { return { { wrappedExpr, { 0, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xy() { return { { wrappedExpr, { 0, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xz() { return { { wrappedExpr, { 0, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xw() { return { { wrappedExpr, { 0, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> yx() { return { { wrappedExpr, { 1, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yy() { return { { wrappedExpr, { 1, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yz() { return { { wrappedExpr, { 1, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yw() { return { { wrappedExpr, { 1, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> zx() { return { { wrappedExpr, { 2, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zy() { return { { wrappedExpr, { 2, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zz() { return { { wrappedExpr, { 2, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zw() { return { { wrappedExpr, { 2, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> wx() { return { { wrappedExpr, { 3, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wy() { return { { wrappedExpr, { 3, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wz() { return { { wrappedExpr, { 3, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> ww() { return { { wrappedExpr, { 3, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> xxx() { return { { wrappedExpr, { 0, 0, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xxy() { return { { wrappedExpr, { 0, 0, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xxz() { return { { wrappedExpr, { 0, 0, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xxw() { return { { wrappedExpr, { 0, 0, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> xyx() { return { { wrappedExpr, { 0, 1, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xyy() { return { { wrappedExpr, { 0, 1, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xyz() { return { { wrappedExpr, { 0, 1, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xyw() { return { { wrappedExpr, { 0, 1, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> xzx() { return { { wrappedExpr, { 0, 2, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xzy() { return { { wrappedExpr, { 0, 2, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xzz() { return { { wrappedExpr, { 0, 2, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xzw() { return { { wrappedExpr, { 0, 2, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> xwx() { return { { wrappedExpr, { 0, 3, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xwy() { return { { wrappedExpr, { 0, 3, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xwz() { return { { wrappedExpr, { 0, 3, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> xww() { return { { wrappedExpr, { 0, 3, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> yxx() { return { { wrappedExpr, { 1, 0, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yxy() { return { { wrappedExpr, { 1, 0, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yxz() { return { { wrappedExpr, { 1, 0, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yxw() { return { { wrappedExpr, { 1, 0, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> yyx() { return { { wrappedExpr, { 1, 1, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yyy() { return { { wrappedExpr, { 1, 1, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yyz() { return { { wrappedExpr, { 1, 1, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yyw() { return { { wrappedExpr, { 1, 1, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> yzx() { return { { wrappedExpr, { 1, 2, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yzy() { return { { wrappedExpr, { 1, 2, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yzz() { return { { wrappedExpr, { 1, 2, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yzw() { return { { wrappedExpr, { 1, 2, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> ywx() { return { { wrappedExpr, { 1, 3, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> ywy() { return { { wrappedExpr, { 1, 3, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> ywz() { return { { wrappedExpr, { 1, 3, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> yww() { return { { wrappedExpr, { 1, 3, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> zxx() { return { { wrappedExpr, { 2, 0, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zxy() { return { { wrappedExpr, { 2, 0, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zxz() { return { { wrappedExpr, { 2, 0, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zxw() { return { { wrappedExpr, { 2, 0, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> zyx() { return { { wrappedExpr, { 2, 1, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zyy() { return { { wrappedExpr, { 2, 1, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zyz() { return { { wrappedExpr, { 2, 1, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zyw() { return { { wrappedExpr, { 2, 1, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> zzx() { return { { wrappedExpr, { 2, 2, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zzy() { return { { wrappedExpr, { 2, 2, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zzz() { return { { wrappedExpr, { 2, 2, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zzw() { return { { wrappedExpr, { 2, 2, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> zwx() { return { { wrappedExpr, { 2, 3, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zwy() { return { { wrappedExpr, { 2, 3, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zwz() { return { { wrappedExpr, { 2, 3, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> zww() { return { { wrappedExpr, { 2, 3, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> wxx() { return { { wrappedExpr, { 3, 0, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wxy() { return { { wrappedExpr, { 3, 0, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wxz() { return { { wrappedExpr, { 3, 0, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wxw() { return { { wrappedExpr, { 3, 0, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> wyx() { return { { wrappedExpr, { 3, 1, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wyy() { return { { wrappedExpr, { 3, 1, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wyz() { return { { wrappedExpr, { 3, 1, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wyw() { return { { wrappedExpr, { 3, 1, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> wzx() { return { { wrappedExpr, { 3, 2, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wzy() { return { { wrappedExpr, { 3, 2, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wzz() { return { { wrappedExpr, { 3, 2, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wzw() { return { { wrappedExpr, { 3, 2, 3 } } }; }
+
+    constexpr wrapped<VectorComponentExpr, vec_t> wwx() { return { { wrappedExpr, { 3, 3, 0 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wwy() { return { { wrappedExpr, { 3, 3, 1 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> wwz() { return { { wrappedExpr, { 3, 3, 2 } } }; }
+    constexpr wrapped<VectorComponentExpr, vec_t> www() { return { { wrappedExpr, { 3, 3, 3 } } }; }
 };
 
 // Unary operators
@@ -375,31 +576,15 @@ struct LiteralExpr : Expr {
         : Expr(StmtKind::LiteralExpr), literal(literal) { }
 };
 
-// Compound statements
-struct CompoundStmtEntry {
-    Stmt& stmt;
-    CompoundStmtEntry* next = nullptr;
-};
-struct CompoundStmt : Stmt {
-    CompoundStmtEntry* first = nullptr;
-    CompoundStmtEntry* last = nullptr;
-    int_t childCount = 0;
+struct CompoundStmt : Stmt, StmtList {
     constexpr CompoundStmt(StmtKind kind = StmtKind::CompoundStmt)
         : Stmt(kind) { }
-
-    constexpr CompoundStmtEntry& pushBack(AST& ast, Stmt& stmt);
-
-    template<typename Callback>
-    constexpr void forEachStmt(Callback&& callback) const {
-        const CompoundStmtEntry* entry = first;
-        while (entry) {
-            callback(entry->stmt);
-            entry = entry->next;
-        }
-    };
 };
+
+// Block statement
 struct BlockStmt : CompoundStmt {
     BlockStmt* parent = nullptr;
+    VarDeclContext declContext;
     constexpr BlockStmt()
         : CompoundStmt(StmtKind::BlockStmt) { }
 };

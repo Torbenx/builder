@@ -22,8 +22,8 @@ union StmtStorage {
             VERIFY_NOT_REACHED(ShaderGen);
         }
     }
-    constexpr CompoundStmtEntry& setCompoundStmtEntry(const CompoundStmtEntry& e) {
-        return *std::construct_at(&CompoundStmtEntry_, e);
+    constexpr StmtListEntry& setStmtListEntry(const StmtListEntry& e) {
+        return *std::construct_at(&StmtListEntry_, e);
     }
 
     constexpr StmtStorage() { }
@@ -55,18 +55,73 @@ struct AST {
     constexpr AST(const AST&) = delete;
 
     constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
-        auto& decl = allocate<VarDeclStmt>({ name, type });
+        auto& decl = allocate<VarDeclStmt>({ name, type, currentBlock->declContext });
+        currentBlock->declContext.decls.pushBack(*this, decl);
         currentBlock->pushBack(*this, decl);
         return { decl };
     }
 
+    template<typename Impl>
+    struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
+        constexpr Impl* impl() { return static_cast<Impl*>(this); }
+
+        constexpr FixedBitset fullMask(const Type* type) {
+            if (type->isVector)
+                return FixedBitset::bitsBelow(asVectorType(type)->vectorSize);
+            else
+                return FixedBitset::bitsBelow(type->fieldCount);
+        }
+        constexpr void visitExpr(const Expr&, FixedBitset) { }
+        constexpr void visitMemberAccessExpr(const MemberAccessExpr& e, FixedBitset mask) {
+            impl()->dispatchVisit(e.base, e.base.type->members[e.memberIndex].fieldMask); // FIXME: this is wrong!
+            impl()->visitExpr(e, mask);
+        }
+        constexpr void visitVectorComponentExpr(const VectorComponentExpr& e, FixedBitset mask) {
+            FixedBitset baseMask = 0;
+            for (int_t i = 0; i < e.componentCount; i++) {
+                if (mask.test(i))
+                    baseMask.set(e.components[i]);
+            }
+            impl()->dispatchVisit(e.base, baseMask);
+            impl()->visitExpr(e, mask);
+        }
+        constexpr void visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr& e, FixedBitset mask) {
+            impl()->dispatchVisit(e.vector, mask);
+            impl()->dispatchVisit(e.scalar, fullMask(e.scalar.type));
+            impl()->visitExpr(e, mask);
+        }
+        constexpr void visit(const Expr& e) {
+            impl()->dispatchVisit(e, fullMask(e.type));
+        }
+    };
+    struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
+        constexpr void visitVarRefExpr(const VarRefExpr& e, FixedBitset mask) {
+            VERIFY(ShaderGen, !(mask & ~e.decl.initMask));
+            e.decl.usedMask |= mask;
+        }
+    };
+    struct MarkInitialized : AccessMaskVisitor<MarkInitialized> {
+        constexpr void visitStmt(const Stmt&, FixedBitset) {
+            VERIFY_NOT_REACHED(ShaderGen);
+        }
+        constexpr void visitVarRefExpr(const VarRefExpr& e, FixedBitset mask) {
+            e.decl.initMask |= mask;
+        }
+    };
+
     struct StmtBuilder : ASTVisitor<StmtBuilder, Stmt&> {
         AST& ast;
-        constexpr Stmt& visitStmt(const Stmt& stmt) {
+        constexpr Stmt& visitStmt(const Stmt&) {
             VERIFY_NOT_REACHED(ShaderGen);
             return ast.allocate<Stmt>({});
         }
         constexpr Stmt& visitVarRefExpr(const VarRefExpr& in) {
+            BlockStmt* block = ast.currentBlock;
+            while (block && (&block->declContext != &in.decl.declContext)) {
+                block = block->parent;
+            }
+            VERIFY(ShaderGen, block);
+
             auto& e = ast.allocate<VarRefExpr>({ in.decl });
             e.type = in.decl.type;
             e.valueKind = ValueKind::LVALUE;
@@ -74,10 +129,29 @@ struct AST {
         }
         constexpr Stmt& visitMemberAccessExpr(const MemberAccessExpr& in) {
             auto& base = castStmt<Expr>(dispatchVisit(in.base));
-            const auto* baseType = asVectorType(base.type);
+            VERIFY(ShaderGen, in.memberIndex < base.type->members.size());
+            const MemberInfo& member = base.type->members[in.memberIndex];
             auto& e = ast.allocate<MemberAccessExpr>({ base, in.memberIndex });
-            e.type = baseType->scalarType;
+            e.type = member.type;
             e.valueKind = base.valueKind;
+            return e;
+        }
+        constexpr Stmt& visitVectorComponentExpr(const VectorComponentExpr& in) {
+            auto& base = castStmt<Expr>(dispatchVisit(in.base));
+            const auto* baseType = asVectorType(base.type);
+            VERIFY(ShaderGen, !baseType->isScalar);
+            size_t mask = 0;
+            bool hasDuplicates = false;
+            for (int_t i = 0; i < in.componentCount; i++) {
+                VERIFY(ShaderGen, in.components[i] < baseType->vectorSize);
+                size_t bit = (size_t)1 << in.components[i];
+                if (mask & bit)
+                    hasDuplicates = true;
+                mask |= bit;
+            }
+            auto& e = ast.allocate<VectorComponentExpr>({ base, in.componentCount, in.components });
+            e.type = baseType->scalarType->vectorType(in.componentCount);
+            e.valueKind = hasDuplicates ? ValueKind::RVALUE : base.valueKind;
             return e;
         }
         constexpr Stmt& visitUnaryOperatorExpr(const UnaryOperatorExpr& in) {
@@ -137,32 +211,48 @@ struct AST {
             auto& right = castStmt<Expr>(dispatchVisit(in.right));
             VERIFY(ShaderGen, left.type == right.type);
             VERIFY(ShaderGen, left.valueKind == ValueKind::LVALUE);
+            CheckInitialized check;
+            check.visit(right);
+            MarkInitialized mark;
+            mark.visit(left);
             return ast.allocate<AssignmentStmt>({ left, right });
         }
     };
 
-    constexpr Stmt& emitStmt(const Stmt& in)  {
+    constexpr Stmt& emitStmt(const Stmt& in) {
         StmtBuilder builder { {}, *this };
         Stmt& stmt = builder.dispatchVisit(in);
         currentBlock->pushBack(*this, stmt);
         return stmt;
     }
+
+    constexpr void beginBlock() {
+        auto& newBlock = allocate<BlockStmt>({});
+        newBlock.parent = currentBlock;
+        currentBlock->pushBack(*this, newBlock);
+        currentBlock = &newBlock;
+    }
+    constexpr void endBlock() {
+        currentBlock->declContext.decls.forEachStmt([](const Stmt& stmt) {
+            const auto& decl = castStmt<VarDeclStmt>(stmt);
+            VERIFY(ShaderGen, decl.usedMask != 0);
+        });
+        currentBlock = currentBlock->parent;
+    }
 };
 
-// Compound statement implementation
-constexpr CompoundStmtEntry& CompoundStmt::pushBack(AST& ast, Stmt& stmt) {
-    CompoundStmtEntry& newEntry = ast.storage.acquireBack().setCompoundStmtEntry({ stmt });
-
+// StmtList implementation
+constexpr void StmtList::pushBack(AST& ast, Stmt& stmt) {
+    StmtListEntry& newEntry = ast.storage.acquireBack().setStmtListEntry({ stmt });
     if (last)
         last->next = &newEntry;
     else
         first = &newEntry;
-
     last = &newEntry;
-    childCount += 1;
-    return newEntry;
+    stmtCount += 1;
 }
 
+// AST helper
 struct WrappedAST : AST {
     template<typename Callback>
     constexpr explicit WrappedAST(Callback&& callback) { callback(*this); }

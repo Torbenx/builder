@@ -19,23 +19,30 @@ struct A {
     END_REF_STRUCT();
 };
 
-static constexpr void constexprTest(WrappedAST& ast) {
+static void constexprTest(WrappedAST& ast) {
+    ast.beginBlock();
     auto foo = ast.declareScalar("foo", &FloatType);
     auto bar = ast.declareVector("bar", FloatType.vectorType(4));
     auto baz = ast.declareVector("baz", FloatType.vectorType(4));
     auto res = ast.declareVector("res", BoolType.vectorType(4));
+
+    ast.beginBlock();
     auto lit1 = wrapped<LiteralExpr, void>({ {} });
     lit1.type = &FloatType;
     auto lit2 = wrapped<LiteralExpr, vec_t>({ {} });
-    lit2.type = FloatType.vectorType(4);
+    lit2.type = FloatType.vectorType(2);
     ast.emitStmt(foo = lit1);
-    ast.emitStmt(bar = lit2);
+    ast.emitStmt(bar.xz() = lit2);
+    ast.emitStmt(bar.yw() = lit2);
     ast.emitStmt(baz = bar);
-    ast.emitStmt(res = !(foo * foo + bar < baz + bar));
+    ast.emitStmt(res = !(foo * foo + bar < bar + baz));
+    ast.endBlock();
+
+    ast.endBlock();
 }
 
 void runShadergenTest() {
-    static constexpr auto ast = WrappedAST(constexprTest);
+    static auto ast = WrappedAST(constexprTest);
     ASTDumper dumper;
     dumper.dump(*ast.currentBlock);
 

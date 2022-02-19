@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Stmt.hpp"
+#include <sstream>
 #include <vector>
 
 template<>
@@ -37,63 +38,67 @@ struct fmt::formatter<shadergen::Type> {
 namespace shadergen {
 
 // AST visitor
-template<typename Impl, typename RetT = void>
+template<typename Impl, typename RetT = void, typename... Args>
 struct ASTVisitor {
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
-    constexpr RetT visitStmt(const Stmt&) {
+    constexpr RetT visitStmt(const Stmt&, Args... args) {
         return void();
     }
-    constexpr RetT visitExpr(const Expr& e) {
-        return impl()->visitStmt(e);
+    constexpr RetT visitExpr(const Expr& e, Args... args) {
+        return impl()->visitStmt(e, args...);
     }
-    constexpr RetT visitVarRefExpr(const VarRefExpr& e) {
-        return impl()->visitExpr(e);
+    constexpr RetT visitVarRefExpr(const VarRefExpr& e, Args... args) {
+        return impl()->visitExpr(e, args...);
     }
-    constexpr RetT visitElementwiseOperatorExpr(const ElementwiseOperatorExpr& e) {
-        impl()->dispatchVisit(e.left);
-        impl()->dispatchVisit(e.right);
-        return impl()->visitExpr(e);
+    constexpr RetT visitElementwiseOperatorExpr(const ElementwiseOperatorExpr& e, Args... args) {
+        impl()->dispatchVisit(e.left, args...);
+        impl()->dispatchVisit(e.right, args...);
+        return impl()->visitExpr(e, args...);
     }
-    constexpr RetT visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr& e) {
-        impl()->dispatchVisit(e.vector);
-        impl()->dispatchVisit(e.scalar);
-        return impl()->visitExpr(e);
+    constexpr RetT visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr& e, Args... args) {
+        impl()->dispatchVisit(e.vector, args...);
+        impl()->dispatchVisit(e.scalar, args...);
+        return impl()->visitExpr(e, args...);
     }
-    constexpr RetT visitUnaryOperatorExpr(const UnaryOperatorExpr& e) {
-        impl()->dispatchVisit(e.subExpr);
-        return impl()->visitExpr(e);
+    constexpr RetT visitUnaryOperatorExpr(const UnaryOperatorExpr& e, Args... args) {
+        impl()->dispatchVisit(e.subExpr, args...);
+        return impl()->visitExpr(e, args...);
     }
-    constexpr RetT visitAssignmentStmt(const AssignmentStmt& e) {
-        impl()->dispatchVisit(e.left);
-        impl()->dispatchVisit(e.right);
-        return impl()->visitStmt(e);
+    constexpr RetT visitAssignmentStmt(const AssignmentStmt& e, Args... args) {
+        impl()->dispatchVisit(e.left, args...);
+        impl()->dispatchVisit(e.right, args...);
+        return impl()->visitStmt(e, args...);
     }
-    constexpr RetT visitLiteralExpr(const LiteralExpr& e) {
-        return impl()->visitExpr(e);
+    constexpr RetT visitLiteralExpr(const LiteralExpr& e, Args... args) {
+        return impl()->visitExpr(e, args...);
     }
-    constexpr RetT visitVarDeclStmt(const VarDeclStmt& e) {
-        return impl()->visitStmt(e);
+    constexpr RetT visitVarDeclStmt(const VarDeclStmt& e, Args... args) {
+        return impl()->visitStmt(e, args...);
     }
-    constexpr RetT visitCompoundStmt(const CompoundStmt& e) {
+    constexpr RetT visitCompoundStmt(const CompoundStmt& e, Args... args) {
         e.forEachStmt([&](const Stmt& stmt) {
-            impl()->dispatchVisit(stmt);
+            impl()->dispatchVisit(stmt, args...);
         });
-        return impl()->visitStmt(e);
+        return impl()->visitStmt(e, args...);
     }
-    constexpr RetT visitBlockStmt(const BlockStmt& e) {
-        return impl()->visitCompoundStmt(e);
+    constexpr RetT visitBlockStmt(const BlockStmt& e, Args... args) {
+        return impl()->visitCompoundStmt(e, args...);
     }
-    constexpr RetT visitMemberAccessExpr(const MemberAccessExpr& e) {
-        impl()->dispatchVisit(e.base);
-        return impl()->visitExpr(e);
+    constexpr RetT visitMemberAccessExpr(const MemberAccessExpr& e, Args... args) {
+        impl()->dispatchVisit(e.base, args...);
+        return impl()->visitExpr(e, args...);
+    }
+    constexpr RetT visitVectorComponentExpr(const VectorComponentExpr& e, Args... args) {
+        impl()->dispatchVisit(e.base, args...);
+        return impl()->visitExpr(e, args...);
     }
 
-    constexpr RetT dispatchVisit(const Stmt& stmt) {
+    constexpr RetT dispatchVisit(const Stmt& stmt, Args... args) {
         switch (stmt.stmtKind) {
-#define STMT_KIND(S)               \
-    case StmtKind::S:              \
-        return impl()->visit##S((const S&)stmt);
+#define STMT_KIND(S)  \
+    case StmtKind::S: \
+        return impl()->visit##S((const S&)stmt, args...);
 
             ENUMERATE_STMT_KINDS(STMT_KIND)
 #undef STMT_KIND
@@ -146,7 +151,7 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitExpr(e);
     }
     void visitVarRefExpr(const VarRefExpr& e) {
-        info("VarRefExpr" , fmt::format("\"{}\"", e.decl.name));
+        info("VarRefExpr", fmt::format("\"{}\"", e.decl.name));
         Base::visitVarRefExpr(e);
     }
     void visitElementwiseOperatorExpr(const ElementwiseOperatorExpr& e) {
@@ -174,16 +179,31 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitVarDeclStmt(e);
     }
     void visitCompoundStmt(const CompoundStmt& e) {
-        info("CompoundStmt", fmt::format("({} children)", e.childCount));
+        info("CompoundStmt", fmt::format("({} children)", e.stmtCount));
         Base::visitCompoundStmt(e);
     }
     void visitBlockStmt(const BlockStmt& e) {
-        info("BlockStmt");
+        info("BlockStmt", fmt::format("({} decls)", e.declContext.decls.stmtCount));
         Base::visitBlockStmt(e);
     }
     void visitMemberAccessExpr(const MemberAccessExpr& e) {
-        info("MemberAccessExpr", fmt::format("[{}]", e.memberIndex));
+        info("MemberAccessExpr", fmt::format(".{}", e.type->members[e.memberIndex].name));
         Base::visitMemberAccessExpr(e);
+    }
+    void visitVectorComponentExpr(const VectorComponentExpr& e) {
+        if (e.componentCount == 0) {
+            info("VectorComponentExpr", "'?'");
+        } else {
+            static constexpr char characters[4] = { 'x', 'y', 'z', 'w' };
+            auto getChar = [](int8_t comp) { return comp < 4 ? characters[comp] : '?'; };
+            std::stringstream ss;
+            ss << "'.";
+            for (int_t i = 0; i < e.componentCount; i++)
+                ss << getChar(e.components[i]);
+            ss << '\'';
+            info("VectorComponentExpr", ss.str());
+        }
+        Base::visitVectorComponentExpr(e);
     }
 
     void dispatchVisit(const Stmt& e) {
