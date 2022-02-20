@@ -4,12 +4,6 @@
 
 namespace shadergen::compressed {
 
-// Common
-template<auto callback>
-struct ASTHolder {
-    static constexpr auto ast = WrappedAST(callback);
-};
-
 // resolve node types
 enum class NodeKind {
     Unknown,
@@ -55,14 +49,14 @@ struct NodeResolver : ASTVisitor<NodeResolver> {
     }
 };
 
-static constexpr ResolvedNodes resolveNodes(const AST& ast) {
+static constexpr ResolvedNodes resolveNodes(const Stmt* root) {
     NodeResolver res;
-    res.dispatchVisit(ast.currentBlock);
+    res.dispatchVisit(root);
     return res.nodes;
 }
 
 // fill tuple
-struct Compressor : ASTTransform<Compressor> {
+struct CompressedASTStorageAllocator {
     ASTNode** storage;
     int_t offset = 0;
     template<typename T>
@@ -78,6 +72,10 @@ struct Compressor : ASTTransform<Compressor> {
         list.pushBack(entry);
     }
 };
+struct Compressor : ASTTransform<Compressor, CompressedASTStorageAllocator> {
+    constexpr Compressor(CompressedASTStorageAllocator& alloc)
+        : ASTTransform<Compressor, CompressedASTStorageAllocator>(&alloc) { }
+};
 
 template<typename T, size_t i>
 struct storage_t {
@@ -90,10 +88,12 @@ struct storage_t {
 
 template<typename... Types>
 struct FilledTuple : Types... {
-    constexpr FilledTuple(const AST& ast) {
+    Stmt* root = nullptr;
+    constexpr FilledTuple(const Stmt* root) {
         ASTNode* nodes[] = { Types::node()... };
-        Compressor comp { {}, nodes };
-        comp.dispatchTransform(ast.currentBlock);
+        CompressedASTStorageAllocator alloc { nodes };
+        Compressor comp { alloc };
+        this->root = comp.dispatchTransform(root);
     }
 };
 
@@ -119,21 +119,26 @@ struct NodeTypeLookup<NodeKind::VarDecl> {
 ENUMERATE_STMT_KINDS(STMT_KIND)
 #undef STMT_KIND
 
+template<auto callback>
+struct ASTHolder {
+    static constexpr auto ast = BuildDriver(callback);
+};
+
 template<ResolvedNodes nodes, size_t... I>
-static constexpr auto createTuple3(const AST& ast, std::index_sequence<I...>) {
-    return FilledTuple<storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(ast);
+static constexpr auto createTuple3(const Stmt* root, std::index_sequence<I...>) {
+    return FilledTuple<storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(root);
 }
 
 template<typename Holder>
 static constexpr auto createTuple2() {
-    constexpr auto nodes = resolveNodes(Holder::ast);
-    return createTuple3<nodes>(Holder::ast, std::make_index_sequence<nodes.nodeCount>());
+    constexpr auto nodes = resolveNodes(Holder::ast.builder.currentBlock);
+    return createTuple3<nodes>(Holder::ast.builder.currentBlock, std::make_index_sequence<nodes.nodeCount>());
 }
 
 template<auto callback>
 static constexpr auto createTuple() {
-    constexpr auto nodes = resolveNodes(WrappedAST(callback));
-    return createTuple3<nodes>(WrappedAST(callback), std::make_index_sequence<nodes.nodeCount>());
+    constexpr auto nodes = resolveNodes(BuildDriver(callback).builder.currentBlock);
+    return createTuple3<nodes>(BuildDriver(callback).builder.currentBlock, std::make_index_sequence<nodes.nodeCount>());
 }
 
 }

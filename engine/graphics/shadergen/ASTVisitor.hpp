@@ -5,18 +5,6 @@
 #include <vector>
 
 template<>
-struct fmt::formatter<shadergen::DynamicName> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
-
-    template<typename FormatContext>
-    auto format(shadergen::DynamicName name, FormatContext& ctx) {
-        return format_to(ctx.out(), "{}", name.view());
-    }
-};
-
-template<>
 struct fmt::formatter<shadergen::Type> {
     constexpr auto parse(format_parse_context& ctx) {
         return ctx.begin();
@@ -135,11 +123,16 @@ struct ASTVisitor {
     }
 };
 
-template<typename Impl>
+template<typename Impl, typename Storage>
 struct ASTTransform {
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
     BlockStmt* currentBlock = nullptr;
+    Storage* storage = nullptr;
+
+    constexpr ASTTransform() = default;
+    constexpr ASTTransform(Storage* storage)
+        : storage(storage) { }
 
     constexpr void transformStmt(Stmt* e) { }
     constexpr void transformExpr(Expr* e) {
@@ -185,7 +178,7 @@ struct ASTTransform {
     }
     constexpr void transformVarDecl(VarDecl* decl) {
         decl->declContext = &currentBlock->declContext;
-        impl()->pushBackOnList(currentBlock->declContext.decls, decl);
+        storage->pushBackOnList(currentBlock->declContext.decls, decl);
     }
     constexpr void transformVarDeclStmt(VarDeclStmt* e) {
         impl()->transformStmt(e);
@@ -194,7 +187,7 @@ struct ASTTransform {
     constexpr void transformCompoundStmt(CompoundStmt* e) {
         impl()->transformStmt(e);
         e->consumeEntries([&](const Stmt* stmt) {
-            impl()->pushBackOnList(*e, impl()->dispatchTransform(stmt));
+            storage->pushBackOnList(*e, impl()->dispatchTransform(stmt));
         });
     }
     constexpr void transformBlockStmt(BlockStmt* e) {
@@ -216,11 +209,11 @@ struct ASTTransform {
 
     constexpr Stmt* dispatchTransform(const Stmt* stmt) {
         switch (stmt->stmtKind) {
-#define STMT_KIND(S)                                \
-    case StmtKind::S: {                             \
-        S* ret = impl()->allocateStmt(*(const S*)stmt); \
-        impl()->transform##S(ret);                  \
-        return ret;                                 \
+#define STMT_KIND(S)                                    \
+    case StmtKind::S: {                                 \
+        S* ret = storage->allocateStmt(*(const S*)stmt); \
+        impl()->transform##S(ret);                      \
+        return ret;                                     \
     }
 
             ENUMERATE_STMT_KINDS(STMT_KIND)
@@ -230,7 +223,7 @@ struct ASTTransform {
         }
     }
     constexpr VarDecl* dispatchTransformVarDecl(const VarDecl* decl) {
-        VarDecl* ret = impl()->allocateVarDecl(*decl);
+        VarDecl* ret = storage->allocateVarDecl(*decl);
         impl()->transformVarDecl(ret);
         return ret;
     }

@@ -3,7 +3,7 @@
 #include "containers/ArrayView.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
-#include <string>
+#include <string_view>
 
 namespace Tag {
 struct ShaderGen {
@@ -13,32 +13,6 @@ struct ShaderGen {
 }
 
 namespace shadergen {
-
-// DynamicName
-static constexpr int_t MAX_NAME_LENGTH = 22;
-
-struct DynamicName {
-    char storage[MAX_NAME_LENGTH + 1] = {};
-    int8_t m_length = 0;
-
-    constexpr DynamicName() { }
-    constexpr DynamicName(std::string_view view)
-        : m_length(view.length()) {
-        std::copy_n(view.data(), length() + 1, storage);
-    }
-
-    constexpr char* data() {
-        return storage;
-    }
-    constexpr std::string_view view() const { return { data(), (size_t)length() }; }
-    constexpr const char* data() const {
-        return storage;
-    }
-    constexpr int_t length() const { return m_length; }
-    constexpr bool operator==(const DynamicName& other) const {
-        return view() == other.view();
-    }
-};
 
 // Fixed bitset
 struct FixedBitset {
@@ -78,9 +52,6 @@ constexpr FixedBitset operator|(const FixedBitset& left, const FixedBitset& righ
 constexpr FixedBitset operator&(const FixedBitset& left, const FixedBitset& right) {
     return { left.mask & right.mask };
 }
-
-// forward declare AST
-struct AST;
 
 // Types
 struct Type;
@@ -257,12 +228,12 @@ struct Expr : Stmt {
 // Variables
 struct VarDeclContext;
 struct VarDecl : ASTNode {
-    DynamicName name;
+    std::string_view name;
     const Type* type;
     VarDeclContext* declContext;
     FixedBitset initMask = 0;
     FixedBitset usedMask = 0;
-    constexpr VarDecl(DynamicName name, const Type* type, VarDeclContext* declContext)
+    constexpr VarDecl(std::string_view name, const Type* type, VarDeclContext* declContext)
         : name(name), type(type), declContext(declContext) { }
 };
 struct VarDeclStmt : Stmt {

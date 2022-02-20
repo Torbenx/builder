@@ -20,7 +20,7 @@ using namespace shadergen::compressed;
     END_REF_STRUCT();
 };*/
 
-static constexpr void createAST(WrappedAST& ast) {
+static constexpr void createAST(BuildDriver& ast) {
     ast.beginBlock();
     auto foo = ast.declareScalar("foo", &FloatType);
     auto bar = ast.declareVector("bar", FloatType.vectorType(4));
@@ -45,8 +45,10 @@ static constexpr void createAST(WrappedAST& ast) {
 
 void runShadergenTest() {
     static constexpr auto tuple = createTuple<createAST>();
+    static constexpr auto ast = BuildDriver(createAST);
     ASTDumper dumper;
-    dumper.dump(WrappedAST(createAST).currentBlock);
+    dumper.dump(ast.builder.currentBlock);
+    dumper.dump(tuple.root);
 
     /*A aVal;
     aVal.b2.i = 123;

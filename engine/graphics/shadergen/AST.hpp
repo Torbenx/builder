@@ -5,12 +5,12 @@
 namespace shadergen {
 
 // Storage
-union StmtStorage {
+union ASTNodeStorage {
 #define AST_NODE(N) N N##_;
     ENUMERATE_AST_NODES(AST_NODE)
 #undef AST_NODE
 
-    constexpr Stmt* set(const Stmt& s) {
+    constexpr Stmt* setStmt(const Stmt& s) {
         switch (s.stmtKind) {
 #define STMT_KIND(S)  \
     case StmtKind::S: \
@@ -29,57 +29,41 @@ union StmtStorage {
         return std::construct_at(&VarDecl_, decl);
     }
 
-    constexpr StmtStorage() { }
+    constexpr ASTNodeStorage() { }
 };
 
 template<int_t N>
-struct StmtVector {
-    StmtStorage storage[N];
+struct BasicASTStorage {
+    ASTNodeStorage storage[N];
     int_t size = 0;
-    constexpr StmtStorage& acquireBack() {
+    constexpr ASTNodeStorage& acquireBack() {
         return storage[size++];
     }
-    constexpr Stmt* pushBack(const Stmt& stmt) {
-        return acquireBack().set(stmt);
-    }
-};
-
-struct AST : ASTTransform<AST> {
-    using Base = ASTTransform<AST>;
-    StmtVector<100> storage;
-    // BlockStmt* currentBlock = nullptr;
-
     template<typename T>
     constexpr T* allocateStmt(const T& stmt) {
-        return (T*)storage.pushBack(stmt);
+        return (T*)acquireBack().setStmt(stmt);
     }
     constexpr VarDecl* allocateVarDecl(const VarDecl& decl) {
-        return storage.acquireBack().setVarDecl(decl);
+        return acquireBack().setVarDecl(decl);
     }
     template<typename T>
     constexpr void pushBackOnList(ASTList<T>& list, T* e) {
-        ASTListEntry* entry = storage.acquireBack().setListEntry({ e });
+        ASTListEntry* entry = acquireBack().setListEntry({ e });
         list.pushBack(entry);
     }
 
-    constexpr BlockStmt* newBlock() {
-        auto* body = allocateStmt<CompoundStmt>({});
-        auto* block = allocateStmt<BlockStmt>({ body });
-        return block;
-    }
+    constexpr BasicASTStorage() = default;
+    constexpr BasicASTStorage(const BasicASTStorage&) = delete;
+};
 
-    constexpr AST() {
-        currentBlock = newBlock();
-    }
-    constexpr AST(const AST&) = delete;
+// Builder
+template<typename Storage>
+struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
+    using Base = ASTTransform<ASTBuilder, Storage>;
 
-    constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
-        auto* decl = allocateVarDecl({ name, type, &currentBlock->declContext });
-        pushBackOnList(currentBlock->declContext.decls, decl);
-        auto* declStmt = allocateStmt<VarDeclStmt>({ decl });
-        emitStmt(declStmt);
-        return { decl };
-    }
+    constexpr ASTBuilder() = default;
+    constexpr ASTBuilder(Storage* storage)
+        : Base(storage) { }
 
     template<typename Impl>
     struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
@@ -130,7 +114,7 @@ struct AST : ASTTransform<AST> {
     };
 
     constexpr void transformVarRefExpr(VarRefExpr* e) {
-        BlockStmt* block = currentBlock;
+        BlockStmt* block = this->currentBlock;
         while (block && (&block->declContext != e->decl->declContext))
             block = block->parent;
         VERIFY(ShaderGen, block);
@@ -214,42 +198,59 @@ struct AST : ASTTransform<AST> {
         MarkInitialized mark;
         mark.visit(e->left);
     }
+};
 
-    constexpr void buildStmt(const Stmt* in) {
-        Stmt* stmt = dispatchTransform(in);
+// Driver
+struct BuildDriver {
+    using Storage = BasicASTStorage<100>;
+    ASTBuilder<Storage> builder { &storage };
+    Storage storage;
+
+    constexpr void emitStmt(Stmt* stmt) {
+        storage.pushBackOnList(*castStmt<CompoundStmt>(builder.currentBlock->body), stmt);
+    }
+
+    constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
+        auto* decl = storage.allocateVarDecl({ name, type, &builder.currentBlock->declContext });
+        storage.pushBackOnList(builder.currentBlock->declContext.decls, decl);
+        auto* declStmt = storage.allocateStmt<VarDeclStmt>({ decl });
+        emitStmt(declStmt);
+        return { decl };
+    }
+    constexpr wrapped<VarRefExpr, void> declareScalar(std::string_view name, const Type* type) {
+        return { declareVariable(name, type) };
+    }
+    constexpr wrapped<VarRefExpr, vec_t> declareVector(std::string_view name, const VectorType* type) {
+        return { declareVariable(name, type) };
+    }
+
+    constexpr BlockStmt* newBlock() {
+        auto* body = storage.allocateStmt<CompoundStmt>({});
+        auto* block = storage.allocateStmt<BlockStmt>({ body });
+        return block;
+    }
+    constexpr void beginBlock() {
+        auto* newBlock = this->newBlock();
+        newBlock->parent = builder.currentBlock;
+        emitStmt(newBlock);
+        builder.currentBlock = newBlock;
+    }
+    constexpr void endBlock() {
+        builder.currentBlock->declContext.decls.forEachEntry([](const VarDecl* decl) {
+            VERIFY(ShaderGen, decl->usedMask != 0);
+        });
+        builder.currentBlock = builder.currentBlock->parent;
+    }
+
+    constexpr void operator,(const Stmt& in) {
+        Stmt* stmt = builder.dispatchTransform(&in);
         emitStmt(stmt);
     }
 
-    constexpr void emitStmt(Stmt* stmt) {
-        pushBackOnList(*castStmt<CompoundStmt>(currentBlock->body), stmt);
-    }
-
-    constexpr void beginBlock() {
-        auto* newBlock = this->newBlock();
-        newBlock->parent = currentBlock;
-        emitStmt(newBlock);
-        currentBlock = newBlock;
-    }
-    constexpr void endBlock() {
-        currentBlock->declContext.decls.forEachEntry([](const VarDecl* decl) {
-            VERIFY(ShaderGen, decl->usedMask != 0);
-        });
-        currentBlock = currentBlock->parent;
-    }
-};
-
-// AST helper
-struct WrappedAST : AST {
     template<typename Callback>
-    constexpr explicit WrappedAST(Callback&& callback) { callback(*this); }
-    constexpr wrapped<VarRefExpr, void> declareScalar(std::string_view name, const Type* type) {
-        return { AST::declareVariable(name, type) };
-    }
-    constexpr wrapped<VarRefExpr, vec_t> declareVector(std::string_view name, const VectorType* type) {
-        return { AST::declareVariable(name, type) };
-    }
-    constexpr void operator,(const Stmt& in) {
-        buildStmt(&in);
+    constexpr BuildDriver(Callback&& callback) {
+        builder.currentBlock = newBlock();
+        callback(*this);
     }
 };
 }
