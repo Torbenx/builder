@@ -1,12 +1,12 @@
-#include "graphics/shadergen/AST.hpp"
+#include "graphics/shadergen/CompressedAST.hpp"
 #include "util/log.hpp"
-#include "util/reflection.hpp"
+//#include "util/reflection.hpp"
 
 using namespace shadergen;
 using namespace shadergen::code;
-//using namespace shadergen::compressed;
+using namespace shadergen::compressed;
 
-struct A {
+/*struct A {
     struct B {
         BEGIN_REF_STRUCT(B);
         int REF_FIELD(i);
@@ -18,7 +18,7 @@ struct A {
     B REF_FIELD(b2);
     float REF_FIELD(f);
     END_REF_STRUCT();
-};
+};*/
 
 static constexpr void createAST(WrappedAST& ast) {
     ast.beginBlock();
@@ -43,16 +43,14 @@ static constexpr void createAST(WrappedAST& ast) {
     ast.endBlock();
 }
 
-static constexpr auto ast = WrappedAST(createAST);
-
 void runShadergenTest() {
-    //constexpr auto tuple = createTuple<ASTHolder<createAST>>();
-    ASTDumper dumper;
-    dumper.dump(ast.currentBlock);
+    static constexpr auto tuple = createTuple<createAST>();
+    //ASTDumper dumper;
+    //dumper.dump(ast.currentBlock);
 
-    A aVal;
+    /*A aVal;
     aVal.b2.i = 123;
     auto a = reflect(aVal);
     log("leafFieldCount: {}", a.leafFieldCount());
-    log("test: {}", a.nameOf(a.b2.d).view());
+    log("test: {}", a.nameOf(a.b2.d).view());*/
 }

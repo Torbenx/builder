@@ -1,7 +1,6 @@
 #pragma once
 
 #include "AST.hpp"
-#include <tuple>
 
 namespace shadergen::compressed {
 
@@ -47,37 +46,29 @@ static constexpr ResolvedNodes resolveNodes(const AST& ast) {
 }
 
 // fill tuple
-struct TupleLookupTableBase {
-    ASTNode** table;
-    constexpr ASTNode* get(int_t i) const { return table[i]; }
-};
-template<typename... Types>
-struct TupleLookupTable : TupleLookupTableBase {
-    ASTNode* nodes[sizeof...(Types)];
-    template<size_t... I>
-    constexpr void initialize(std::tuple<Types...>& tuple, std::index_sequence<I...>) {
-        ((nodes[I] = &std::get<I>(tuple).s), ...);
-    }
-    constexpr TupleLookupTable(std::tuple<Types...>& tuple)
-        : TupleLookupTableBase { nodes } {
-        initialize(tuple, std::index_sequence_for<Types...>());
-    }
-};
-
 struct Compressor : ASTTransform<Compressor> {
-    TupleLookupTableBase tuple;
+    ASTNode** storage;
     int_t offset = 0;
     template<typename T>
     constexpr T* allocate(const T& in) {
-        return std::construct_at(static_cast<T*>(tuple.get(offset++)), in);
+        return std::construct_at(static_cast<T*>(storage[offset++]), in);
     }
 };
 
+template<typename T, size_t i>
+struct storage_t {
+    union U {
+        T node;
+        constexpr U() { }
+    } u;
+    constexpr ASTNode* node() { return &u.node; }
+};
+
 template<typename... Types>
-struct FilledTuple : std::tuple<Types...> {
+struct FilledTuple : Types... {
     constexpr FilledTuple(const AST& ast) {
-        TupleLookupTable table(*this);
-        Compressor comp { {}, table };
+        ASTNode* nodes[] = { Types::node()... };
+        Compressor comp { {}, nodes };
         comp.dispatchTransform(ast.currentBlock);
     }
 };
@@ -85,35 +76,33 @@ struct FilledTuple : std::tuple<Types...> {
 // create tuple
 template<NodeKind kind>
 struct NodeKindToType;
-union StmtListEntryNoInit {
-    constexpr StmtListEntryNoInit() { }
-    StmtListEntry s;
-};
 template<>
 struct NodeKindToType<NodeKind {}> {
-    using type = StmtListEntryNoInit;
+    using type = StmtListEntry;
 };
 #define STMT_KIND(S)                     \
-    union S##NoInit {                    \
-        constexpr S##NoInit() { }        \
-        S s;                             \
-    };                                   \
     template<>                           \
     struct NodeKindToType<StmtKind::S> { \
-        using type = S##NoInit;          \
+        using type = S;                  \
     };
 ENUMERATE_STMT_KINDS(STMT_KIND)
 #undef STMT_KIND
 
-template<ResolvedNodes nodes, int_t... I>
-static constexpr auto createTuple_helper(const AST& ast, std::integer_sequence<int_t, I...>) {
-    return FilledTuple<typename NodeKindToType<nodes.nodes[I]>::type...>(ast);
+template<ResolvedNodes nodes, size_t... I>
+static constexpr auto createTuple3(const AST& ast, std::index_sequence<I...>) {
+    return FilledTuple<storage_t<typename NodeKindToType<nodes.nodes[I]>::type, I>...>(ast);
+}
+
+template<typename Holder>
+static constexpr auto createTuple2() {
+    constexpr auto nodes = resolveNodes(Holder::ast);
+    return createTuple3<nodes>(Holder::ast, std::make_index_sequence<nodes.nodeCount>());
 }
 
 template<auto callback>
 static constexpr auto createTuple() {
     constexpr auto nodes = resolveNodes(WrappedAST(callback));
-    return createTuple_helper<nodes>(WrappedAST(callback), std::make_integer_sequence<int_t, nodes.nodeCount>());
+    return createTuple3<nodes>(WrappedAST(callback), std::make_index_sequence<nodes.nodeCount>());
 }
 
 }
