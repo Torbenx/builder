@@ -22,8 +22,11 @@ union StmtStorage {
             VERIFY_NOT_REACHED(ShaderGen);
         }
     }
-    constexpr StmtListEntry* setStmtListEntry(const StmtListEntry& e) {
-        return std::construct_at(&StmtListEntry_, e);
+    constexpr ASTListEntry* setListEntry(const ASTListEntry& e) {
+        return std::construct_at(&ASTListEntry_, e);
+    }
+    constexpr VarDecl* setVarDecl(const VarDecl& decl) {
+        return std::construct_at(&VarDecl_, decl);
     }
 
     constexpr StmtStorage() { }
@@ -46,13 +49,21 @@ struct AST {
     BlockStmt* currentBlock = nullptr;
 
     template<typename T>
-    constexpr T* allocate(const T& stmt) {
+    constexpr T* allocateStmt(const T& stmt) {
         return (T*)storage.pushBack(stmt);
+    }
+    constexpr VarDecl* allocateVarDecl(const VarDecl& decl) {
+        return storage.acquireBack().setVarDecl(decl);
+    }
+    template<typename T>
+    constexpr void pushBackOnList(ASTList<T>& list, T* e) {
+        ASTListEntry* entry = storage.acquireBack().setListEntry({ e });
+        list.pushBack(entry);
     }
 
     constexpr BlockStmt* newBlock() {
-        auto* body = allocate<CompoundStmt>({});
-        auto* block = allocate<BlockStmt>({ body });
+        auto* body = allocateStmt<CompoundStmt>({});
+        auto* block = allocateStmt<BlockStmt>({ body });
         return block;
     }
 
@@ -61,9 +72,10 @@ struct AST {
     constexpr AST(const AST&) = delete;
 
     constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
-        auto* decl = allocate<VarDeclStmt>({ name, type, &currentBlock->declContext });
-        emitStmt(decl);
-        currentBlock->declContext.decls.pushBack(decl);
+        auto* decl = allocateVarDecl({ name, type, &currentBlock->declContext });
+        pushBackOnList(currentBlock->declContext.decls, decl);
+        auto* declStmt = allocateStmt<VarDeclStmt>({ decl });
+        emitStmt(declStmt);
         return { decl };
     }
 
@@ -119,16 +131,15 @@ struct AST {
         AST& ast;
         constexpr Stmt* visitStmt(const Stmt*) {
             VERIFY_NOT_REACHED(ShaderGen);
-            return ast.allocate<Stmt>({});
+            return ast.allocateStmt<Stmt>({});
         }
         constexpr Stmt* visitVarRefExpr(const VarRefExpr* in) {
             BlockStmt* block = ast.currentBlock;
-            while (block && (&block->declContext != in->decl->declContext)) {
+            while (block && (&block->declContext != in->decl->declContext))
                 block = block->parent;
-            }
             VERIFY(ShaderGen, block);
 
-            auto* e = ast.allocate<VarRefExpr>({ in->decl });
+            auto* e = ast.allocateStmt<VarRefExpr>({ in->decl });
             e->type = in->decl->type;
             e->valueKind = ValueKind::LVALUE;
             return e;
@@ -137,7 +148,7 @@ struct AST {
             auto* base = castStmt<Expr>(dispatchVisit(in->base));
             VERIFY(ShaderGen, in->memberIndex < base->type->members.size());
             const MemberInfo& member = base->type->members[in->memberIndex];
-            auto* e = ast.allocate<MemberAccessExpr>({ base, in->memberIndex });
+            auto* e = ast.allocateStmt<MemberAccessExpr>({ base, in->memberIndex });
             e->type = member.type;
             e->valueKind = base->valueKind;
             return e;
@@ -155,7 +166,7 @@ struct AST {
                     hasDuplicates = true;
                 mask |= bit;
             }
-            auto* e = ast.allocate<VectorComponentExpr>({ base, in->componentCount, in->components });
+            auto* e = ast.allocateStmt<VectorComponentExpr>({ base, in->componentCount, in->components });
             e->type = baseType->scalarType->vectorType(in->componentCount);
             e->valueKind = hasDuplicates ? ValueKind::RVALUE : base->valueKind;
             return e;
@@ -167,7 +178,7 @@ struct AST {
                 VERIFY(ShaderGen, type->isLogical);
             else if (isArithmeticOp(in->op))
                 VERIFY(ShaderGen, type->isArithmetic);
-            auto* e = ast.allocate<UnaryOperatorExpr>({ in->op, subExpr });
+            auto* e = ast.allocateStmt<UnaryOperatorExpr>({ in->op, subExpr });
             e->type = type;
             e->valueKind = ValueKind::RVALUE;
             return e;
@@ -179,7 +190,7 @@ struct AST {
             const auto* rType = asVectorType(right->type);
             VERIFY(ShaderGen, lType->scalarType == rType->scalarType);
             VERIFY(ShaderGen, lType->vectorSize == rType->vectorSize);
-            auto* e = ast.allocate<ElementwiseOperatorExpr>({ in->op, left, right });
+            auto* e = ast.allocateStmt<ElementwiseOperatorExpr>({ in->op, left, right });
             if (isComparisonOp(in->op)) {
                 e->type = BoolType.vectorType(lType->vectorSize);
                 if (lType->isLogical)
@@ -202,12 +213,12 @@ struct AST {
             VERIFY(ShaderGen, isArithmeticOp(in->op));
             VERIFY(ShaderGen, vType->scalarType == sType);
             VERIFY(ShaderGen, vType->isArithmetic);
-            auto* e = ast.allocate<VectorByScalarOperatorExpr>({ in->op, vector, scalar, in->isVectorLeft });
+            auto* e = ast.allocateStmt<VectorByScalarOperatorExpr>({ in->op, vector, scalar, in->isVectorLeft });
             e->type = vType;
             return e;
         }
         constexpr Stmt* visitLiteralExpr(const LiteralExpr* in) {
-            auto* e = ast.allocate<LiteralExpr>({ in->literal });
+            auto* e = ast.allocateStmt<LiteralExpr>({ in->literal });
             e->type = in->type;
             e->valueKind = ValueKind::RVALUE;
             return e;
@@ -221,7 +232,7 @@ struct AST {
             check.visit(right);
             MarkInitialized mark;
             mark.visit(left);
-            return ast.allocate<AssignmentStmt>({ left, right });
+            return ast.allocateStmt<AssignmentStmt>({ left, right });
         }
     };
 
@@ -232,8 +243,7 @@ struct AST {
     }
 
     constexpr void emitStmt(Stmt* stmt) {
-        StmtListEntry* entry = storage.acquireBack().setStmtListEntry({ {}, stmt });
-        castStmt<CompoundStmt>(currentBlock->body)->pushBack(entry);
+        pushBackOnList(*castStmt<CompoundStmt>(currentBlock->body), stmt);
     }
 
     constexpr void beginBlock() {
@@ -243,8 +253,7 @@ struct AST {
         currentBlock = newBlock;
     }
     constexpr void endBlock() {
-        currentBlock->declContext.decls.forEachStmt([](const Stmt* stmt) {
-            const auto* decl = castStmt<VarDeclStmt>(stmt);
+        currentBlock->declContext.decls.forEachEntry([](const VarDecl* decl) {
             VERIFY(ShaderGen, decl->usedMask != 0);
         });
         currentBlock = currentBlock->parent;

@@ -165,7 +165,8 @@ static constexpr ScalarType FloatType { "float", true, false };
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
-    callback(StmtListEntry)
+    callback(ASTListEntry)            \
+    callback(VarDecl)
 // clang-format on
 
 struct ASTNode { };
@@ -192,20 +193,22 @@ static constexpr const T* castStmt(const Stmt* stmt) {
     return (const T*)stmt;
 }
 
-// Statement list
-struct StmtListEntry : ASTNode {
-    Stmt* m_stmt;
-    StmtListEntry* next = nullptr;
-    constexpr Stmt* stmt() const { return m_stmt; };
+// AST list
+struct ASTListEntry : ASTNode {
+    constexpr ASTListEntry(ASTNode* node)
+        : node(node) { }
+    ASTNode* node;
+    ASTListEntry* next = nullptr;
 };
-
 template<typename T>
-struct StmtList {
-    T* first = nullptr;
-    T* last = nullptr;
+struct ASTList {
+    ASTListEntry* first = nullptr;
+    ASTListEntry* last = nullptr;
     int_t entryCount = 0;
 
-    constexpr void pushBack(T* newEntry) {
+    constexpr ASTList() = default;
+
+    constexpr void pushBack(ASTListEntry* newEntry) {
         if (last)
             last->next = newEntry;
         else
@@ -219,19 +222,19 @@ struct StmtList {
         entryCount = 0;
     }
     template<typename Callback>
-    constexpr void forEachStmt(Callback&& callback) const {
-        T* entry = first;
+    constexpr void forEachEntry(Callback&& callback) const {
+        ASTListEntry* entry = first;
         while (entry) {
-            callback(entry->stmt());
+            callback((T*)entry->node);
             entry = entry->next;
         }
     };
     template<typename Callback>
-    constexpr void consumeStmts(Callback&& callback) {
-        const T* entry = first;
+    constexpr void consumeEntries(Callback&& callback) {
+        ASTListEntry* entry = first;
         clear();
         while (entry) {
-            callback(entry->stmt());
+            callback((T*)entry->node);
             entry = entry->next;
         }
     }
@@ -253,24 +256,26 @@ struct Expr : Stmt {
 
 // Variables
 struct VarDeclContext;
-struct VarDeclStmt : Stmt {
+struct VarDecl : ASTNode {
     DynamicName name;
     const Type* type;
     VarDeclContext* declContext;
     FixedBitset initMask = 0;
     FixedBitset usedMask = 0;
-    VarDeclStmt* next = nullptr;
-    constexpr VarDeclStmt(DynamicName name, const Type* type, VarDeclContext* declContext)
-        : Stmt(StmtKind::VarDeclStmt), name(name), type(type), declContext(declContext) { }
-    constexpr const VarDeclStmt* stmt() const { return this; }
-    constexpr VarDeclStmt* stmt() { return this; }
+    constexpr VarDecl(DynamicName name, const Type* type, VarDeclContext* declContext)
+        : name(name), type(type), declContext(declContext) { }
+};
+struct VarDeclStmt : Stmt {
+    VarDecl* decl;
+    constexpr VarDeclStmt(VarDecl* decl)
+        : Stmt(StmtKind::VarDeclStmt), decl(decl) { }
 };
 struct VarDeclContext {
-    StmtList<VarDeclStmt> decls;
+    ASTList<VarDecl> decls;
 };
 struct VarRefExpr : Expr {
-    VarDeclStmt* decl;
-    constexpr VarRefExpr(VarDeclStmt* decl)
+    VarDecl* decl;
+    constexpr VarRefExpr(VarDecl* decl)
         : Expr(StmtKind::VarRefExpr), decl(decl) { }
 };
 
@@ -605,7 +610,7 @@ struct LiteralExpr : Expr {
         : Expr(StmtKind::LiteralExpr), literal(literal) { }
 };
 
-struct CompoundStmt : Stmt, StmtList<StmtListEntry> {
+struct CompoundStmt : Stmt, ASTList<Stmt> {
     constexpr CompoundStmt()
         : Stmt(StmtKind::CompoundStmt) { }
 };

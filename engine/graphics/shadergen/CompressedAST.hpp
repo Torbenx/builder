@@ -11,31 +11,47 @@ struct ASTHolder {
 };
 
 // resolve node types
-struct NodeKind {
-    StmtKind kind = StmtKind::Stmt;
-    bool isListStmtEntry = true;
-    constexpr NodeKind() = default;
-    constexpr NodeKind(StmtKind kind)
-        : kind(kind), isListStmtEntry(false) { }
+enum class NodeKind {
+    Unknown,
+    Stmt,
+    ListEntry,
+    VarDecl,
+};
+struct NodeType {
+    NodeKind nodeKind = NodeKind::Unknown;
+    StmtKind stmtKind = StmtKind::Stmt;
+    constexpr NodeType() = default;
+    constexpr NodeType(NodeKind nodeKind)
+        : nodeKind(nodeKind), stmtKind(StmtKind::Stmt) { }
+    constexpr NodeType(StmtKind stmtKind)
+        : nodeKind(NodeKind::Stmt), stmtKind(stmtKind) { }
 };
 
 struct ResolvedNodes {
-    NodeKind nodes[100];
+    NodeType nodes[100];
     int_t nodeCount = 0;
 };
 
 struct NodeResolver : ASTVisitor<NodeResolver> {
     ResolvedNodes nodes;
+    constexpr void allocate(NodeType type) {
+        nodes.nodes[nodes.nodeCount++] = type;
+    }
     constexpr void visitStmt(const Stmt* stmt) {
-        nodes.nodes[nodes.nodeCount++] = stmt->stmtKind;
+        allocate(stmt->stmtKind);
     }
     constexpr void visitCompoundStmt(const CompoundStmt* stmt) {
         visitStmt(stmt);
         // nodes.nodeCount += stmt->entryCount;
-        stmt->forEachStmt([&](const Stmt* stmt) {
+        stmt->forEachEntry([&](const Stmt* stmt) {
             dispatchVisit(stmt);
-            nodes.nodeCount += 1;
+            allocate(NodeKind::ListEntry);
         });
+    }
+    constexpr void visitVarDeclStmt(const VarDeclStmt* stmt) {
+        visitStmt(stmt);
+        allocate(NodeKind::VarDecl);
+        allocate(NodeKind::ListEntry);
     }
 };
 
@@ -50,8 +66,16 @@ struct Compressor : ASTTransform<Compressor> {
     ASTNode** storage;
     int_t offset = 0;
     template<typename T>
-    constexpr T* allocate(const T& in) {
+    constexpr T* allocateStmt(const T& in) {
         return std::construct_at(static_cast<T*>(storage[offset++]), in);
+    }
+    constexpr VarDecl* allocateVarDecl(const VarDecl& in) {
+        return std::construct_at(static_cast<VarDecl*>(storage[offset++]), in);
+    }
+    template<typename T>
+    constexpr void pushBackOnList(ASTList<T>& list, T* in) {
+        auto* entry = std::construct_at(static_cast<ASTListEntry*>(storage[offset++]), ASTListEntry { in });
+        list.pushBack(entry);
     }
 };
 
@@ -74,15 +98,22 @@ struct FilledTuple : Types... {
 };
 
 // create tuple
-template<NodeKind kind>
-struct NodeKindToType;
+template<NodeType type>
+struct NodeTypeLookup;
+
 template<>
-struct NodeKindToType<NodeKind {}> {
-    using type = StmtListEntry;
+struct NodeTypeLookup<NodeKind::ListEntry> {
+    using type = ASTListEntry;
 };
+
+template<>
+struct NodeTypeLookup<NodeKind::VarDecl> {
+    using type = VarDecl;
+};
+
 #define STMT_KIND(S)                     \
     template<>                           \
-    struct NodeKindToType<StmtKind::S> { \
+    struct NodeTypeLookup<StmtKind::S> { \
         using type = S;                  \
     };
 ENUMERATE_STMT_KINDS(STMT_KIND)
@@ -90,7 +121,7 @@ ENUMERATE_STMT_KINDS(STMT_KIND)
 
 template<ResolvedNodes nodes, size_t... I>
 static constexpr auto createTuple3(const AST& ast, std::index_sequence<I...>) {
-    return FilledTuple<storage_t<typename NodeKindToType<nodes.nodes[I]>::type, I>...>(ast);
+    return FilledTuple<storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(ast);
 }
 
 template<typename Holder>

@@ -45,8 +45,8 @@ static constexpr void createAST(WrappedAST& ast) {
 
 void runShadergenTest() {
     static constexpr auto tuple = createTuple<createAST>();
-    //ASTDumper dumper;
-    //dumper.dump(ast.currentBlock);
+    ASTDumper dumper;
+    dumper.dump(WrappedAST(createAST).currentBlock);
 
     /*A aVal;
     aVal.b2.i = 123;

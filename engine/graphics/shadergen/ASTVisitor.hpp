@@ -96,7 +96,7 @@ struct ASTVisitor {
     }
     constexpr RetT visitCompoundStmt(const CompoundStmt* e, Args... args) {
         helper h([&]() {
-            e->forEachStmt([&](const Stmt* stmt) {
+            e->forEachEntry([&](const Stmt* stmt) {
                 impl()->dispatchVisit(stmt, args...);
             });
         });
@@ -147,10 +147,10 @@ struct ASTTransform {
     }
     constexpr void transformVarRefExpr(VarRefExpr* e) {
         BlockStmt* block = currentBlock;
-        VarDeclStmt* oldDecl = e->decl;
-        VarDeclStmt* newDecl = nullptr;
-        while (block) {
-            block->declContext.decls.forEachStmt([&](VarDeclStmt* decl) {
+        VarDecl* oldDecl = e->decl;
+        VarDecl* newDecl = nullptr;
+        while (block && !newDecl) {
+            block->declContext.decls.forEachEntry([&](VarDecl* decl) {
                 if (decl->name == oldDecl->name) {
                     VERIFY(ShaderGen, !newDecl);
                     newDecl = decl;
@@ -183,17 +183,18 @@ struct ASTTransform {
     constexpr void transformLiteralExpr(LiteralExpr* e) {
         impl()->transformExpr(e);
     }
+    constexpr void transformVarDecl(VarDecl* decl) {
+        decl->declContext = &currentBlock->declContext;
+        impl()->pushBackOnList(currentBlock->declContext.decls, decl);
+    }
     constexpr void transformVarDeclStmt(VarDeclStmt* e) {
         impl()->transformStmt(e);
-        e->declContext = &currentBlock->declContext;
-        e->next = nullptr;
-        currentBlock->declContext.decls.pushBack(e);
+        e->decl = impl()->dispatchTransformVarDecl(e->decl);
     }
     constexpr void transformCompoundStmt(CompoundStmt* e) {
         impl()->transformStmt(e);
-        e->consumeStmts([&](const Stmt* stmt) {
-            auto* entry = impl()->allocate(StmtListEntry { {}, impl()->dispatchTransform(stmt) });
-            e->pushBack(entry);
+        e->consumeEntries([&](const Stmt* stmt) {
+            impl()->pushBackOnList(*e, impl()->dispatchTransform(stmt));
         });
     }
     constexpr void transformBlockStmt(BlockStmt* e) {
@@ -217,7 +218,7 @@ struct ASTTransform {
         switch (stmt->stmtKind) {
 #define STMT_KIND(S)                                \
     case StmtKind::S: {                             \
-        S* ret = impl()->allocate(*(const S*)stmt); \
+        S* ret = impl()->allocateStmt(*(const S*)stmt); \
         impl()->transform##S(ret);                  \
         return ret;                                 \
     }
@@ -227,6 +228,11 @@ struct ASTTransform {
         default:
             VERIFY_NOT_REACHED(ShaderGen);
         }
+    }
+    constexpr VarDecl* dispatchTransformVarDecl(const VarDecl* decl) {
+        VarDecl* ret = impl()->allocateVarDecl(*decl);
+        impl()->transformVarDecl(ret);
+        return ret;
     }
 };
 
@@ -289,7 +295,7 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitLiteralExpr(e);
     }
     void visitVarDeclStmt(const VarDeclStmt* e) {
-        info("VarDeclStmt", fmt::format("{}", *e->type), fmt::format("\"{}\"", e->name));
+        info("VarDeclStmt", fmt::format("{}", *e->decl->type), fmt::format("\"{}\"", e->decl->name));
         Base::visitVarDeclStmt(e);
     }
     void visitCompoundStmt(const CompoundStmt* e) {
