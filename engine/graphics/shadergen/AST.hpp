@@ -44,9 +44,10 @@ struct StmtVector {
     }
 };
 
-struct AST {
+struct AST : ASTTransform<AST> {
+    using Base = ASTTransform<AST>;
     StmtVector<100> storage;
-    BlockStmt* currentBlock = nullptr;
+    // BlockStmt* currentBlock = nullptr;
 
     template<typename T>
     constexpr T* allocateStmt(const T& stmt) {
@@ -67,8 +68,9 @@ struct AST {
         return block;
     }
 
-    constexpr AST()
-        : currentBlock(newBlock()) { }
+    constexpr AST() {
+        currentBlock = newBlock();
+    }
     constexpr AST(const AST&) = delete;
 
     constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
@@ -127,118 +129,94 @@ struct AST {
         }
     };
 
-    struct StmtBuilder : ASTVisitor<StmtBuilder, Stmt*> {
-        AST& ast;
-        constexpr Stmt* visitStmt(const Stmt*) {
-            VERIFY_NOT_REACHED(ShaderGen);
-            return ast.allocateStmt<Stmt>({});
-        }
-        constexpr Stmt* visitVarRefExpr(const VarRefExpr* in) {
-            BlockStmt* block = ast.currentBlock;
-            while (block && (&block->declContext != in->decl->declContext))
-                block = block->parent;
-            VERIFY(ShaderGen, block);
+    constexpr void transformVarRefExpr(VarRefExpr* e) {
+        BlockStmt* block = currentBlock;
+        while (block && (&block->declContext != e->decl->declContext))
+            block = block->parent;
+        VERIFY(ShaderGen, block);
 
-            auto* e = ast.allocateStmt<VarRefExpr>({ in->decl });
-            e->type = in->decl->type;
-            e->valueKind = ValueKind::LVALUE;
-            return e;
+        e->type = e->decl->type;
+        e->valueKind = ValueKind::LVALUE;
+    }
+    constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
+        Base::transformMemberAccessExpr(e);
+        VERIFY(ShaderGen, e->memberIndex < e->base->type->members.size());
+        const MemberInfo& member = e->base->type->members[e->memberIndex];
+        e->type = member.type;
+        e->valueKind = e->base->valueKind;
+    }
+    constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
+        Base::transformVectorComponentExpr(e);
+        const auto* baseType = asVectorType(e->base->type);
+        VERIFY(ShaderGen, !baseType->isScalar);
+        size_t mask = 0;
+        bool hasDuplicates = false;
+        for (int_t i = 0; i < e->componentCount; i++) {
+            VERIFY(ShaderGen, e->components[i] < baseType->vectorSize);
+            size_t bit = (size_t)1 << e->components[i];
+            if (mask & bit)
+                hasDuplicates = true;
+            mask |= bit;
         }
-        constexpr Stmt* visitMemberAccessExpr(const MemberAccessExpr* in) {
-            auto* base = castStmt<Expr>(dispatchVisit(in->base));
-            VERIFY(ShaderGen, in->memberIndex < base->type->members.size());
-            const MemberInfo& member = base->type->members[in->memberIndex];
-            auto* e = ast.allocateStmt<MemberAccessExpr>({ base, in->memberIndex });
-            e->type = member.type;
-            e->valueKind = base->valueKind;
-            return e;
+        e->type = baseType->scalarType->vectorType(e->componentCount);
+        e->valueKind = hasDuplicates ? ValueKind::RVALUE : e->base->valueKind;
+    }
+    constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
+        Base::transformUnaryOperatorExpr(e);
+        const auto* type = asVectorType(e->subExpr->type);
+        if (isLogicalOp(e->op))
+            VERIFY(ShaderGen, type->isLogical);
+        else if (isArithmeticOp(e->op))
+            VERIFY(ShaderGen, type->isArithmetic);
+        e->type = type;
+        e->valueKind = ValueKind::RVALUE;
+    }
+    constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {
+        Base::transformElementwiseOperatorExpr(e);
+        const auto* lType = asVectorType(e->left->type);
+        const auto* rType = asVectorType(e->right->type);
+        VERIFY(ShaderGen, lType->scalarType == rType->scalarType);
+        VERIFY(ShaderGen, lType->vectorSize == rType->vectorSize);
+        if (isComparisonOp(e->op)) {
+            e->type = BoolType.vectorType(lType->vectorSize);
+            if (lType->isLogical)
+                VERIFY(ShaderGen, e->op == BinaryOperator::CMP_EQ || e->op == BinaryOperator::CMP_NE);
+        } else {
+            e->type = lType;
+            if (isLogicalOp(e->op))
+                VERIFY(ShaderGen, lType->isLogical);
+            else if (isArithmeticOp(e->op))
+                VERIFY(ShaderGen, lType->isArithmetic);
         }
-        constexpr Stmt* visitVectorComponentExpr(const VectorComponentExpr* in) {
-            auto* base = castStmt<Expr>(dispatchVisit(in->base));
-            const auto* baseType = asVectorType(base->type);
-            VERIFY(ShaderGen, !baseType->isScalar);
-            size_t mask = 0;
-            bool hasDuplicates = false;
-            for (int_t i = 0; i < in->componentCount; i++) {
-                VERIFY(ShaderGen, in->components[i] < baseType->vectorSize);
-                size_t bit = (size_t)1 << in->components[i];
-                if (mask & bit)
-                    hasDuplicates = true;
-                mask |= bit;
-            }
-            auto* e = ast.allocateStmt<VectorComponentExpr>({ base, in->componentCount, in->components });
-            e->type = baseType->scalarType->vectorType(in->componentCount);
-            e->valueKind = hasDuplicates ? ValueKind::RVALUE : base->valueKind;
-            return e;
-        }
-        constexpr Stmt* visitUnaryOperatorExpr(const UnaryOperatorExpr* in) {
-            auto* subExpr = castStmt<Expr>(dispatchVisit(in->subExpr));
-            const auto* type = asVectorType(subExpr->type);
-            if (isLogicalOp(in->op))
-                VERIFY(ShaderGen, type->isLogical);
-            else if (isArithmeticOp(in->op))
-                VERIFY(ShaderGen, type->isArithmetic);
-            auto* e = ast.allocateStmt<UnaryOperatorExpr>({ in->op, subExpr });
-            e->type = type;
-            e->valueKind = ValueKind::RVALUE;
-            return e;
-        }
-        constexpr Stmt* visitElementwiseOperatorExpr(const ElementwiseOperatorExpr* in) {
-            auto* left = castStmt<Expr>(dispatchVisit(in->left));
-            auto* right = castStmt<Expr>(dispatchVisit(in->right));
-            const auto* lType = asVectorType(left->type);
-            const auto* rType = asVectorType(right->type);
-            VERIFY(ShaderGen, lType->scalarType == rType->scalarType);
-            VERIFY(ShaderGen, lType->vectorSize == rType->vectorSize);
-            auto* e = ast.allocateStmt<ElementwiseOperatorExpr>({ in->op, left, right });
-            if (isComparisonOp(in->op)) {
-                e->type = BoolType.vectorType(lType->vectorSize);
-                if (lType->isLogical)
-                    VERIFY(ShaderGen, in->op == BinaryOperator::CMP_EQ || in->op == BinaryOperator::CMP_NE);
-            } else {
-                e->type = lType;
-                if (isLogicalOp(in->op))
-                    VERIFY(ShaderGen, lType->isLogical);
-                else if (isArithmeticOp(in->op))
-                    VERIFY(ShaderGen, lType->isArithmetic);
-            }
-            e->valueKind = ValueKind::RVALUE;
-            return e;
-        }
-        constexpr Stmt* visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr* in) {
-            auto* vector = castStmt<Expr>(dispatchVisit(in->vector));
-            auto* scalar = castStmt<Expr>(dispatchVisit(in->scalar));
-            const auto* vType = asVectorType(vector->type);
-            const auto* sType = asScalarType(scalar->type);
-            VERIFY(ShaderGen, isArithmeticOp(in->op));
-            VERIFY(ShaderGen, vType->scalarType == sType);
-            VERIFY(ShaderGen, vType->isArithmetic);
-            auto* e = ast.allocateStmt<VectorByScalarOperatorExpr>({ in->op, vector, scalar, in->isVectorLeft });
-            e->type = vType;
-            return e;
-        }
-        constexpr Stmt* visitLiteralExpr(const LiteralExpr* in) {
-            auto* e = ast.allocateStmt<LiteralExpr>({ in->literal });
-            e->type = in->type;
-            e->valueKind = ValueKind::RVALUE;
-            return e;
-        }
-        constexpr Stmt* visitAssignmentStmt(const AssignmentStmt* in) {
-            auto* left = castStmt<Expr>(dispatchVisit(in->left));
-            auto* right = castStmt<Expr>(dispatchVisit(in->right));
-            VERIFY(ShaderGen, left->type == right->type);
-            VERIFY(ShaderGen, left->valueKind == ValueKind::LVALUE);
-            CheckInitialized check;
-            check.visit(right);
-            MarkInitialized mark;
-            mark.visit(left);
-            return ast.allocateStmt<AssignmentStmt>({ left, right });
-        }
-    };
+        e->valueKind = ValueKind::RVALUE;
+    }
+    constexpr void transformVectorByScalarOperatorExpr(VectorByScalarOperatorExpr* e) {
+        Base::transformVectorByScalarOperatorExpr(e);
+        const auto* vType = asVectorType(e->vector->type);
+        const auto* sType = asScalarType(e->scalar->type);
+        VERIFY(ShaderGen, isArithmeticOp(e->op));
+        VERIFY(ShaderGen, vType->scalarType == sType);
+        VERIFY(ShaderGen, vType->isArithmetic);
+        e->type = vType;
+        e->valueKind = ValueKind::RVALUE;
+    }
+    constexpr void transformLiteralExpr(LiteralExpr* e) {
+        Base::transformLiteralExpr(e);
+        e->type = e->type;
+        e->valueKind = ValueKind::RVALUE;
+    }
+    constexpr void transformAssignmentStmt(AssignmentStmt* e) {
+        Base::transformAssignmentStmt(e);
+        VERIFY(ShaderGen, e->left->type == e->right->type);
+        VERIFY(ShaderGen, e->left->valueKind == ValueKind::LVALUE);
+        CheckInitialized check;
+        check.visit(e->right);
+        MarkInitialized mark;
+        mark.visit(e->left);
+    }
 
     constexpr void buildStmt(const Stmt* in) {
-        StmtBuilder builder { {}, *this };
-        Stmt* stmt = builder.dispatchVisit(in);
+        Stmt* stmt = dispatchTransform(in);
         emitStmt(stmt);
     }
 
