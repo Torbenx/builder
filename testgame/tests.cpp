@@ -28,15 +28,13 @@ static constexpr void createAST(BuildDriver& ast) {
     auto res = ast.declareVector("res", BoolType.vectorType(4));
 
     ast.beginBlock();
-    auto lit1 = wrapped<LiteralExpr, void>({ {} });
-    lit1.type = &FloatType;
-    auto lit2 = wrapped<LiteralExpr, vec_t>({ {} });
-    lit2.type = FloatType.vectorType(2);
-    ast, foo = lit1;
-    ast, bar.xz() = lit2;
-    ast, bar.yw() = lit2;
+    auto lit = constant(1.0f, 2.0f);
+    ast, foo = constant(1.0f);
+    ast, bar.xz() = lit;
+    ast, bar.yw() = lit;
+    ast, bar.x = floor(foo);
     ast, baz = bar;
-    ast, res = !(foo * foo + bar < bar + baz);
+    ast, res = !(foo * foo + bar < bar + baz) || constant(true, false, false, true);
     ast, res = res;
     ast.endBlock();
 
@@ -44,11 +42,13 @@ static constexpr void createAST(BuildDriver& ast) {
 }
 
 void runShadergenTest() {
-    static constexpr auto tuple = createTuple<createAST>();
-    static constexpr auto ast = BuildDriver(createAST);
     ASTDumper dumper;
+
+    // static constexpr auto tuple = createTuple<createAST>();
+    // dumper.dump(tuple.root);
+
+    static constexpr auto ast = BuildDriver(createAST);
     dumper.dump(ast.builder.currentBlock);
-    dumper.dump(tuple.root);
 
     /*A aVal;
     aVal.b2.i = 123;

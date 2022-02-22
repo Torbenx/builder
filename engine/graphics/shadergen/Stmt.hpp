@@ -3,6 +3,7 @@
 #include "containers/ArrayView.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
+#include <array>
 #include <string_view>
 
 namespace Tag {
@@ -117,6 +118,17 @@ static constexpr ScalarType BoolType { "bool", false, true };
 static constexpr ScalarType IntType { "int", true, false };
 static constexpr ScalarType FloatType { "float", true, false };
 
+template<typename T>
+struct ScalarTypeFromCXX_v;
+template<>
+struct ScalarTypeFromCXX_v<bool> { static constexpr const ScalarType* type = &BoolType; };
+template<>
+struct ScalarTypeFromCXX_v<int> { static constexpr const ScalarType* type = &IntType; };
+template<>
+struct ScalarTypeFromCXX_v<float> { static constexpr const ScalarType* type = &FloatType; };
+template<typename T>
+static constexpr const ScalarType* scalarTypeFromCXX = ScalarTypeFromCXX_v<T>::type;
+
 // Statements
 // clang-format off
 #define ENUMERATE_STMT_KINDS(callback)   \
@@ -132,7 +144,8 @@ static constexpr ScalarType FloatType { "float", true, false };
     callback(BlockStmt)                  \
     callback(LiteralExpr)                \
     callback(AssignmentStmt)             \
-    callback(VectorComponentExpr)
+    callback(VectorComponentExpr)        \
+    callback(CallExpr)
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
@@ -166,47 +179,85 @@ static constexpr const T* castStmt(const Stmt* stmt) {
 
 // AST list
 struct ASTListEntry : ASTNode {
-    constexpr ASTListEntry(ASTNode* node)
+    constexpr ASTListEntry(const ASTNode* node)
         : node(node) { }
-    ASTNode* node;
+    const ASTNode* node;
     ASTListEntry* next = nullptr;
 };
 template<typename T>
 struct ASTList {
-    ASTListEntry* first = nullptr;
-    ASTListEntry* last = nullptr;
+    bool isLinked = true;
+    struct Array {
+        T** begin;
+        int_t capacity;
+    };
+    struct Linked {
+        ASTListEntry* first = nullptr;
+        ASTListEntry* last = nullptr;
+    };
+    union {
+        Linked linked {};
+        Array array;
+    };
     int_t entryCount = 0;
 
-    constexpr ASTList() = default;
-
     constexpr void pushBack(ASTListEntry* newEntry) {
-        if (last)
-            last->next = newEntry;
+        if (linked.last)
+            linked.last->next = newEntry;
         else
-            first = newEntry;
-        last = newEntry;
+            linked.first = newEntry;
+        linked.last = newEntry;
+        entryCount += 1;
+    }
+    constexpr void pushBack(T* item) {
+        VERIFY(ShaderGen, entryCount < array.capacity);
+        array.begin[entryCount] = item;
         entryCount += 1;
     }
     constexpr void clear() {
-        first = nullptr;
-        last = nullptr;
+        isLinked = true;
+        std::construct_at(&linked, Linked { nullptr, nullptr });
         entryCount = 0;
+    }
+    constexpr void initArray(T** begin, int_t cap) {
+        isLinked = false;
+        std::construct_at(&array, Array { begin, cap });
+        entryCount = 0;
+    }
+    constexpr void setArray(T** begin, int_t size) {
+        initArray(begin, size);
+        entryCount = size;
     }
     template<typename Callback>
     constexpr void forEachEntry(Callback&& callback) const {
-        ASTListEntry* entry = first;
-        while (entry) {
-            callback((T*)entry->node);
-            entry = entry->next;
+        if (isLinked) {
+            ASTListEntry* entry = linked.first;
+            while (entry) {
+                callback((T*)entry->node);
+                entry = entry->next;
+            }
+        } else {
+            for (int_t i = 0; i < entryCount; i++) {
+                callback(array.begin[i]);
+            }
         }
     };
     template<typename Callback>
     constexpr void consumeEntries(Callback&& callback) {
-        ASTListEntry* entry = first;
-        clear();
-        while (entry) {
-            callback((T*)entry->node);
-            entry = entry->next;
+        if (isLinked) {
+            ASTListEntry* entry = linked.first;
+            clear();
+            while (entry) {
+                callback((T*)entry->node);
+                entry = entry->next;
+            }
+        } else {
+            T** begin = array.begin;
+            int_t count = entryCount;
+            clear();
+            for (int_t i = 0; i < count; i++) {
+                callback(begin[i]);
+            }
         }
     }
 };
@@ -573,20 +624,42 @@ union LiteralStorage {
     float floats[4];
 
     constexpr LiteralStorage() { }
+    template<int_t N>
+    constexpr LiteralStorage(const bool (&in)[N])
+        : bools() { std::copy_n(in, N, bools); }
+    template<int_t N>
+    constexpr LiteralStorage(const int (&in)[N])
+        : ints() { std::copy_n(in, N, ints); }
+    template<int_t N>
+    constexpr LiteralStorage(const float (&in)[N])
+        : floats() { std::copy_n(in, N, floats); }
 };
 struct LiteralExpr : Expr {
     LiteralStorage literal;
 
-    constexpr LiteralExpr(LiteralStorage literal)
-        : Expr(StmtKind::LiteralExpr), literal(literal) { }
+    constexpr LiteralExpr(const Type* type, LiteralStorage literal)
+        : Expr(StmtKind::LiteralExpr), literal(literal) {
+        this->type = type;
+    }
 };
 
+namespace code {
+    template<typename T>
+    constexpr wrapped<LiteralExpr, void> constant(T p) { return { { scalarTypeFromCXX<T>, { { p } } } }; }
+    template<typename T>
+    constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2) { return { { scalarTypeFromCXX<T>->vectorType(2), { { p1, p2 } } } }; }
+    template<typename T>
+    constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2, T p3) { return { { scalarTypeFromCXX<T>->vectorType(3), { { p1, p2, p3 } } } }; }
+    template<typename T>
+    constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2, T p3, T p4) { return { { scalarTypeFromCXX<T>->vectorType(4), { { p1, p2, p3, p4 } } } }; }
+};
+
+// Block statement
 struct CompoundStmt : Stmt, ASTList<Stmt> {
     constexpr CompoundStmt()
         : Stmt(StmtKind::CompoundStmt) { }
 };
 
-// Block statement
 struct BlockStmt : Stmt {
     BlockStmt* parent = nullptr;
     Stmt* body;
@@ -594,5 +667,89 @@ struct BlockStmt : Stmt {
     constexpr BlockStmt(Stmt* body)
         : Stmt(StmtKind::BlockStmt), body(body) { }
 };
+
+// Functions
+struct FunctionParameter {
+    bool isDynamic;
+    struct DynamicParameter {
+        const ScalarType* scalarType;
+    };
+    struct FixedParameter {
+        const Type* type;
+    };
+    union {
+        DynamicParameter dynamic;
+        FixedParameter fixed;
+    };
+    static constexpr FunctionParameter makeFixed(const Type* type) {
+        return { .isDynamic = false, .fixed = { type } };
+    }
+    static constexpr FunctionParameter makeDynamic(const ScalarType* baseType) {
+        return { .isDynamic = true, .dynamic = { baseType } };
+    }
+};
+struct Function {
+    bool isGroup;
+    std::string_view name;
+    constexpr Function(bool isGroup, std::string_view name)
+        : isGroup(isGroup), name(name) { }
+};
+struct FunctionGroup;
+struct FunctionInstance : Function {
+    const FunctionGroup* group = nullptr;
+    ArrayView<const FunctionParameter> parameters;
+    FunctionParameter returnType;
+    bool dynamicScalarAllowed = false;
+    constexpr FunctionInstance(std::string_view name, ArrayView<const FunctionParameter> parameters, FunctionParameter returnType, bool dynamicScalarAllowed = false)
+        : Function(false, name), parameters(parameters), returnType(returnType), dynamicScalarAllowed(dynamicScalarAllowed) { }
+};
+template<int_t N>
+struct BuiltinFunctionInstance : FunctionInstance {
+    FunctionParameter parms[N];
+    constexpr BuiltinFunctionInstance(std::string_view name, const FunctionParameter (&parameters)[N], FunctionParameter returnType, bool dynamicScalarAllowed = false)
+        : FunctionInstance(name, parms, returnType, dynamicScalarAllowed) {
+        std::copy_n(parameters, N, parms);
+    }
+};
+struct FunctionGroup : Function {
+    ArrayView<const FunctionInstance*> instances;
+    constexpr FunctionGroup(std::string_view name)
+        : Function(true, name) { }
+};
+static constexpr const FunctionInstance* asFunctionInstance(const Function* func) {
+    return (const FunctionInstance*)func;
+}
+static constexpr const FunctionGroup* asFunctionGroup(const Function* func) {
+    return (const FunctionGroup*)func;
+}
+
+struct CallExpr : Expr {
+    const Function* function;
+    ASTList<const Expr> arguments;
+    constexpr CallExpr(const Function* function)
+        : Expr(StmtKind::CallExpr), function(function) { }
+};
+template<int_t N>
+struct UnresolvedCall : CallExpr {
+    const Expr* argumentStorage[N];
+    constexpr UnresolvedCall(const Function* function, std::array<const Expr*, N> args)
+        : CallExpr(function) {
+        std::copy_n(args.data(), N, argumentStorage);
+        arguments.setArray(argumentStorage, N);
+    }
+    constexpr UnresolvedCall(const UnresolvedCall& other)
+        : CallExpr(other.function) {
+        std::copy_n(other.argumentStorage, N, argumentStorage);
+        arguments.setArray(argumentStorage, N);
+    }
+};
+
+static constexpr BuiltinFunctionInstance funcFloorVector { "floor", { FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&FloatType) };
+static constexpr BuiltinFunctionInstance funcFloorScalar { "floor", { FunctionParameter::makeFixed(&FloatType) }, FunctionParameter::makeFixed(&FloatType) };
+
+namespace code {
+    constexpr wrapped<UnresolvedCall<1>, vec_t> floor(const wrapped_base<vec_t>& arg) { return { { &funcFloorVector, { arg.wrappedExpr } } }; }
+    constexpr wrapped<UnresolvedCall<1>, void> floor(const wrapped_base<void>& arg) { return { { &funcFloorScalar, { arg.wrappedExpr } } }; }
+}
 
 }

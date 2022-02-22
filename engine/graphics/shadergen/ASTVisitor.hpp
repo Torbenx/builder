@@ -108,6 +108,14 @@ struct ASTVisitor {
         });
         return impl()->visitExpr(e, args...);
     }
+    constexpr RetT visitCallExpr(const CallExpr* e, Args... args) {
+        helper h([&]() {
+            e->arguments.forEachEntry([&](const Expr* expr) {
+                impl()->dispatchVisit(expr, args...);
+            });
+        });
+        return impl()->visitExpr(e, args...);
+    }
 
     constexpr RetT dispatchVisit(const Stmt* stmt, Args... args) {
         switch (stmt->stmtKind) {
@@ -206,14 +214,20 @@ struct ASTTransform {
         impl()->transformExpr(e);
         e->base = castStmt<Expr>(impl()->dispatchTransform(e->base));
     }
+    constexpr void transformCallExpr(CallExpr* e) {
+        impl()->transformExpr(e);
+        e->arguments.consumeEntries([&](const Expr* expr) {
+            storage->pushBackOnList(e->arguments, castStmt<const Expr>(impl()->dispatchTransform(expr)));
+        });
+    }
 
     constexpr Stmt* dispatchTransform(const Stmt* stmt) {
         switch (stmt->stmtKind) {
-#define STMT_KIND(S)                                    \
-    case StmtKind::S: {                                 \
+#define STMT_KIND(S)                                     \
+    case StmtKind::S: {                                  \
         S* ret = storage->allocateStmt(*(const S*)stmt); \
-        impl()->transform##S(ret);                      \
-        return ret;                                     \
+        impl()->transform##S(ret);                       \
+        return ret;                                      \
     }
 
             ENUMERATE_STMT_KINDS(STMT_KIND)
@@ -284,7 +298,21 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitAssignmentStmt(e);
     }
     void visitLiteralExpr(const LiteralExpr* e) {
-        info("LiteralExpr");
+        std::stringstream literal;
+        literal << "{";
+        const auto* vType = asVectorType(e->type);
+        if (vType->scalarType == &BoolType) {
+            for (int_t i = 0; i < vType->vectorSize; i++)
+                literal << fmt::format("{:,^{}} {}", "", (int)(i > 0), e->literal.bools[i]);
+        } else if (vType->scalarType == &IntType) {
+            for (int_t i = 0; i < vType->vectorSize; i++)
+                literal << fmt::format("{:,^{}} {}", "", (int)(i > 0), e->literal.ints[i]);
+        } else if (vType->scalarType == &FloatType) {
+            for (int_t i = 0; i < vType->vectorSize; i++)
+                literal << fmt::format("{:,^{}} {:.2f}", "", (int)(i > 0), e->literal.floats[i]);
+        }
+        literal << " }";
+        info("LiteralExpr", literal.str());
         Base::visitLiteralExpr(e);
     }
     void visitVarDeclStmt(const VarDeclStmt* e) {
@@ -317,6 +345,10 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
             info("VectorComponentExpr", ss.str());
         }
         Base::visitVectorComponentExpr(e);
+    }
+    void visitCallExpr(const CallExpr* e) {
+        info("CallExpr", fmt::format("\"{}\"", e->function->name), fmt::format("({} arguments)", e->arguments.entryCount));
+        Base::visitCallExpr(e);
     }
 
     void dispatchVisit(const Stmt* e) {

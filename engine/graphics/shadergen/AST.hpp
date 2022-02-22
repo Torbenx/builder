@@ -198,6 +198,73 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         MarkInitialized mark;
         mark.visit(e->left);
     }
+    struct MatchFunctionResult {
+        bool match;
+        int_t dynamicSize;
+    };
+    static constexpr MatchFunctionResult matchFunctionInstance(ASTList<const Expr>& arguments, const FunctionInstance* func) {
+        if (arguments.entryCount != func->parameters.size())
+            return { false, 0 };
+        int_t dynamicSize = 0;
+        int_t i = 0;
+        bool isMatch = true;
+        arguments.forEachEntry([&](const Expr* arg) {
+            const FunctionParameter& parm = func->parameters[i++];
+            if (!parm.isDynamic) {
+                if (arg->type != parm.fixed.type)
+                    isMatch = false;
+                return;
+            }
+            if (!arg->type->isVector) {
+                isMatch = false;
+                return;
+            }
+            const auto* vType = asVectorType(arg->type);
+            if (vType->scalarType != parm.dynamic.scalarType) {
+                isMatch = false;
+                return;
+            }
+            if (dynamicSize == 0) {
+                dynamicSize = vType->vectorSize;
+                return;
+            }
+            if (dynamicSize == vType->vectorSize)
+                return;
+            isMatch = false;
+        });
+        if (dynamicSize == 1 && !func->dynamicScalarAllowed)
+            isMatch = false;
+        return { isMatch, dynamicSize };
+    }
+    constexpr void transformCallExpr(CallExpr* e) {
+        Base::transformCallExpr(e);
+        e->valueKind = ValueKind::RVALUE;
+        const FunctionInstance* func = nullptr;
+        int_t dynamicSize = 0;
+        if (!e->function->isGroup) {
+            func =  asFunctionInstance(e->function);
+            auto [match, dynSize] = matchFunctionInstance(e->arguments, func);
+            VERIFY(ShaderGen, match);
+            dynamicSize = dynSize;
+        } else {
+            const auto* group = asFunctionGroup(e->function);
+            for (int_t i = 0; i < group->instances.size(); i++) {
+                const FunctionInstance* inst = group->instances[i];
+                auto [match, dynSize] = matchFunctionInstance(e->arguments, inst);
+                if (!match)
+                    continue;
+                VERIFY(ShaderGen, func == nullptr);
+                func = inst;
+                dynamicSize = dynSize;
+            }
+            VERIFY(ShaderGen, func != nullptr);
+        }
+        e->function = func;
+        if (func->returnType.isDynamic)
+            e->type = func->returnType.dynamic.scalarType->vectorType(dynamicSize);
+        else
+            e->type = func->returnType.fixed.type;
+    }
 };
 
 // Driver
