@@ -31,7 +31,7 @@ static constexpr void createAST(BuildDriver& ast) {
     auto lit = constant(1.0f, 2.0f);
     ast, foo = constant(1.0f);
     ast, bar.xz() = lit;
-    ast, bar.yw() = lit;
+    ast, bar.ywz() = lit;
     ast, bar.x = floor(foo);
     ast, baz = bar;
     ast, res = !(foo * foo + bar < bar + baz) || constant(true, false, false, true);

@@ -145,7 +145,9 @@ static constexpr const ScalarType* scalarTypeFromCXX = ScalarTypeFromCXX_v<T>::t
     callback(LiteralExpr)                \
     callback(AssignmentStmt)             \
     callback(VectorComponentExpr)        \
-    callback(CallExpr)
+    callback(CallExpr)                   \
+    callback(ErrorExpr)                  \
+    callback(ErrorStmt)
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
@@ -274,6 +276,24 @@ struct Expr : Stmt {
     ValueKind valueKind = ValueKind::UNKNOWN;
     constexpr Expr(StmtKind kind)
         : Stmt(kind) { }
+};
+
+// Errors
+struct ErrorNode {
+    std::string_view message;
+
+    constexpr bool hasError() { return !message.empty(); }
+    constexpr void clear() { message = {}; }
+};
+struct ErrorStmt : Stmt, ErrorNode {
+    Stmt* subStmt = nullptr;
+    constexpr ErrorStmt(const ErrorNode& error)
+        : Stmt(StmtKind::ErrorStmt), ErrorNode(error) { }
+};
+struct ErrorExpr : Expr, ErrorNode {
+    Expr* subExpr = nullptr;
+    constexpr ErrorExpr(const ErrorNode& error)
+        : Expr(StmtKind::ErrorExpr), ErrorNode(error) { }
 };
 
 // Variables

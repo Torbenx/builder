@@ -25,6 +25,19 @@ struct fmt::formatter<shadergen::Type> {
 
 namespace shadergen {
 
+static constexpr bool isExpr(const Stmt* stmt) {
+#define STMT_KIND(S)  \
+    case StmtKind::S: \
+        return std::derived_from<S, Expr>;
+
+    switch (stmt->stmtKind) {
+        ENUMERATE_STMT_KINDS(STMT_KIND)
+    default:
+        return false;
+    }
+#undef STMT_KIND
+}
+
 // AST visitor
 template<typename Impl, typename RetT = void, typename... Args>
 struct ASTVisitor {
@@ -115,6 +128,12 @@ struct ASTVisitor {
             });
         });
         return impl()->visitExpr(e, args...);
+    }
+    constexpr RetT visitErrorStmt(const ErrorStmt* e, Args... args) {
+        return impl()->dispatchVisit(e->subStmt, args...);
+    }
+    constexpr RetT visitErrorExpr(const ErrorExpr* e, Args... args) {
+        return impl()->dispatchVisit(e->subExpr, args...);
     }
 
     constexpr RetT dispatchVisit(const Stmt* stmt, Args... args) {
@@ -219,6 +238,14 @@ struct ASTTransform {
         e->arguments.consumeEntries([&](const Expr* expr) {
             storage->pushBackOnList(e->arguments, castStmt<const Expr>(impl()->dispatchTransform(expr)));
         });
+    }
+    constexpr void transformErrorStmt(ErrorStmt* e) {
+        impl()->transformStmt(e);
+        e->subStmt = impl()->dispatchTransform(e->subStmt);
+    }
+    constexpr void transformErrorExpr(ErrorExpr* e) {
+        impl()->transformExpr(e);
+        e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
     }
 
     constexpr Stmt* dispatchTransform(const Stmt* stmt) {
@@ -349,6 +376,21 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
     void visitCallExpr(const CallExpr* e) {
         info("CallExpr", fmt::format("\"{}\"", e->function->name), fmt::format("({} arguments)", e->arguments.entryCount));
         Base::visitCallExpr(e);
+    }
+    void visitErrorNode(const ErrorNode* e) {
+        info("ErrorNode", fmt::format("!!! {} !!!", e->message));
+    }
+    void visitErrorStmt(const ErrorStmt* e) {
+        info("ErrorStmt");
+        visitErrorNode(e);
+        visitStmt(e);
+        dispatchVisit(e->subStmt);
+    }
+    void visitErrorExpr(const ErrorExpr* e) {
+        info("ErrorExpr");
+        visitErrorNode(e);
+        visitExpr(e);
+        dispatchVisit(e->subExpr);
     }
 
     void dispatchVisit(const Stmt* e) {

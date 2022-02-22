@@ -11,16 +11,16 @@ union ASTNodeStorage {
 #undef AST_NODE
 
     constexpr Stmt* setStmt(const Stmt& s) {
-        switch (s.stmtKind) {
 #define STMT_KIND(S)  \
     case StmtKind::S: \
         return std::construct_at(&(S##_), (const S&)s);
 
+        switch (s.stmtKind) {
             ENUMERATE_STMT_KINDS(STMT_KIND)
-#undef STMT_KIND
         default:
             VERIFY_NOT_REACHED(ShaderGen);
         }
+#undef STMT_KIND
     }
     constexpr ASTListEntry* setListEntry(const ASTListEntry& e) {
         return std::construct_at(&ASTListEntry_, e);
@@ -32,10 +32,12 @@ union ASTNodeStorage {
     constexpr ASTNodeStorage() { }
 };
 
-template<int_t N>
+template<int_t N, int_t S>
 struct BasicASTStorage {
     ASTNodeStorage storage[N];
+    char messageBuffer[S] = {};
     int_t size = 0;
+    int_t messageBufferOffset = 0;
     constexpr ASTNodeStorage& acquireBack() {
         return storage[size++];
     }
@@ -50,6 +52,12 @@ struct BasicASTStorage {
     constexpr void pushBackOnList(ASTList<T>& list, T* e) {
         ASTListEntry* entry = acquireBack().setListEntry({ e });
         list.pushBack(entry);
+    }
+
+    constexpr char* stringPos() { return &messageBuffer[messageBufferOffset]; }
+    constexpr void pushBackString(std::string_view str) {
+        std::copy_n(str.data(), str.size(), stringPos());
+        messageBufferOffset += str.size();
     }
 
     constexpr BasicASTStorage() = default;
@@ -113,18 +121,38 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         }
     };
 
+    ErrorNode currentError;
+    template<typename... Args>
+    constexpr std::string_view makeMessage(Args&&... args) {
+        const char* begin = this->storage->stringPos();
+        (this->storage->pushBackString(args), ...);
+        const char* end = this->storage->stringPos();
+        return { begin, (size_t)(end - begin) };
+    }
+    template<typename... Args>
+    constexpr void error(Args&&... args) {
+        if (currentError.hasError())
+            return;
+        currentError.message = makeMessage(std::forward<Args>(args)...);
+    }
+#define CHECK(cond, ...)        \
+    {                           \
+        if (!(cond))            \
+            error(__VA_ARGS__); \
+    }
+
     constexpr void transformVarRefExpr(VarRefExpr* e) {
         BlockStmt* block = this->currentBlock;
         while (block && (&block->declContext != e->decl->declContext))
             block = block->parent;
-        VERIFY(ShaderGen, block);
+        CHECK(block, "variable \"", e->decl->name, "\" not found")
 
         e->type = e->decl->type;
         e->valueKind = ValueKind::LVALUE;
     }
     constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
         Base::transformMemberAccessExpr(e);
-        VERIFY(ShaderGen, e->memberIndex < e->base->type->members.size());
+        CHECK(e->memberIndex < e->base->type->members.size(), "member index out of range")
         const MemberInfo& member = e->base->type->members[e->memberIndex];
         e->type = member.type;
         e->valueKind = e->base->valueKind;
@@ -132,7 +160,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
         Base::transformVectorComponentExpr(e);
         const auto* baseType = asVectorType(e->base->type);
-        VERIFY(ShaderGen, !baseType->isScalar);
+        CHECK(!baseType->isScalar, "taking vector components of scalar")
         size_t mask = 0;
         bool hasDuplicates = false;
         for (int_t i = 0; i < e->componentCount; i++) {
@@ -149,9 +177,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         Base::transformUnaryOperatorExpr(e);
         const auto* type = asVectorType(e->subExpr->type);
         if (isLogicalOp(e->op))
-            VERIFY(ShaderGen, type->isLogical);
+            CHECK(type->isLogical, "logical operation requires boolean")
         else if (isArithmeticOp(e->op))
-            VERIFY(ShaderGen, type->isArithmetic);
+            CHECK(type->isArithmetic, "arithmetic operation requires arithmetic type")
         e->type = type;
         e->valueKind = ValueKind::RVALUE;
     }
@@ -159,18 +187,18 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         Base::transformElementwiseOperatorExpr(e);
         const auto* lType = asVectorType(e->left->type);
         const auto* rType = asVectorType(e->right->type);
-        VERIFY(ShaderGen, lType->scalarType == rType->scalarType);
-        VERIFY(ShaderGen, lType->vectorSize == rType->vectorSize);
+        CHECK(lType->scalarType == rType->scalarType, "operands must have the same base type")
+        CHECK(lType->vectorSize == rType->vectorSize, "operands must have the same size")
         if (isComparisonOp(e->op)) {
             e->type = BoolType.vectorType(lType->vectorSize);
             if (lType->isLogical)
-                VERIFY(ShaderGen, e->op == BinaryOperator::CMP_EQ || e->op == BinaryOperator::CMP_NE);
+                CHECK(e->op == BinaryOperator::CMP_EQ || e->op == BinaryOperator::CMP_NE, "only '==' and '!=' allowed on booleans, got '", toString(e->op), "'")
         } else {
             e->type = lType;
             if (isLogicalOp(e->op))
-                VERIFY(ShaderGen, lType->isLogical);
+                CHECK(lType->isLogical, "logical operation requires boolean")
             else if (isArithmeticOp(e->op))
-                VERIFY(ShaderGen, lType->isArithmetic);
+                CHECK(lType->isArithmetic, "arithmetic operation requires arithmetic type")
         }
         e->valueKind = ValueKind::RVALUE;
     }
@@ -178,9 +206,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         Base::transformVectorByScalarOperatorExpr(e);
         const auto* vType = asVectorType(e->vector->type);
         const auto* sType = asScalarType(e->scalar->type);
-        VERIFY(ShaderGen, isArithmeticOp(e->op));
-        VERIFY(ShaderGen, vType->scalarType == sType);
-        VERIFY(ShaderGen, vType->isArithmetic);
+        CHECK(isArithmeticOp(e->op), "only arithmetic operations are allowed for vector by scalar operations")
+        CHECK(vType->scalarType == sType, "operands must have the same base type")
+        CHECK(vType->isArithmetic, "only arithmetic types allowed in vector by scalar operations")
         e->type = vType;
         e->valueKind = ValueKind::RVALUE;
     }
@@ -191,8 +219,8 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
     constexpr void transformAssignmentStmt(AssignmentStmt* e) {
         Base::transformAssignmentStmt(e);
-        VERIFY(ShaderGen, e->left->type == e->right->type);
-        VERIFY(ShaderGen, e->left->valueKind == ValueKind::LVALUE);
+        CHECK(e->left->type == e->right->type, "operands must have the same type")
+        CHECK(e->left->valueKind == ValueKind::LVALUE, "left hand side of assignment must be an lvalue")
         CheckInitialized check;
         check.visit(e->right);
         MarkInitialized mark;
@@ -242,9 +270,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         const FunctionInstance* func = nullptr;
         int_t dynamicSize = 0;
         if (!e->function->isGroup) {
-            func =  asFunctionInstance(e->function);
+            func = asFunctionInstance(e->function);
             auto [match, dynSize] = matchFunctionInstance(e->arguments, func);
-            VERIFY(ShaderGen, match);
+            CHECK(match, "invalid arguments to function call")
             dynamicSize = dynSize;
         } else {
             const auto* group = asFunctionGroup(e->function);
@@ -253,11 +281,11 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
                 auto [match, dynSize] = matchFunctionInstance(e->arguments, inst);
                 if (!match)
                     continue;
-                VERIFY(ShaderGen, func == nullptr);
+                CHECK(func == nullptr, "function call is ambiguous")
                 func = inst;
                 dynamicSize = dynSize;
             }
-            VERIFY(ShaderGen, func != nullptr);
+            CHECK(func != nullptr, "no matching overload found")
         }
         e->function = func;
         if (func->returnType.isDynamic)
@@ -265,11 +293,33 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         else
             e->type = func->returnType.fixed.type;
     }
+
+    constexpr Stmt* dispatchTransform(const Stmt* in) {
+        Stmt* stmt = Base::dispatchTransform(in);
+        if (currentError.hasError()) {
+            if (isExpr(stmt)) {
+                auto* expr = castStmt<Expr>(stmt);
+                auto* err = this->storage->template allocateStmt<ErrorExpr>({ currentError });
+                err->subExpr = expr;
+                err->type = expr->type;
+                err->valueKind = expr->valueKind;
+                stmt = err;
+            } else {
+                auto* err = this->storage->template allocateStmt<ErrorStmt>({ currentError });
+                err->subStmt = stmt;
+                stmt = err;
+            }
+            currentError.clear();
+        }
+        return stmt;
+    }
+
+#undef CHECK
 };
 
 // Driver
 struct BuildDriver {
-    using Storage = BasicASTStorage<100>;
+    using Storage = BasicASTStorage<100, 1000>;
     ASTBuilder<Storage> builder { &storage };
     Storage storage;
 
