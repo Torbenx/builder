@@ -4,6 +4,22 @@
 #include <sstream>
 #include <vector>
 
+namespace shadergen {
+
+template<typename Stream>
+constexpr void formatType(const Type* type, Stream& out) {
+    if (type->isScalar) {
+        out << asScalarType(type)->name;
+    } else if (type->isVector) {
+        const auto* vType = shadergen::asVectorType(type);
+        out << vType->scalarType->name << " x" << vType->vectorSize;
+    } else {
+        out << "unknown";
+    }
+}
+
+}
+
 template<>
 struct fmt::formatter<shadergen::Type> {
     constexpr auto parse(format_parse_context& ctx) {
@@ -12,14 +28,9 @@ struct fmt::formatter<shadergen::Type> {
 
     template<typename FormatContext>
     auto format(const shadergen::Type& type, FormatContext& ctx) {
-        if (type.isScalar) {
-            return format_to(ctx.out(), "[{}]", shadergen::asScalarType(&type)->name);
-        } else if (type.isVector) {
-            const auto* vType = shadergen::asVectorType(&type);
-            return format_to(ctx.out(), "[{} x{}]", vType->scalarType->name, vType->vectorSize);
-        } else {
-            return format_to(ctx.out(), "[unknown]");
-        }
+        std::stringstream ss;
+        shadergen::formatType(&type, ss);
+        return format_to(ctx.out(), "[{}]", ss.str());
     }
 };
 
