@@ -12,7 +12,9 @@ constexpr void formatType(const Type* type, Stream& out) {
         out << asScalarType(type)->name;
     } else if (type->isVector) {
         const auto* vType = shadergen::asVectorType(type);
-        out << vType->scalarType->name << " x" << vType->vectorSize;
+        out << vType->scalarType->name << vType->vectorSize;
+    } else if (type->isError) {
+        out << "error";
     } else {
         out << "unknown";
     }

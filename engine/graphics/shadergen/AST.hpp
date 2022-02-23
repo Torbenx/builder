@@ -102,7 +102,9 @@ struct MessageBuilder {
     constexpr MessageBuilder& operator<<(const Type* type) {
         if (!message)
             return *this;
+        *this << "'";
         formatType(type, *this);
+        *this << "'";
         return *this;
     }
 };
@@ -204,13 +206,13 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         return {};
     }
     constexpr void checkSameType(const Type* left, const Type* right, std::string_view message) {
-        check(left == right) << message << ", got '" << left << "' and '" << right << "'";
+        check(left == right) << message << ", got " << left << " and " << right << "";
     }
     constexpr const VectorType* checkVectorExpr(const Expr* e) {
         if (e->type->isVector)
             return asVectorType(e->type);
 
-        error() << "expected vector type, got '" << e->type << "'";
+        error() << "expected vector type, got " << e->type << "";
         return nullptr;
     }
     constexpr const ScalarType* checkScalarExpr(const Expr* e) {
@@ -218,7 +220,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
             return asScalarType(e->type);
 
         auto err = error();
-        err << "expected scalar type, got '" << e->type << "'";
+        err << "expected scalar type, got " << e->type << "";
         err.setCausingSubExpr(e);
         return nullptr;
     }
@@ -264,9 +266,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         if (!type)
             return;
         if (isLogicalOp(e->op))
-            check(type->isLogical) << "logical operation requires boolean, got '" << type << "'";
+            check(type->isLogical) << "logical operation requires boolean, got " << type << "";
         else if (isArithmeticOp(e->op))
-            check(type->isArithmetic) << "arithmetic operation requires arithmetic type, got '" << type << "'";
+            check(type->isArithmetic) << "arithmetic operation requires arithmetic type, got " << type << "";
         e->type = type;
         e->valueKind = ValueKind::RVALUE;
     }
@@ -284,9 +286,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         } else {
             e->type = lType;
             if (isLogicalOp(e->op))
-                check(lType->isLogical) << "logical operation requires boolean, got '" << lType << "'";
+                check(lType->isLogical) << "logical operation requires boolean, got " << lType << "";
             else if (isArithmeticOp(e->op))
-                check(lType->isArithmetic) << "arithmetic operation requires arithmetic type, got '" << lType << "'";
+                check(lType->isArithmetic) << "arithmetic operation requires arithmetic type, got " << lType << "";
         }
         e->valueKind = ValueKind::RVALUE;
     }
@@ -298,7 +300,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
             return;
         check(isArithmeticOp(e->op)) << "only arithmetic operations are allowed for vector by scalar operations, got '" << toString(e->op) << "'";
         checkSameType(vType->scalarType, sType, "operands must have the same base type");
-        check(vType->isArithmetic) << "only arithmetic types allowed in vector by scalar operations, got '" << vType << "'";
+        check(vType->isArithmetic) << "only arithmetic types allowed in vector by scalar operations, got " << vType << "";
         e->type = vType;
         e->valueKind = ValueKind::RVALUE;
     }
@@ -339,19 +341,19 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
             const FunctionParameter& parm = func->parameters[i++];
             if (!parm.isDynamic) {
                 if (arg->type != parm.fixed.type) {
-                    note() << "parameter " << i << " expects '" << parm.fixed.type << "' but got '" << arg->type << "'";
+                    note() << "parameter " << i << " expects " << parm.fixed.type << " but got " << arg->type << "";
                     isMatch = false;
                 }
                 return;
             }
             if (!arg->type->isVector) {
-                note() << "parameter " << i << " expects vector type but got '" << arg->type << "'";
+                note() << "parameter " << i << " expects vector type but got " << arg->type << "";
                 isMatch = false;
                 return;
             }
             const auto* vType = asVectorType(arg->type);
             if (vType->scalarType != parm.dynamic.scalarType) {
-                note() << "parameter " << i << " expects vector of base type '" << parm.dynamic.scalarType << "' but got base type '" << vType->scalarType << "'";
+                note() << "parameter " << i << " expects vector of base type " << parm.dynamic.scalarType << " but got base type " << vType->scalarType << "";
                 isMatch = false;
                 return;
             }

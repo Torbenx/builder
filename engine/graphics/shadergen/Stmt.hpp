@@ -67,8 +67,9 @@ struct Type {
     bool isUser;
     bool isScalar;
     bool isVector;
-    constexpr Type(bool isUser = true, bool isScalar = false, bool isVector = false)
-        : isUser(isUser), isScalar(isScalar), isVector(isVector) { }
+    bool isError;
+    constexpr Type(bool isUser, bool isScalar, bool isVector, bool isError)
+        : isUser(isUser), isScalar(isScalar), isVector(isVector), isError(isError) { }
 };
 
 struct ScalarType;
@@ -80,7 +81,7 @@ struct VectorType : Type {
     bool isLogical;
 
     constexpr VectorType(const ScalarType* scalarType, int_t vectorSize, bool isArithmetic, bool isLogical, bool isScalar = false)
-        : Type(false, isScalar, true), scalarType(scalarType), vectorSize(vectorSize), isArithmetic(isArithmetic), isLogical(isLogical) { }
+        : Type(false, isScalar, true, false), scalarType(scalarType), vectorSize(vectorSize), isArithmetic(isArithmetic), isLogical(isLogical) { }
 };
 
 struct ScalarType : VectorType {
@@ -130,6 +131,8 @@ static constexpr const ScalarType* scalarTypeFromCXX = ScalarTypeFromCXX_v<T>::t
 struct UserType : Type {
     ArrayView<const MemberInfo> members;
     int_t fieldCount;
+    constexpr UserType()
+        : Type(true, false, false, false) { }
 };
 
 static constexpr const UserType* asUserType(const Type* type) {
@@ -288,7 +291,7 @@ struct Expr : Stmt {
 };
 
 // Errors
-static constexpr Type ErrorType = Type(false, false, false);
+static constexpr Type ErrorType = Type(false, false, false, true);
 struct ErrorNote : ASTNode {
     std::string_view message;
 };
