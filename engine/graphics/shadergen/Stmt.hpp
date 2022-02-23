@@ -160,7 +160,8 @@ static constexpr const UserType* asUserType(const Type* type) {
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
     callback(ASTListEntry)            \
-    callback(VarDecl)
+    callback(VarDecl)                 \
+    callback(ErrorNote)
 // clang-format on
 
 struct ASTNode { };
@@ -288,12 +289,20 @@ struct Expr : Stmt {
 
 // Errors
 static constexpr Type ErrorType = Type(false, false, false);
+struct ErrorNote : ASTNode {
+    std::string_view message;
+};
 struct ErrorNode {
     std::string_view message;
     const Expr* causingSubExpr = nullptr;
+    ASTList<ErrorNote> notes;
 
     constexpr bool hasError() { return !message.empty(); }
-    constexpr void clear() { message = {}; }
+    constexpr void clear() {
+        message = {};
+        causingSubExpr = nullptr;
+        notes.clear();
+    }
 };
 struct ErrorStmt : Stmt, ErrorNode {
     Stmt* subStmt = nullptr;

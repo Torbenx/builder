@@ -256,8 +256,12 @@ struct ASTTransform {
     }
     constexpr void transformErrorExpr(ErrorExpr* e) {
         impl()->transformExpr(e);
+        e->notes.consumeEntries([&](const ErrorNote* n) {
+            storage->pushBackOnList(e->notes, impl()->dispatchTransformNote(n));
+        });
         e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
     }
+    constexpr void transformNote(ErrorNote* e) { }
 
     constexpr Stmt* dispatchTransform(const Stmt* stmt) {
         switch (stmt->stmtKind) {
@@ -277,6 +281,11 @@ struct ASTTransform {
     constexpr VarDecl* dispatchTransformVarDecl(const VarDecl* decl) {
         VarDecl* ret = storage->allocateVarDecl(*decl);
         impl()->transformVarDecl(ret);
+        return ret;
+    }
+    constexpr ErrorNote* dispatchTransformNote(const ErrorNote* note) {
+        ErrorNote* ret = storage->allocateNote(*note);
+        impl()->transformNote(ret);
         return ret;
     }
 };
@@ -391,27 +400,42 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
     void visitErrorNode(const ErrorNode* e) {
         info("ErrorNode", fmt::format("!!! {} !!!", e->message));
     }
+    void visitNotes(const ASTList<ErrorNote>& notes) {
+        notes.forEachEntry([&](const ErrorNote* note) {
+            beginChild();
+            info("Note:", note->message);
+            endChild();
+        });
+    }
     void visitErrorStmt(const ErrorStmt* e) {
         info("ErrorStmt");
         visitErrorNode(e);
         visitStmt(e);
+        visitNotes(e->notes);
         dispatchVisit(e->subStmt);
     }
     void visitErrorExpr(const ErrorExpr* e) {
         info("ErrorExpr");
         visitErrorNode(e);
         visitExpr(e);
+        visitNotes(e->notes);
         dispatchVisit(e->subExpr);
     }
 
-    void dispatchVisit(const Stmt* e) {
+    void beginChild() {
         if (!nodeType.empty()) {
             print();
         }
         indent = nextIndent;
         nextIndent += 1;
-        Base::dispatchVisit(e);
+    }
+    void endChild() {
         nextIndent -= 1;
+    }
+    void dispatchVisit(const Stmt* e) {
+        beginChild();
+        Base::dispatchVisit(e);
+        endChild();
     }
 
     void dump(const Stmt* e) {

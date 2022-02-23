@@ -28,6 +28,9 @@ union ASTNodeStorage {
     constexpr VarDecl* setVarDecl(const VarDecl& decl) {
         return std::construct_at(&VarDecl_, decl);
     }
+    constexpr ErrorNote* setNote(const ErrorNote& note) {
+        return std::construct_at(&ErrorNote_, note);
+    }
 
     constexpr ASTNodeStorage() { }
 };
@@ -53,6 +56,9 @@ struct BasicASTStorage {
         ASTListEntry* entry = acquireBack().setListEntry({ e });
         list.pushBack(entry);
     }
+    constexpr ErrorNote* allocateNote(const ErrorNote& note) {
+        return acquireBack().setNote(note);
+    }
 
     constexpr BasicASTStorage() = default;
     constexpr BasicASTStorage(const BasicASTStorage&) = delete;
@@ -66,6 +72,10 @@ struct MessageBuilder {
     constexpr MessageBuilder(std::string_view& message, char*& storage)
         : message(&message), storage(&storage) { }
 
+    constexpr void setEmpty() {
+        message = nullptr;
+        storage = nullptr;
+    }
     constexpr void grow(int_t size) {
         *storage += size;
         *message = { message->data(), message->size() + size };
@@ -101,6 +111,10 @@ struct ErrorBuilder : MessageBuilder {
     constexpr ErrorBuilder() = default;
     constexpr ErrorBuilder(ErrorNode& error, char*& storage)
         : MessageBuilder(error.message, storage), error(&error) { }
+    constexpr void setEmpty() {
+        MessageBuilder::setEmpty();
+        error = nullptr;
+    }
     constexpr ErrorBuilder& setCausingSubExpr(const Expr* expr) {
         if (!error)
             return *this;
@@ -125,10 +139,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         constexpr FixedBitset fullMask(const Type* type) {
             if (type->isVector)
                 return FixedBitset::bitsBelow(asVectorType(type)->vectorSize);
-            else if(type->isUser)
+            else if (type->isUser)
                 return FixedBitset::bitsBelow(asUserType(type)->fieldCount);
             else {
-                VERIFY_NOT_REACHED(ShaderGen);
                 return {};
             }
         }
@@ -176,6 +189,14 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
             return {};
         currentError.message = { this->storage->messageBufferPosition, 0 };
         return { currentError, this->storage->messageBufferPosition };
+    }
+    constexpr MessageBuilder addNote(ErrorBuilder err) {
+        if (!err.error)
+            return {};
+        auto* note = this->storage->allocateNote({});
+        this->storage->pushBackOnList(err.error->notes, note);
+        note->message = { this->storage->messageBufferPosition, 0 };
+        return { note->message, this->storage->messageBufferPosition };
     }
     constexpr ErrorBuilder check(bool cond) {
         if (!cond)
@@ -299,34 +320,49 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         bool match;
         int_t dynamicSize;
     };
-    static constexpr MatchFunctionResult matchFunctionInstance(ASTList<const Expr>& arguments, const FunctionInstance* func) {
-        if (arguments.entryCount != func->parameters.size())
+    constexpr MatchFunctionResult matchFunctionInstance(ASTList<const Expr>& arguments, const FunctionInstance* func, ErrorBuilder err = {}) {
+        auto note = [&]() -> MessageBuilder {
+            auto n = addNote(err);
+            err = {};
+            n << "instance not viable: ";
+            return n;
+        };
+        if (arguments.entryCount != func->parameters.size()) {
+            note() << "expected " << func->parameters.size() << " parameters but got " << arguments.entryCount;
             return { false, 0 };
+        }
         int_t dynamicSize = 0;
+        int_t dynamicSizeOrigin = 0;
         int_t i = 0;
         bool isMatch = true;
         arguments.forEachEntry([&](const Expr* arg) {
             const FunctionParameter& parm = func->parameters[i++];
             if (!parm.isDynamic) {
-                if (arg->type != parm.fixed.type)
+                if (arg->type != parm.fixed.type) {
+                    note() << "parameter " << i << " expects '" << parm.fixed.type << "' but got '" << arg->type << "'";
                     isMatch = false;
+                }
                 return;
             }
             if (!arg->type->isVector) {
+                note() << "parameter " << i << " expects vector type but got '" << arg->type << "'";
                 isMatch = false;
                 return;
             }
             const auto* vType = asVectorType(arg->type);
             if (vType->scalarType != parm.dynamic.scalarType) {
+                note() << "parameter " << i << " expects vector of base type '" << parm.dynamic.scalarType << "' but got base type '" << vType->scalarType << "'";
                 isMatch = false;
                 return;
             }
             if (dynamicSize == 0) {
                 dynamicSize = vType->vectorSize;
+                dynamicSizeOrigin = i;
                 return;
             }
             if (dynamicSize == vType->vectorSize)
                 return;
+            note() << "deduced vector size inconsistent, argument " << dynamicSizeOrigin << " decuced " << dynamicSize << " but argument " << i << " deduced " << vType->vectorSize;
             isMatch = false;
         });
         if (dynamicSize == 1 && !func->dynamicScalarAllowed)
@@ -341,7 +377,11 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         if (!e->function->isGroup) {
             func = asFunctionInstance(e->function);
             auto [match, dynSize] = matchFunctionInstance(e->arguments, func);
-            check(match) << "invalid arguments to function call";
+            if (!match) {
+                auto err = error();
+                err << "invalid arguments to function call";
+                matchFunctionInstance(e->arguments, func, err);
+            }
             dynamicSize = dynSize;
         } else {
             const auto* group = asFunctionGroup(e->function);
@@ -354,13 +394,24 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
                 func = inst;
                 dynamicSize = dynSize;
             }
-            check(func != nullptr) << "no matching overload found";
+            if (func == nullptr) {
+                auto err = error();
+                err << "no matching overload found";
+                for (int_t i = 0; i < group->instances.size(); i++) {
+                    const FunctionInstance* inst = group->instances[i];
+                    matchFunctionInstance(e->arguments, inst, err);
+                }
+            }
         }
         e->function = func;
-        if (func->returnType.isDynamic)
-            e->type = func->returnType.dynamic.scalarType->vectorType(dynamicSize);
-        else
+        if (func->returnType.isDynamic) {
+            if (dynamicSize > 0)
+                e->type = func->returnType.dynamic.scalarType->vectorType(dynamicSize);
+            else
+                e->type = &ErrorType;
+        } else {
             e->type = func->returnType.fixed.type;
+        }
     }
 
     constexpr Stmt* dispatchTransform(const Stmt* in) {

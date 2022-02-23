@@ -1,10 +1,10 @@
-#include "graphics/shadergen/CompressedAST.hpp"
+#include "graphics/shadergen/AST.hpp"
 #include "util/log.hpp"
 //#include "util/reflection.hpp"
 
 using namespace shadergen;
 using namespace shadergen::code;
-using namespace shadergen::compressed;
+//using namespace shadergen::compressed;
 
 /*struct A {
     struct B {
@@ -32,7 +32,7 @@ static constexpr void createAST(BuildDriver& ast) {
     ast, foo = constant(1.0f);
     ast, bar.xz() = lit;
     ast, bar.ywz() = lit;
-    ast, bar.x = floor(foo);
+    ast, bar = floor(res);
     ast, baz = bar;
     ast, res = !(foo * foo + bar < bar + baz) || constant(true, false, false, true);
     ast, res = res;
