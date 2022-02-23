@@ -31,11 +31,10 @@ static constexpr void createAST(BuildDriver& ast) {
     auto lit = constant(1.0f, 2.0f);
     ast, foo = constant(1.0f);
     ast, bar.xz() = lit;
-    ast, bar.ywz() = lit;
-    ast, bar = floor(res);
-    ast, baz = bar;
+    ast, bar.yw() = lit;
+    ast, bar.x = floor(foo);
+    ast, baz = compose(foo, bar.xy(), foo);
     ast, res = !(foo * foo + bar < bar + baz) || constant(true, false, false, true);
-    ast, res = res;
     ast.endBlock();
 
     ast.endBlock();

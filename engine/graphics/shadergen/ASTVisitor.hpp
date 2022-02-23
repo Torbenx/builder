@@ -142,6 +142,13 @@ struct ASTVisitor {
         });
         return impl()->visitExpr(e, args...);
     }
+    constexpr RetT visitCompositionExpr(const CompositionExpr* e, Args... args) {
+        helper h([&]() {
+            for (int_t i = 0; i < e->componentCount; i++)
+                impl()->dispatchVisit(e->components[i], args...);
+        });
+        return impl()->visitExpr(e, args...);
+    }
     constexpr RetT visitErrorStmt(const ErrorStmt* e, Args... args) {
         return impl()->dispatchVisit(e->subStmt, args...);
     }
@@ -235,7 +242,7 @@ struct ASTTransform {
         e->parent = currentBlock;
         e->declContext.decls.clear();
         currentBlock = e;
-        e->body = impl()->dispatchTransform(e->body);
+        e->body = castStmt<CompoundStmt>(impl()->dispatchTransform(e->body));
         currentBlock = e->parent;
     }
     constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
@@ -251,6 +258,11 @@ struct ASTTransform {
         e->arguments.consumeEntries([&](const Expr* expr) {
             storage->pushBackOnList(e->arguments, castStmt<const Expr>(impl()->dispatchTransform(expr)));
         });
+    }
+    constexpr void transformCompositionExpr(CompositionExpr* e) {
+        impl()->transformExpr(e);
+        for (int_t i = 0; i < e->componentCount; i++)
+            e->components[i] = castStmt<Expr>(impl()->dispatchTransform(e->components[i]));
     }
     constexpr void transformErrorStmt(ErrorStmt* e) {
         impl()->transformStmt(e);
@@ -399,6 +411,11 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         info("CallExpr", fmt::format("\"{}\"", e->function->name), fmt::format("({} arguments)", e->arguments.entryCount));
         Base::visitCallExpr(e);
     }
+    void visitCompositionExpr(const CompositionExpr* e) {
+        info("CompositionExpr");
+        Base::visitCompositionExpr(e);
+    }
+
     void visitErrorNode(const ErrorNode* e) {
         info("ErrorNode", fmt::format("!!! {} !!!", e->message));
     }

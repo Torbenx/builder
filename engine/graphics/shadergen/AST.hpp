@@ -100,12 +100,16 @@ struct MessageBuilder {
         return *this;
     }
     constexpr MessageBuilder& operator<<(const Type* type) {
-        if (!message)
-            return *this;
         *this << "'";
         formatType(type, *this);
         *this << "'";
         return *this;
+    }
+    constexpr MessageBuilder& operator<<(const VarDecl* decl) {
+        return *this << "\"" << decl->name << "\"";
+    }
+    constexpr MessageBuilder& operator<<(const VarRefExpr* e) {
+        return *this << e->decl;
     }
 };
 struct ErrorBuilder : MessageBuilder {
@@ -147,6 +151,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
                 return {};
             }
         }
+        constexpr void dispatchVisitWithFullMask(const Expr* e) {
+            impl()->dispatchVisit(e, fullMask(e->type));
+        }
         constexpr void visitExpr(const Expr*, FixedBitset) { }
         constexpr void visitMemberAccessExpr(const MemberAccessExpr* e, FixedBitset mask) {
             impl()->dispatchVisit(e->base, asUserType(e->base->type)->members[e->memberIndex].fieldMask); // FIXME: this is wrong!
@@ -163,16 +170,30 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         }
         constexpr void visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr* e, FixedBitset mask) {
             impl()->dispatchVisit(e->vector, mask);
-            impl()->dispatchVisit(e->scalar, fullMask(e->scalar->type));
+            impl()->dispatchVisitWithFullMask(e->scalar);
+            impl()->visitExpr(e, mask);
+        }
+        constexpr void visitCallExpr(const CallExpr* e, FixedBitset mask) {
+            e->arguments.forEachEntry([&](const Expr* arg) {
+                impl()->dispatchVisitWithFullMask(arg); // be more accurate?
+            });
+            impl()->visitExpr(e, mask);
+        }
+        constexpr void visitCompositionExpr(const CompositionExpr* e, FixedBitset mask) {
+            for (int_t i = 0; i < e->componentCount; i++)
+                impl()->dispatchVisitWithFullMask(e->components[i]); // be more accurate?
             impl()->visitExpr(e, mask);
         }
         constexpr void visit(const Expr* e) {
-            impl()->dispatchVisit(e, fullMask(e->type));
+            impl()->dispatchVisitWithFullMask(e);
         }
     };
     struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
+        ASTBuilder& ast;
+        constexpr CheckInitialized(ASTBuilder& ast)
+            : ast(ast) { }
         constexpr void visitVarRefExpr(const VarRefExpr* e, FixedBitset mask) {
-            VERIFY(ShaderGen, !(mask & ~e->decl->initMask));
+            ast.check(!(mask & ~e->decl->initMask)) << "variable " << e << " uninitialized when used";
             e->decl->usedMask |= mask;
         }
     };
@@ -186,11 +207,14 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     };
 
     ErrorNode currentError;
+    constexpr ErrorBuilder buildError(ErrorNode& error) {
+        error.message = { this->storage->messageBufferPosition, 0 };
+        return { error, this->storage->messageBufferPosition };
+    }
     constexpr ErrorBuilder error() {
         if (currentError.hasError())
             return {};
-        currentError.message = { this->storage->messageBufferPosition, 0 };
-        return { currentError, this->storage->messageBufferPosition };
+        return buildError(currentError);
     }
     constexpr MessageBuilder addNote(ErrorBuilder err) {
         if (!err.error)
@@ -229,7 +253,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         BlockStmt* block = this->currentBlock;
         while (block && (&block->declContext != e->decl->declContext))
             block = block->parent;
-        check(block) << "variable \"" << e->decl->name << "\" not found";
+        check(block) << "variable " << e << " not found";
 
         e->type = e->decl->type;
         e->valueKind = ValueKind::LVALUE;
@@ -313,7 +337,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         Base::transformAssignmentStmt(e);
         checkSameType(e->left->type, e->right->type, "operands must have the same type");
         check(e->left->valueKind == ValueKind::LVALUE) << "left hand side of assignment must be an lvalue";
-        CheckInitialized check;
+        CheckInitialized check(*this);
         check.visit(e->right);
         MarkInitialized mark;
         mark.visit(e->left);
@@ -415,6 +439,32 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
             e->type = func->returnType.fixed.type;
         }
     }
+    constexpr void transformCompositionExpr(CompositionExpr* e) {
+        Base::transformCompositionExpr(e);
+        if (e->componentCount <= 0) {
+            error() << "invalid component count " << e->componentCount;
+            return;
+        }
+        int_t resultSize = 0;
+        const ScalarType* resultType = nullptr;
+        for (int_t i = 0; i < e->componentCount; i++) {
+            const Expr* comp = e->components[i];
+            const auto* type = checkVectorExpr(comp);
+            if (!type)
+                continue;
+            if (resultType == nullptr)
+                resultType = type->scalarType;
+            else
+                checkSameType(type->scalarType, resultType, "all componets must have the same type");
+            resultSize += type->vectorSize;
+        }
+        if (!resultType)
+            return;
+        check(resultSize <= 4) << "resulting vector of size " << resultSize << " to large";
+        resultSize = std::min<int_t>(resultSize, 4);
+        e->type = resultType->vectorType(resultSize);
+        e->valueKind = ValueKind::RVALUE;
+    }
 
     constexpr Stmt* dispatchTransform(const Stmt* in) {
         Stmt* stmt = Base::dispatchTransform(in);
@@ -440,6 +490,20 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         }
         return stmt;
     }
+
+    constexpr Stmt* checkCompleteBlock(BlockStmt* block) {
+        Stmt* ret = block;
+        block->declContext.decls.forEachEntry([&](const VarDecl* decl) {
+            if (decl->usedMask != 0)
+                return;
+            ErrorNode error;
+            buildError(error) << "variable " << decl << " not used";
+            auto* stmt = this->storage->template allocateStmt<ErrorStmt>({ error });
+            stmt->subStmt = ret;
+            ret = stmt;
+        });
+        return ret;
+    }
 };
 
 // Driver
@@ -449,7 +513,7 @@ struct BuildDriver {
     Storage storage;
 
     constexpr void emitStmt(Stmt* stmt) {
-        storage.pushBackOnList(*castStmt<CompoundStmt>(builder.currentBlock->body), stmt);
+        storage.pushBackOnList(*builder.currentBlock->body, stmt);
     }
 
     constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
@@ -474,14 +538,12 @@ struct BuildDriver {
     constexpr void beginBlock() {
         auto* newBlock = this->newBlock();
         newBlock->parent = builder.currentBlock;
-        emitStmt(newBlock);
         builder.currentBlock = newBlock;
     }
     constexpr void endBlock() {
-        builder.currentBlock->declContext.decls.forEachEntry([](const VarDecl* decl) {
-            VERIFY(ShaderGen, decl->usedMask != 0);
-        });
+        Stmt* block = builder.checkCompleteBlock(builder.currentBlock);
         builder.currentBlock = builder.currentBlock->parent;
+        emitStmt(block);
     }
 
     constexpr void operator,(const Stmt& in) {

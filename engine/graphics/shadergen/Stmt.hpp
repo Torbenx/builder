@@ -158,7 +158,8 @@ static constexpr const UserType* asUserType(const Type* type) {
     callback(VectorComponentExpr)        \
     callback(CallExpr)                   \
     callback(ErrorExpr)                  \
-    callback(ErrorStmt)
+    callback(ErrorStmt)                  \
+    callback(CompositionExpr)
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
@@ -351,6 +352,9 @@ struct AssignmentStmt : Stmt {
         : Stmt(StmtKind::AssignmentStmt), left(left), right(right) { }
 };
 
+struct wrapped_untyped {
+    const Expr* wrappedExpr;
+};
 template<typename T>
 struct wrapped_base;
 
@@ -368,9 +372,7 @@ struct wrapped : S, wrapped_base<T> {
 };
 
 template<>
-struct wrapped_base<void> {
-    const Expr* wrappedExpr;
-};
+struct wrapped_base<void> : wrapped_untyped { };
 
 // Member access
 struct MemberAccessExpr : Expr {
@@ -395,9 +397,7 @@ struct VectorComponentExpr : Expr {
 struct vec_t { };
 
 template<>
-struct wrapped_base<vec_t> {
-    const Expr* wrappedExpr;
-
+struct wrapped_base<vec_t> : wrapped_untyped {
     wrapped<VectorComponentExpr, void> x { { wrappedExpr, { 0 } } };
     wrapped<VectorComponentExpr, void> y { { wrappedExpr, { 1 } } };
     wrapped<VectorComponentExpr, void> z { { wrappedExpr, { 2 } } };
@@ -704,9 +704,9 @@ struct CompoundStmt : Stmt, ASTList<Stmt> {
 
 struct BlockStmt : Stmt {
     BlockStmt* parent = nullptr;
-    Stmt* body;
+    CompoundStmt* body;
     VarDeclContext declContext;
-    constexpr BlockStmt(Stmt* body)
+    constexpr BlockStmt(CompoundStmt* body)
         : Stmt(StmtKind::BlockStmt), body(body) { }
 };
 
@@ -748,7 +748,7 @@ struct FunctionInstance : Function {
 template<int_t N>
 struct BuiltinFunctionInstance : FunctionInstance {
     FunctionParameter parms[N];
-    constexpr BuiltinFunctionInstance(std::string_view name, const FunctionParameter (&parameters)[N], FunctionParameter returnType, bool dynamicScalarAllowed = false)
+    constexpr BuiltinFunctionInstance(std::string_view name, const FunctionParameter (&parameters)[N], FunctionParameter returnType, bool dynamicScalarAllowed = true)
         : FunctionInstance(name, parms, returnType, dynamicScalarAllowed) {
         std::copy_n(parameters, N, parms);
     }
@@ -786,12 +786,54 @@ struct UnresolvedCall : CallExpr {
     }
 };
 
-static constexpr BuiltinFunctionInstance funcFloorVector { "floor", { FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&FloatType) };
-static constexpr BuiltinFunctionInstance funcFloorScalar { "floor", { FunctionParameter::makeFixed(&FloatType) }, FunctionParameter::makeFixed(&FloatType) };
+static constexpr BuiltinFunctionInstance funcFloor { "floor", { FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&FloatType) };
 
 namespace code {
-    constexpr wrapped<UnresolvedCall<1>, vec_t> floor(const wrapped_base<vec_t>& arg) { return { { &funcFloorVector, { arg.wrappedExpr } } }; }
-    constexpr wrapped<UnresolvedCall<1>, void> floor(const wrapped_base<void>& arg) { return { { &funcFloorScalar, { arg.wrappedExpr } } }; }
+    constexpr wrapped<UnresolvedCall<1>, vec_t> floor(const wrapped_base<vec_t>& arg) { return { { &funcFloor, { arg.wrappedExpr } } }; }
+    constexpr wrapped<UnresolvedCall<1>, void> floor(const wrapped_base<void>& arg) { return { { &funcFloor, { arg.wrappedExpr } } }; }
+}
+
+// Composition
+struct CompositionExpr : Expr {
+    const Expr* components[4] = {};
+    int_t componentCount;
+    constexpr CompositionExpr(int_t componentCount)
+        : Expr(StmtKind::CompositionExpr), componentCount(componentCount) { }
+};
+
+namespace code {
+    constexpr wrapped<CompositionExpr, void> compose(const wrapped_base<void>& v) {
+        CompositionExpr e = { 1 };
+        e.components[0] = v.wrappedExpr;
+        return { e };
+    }
+    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_base<vec_t>& v) {
+        CompositionExpr e = { 1 };
+        e.components[0] = v.wrappedExpr;
+        return { e };
+    }
+    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_untyped& v1, const wrapped_untyped& v2) {
+        CompositionExpr e = { 2 };
+        e.components[0] = v1.wrappedExpr;
+        e.components[1] = v2.wrappedExpr;
+        return { e };
+    }
+    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_untyped& v1, const wrapped_untyped& v2, const wrapped_untyped& v3) {
+        CompositionExpr e = { 3 };
+        e.components[0] = v1.wrappedExpr;
+        e.components[1] = v2.wrappedExpr;
+        e.components[2] = v3.wrappedExpr;
+        return { e };
+    }
+
+    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_untyped& v1, const wrapped_untyped& v2, const wrapped_untyped& v3, const wrapped_untyped& v4) {
+        CompositionExpr e = { 4 };
+        e.components[0] = v1.wrappedExpr;
+        e.components[1] = v2.wrappedExpr;
+        e.components[2] = v3.wrappedExpr;
+        e.components[3] = v4.wrappedExpr;
+        return { e };
+    }
 }
 
 }
