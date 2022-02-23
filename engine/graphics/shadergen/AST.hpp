@@ -96,6 +96,18 @@ struct MessageBuilder {
         return *this;
     }
 };
+struct ErrorBuilder : MessageBuilder {
+    ErrorNode* error = nullptr;
+    constexpr ErrorBuilder() = default;
+    constexpr ErrorBuilder(ErrorNode& error, char*& storage)
+        : MessageBuilder(error.message, storage), error(&error) { }
+    constexpr ErrorBuilder& setCausingSubExpr(const Expr* expr) {
+        if (!error)
+            return *this;
+        error->causingSubExpr = expr;
+        return *this;
+    }
+};
 
 // Builder
 template<typename Storage>
@@ -113,12 +125,16 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         constexpr FixedBitset fullMask(const Type* type) {
             if (type->isVector)
                 return FixedBitset::bitsBelow(asVectorType(type)->vectorSize);
-            else
-                return FixedBitset::bitsBelow(type->fieldCount);
+            else if(type->isUser)
+                return FixedBitset::bitsBelow(asUserType(type)->fieldCount);
+            else {
+                VERIFY_NOT_REACHED(ShaderGen);
+                return {};
+            }
         }
         constexpr void visitExpr(const Expr*, FixedBitset) { }
         constexpr void visitMemberAccessExpr(const MemberAccessExpr* e, FixedBitset mask) {
-            impl()->dispatchVisit(e->base, e->base->type->members[e->memberIndex].fieldMask); // FIXME: this is wrong!
+            impl()->dispatchVisit(e->base, asUserType(e->base->type)->members[e->memberIndex].fieldMask); // FIXME: this is wrong!
             impl()->visitExpr(e, mask);
         }
         constexpr void visitVectorComponentExpr(const VectorComponentExpr* e, FixedBitset mask) {
@@ -155,17 +171,35 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     };
 
     ErrorNode currentError;
-    constexpr MessageBuilder error() {
+    constexpr ErrorBuilder error() {
         if (currentError.hasError())
             return {};
         currentError.message = { this->storage->messageBufferPosition, 0 };
-        MessageBuilder msg { currentError.message, this->storage->messageBufferPosition };
-        return msg;
+        return { currentError, this->storage->messageBufferPosition };
     }
-    constexpr MessageBuilder check(bool cond) {
+    constexpr ErrorBuilder check(bool cond) {
         if (!cond)
             return error();
         return {};
+    }
+    constexpr void checkSameType(const Type* left, const Type* right, std::string_view message) {
+        check(left == right) << message << ", got '" << left << "' and '" << right << "'";
+    }
+    constexpr const VectorType* checkVectorExpr(const Expr* e) {
+        if (e->type->isVector)
+            return asVectorType(e->type);
+
+        error() << "expected vector type, got '" << e->type << "'";
+        return nullptr;
+    }
+    constexpr const ScalarType* checkScalarExpr(const Expr* e) {
+        if (e->type->isScalar)
+            return asScalarType(e->type);
+
+        auto err = error();
+        err << "expected scalar type, got '" << e->type << "'";
+        err.setCausingSubExpr(e);
+        return nullptr;
     }
 
     constexpr void transformVarRefExpr(VarRefExpr* e) {
@@ -179,14 +213,17 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
     constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
         Base::transformMemberAccessExpr(e);
-        check(e->memberIndex < e->base->type->members.size()) << "member index out of range, " << e->memberIndex << " out of " << e->base->type->members.size();
-        const MemberInfo& member = e->base->type->members[e->memberIndex];
+        const auto* type = asUserType(e->base->type);
+        check(e->memberIndex < type->members.size()) << "member index out of range, " << e->memberIndex << " out of " << type->members.size();
+        const MemberInfo& member = type->members[e->memberIndex];
         e->type = member.type;
         e->valueKind = e->base->valueKind;
     }
     constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
         Base::transformVectorComponentExpr(e);
-        const auto* baseType = asVectorType(e->base->type);
+        const auto* baseType = checkVectorExpr(e->base);
+        if (!baseType)
+            return;
         check(!baseType->isScalar) << "taking vector components of a scalar";
         size_t mask = 0;
         bool hasDuplicates = false;
@@ -202,7 +239,9 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
     constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
         Base::transformUnaryOperatorExpr(e);
-        const auto* type = asVectorType(e->subExpr->type);
+        const auto* type = checkVectorExpr(e->subExpr);
+        if (!type)
+            return;
         if (isLogicalOp(e->op))
             check(type->isLogical) << "logical operation requires boolean, got '" << type << "'";
         else if (isArithmeticOp(e->op))
@@ -212,10 +251,11 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
     constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {
         Base::transformElementwiseOperatorExpr(e);
-        const auto* lType = asVectorType(e->left->type);
-        const auto* rType = asVectorType(e->right->type);
-        check(lType->scalarType == rType->scalarType) << "operands must have the same base type, got '" << lType << "' and '" << rType << "'";
-        check(lType->vectorSize == rType->vectorSize) << "operands must have the same size, got " << lType->vectorSize << " and " << rType->vectorSize;
+        const auto* lType = checkVectorExpr(e->left);
+        const auto* rType = checkVectorExpr(e->right);
+        if (!lType || !rType)
+            return;
+        checkSameType(lType, rType, "operands must have the same type");
         if (isComparisonOp(e->op)) {
             e->type = BoolType.vectorType(lType->vectorSize);
             if (lType->isLogical)
@@ -231,10 +271,12 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
     constexpr void transformVectorByScalarOperatorExpr(VectorByScalarOperatorExpr* e) {
         Base::transformVectorByScalarOperatorExpr(e);
-        const auto* vType = asVectorType(e->vector->type);
-        const auto* sType = asScalarType(e->scalar->type);
+        const auto* vType = checkVectorExpr(e->vector);
+        const auto* sType = checkScalarExpr(e->scalar);
+        if (!vType || !sType)
+            return;
         check(isArithmeticOp(e->op)) << "only arithmetic operations are allowed for vector by scalar operations, got '" << toString(e->op) << "'";
-        check(vType->scalarType == sType) << "operands must have the same base type, got '" << vType->scalarType << "' and '" << sType << "'";
+        checkSameType(vType->scalarType, sType, "operands must have the same base type");
         check(vType->isArithmetic) << "only arithmetic types allowed in vector by scalar operations, got '" << vType << "'";
         e->type = vType;
         e->valueKind = ValueKind::RVALUE;
@@ -246,7 +288,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
     constexpr void transformAssignmentStmt(AssignmentStmt* e) {
         Base::transformAssignmentStmt(e);
-        check(e->left->type == e->right->type) << "operands must have the same type, got '" << e->left->type << "' and '" << e->right->type << "'";
+        checkSameType(e->left->type, e->right->type, "operands must have the same type");
         check(e->left->valueKind == ValueKind::LVALUE) << "left hand side of assignment must be an lvalue";
         CheckInitialized check;
         check.visit(e->right);
@@ -328,8 +370,13 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
                 auto* expr = castStmt<Expr>(stmt);
                 auto* err = this->storage->template allocateStmt<ErrorExpr>({ currentError });
                 err->subExpr = expr;
-                err->type = expr->type;
-                err->valueKind = expr->valueKind;
+                if (expr->type) {
+                    err->type = expr->type;
+                    err->valueKind = expr->valueKind;
+                } else {
+                    err->type = &ErrorType;
+                    err->valueKind = ValueKind::RVALUE;
+                }
                 stmt = err;
             } else {
                 auto* err = this->storage->template allocateStmt<ErrorStmt>({ currentError });

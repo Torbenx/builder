@@ -67,10 +67,8 @@ struct Type {
     bool isUser;
     bool isScalar;
     bool isVector;
-    ArrayView<const MemberInfo> members;
-    int_t fieldCount;
-    constexpr Type(ArrayView<const MemberInfo> members, int_t fieldCount, bool isUser = true, bool isScalar = false, bool isVector = false)
-        : members(members), fieldCount(fieldCount), isUser(isUser), isScalar(isScalar), isVector(isVector) { }
+    constexpr Type(bool isUser = true, bool isScalar = false, bool isVector = false)
+        : isUser(isUser), isScalar(isScalar), isVector(isVector) { }
 };
 
 struct ScalarType;
@@ -82,7 +80,7 @@ struct VectorType : Type {
     bool isLogical;
 
     constexpr VectorType(const ScalarType* scalarType, int_t vectorSize, bool isArithmetic, bool isLogical, bool isScalar = false)
-        : Type({}, 0, false, isScalar, true), scalarType(scalarType), vectorSize(vectorSize), isArithmetic(isArithmetic), isLogical(isLogical) { }
+        : Type(false, isScalar, true), scalarType(scalarType), vectorSize(vectorSize), isArithmetic(isArithmetic), isLogical(isLogical) { }
 };
 
 struct ScalarType : VectorType {
@@ -128,6 +126,16 @@ template<>
 struct ScalarTypeFromCXX_v<float> { static constexpr const ScalarType* type = &FloatType; };
 template<typename T>
 static constexpr const ScalarType* scalarTypeFromCXX = ScalarTypeFromCXX_v<T>::type;
+
+struct UserType : Type {
+    ArrayView<const MemberInfo> members;
+    int_t fieldCount;
+};
+
+static constexpr const UserType* asUserType(const Type* type) {
+    VERIFY(ShaderGen, type->isUser);
+    return static_cast<const UserType*>(type);
+}
 
 // Statements
 // clang-format off
@@ -279,8 +287,10 @@ struct Expr : Stmt {
 };
 
 // Errors
+static constexpr Type ErrorType = Type(false, false, false);
 struct ErrorNode {
     std::string_view message;
+    const Expr* causingSubExpr = nullptr;
 
     constexpr bool hasError() { return !message.empty(); }
     constexpr void clear() { message = {}; }
