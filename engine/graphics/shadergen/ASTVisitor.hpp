@@ -419,7 +419,7 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitBlockStmt(e);
     }
     void visitMemberAccessExpr(const MemberAccessExpr* e) {
-        info("MemberAccessExpr", fmt::format("'.{}'", asUserType(e->base->type)->members[e->memberIndex].name));
+        info("MemberAccessExpr", fmt::format("'.{}'", e->member().name));
         Base::visitMemberAccessExpr(e);
     }
     void visitVectorComponentExpr(const VectorComponentExpr* e) {

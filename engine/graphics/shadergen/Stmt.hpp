@@ -53,10 +53,11 @@ constexpr FixedBitset operator|(const FixedBitset& left, const FixedBitset& righ
 constexpr FixedBitset operator&(const FixedBitset& left, const FixedBitset& right) {
     return { left.mask & right.mask };
 }
+constexpr FixedBitset operator<<(const FixedBitset& bs, int_t shift) {
+    return { bs.mask << shift };
+}
 
 // Types
-struct Type;
-
 struct Type {
     bool isUser;
     bool isScalar;
@@ -111,26 +112,17 @@ static constexpr ScalarType BoolType { "bool", false, true };
 static constexpr ScalarType IntType { "int", true, false };
 static constexpr ScalarType FloatType { "float", true, false };
 
-template<typename T>
-struct ScalarTypeFromCXX_v;
-template<>
-struct ScalarTypeFromCXX_v<bool> { static constexpr const ScalarType* type = &BoolType; };
-template<>
-struct ScalarTypeFromCXX_v<int> { static constexpr const ScalarType* type = &IntType; };
-template<>
-struct ScalarTypeFromCXX_v<float> { static constexpr const ScalarType* type = &FloatType; };
-template<typename T>
-static constexpr const ScalarType* scalarTypeFromCXX = ScalarTypeFromCXX_v<T>::type;
-
 struct MemberInfo {
     std::string_view name;
     const Type* type;
     int_t offset;
+    int_t leafFieldOffset;
 };
 
 struct UserType : Type {
     std::string_view name;
     ArrayView<const MemberInfo> members;
+    int_t leafFieldCount;
     constexpr UserType(std::string_view name, ArrayView<const MemberInfo> members)
         : Type(true, false, false, false), name(name), members(members) { }
 };
@@ -624,6 +616,8 @@ struct MemberAccessExpr : Expr {
     int_t memberIndex;
     constexpr MemberAccessExpr(const Expr* base, int_t index)
         : Expr(StmtKind::MemberAccessExpr), base(base), memberIndex(index) { }
+
+    constexpr MemberInfo member() const { return asUserType(base->type)->members[memberIndex]; }
 };
 
 struct FieldInfo {
@@ -645,11 +639,29 @@ constexpr const Type* typeFromCXX<float> = &FloatType;
 template<typename T>
 static constexpr FieldInfo makeFieldInfo(std::string_view name) { return { name, typeFromCXX<T>, alignof(T), sizeof(T) }; }
 
+static constexpr int_t getLeafFieldCount(const Type* type) {
+    if (type->isVector) {
+        return asVectorType(type)->vectorSize;
+    } else if (type->isUser) {
+        return asUserType(type)->leafFieldCount;
+    } else {
+        VERIFY_NOT_REACHED(ShaderGen);
+        return -1;
+    }
+}
 struct StructLayoutHelper {
     size_t prevEnd = 0;
     constexpr size_t addField(size_t alignment, size_t size) {
         size_t offset = alignmentCeil(alignment, prevEnd);
         prevEnd = offset + size;
+        return offset;
+    }
+};
+struct LeafFieldHelper {
+    int_t leafFieldCount = 0;
+    constexpr int_t addField(const Type* type) {
+        int_t offset = leafFieldCount;
+        leafFieldCount += getLeafFieldCount(type);
         return offset;
     }
 };
@@ -659,20 +671,25 @@ struct UserTypeImpl : UserType {
     constexpr UserTypeImpl(std::string_view name)
         : UserType(name, memberInfos) { }
     constexpr UserTypeImpl(const UserTypeImpl& other)
-        : UserType(other.name, memberInfos) { std::copy_n(other.memberInfos, N, memberInfos); }
+        : UserType(other) {
+        members = memberInfos;
+        std::copy_n(other.memberInfos, N, memberInfos);
+    }
 };
-static constexpr MemberInfo makeMemberInfo(FieldInfo info, StructLayoutHelper& layout) {
-    return { info.name, info.type, (int_t)layout.addField(info.alignment, info.size) };
+static constexpr MemberInfo makeMemberInfo(FieldInfo info, StructLayoutHelper& layout, LeafFieldHelper& leafFields) {
+    return { info.name, info.type, (int_t)layout.addField(info.alignment, info.size), leafFields.addField(info.type) };
 }
 template<typename T, int_t... I>
-static constexpr void makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, std::integer_sequence<int_t, I...>) {
+static constexpr int_t makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, std::integer_sequence<int_t, I...>) {
     StructLayoutHelper layout;
-    ((out.memberInfos[I] = makeMemberInfo(T::template _gen_field_info_<I>, layout)), ...);
+    LeafFieldHelper leafFields;
+    ((out.memberInfos[I] = makeMemberInfo(T::template _gen_field_info_<I>, layout, leafFields)), ...);
+    return leafFields.leafFieldCount;
 }
 template<typename T, int_t N>
 static constexpr UserTypeImpl<N> makeUserType() {
     UserTypeImpl<N> ret { T::_gen_struct_name_ };
-    makeUserType_helper<T>(ret, std::make_integer_sequence<int_t, N>());
+    ret.leafFieldCount = makeUserType_helper<T>(ret, std::make_integer_sequence<int_t, N>());
     return ret;
 }
 
@@ -710,7 +727,6 @@ struct wrapped_user_untyped {
 
 template<typename T>
 struct wrapped_user : T::_gen_fields_final_ {
-    const Expr* wrappedExpr;
     template<typename E>
     struct impl;
 };
@@ -719,6 +735,12 @@ template<typename E>
 struct wrapped_user<T>::impl : E, wrapped_user<T> {
     constexpr impl(const E& e)
         : E(e), wrapped_user<T> { (Expr*)this } { }
+    constexpr AssignmentStmt operator=(const impl& right) {
+        return { this, right.wrappedExpr };
+    }
+    constexpr AssignmentStmt operator=(const wrapped_user<T>& right) {
+        return { this, right.wrappedExpr };
+    }
 };
 
 template<typename T>
@@ -932,16 +954,16 @@ struct LiteralExpr : Expr {
 
 namespace code {
     template<typename T>
-    constexpr wrapped_scalar::impl<LiteralExpr> constant(T p) { return { { scalarTypeFromCXX<T>, { { p } } } }; }
+    constexpr wrapped_scalar::impl<LiteralExpr> constant(T p) { return { { asScalarType(typeFromCXX<T>), { { p } } } }; }
     template<typename T>
-    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2) { return { { scalarTypeFromCXX<T>->vectorType(2), { { p1, p2 } } } }; }
+    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2) { return { { asScalarType(typeFromCXX<T>)->vectorType(2), { { p1, p2 } } } }; }
     template<typename T>
-    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2, T p3) { return { { scalarTypeFromCXX<T>->vectorType(3), { { p1, p2, p3 } } } }; }
+    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2, T p3) { return { { asScalarType(typeFromCXX<T>)->vectorType(3), { { p1, p2, p3 } } } }; }
     template<typename T>
-    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2, T p3, T p4) { return { { scalarTypeFromCXX<T>->vectorType(4), { { p1, p2, p3, p4 } } } }; }
+    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2, T p3, T p4) { return { { asScalarType(typeFromCXX<T>)->vectorType(4), { { p1, p2, p3, p4 } } } }; }
 }
 
-// Block statement
+// Control
 struct CompoundStmt : Stmt, ASTList<Stmt> {
     constexpr CompoundStmt()
         : Stmt(StmtKind::CompoundStmt) { }

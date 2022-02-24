@@ -10,7 +10,7 @@ struct A {
     struct B {
         BEGIN_GEN_STRUCT(B);
         int GEN_FIELD(i);
-        bool GEN_FIELD(b);
+        float GEN_FIELD(f);
         END_GEN_STRUCT();
     };
     BEGIN_GEN_STRUCT(A);
@@ -30,7 +30,10 @@ static constexpr void createAST(BuildDriver& ast) {
 
     ast.beginBlock();
     auto lit = constant(1.0f, 2.0f);
-    ast, foo = a.b1.i;
+    ast, a.b1.i = constant(1);
+    ast, a.b1.f = constant(2.5f);
+    ast, a.f = constant(3.0f);
+    ast, foo = a.b1.f;
     ast, bar.xz() = lit;
     ast, bar.yw() = lit;
     ast, bar.x = floor(foo);
@@ -50,6 +53,7 @@ static constexpr void createAST(BuildDriver& ast) {
 }
 
 void runShadergenTest() {
+    log("leafs: {}", A::SHADERGEN_TYPE.leafFieldCount);
     ASTDumper dumper;
 
     // static constexpr auto tuple = createTuple<createAST>();

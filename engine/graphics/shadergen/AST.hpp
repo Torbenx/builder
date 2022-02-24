@@ -146,7 +146,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
             if (type->isVector)
                 return FixedBitset::bitsBelow(asVectorType(type)->vectorSize);
             else if (type->isUser)
-                return FixedBitset::bitsBelow(asUserType(type)->members.size());
+                return FixedBitset::bitsBelow(asUserType(type)->leafFieldCount);
             else {
                 return {};
             }
@@ -156,7 +156,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         }
         constexpr void visitExpr(const Expr*, FixedBitset) { }
         constexpr void visitMemberAccessExpr(const MemberAccessExpr* e, FixedBitset mask) {
-            //impl()->dispatchVisit(e->base, asUserType(e->base->type)->members[e->memberIndex].fieldMask); // FIXME: this is wrong!
+            impl()->dispatchVisit(e->base, mask << e->member().leafFieldOffset);
             impl()->visitExpr(e, mask);
         }
         constexpr void visitVectorComponentExpr(const VectorComponentExpr* e, FixedBitset mask) {
@@ -526,7 +526,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
 
 // Driver
 struct BuildDriver {
-    using Storage = BasicASTStorage<100, 1000>;
+    using Storage = BasicASTStorage<1000, 1000>;
     ASTBuilder<Storage> builder { &storage };
     Storage storage;
 
