@@ -159,7 +159,9 @@ static constexpr const UserType* asUserType(const Type* type) {
     callback(CallExpr)                   \
     callback(ErrorExpr)                  \
     callback(ErrorStmt)                  \
-    callback(CompositionExpr)
+    callback(CompositionExpr)            \
+    callback(IfStmt)                     \
+    callback(UpdateStmt)
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
@@ -283,6 +285,16 @@ enum class ValueKind {
     LVALUE,
     RVALUE,
 };
+constexpr std::string_view toShortSting(ValueKind valueKind) {
+    switch(valueKind) {
+        case ValueKind::LVALUE:
+            return "l";
+        case ValueKind::RVALUE:
+            return "r";
+        default:
+            return "?";
+    }
+}
 
 struct Expr : Stmt {
     const Type* type = nullptr;
@@ -518,7 +530,7 @@ static constexpr std::string_view toString(UnaryOperator op) {
     case UnaryOperator::NOT:
         return "!";
     default:
-        return "unknown";
+        return "??";
     }
 }
 struct UnaryOperatorExpr : Expr {
@@ -594,7 +606,7 @@ static constexpr std::string_view toString(BinaryOperator op) {
     case BinaryOperator::OR:
         return "||";
     default:
-        return "unknown";
+        return "??";
     }
 }
 
@@ -657,7 +669,32 @@ namespace code {
     constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator-(const wrapped_base<void>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::MINUS, right.wrappedExpr, left.wrappedExpr, false } }; }
     constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator*(const wrapped_base<void>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::MULTIPLY, right.wrappedExpr, left.wrappedExpr, false } }; }
     constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator/(const wrapped_base<void>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::DIVIDE, right.wrappedExpr, left.wrappedExpr, false } }; }
+}
+
+// Updates
+struct UpdateStmt : Stmt {
+    BinaryOperator op;
+    const Expr* left;
+    const Expr* right;
+    constexpr UpdateStmt(BinaryOperator op, const Expr* left, const Expr* right)
+        : Stmt(StmtKind::UpdateStmt), op(op), left(left), right(right) { }
 };
+namespace code {
+    constexpr UpdateStmt operator+=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator-=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator*=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator/=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
+
+    constexpr UpdateStmt operator+=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator-=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator*=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator/=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
+
+    constexpr UpdateStmt operator+=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator-=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator*=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator/=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
+}
 
 // Literals
 union LiteralStorage {
@@ -694,7 +731,7 @@ namespace code {
     constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2, T p3) { return { { scalarTypeFromCXX<T>->vectorType(3), { { p1, p2, p3 } } } }; }
     template<typename T>
     constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2, T p3, T p4) { return { { scalarTypeFromCXX<T>->vectorType(4), { { p1, p2, p3, p4 } } } }; }
-};
+}
 
 // Block statement
 struct CompoundStmt : Stmt, ASTList<Stmt> {
@@ -708,6 +745,14 @@ struct BlockStmt : Stmt {
     VarDeclContext declContext;
     constexpr BlockStmt(CompoundStmt* body)
         : Stmt(StmtKind::BlockStmt), body(body) { }
+};
+
+struct IfStmt : Stmt {
+    const Expr* condition;
+    Stmt* whenTrue = nullptr;
+    Stmt* whenFalse = nullptr;
+    constexpr IfStmt(const Expr* condition)
+        : Stmt(StmtKind::IfStmt), condition(condition) { }
 };
 
 // Functions

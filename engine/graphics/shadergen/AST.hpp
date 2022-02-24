@@ -465,44 +465,62 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         e->type = resultType->vectorType(resultSize);
         e->valueKind = ValueKind::RVALUE;
     }
+    constexpr void transformUpdateStmt(UpdateStmt* e) {
+        Base::transformUpdateStmt(e);
+        check(e->left->valueKind == ValueKind::LVALUE) << "left hand side of update must be an lvalue";
+        const auto* lType = checkVectorExpr(e->left);
+        const auto* rType = checkVectorExpr(e->right);
+        if (!lType || !rType)
+            return;
+        checkSameType(lType->scalarType, rType->scalarType, "operands must have the same base type");
+        check(rType->isScalar || rType->vectorSize == lType->vectorSize) << "the right operand must either be a scalar or a vector of same size as the left operand";
+    }
 
-    constexpr Stmt* dispatchTransform(const Stmt* in) {
-        Stmt* stmt = Base::dispatchTransform(in);
+    constexpr Expr* wrapExprWithError(Expr* expr) {
         if (currentError.hasError()) {
-            if (isExpr(stmt)) {
-                auto* expr = castStmt<Expr>(stmt);
-                auto* err = this->storage->template allocateStmt<ErrorExpr>({ currentError });
-                err->subExpr = expr;
-                if (expr->type) {
-                    err->type = expr->type;
-                    err->valueKind = expr->valueKind;
-                } else {
-                    err->type = &ErrorType;
-                    err->valueKind = ValueKind::RVALUE;
-                }
-                stmt = err;
+            auto* err = this->storage->template allocateStmt<ErrorExpr>({ currentError });
+            err->subExpr = expr;
+            if (expr->type) {
+                err->type = expr->type;
+                err->valueKind = expr->valueKind;
             } else {
-                auto* err = this->storage->template allocateStmt<ErrorStmt>({ currentError });
-                err->subStmt = stmt;
-                stmt = err;
+                err->type = &ErrorType;
+                err->valueKind = ValueKind::RVALUE;
             }
+            expr = err;
+            currentError.clear();
+        }
+        return expr;
+    }
+    constexpr Stmt* wrapStmtWithError(Stmt* stmt) {
+        if (isExpr(stmt))
+            return wrapExprWithError(castStmt<Expr>(stmt));
+        if (currentError.hasError()) {
+            auto* err = this->storage->template allocateStmt<ErrorStmt>({ currentError });
+            err->subStmt = stmt;
+            stmt = err;
             currentError.clear();
         }
         return stmt;
+    }
+    constexpr Stmt* dispatchTransform(const Stmt* in) {
+        Stmt* stmt = Base::dispatchTransform(in);
+        return wrapStmtWithError(stmt);
     }
 
     constexpr Stmt* checkCompleteBlock(BlockStmt* block) {
         Stmt* ret = block;
         block->declContext.decls.forEachEntry([&](const VarDecl* decl) {
-            if (decl->usedMask != 0)
-                return;
-            ErrorNode error;
-            buildError(error) << "variable " << decl << " not used";
-            auto* stmt = this->storage->template allocateStmt<ErrorStmt>({ error });
-            stmt->subStmt = ret;
-            ret = stmt;
+            check(decl->usedMask != 0) << "variable " << decl << " not used";
+            ret = wrapStmtWithError(ret);
         });
         return ret;
+    }
+    constexpr Expr* checkBranchCondtion(Expr* condition) {
+        check(condition->type == &BoolType) << "branch condition must be a scalar boolean, got " << condition->type;
+        CheckInitialized check(*this);
+        check.visit(condition);
+        return wrapExprWithError(condition);
     }
 };
 
@@ -535,15 +553,36 @@ struct BuildDriver {
         auto* block = storage.allocateStmt<BlockStmt>({ body });
         return block;
     }
-    constexpr void beginBlock() {
+    constexpr void pushBlock() {
         auto* newBlock = this->newBlock();
         newBlock->parent = builder.currentBlock;
         builder.currentBlock = newBlock;
     }
-    constexpr void endBlock() {
+    constexpr Stmt* popBlock() {
         Stmt* block = builder.checkCompleteBlock(builder.currentBlock);
         builder.currentBlock = builder.currentBlock->parent;
-        emitStmt(block);
+        return block;
+    }
+    constexpr void beginBlock() {
+        pushBlock();
+    }
+    constexpr void endBlock() {
+        emitStmt(popBlock());
+    }
+    template<typename WhenTrue, typename WhenFalse = std::nullptr_t>
+    constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
+        Expr* condition = castStmt<Expr>(builder.dispatchTransform(&conditionIn));
+        condition = builder.checkBranchCondtion(condition);
+        auto* ifStmt = storage.allocateStmt<IfStmt>({ condition });
+        pushBlock();
+        whenTrue();
+        ifStmt->whenTrue = popBlock();
+        if constexpr (!std::is_same_v<WhenFalse, std::nullptr_t>) {
+            pushBlock();
+            whenFalse();
+            ifStmt->whenFalse = popBlock();
+        }
+        emitStmt(ifStmt);
     }
 
     constexpr void operator,(const Stmt& in) {

@@ -32,7 +32,7 @@ struct fmt::formatter<shadergen::Type> {
     auto format(const shadergen::Type& type, FormatContext& ctx) {
         std::stringstream ss;
         shadergen::formatType(&type, ss);
-        return format_to(ctx.out(), "[{}]", ss.str());
+        return format_to(ctx.out(), "{}", ss.str());
     }
 };
 
@@ -149,6 +149,22 @@ struct ASTVisitor {
         });
         return impl()->visitExpr(e, args...);
     }
+    constexpr RetT visitIfStmt(const IfStmt* e, Args... args) {
+        helper h([&]() {
+            impl()->dispatchVisit(e->condition, args...);
+            impl()->dispatchVisit(e->whenTrue, args...);
+            if (e->whenFalse)
+                impl()->dispatchVisit(e->whenFalse, args...);
+        });
+        return impl()->visitStmt(e, args...);
+    }
+    constexpr RetT visitUpdateStmt(const UpdateStmt* e, Args... args) {
+        helper h([&]() {
+            impl()->dispatchVisit(e->left, args...);
+            impl()->dispatchVisit(e->right, args...);
+        });
+        return impl()->visitStmt(e, args...);
+    }
     constexpr RetT visitErrorStmt(const ErrorStmt* e, Args... args) {
         return impl()->dispatchVisit(e->subStmt, args...);
     }
@@ -264,6 +280,18 @@ struct ASTTransform {
         for (int_t i = 0; i < e->componentCount; i++)
             e->components[i] = castStmt<Expr>(impl()->dispatchTransform(e->components[i]));
     }
+    constexpr void transformIfStmt(IfStmt* e) {
+        impl()->transformStmt(e);
+        e->condition = castStmt<Expr>(impl()->dispatchTransform(e->condition));
+        e->whenTrue = impl()->dispatchTransform(e->whenTrue);
+        if (e->whenFalse)
+            e->whenFalse = impl()->dispatchTransform(e->whenFalse);
+    }
+    constexpr void transformUpdateStmt(UpdateStmt* e) {
+        impl()->transformStmt(e);
+        e->left = castStmt<Expr>(impl()->dispatchTransform(e->left));
+        e->right = castStmt<Expr>(impl()->dispatchTransform(e->right));
+    }
     constexpr void transformErrorStmt(ErrorStmt* e) {
         impl()->transformStmt(e);
         e->subStmt = impl()->dispatchTransform(e->subStmt);
@@ -335,7 +363,7 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitStmt(e);
     }
     void visitExpr(const Expr* e) {
-        info("Expr", fmt::format("{}", *e->type));
+        info("Expr", fmt::format("{}[{}]", toShortSting(e->valueKind), *e->type));
         Base::visitExpr(e);
     }
     void visitVarRefExpr(const VarRefExpr* e) {
@@ -414,6 +442,14 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
     void visitCompositionExpr(const CompositionExpr* e) {
         info("CompositionExpr");
         Base::visitCompositionExpr(e);
+    }
+    void visitIfStmt(const IfStmt* e) {
+        info("IfStmt");
+        Base::visitIfStmt(e);
+    }
+    void visitUpdateStmt(const UpdateStmt* e) {
+        info("UpdateStmt", fmt::format("'{}='", toString(e->op)));
+        Base::visitUpdateStmt(e);
     }
 
     void visitErrorNode(const ErrorNode* e) {
