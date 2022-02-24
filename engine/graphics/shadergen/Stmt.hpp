@@ -286,13 +286,13 @@ enum class ValueKind {
     RVALUE,
 };
 constexpr std::string_view toShortSting(ValueKind valueKind) {
-    switch(valueKind) {
-        case ValueKind::LVALUE:
-            return "l";
-        case ValueKind::RVALUE:
-            return "r";
-        default:
-            return "?";
+    switch (valueKind) {
+    case ValueKind::LVALUE:
+        return "l";
+    case ValueKind::RVALUE:
+        return "r";
+    default:
+        return "?";
     }
 }
 
@@ -367,25 +367,22 @@ struct AssignmentStmt : Stmt {
 struct wrapped_untyped {
     const Expr* wrappedExpr;
 };
-template<typename T>
-struct wrapped_base;
+struct wrapped_scalar : wrapped_untyped {
+    template<typename E>
+    struct impl;
+};
+template<typename E>
+struct wrapped_scalar::impl : E, wrapped_scalar {
+    constexpr impl(const E& e)
+        : E(e), wrapped_scalar { (E*)this } { }
 
-template<typename S, typename T>
-struct wrapped : S, wrapped_base<T> {
-    constexpr wrapped(const S& s)
-        : S(s), wrapped_base<T> { (S*)this } { }
-
-    constexpr AssignmentStmt operator=(const wrapped<S, T>& expr) {
-        return { this, expr.wrappedExpr };
+    constexpr AssignmentStmt operator=(const wrapped_scalar::impl<E>& right) {
+        return { this, right.wrappedExpr };
     }
-    constexpr AssignmentStmt operator=(const wrapped_base<T>& expr) {
-        return { this, expr.wrappedExpr };
+    constexpr AssignmentStmt operator=(const wrapped_scalar& right) {
+        return { this, right.wrappedExpr };
     }
 };
-
-template<>
-struct wrapped_base<void> : wrapped_untyped { };
-
 // Member access
 struct MemberAccessExpr : Expr {
     const Expr* base;
@@ -406,115 +403,228 @@ struct VectorComponentExpr : Expr {
         : Expr(StmtKind::VectorComponentExpr), base(base), componentCount(N) { std::copy_n(arr, N, components); }
 };
 
-struct vec_t { };
+struct wrapped_vector : wrapped_untyped {
+    template<typename E>
+    struct impl;
 
-template<>
-struct wrapped_base<vec_t> : wrapped_untyped {
-    wrapped<VectorComponentExpr, void> x { { wrappedExpr, { 0 } } };
-    wrapped<VectorComponentExpr, void> y { { wrappedExpr, { 1 } } };
-    wrapped<VectorComponentExpr, void> z { { wrappedExpr, { 2 } } };
-    wrapped<VectorComponentExpr, void> w { { wrappedExpr, { 3 } } };
+    wrapped_scalar::impl<VectorComponentExpr> x { { wrappedExpr, { 0 } } };
+    wrapped_scalar::impl<VectorComponentExpr> y { { wrappedExpr, { 1 } } };
+    wrapped_scalar::impl<VectorComponentExpr> z { { wrappedExpr, { 2 } } };
+    wrapped_scalar::impl<VectorComponentExpr> w { { wrappedExpr, { 3 } } };
 
-    constexpr wrapped<VectorComponentExpr, vec_t> xx() { return { { wrappedExpr, { 0, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xy() { return { { wrappedExpr, { 0, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xz() { return { { wrappedExpr, { 0, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xw() { return { { wrappedExpr, { 0, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> xx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> yx() { return { { wrappedExpr, { 1, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yy() { return { { wrappedExpr, { 1, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yz() { return { { wrappedExpr, { 1, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yw() { return { { wrappedExpr, { 1, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> yx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> zx() { return { { wrappedExpr, { 2, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zy() { return { { wrappedExpr, { 2, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zz() { return { { wrappedExpr, { 2, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zw() { return { { wrappedExpr, { 2, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> zx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> wx() { return { { wrappedExpr, { 3, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wy() { return { { wrappedExpr, { 3, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wz() { return { { wrappedExpr, { 3, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> ww() { return { { wrappedExpr, { 3, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> wx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> ww();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> xxx() { return { { wrappedExpr, { 0, 0, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xxy() { return { { wrappedExpr, { 0, 0, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xxz() { return { { wrappedExpr, { 0, 0, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xxw() { return { { wrappedExpr, { 0, 0, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> xyx() { return { { wrappedExpr, { 0, 1, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xyy() { return { { wrappedExpr, { 0, 1, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xyz() { return { { wrappedExpr, { 0, 1, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xyw() { return { { wrappedExpr, { 0, 1, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> xzx() { return { { wrappedExpr, { 0, 2, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xzy() { return { { wrappedExpr, { 0, 2, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xzz() { return { { wrappedExpr, { 0, 2, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xzw() { return { { wrappedExpr, { 0, 2, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> xwx() { return { { wrappedExpr, { 0, 3, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xwy() { return { { wrappedExpr, { 0, 3, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xwz() { return { { wrappedExpr, { 0, 3, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> xww() { return { { wrappedExpr, { 0, 3, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> xwx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xwy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xwz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xww();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> yxx() { return { { wrappedExpr, { 1, 0, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yxy() { return { { wrappedExpr, { 1, 0, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yxz() { return { { wrappedExpr, { 1, 0, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yxw() { return { { wrappedExpr, { 1, 0, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> yyx() { return { { wrappedExpr, { 1, 1, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yyy() { return { { wrappedExpr, { 1, 1, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yyz() { return { { wrappedExpr, { 1, 1, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yyw() { return { { wrappedExpr, { 1, 1, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> yzx() { return { { wrappedExpr, { 1, 2, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yzy() { return { { wrappedExpr, { 1, 2, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yzz() { return { { wrappedExpr, { 1, 2, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yzw() { return { { wrappedExpr, { 1, 2, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> ywx() { return { { wrappedExpr, { 1, 3, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> ywy() { return { { wrappedExpr, { 1, 3, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> ywz() { return { { wrappedExpr, { 1, 3, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> yww() { return { { wrappedExpr, { 1, 3, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> ywx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> ywy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> ywz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yww();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> zxx() { return { { wrappedExpr, { 2, 0, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zxy() { return { { wrappedExpr, { 2, 0, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zxz() { return { { wrappedExpr, { 2, 0, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zxw() { return { { wrappedExpr, { 2, 0, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> zyx() { return { { wrappedExpr, { 2, 1, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zyy() { return { { wrappedExpr, { 2, 1, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zyz() { return { { wrappedExpr, { 2, 1, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zyw() { return { { wrappedExpr, { 2, 1, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> zzx() { return { { wrappedExpr, { 2, 2, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zzy() { return { { wrappedExpr, { 2, 2, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zzz() { return { { wrappedExpr, { 2, 2, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zzw() { return { { wrappedExpr, { 2, 2, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> zwx() { return { { wrappedExpr, { 2, 3, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zwy() { return { { wrappedExpr, { 2, 3, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zwz() { return { { wrappedExpr, { 2, 3, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> zww() { return { { wrappedExpr, { 2, 3, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> zwx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zwy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zwz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zww();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> wxx() { return { { wrappedExpr, { 3, 0, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wxy() { return { { wrappedExpr, { 3, 0, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wxz() { return { { wrappedExpr, { 3, 0, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wxw() { return { { wrappedExpr, { 3, 0, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> wyx() { return { { wrappedExpr, { 3, 1, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wyy() { return { { wrappedExpr, { 3, 1, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wyz() { return { { wrappedExpr, { 3, 1, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wyw() { return { { wrappedExpr, { 3, 1, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> wzx() { return { { wrappedExpr, { 3, 2, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wzy() { return { { wrappedExpr, { 3, 2, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wzz() { return { { wrappedExpr, { 3, 2, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wzw() { return { { wrappedExpr, { 3, 2, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzw();
 
-    constexpr wrapped<VectorComponentExpr, vec_t> wwx() { return { { wrappedExpr, { 3, 3, 0 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wwy() { return { { wrappedExpr, { 3, 3, 1 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> wwz() { return { { wrappedExpr, { 3, 3, 2 } } }; }
-    constexpr wrapped<VectorComponentExpr, vec_t> www() { return { { wrappedExpr, { 3, 3, 3 } } }; }
+    constexpr wrapped_vector::impl<VectorComponentExpr> wwx();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wwy();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wwz();
+    constexpr wrapped_vector::impl<VectorComponentExpr> www();
 };
+template<typename E>
+struct wrapped_vector::impl : E, wrapped_vector {
+    constexpr impl(const E& e)
+        : E(e), wrapped_vector { (E*)this } { }
+
+    constexpr AssignmentStmt operator=(const impl<E>& right) {
+        return { this, right.wrappedExpr };
+    }
+    constexpr AssignmentStmt operator=(const wrapped_vector& right) {
+        return { this, right.wrappedExpr };
+    }
+};
+
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xx() { return { { wrappedExpr, { 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xy() { return { { wrappedExpr, { 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xz() { return { { wrappedExpr, { 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xw() { return { { wrappedExpr, { 0, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yx() { return { { wrappedExpr, { 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yy() { return { { wrappedExpr, { 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yz() { return { { wrappedExpr, { 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yw() { return { { wrappedExpr, { 1, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zx() { return { { wrappedExpr, { 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zy() { return { { wrappedExpr, { 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zz() { return { { wrappedExpr, { 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zw() { return { { wrappedExpr, { 2, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wx() { return { { wrappedExpr, { 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wy() { return { { wrappedExpr, { 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wz() { return { { wrappedExpr, { 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ww() { return { { wrappedExpr, { 3, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxx() { return { { wrappedExpr, { 0, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxy() { return { { wrappedExpr, { 0, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxz() { return { { wrappedExpr, { 0, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxw() { return { { wrappedExpr, { 0, 0, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyx() { return { { wrappedExpr, { 0, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyy() { return { { wrappedExpr, { 0, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyz() { return { { wrappedExpr, { 0, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyw() { return { { wrappedExpr, { 0, 1, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzx() { return { { wrappedExpr, { 0, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzy() { return { { wrappedExpr, { 0, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzz() { return { { wrappedExpr, { 0, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzw() { return { { wrappedExpr, { 0, 2, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwx() { return { { wrappedExpr, { 0, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwy() { return { { wrappedExpr, { 0, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwz() { return { { wrappedExpr, { 0, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xww() { return { { wrappedExpr, { 0, 3, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxx() { return { { wrappedExpr, { 1, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxy() { return { { wrappedExpr, { 1, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxz() { return { { wrappedExpr, { 1, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxw() { return { { wrappedExpr, { 1, 0, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyx() { return { { wrappedExpr, { 1, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyy() { return { { wrappedExpr, { 1, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyz() { return { { wrappedExpr, { 1, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyw() { return { { wrappedExpr, { 1, 1, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzx() { return { { wrappedExpr, { 1, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzy() { return { { wrappedExpr, { 1, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzz() { return { { wrappedExpr, { 1, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzw() { return { { wrappedExpr, { 1, 2, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywx() { return { { wrappedExpr, { 1, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywy() { return { { wrappedExpr, { 1, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywz() { return { { wrappedExpr, { 1, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yww() { return { { wrappedExpr, { 1, 3, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxx() { return { { wrappedExpr, { 2, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxy() { return { { wrappedExpr, { 2, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxz() { return { { wrappedExpr, { 2, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxw() { return { { wrappedExpr, { 2, 0, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyx() { return { { wrappedExpr, { 2, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyy() { return { { wrappedExpr, { 2, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyz() { return { { wrappedExpr, { 2, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyw() { return { { wrappedExpr, { 2, 1, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzx() { return { { wrappedExpr, { 2, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzy() { return { { wrappedExpr, { 2, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzz() { return { { wrappedExpr, { 2, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzw() { return { { wrappedExpr, { 2, 2, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwx() { return { { wrappedExpr, { 2, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwy() { return { { wrappedExpr, { 2, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwz() { return { { wrappedExpr, { 2, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zww() { return { { wrappedExpr, { 2, 3, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxx() { return { { wrappedExpr, { 3, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxy() { return { { wrappedExpr, { 3, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxz() { return { { wrappedExpr, { 3, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxw() { return { { wrappedExpr, { 3, 0, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyx() { return { { wrappedExpr, { 3, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyy() { return { { wrappedExpr, { 3, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyz() { return { { wrappedExpr, { 3, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyw() { return { { wrappedExpr, { 3, 1, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzx() { return { { wrappedExpr, { 3, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzy() { return { { wrappedExpr, { 3, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzz() { return { { wrappedExpr, { 3, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzw() { return { { wrappedExpr, { 3, 2, 3 } } }; }
+
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwx() { return { { wrappedExpr, { 3, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwy() { return { { wrappedExpr, { 3, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwz() { return { { wrappedExpr, { 3, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::www() { return { { wrappedExpr, { 3, 3, 3 } } }; }
 
 // Unary operators
 enum class UnaryOperator {
@@ -540,10 +650,10 @@ struct UnaryOperatorExpr : Expr {
         : Expr(StmtKind::UnaryOperatorExpr), op(op), subExpr(subExpr) { }
 };
 namespace code {
-    constexpr wrapped<UnaryOperatorExpr, void> operator-(const wrapped_base<void>& expr) { return { { UnaryOperator::NEGATE, expr.wrappedExpr } }; }
-    constexpr wrapped<UnaryOperatorExpr, vec_t> operator-(const wrapped_base<vec_t>& expr) { return { { UnaryOperator::NEGATE, expr.wrappedExpr } }; }
-    constexpr wrapped<UnaryOperatorExpr, void> operator!(const wrapped_base<void>& expr) { return { { UnaryOperator::NOT, expr.wrappedExpr } }; }
-    constexpr wrapped<UnaryOperatorExpr, vec_t> operator!(const wrapped_base<vec_t>& expr) { return { { UnaryOperator::NOT, expr.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<UnaryOperatorExpr> operator-(const wrapped_scalar& expr) { return { { UnaryOperator::NEGATE, expr.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<UnaryOperatorExpr> operator-(const wrapped_vector& expr) { return { { UnaryOperator::NEGATE, expr.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<UnaryOperatorExpr> operator!(const wrapped_scalar& expr) { return { { UnaryOperator::NOT, expr.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<UnaryOperatorExpr> operator!(const wrapped_vector& expr) { return { { UnaryOperator::NOT, expr.wrappedExpr } }; }
 }
 
 // Binary operators
@@ -619,35 +729,35 @@ struct ElementwiseOperatorExpr : Expr {
         : Expr(StmtKind::ElementwiseOperatorExpr), op(op), left(left), right(right) { }
 };
 namespace code {
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator+(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator-(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator*(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator/(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator+(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator-(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator*(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator/(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr } }; }
 
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator&&(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::AND, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator||(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::OR, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator&&(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::AND, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator||(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::OR, left.wrappedExpr, right.wrappedExpr } }; }
 
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator<(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::CMP_L, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator<=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::CMP_LE, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator==(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::CMP_EQ, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator>=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::CMP_GE, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator>(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::CMP_G, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, void> operator!=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { { BinaryOperator::CMP_NE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator<(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::CMP_L, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator<=(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::CMP_LE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator==(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::CMP_EQ, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator>=(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::CMP_GE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator>(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::CMP_G, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_scalar::impl<ElementwiseOperatorExpr> operator!=(const wrapped_scalar& left, const wrapped_scalar& right) { return { { BinaryOperator::CMP_NE, left.wrappedExpr, right.wrappedExpr } }; }
 
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator+(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator-(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator*(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator/(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator+(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator-(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator*(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator/(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr } }; }
 
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator&&(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::AND, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator||(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::OR, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator&&(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::AND, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator||(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::OR, left.wrappedExpr, right.wrappedExpr } }; }
 
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator<(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::CMP_L, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator<=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::CMP_LE, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator==(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::CMP_EQ, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator>=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::CMP_GE, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator>(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::CMP_G, left.wrappedExpr, right.wrappedExpr } }; }
-    constexpr wrapped<ElementwiseOperatorExpr, vec_t> operator!=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::CMP_NE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator<(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_L, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator<=(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_LE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator==(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_EQ, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator>=(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_GE, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator>(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_G, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator!=(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_NE, left.wrappedExpr, right.wrappedExpr } }; }
 }
 
 // Vector by Scalar operators
@@ -660,15 +770,15 @@ struct VectorByScalarOperatorExpr : Expr {
         : Expr(StmtKind::VectorByScalarOperatorExpr), op(op), vector(vector), scalar(scalar), isVectorLeft(isVectorLeft) { }
 };
 namespace code {
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator+(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr, true } }; }
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator-(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr, true } }; }
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator*(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr, true } }; }
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator/(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr, true } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator+(const wrapped_vector& left, const wrapped_scalar& right) { return { { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr, true } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator-(const wrapped_vector& left, const wrapped_scalar& right) { return { { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr, true } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator*(const wrapped_vector& left, const wrapped_scalar& right) { return { { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr, true } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator/(const wrapped_vector& left, const wrapped_scalar& right) { return { { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr, true } }; }
 
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator+(const wrapped_base<void>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::PLUS, right.wrappedExpr, left.wrappedExpr, false } }; }
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator-(const wrapped_base<void>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::MINUS, right.wrappedExpr, left.wrappedExpr, false } }; }
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator*(const wrapped_base<void>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::MULTIPLY, right.wrappedExpr, left.wrappedExpr, false } }; }
-    constexpr wrapped<VectorByScalarOperatorExpr, vec_t> operator/(const wrapped_base<void>& left, const wrapped_base<vec_t>& right) { return { { BinaryOperator::DIVIDE, right.wrappedExpr, left.wrappedExpr, false } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator+(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::PLUS, right.wrappedExpr, left.wrappedExpr, false } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator-(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::MINUS, right.wrappedExpr, left.wrappedExpr, false } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator*(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::MULTIPLY, right.wrappedExpr, left.wrappedExpr, false } }; }
+    constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator/(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::DIVIDE, right.wrappedExpr, left.wrappedExpr, false } }; }
 }
 
 // Updates
@@ -680,20 +790,20 @@ struct UpdateStmt : Stmt {
         : Stmt(StmtKind::UpdateStmt), op(op), left(left), right(right) { }
 };
 namespace code {
-    constexpr UpdateStmt operator+=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator-=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator*=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator/=(const wrapped_base<void>& left, const wrapped_base<void>& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator+=(const wrapped_scalar& left, const wrapped_scalar& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator-=(const wrapped_scalar& left, const wrapped_scalar& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator*=(const wrapped_scalar& left, const wrapped_scalar& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator/=(const wrapped_scalar& left, const wrapped_scalar& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
 
-    constexpr UpdateStmt operator+=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator-=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator*=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator/=(const wrapped_base<vec_t>& left, const wrapped_base<void>& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator+=(const wrapped_vector& left, const wrapped_scalar& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator-=(const wrapped_vector& left, const wrapped_scalar& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator*=(const wrapped_vector& left, const wrapped_scalar& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator/=(const wrapped_vector& left, const wrapped_scalar& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
 
-    constexpr UpdateStmt operator+=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator-=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator*=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
-    constexpr UpdateStmt operator/=(const wrapped_base<vec_t>& left, const wrapped_base<vec_t>& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator+=(const wrapped_vector& left, const wrapped_vector& right) { return { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator-=(const wrapped_vector& left, const wrapped_vector& right) { return { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator*=(const wrapped_vector& left, const wrapped_vector& right) { return { BinaryOperator::MULTIPLY, left.wrappedExpr, right.wrappedExpr }; }
+    constexpr UpdateStmt operator/=(const wrapped_vector& left, const wrapped_vector& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
 }
 
 // Literals
@@ -724,13 +834,13 @@ struct LiteralExpr : Expr {
 
 namespace code {
     template<typename T>
-    constexpr wrapped<LiteralExpr, void> constant(T p) { return { { scalarTypeFromCXX<T>, { { p } } } }; }
+    constexpr wrapped_scalar::impl<LiteralExpr> constant(T p) { return { { scalarTypeFromCXX<T>, { { p } } } }; }
     template<typename T>
-    constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2) { return { { scalarTypeFromCXX<T>->vectorType(2), { { p1, p2 } } } }; }
+    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2) { return { { scalarTypeFromCXX<T>->vectorType(2), { { p1, p2 } } } }; }
     template<typename T>
-    constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2, T p3) { return { { scalarTypeFromCXX<T>->vectorType(3), { { p1, p2, p3 } } } }; }
+    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2, T p3) { return { { scalarTypeFromCXX<T>->vectorType(3), { { p1, p2, p3 } } } }; }
     template<typename T>
-    constexpr wrapped<LiteralExpr, vec_t> constant(T p1, T p2, T p3, T p4) { return { { scalarTypeFromCXX<T>->vectorType(4), { { p1, p2, p3, p4 } } } }; }
+    constexpr wrapped_vector::impl<LiteralExpr> constant(T p1, T p2, T p3, T p4) { return { { scalarTypeFromCXX<T>->vectorType(4), { { p1, p2, p3, p4 } } } }; }
 }
 
 // Block statement
@@ -831,11 +941,13 @@ struct UnresolvedCall : CallExpr {
     }
 };
 
-static constexpr BuiltinFunctionInstance funcFloor { "floor", { FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&FloatType) };
+static constexpr BuiltinFunctionInstance floorFunc { "floor", { FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&FloatType) };
+static constexpr BuiltinFunctionInstance allFunc { "all", { FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeFixed(&BoolType) };
 
 namespace code {
-    constexpr wrapped<UnresolvedCall<1>, vec_t> floor(const wrapped_base<vec_t>& arg) { return { { &funcFloor, { arg.wrappedExpr } } }; }
-    constexpr wrapped<UnresolvedCall<1>, void> floor(const wrapped_base<void>& arg) { return { { &funcFloor, { arg.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<1>> floor(const wrapped_vector& arg) { return { { &floorFunc, { arg.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<1>> floor(const wrapped_scalar& arg) { return { { &floorFunc, { arg.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<1>> all(const wrapped_untyped& arg) { return { { &allFunc, { arg.wrappedExpr } } }; }
 }
 
 // Composition
@@ -847,23 +959,23 @@ struct CompositionExpr : Expr {
 };
 
 namespace code {
-    constexpr wrapped<CompositionExpr, void> compose(const wrapped_base<void>& v) {
+    constexpr wrapped_scalar::impl<CompositionExpr> compose(const wrapped_scalar& v) {
         CompositionExpr e = { 1 };
         e.components[0] = v.wrappedExpr;
         return { e };
     }
-    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_base<vec_t>& v) {
+    constexpr wrapped_vector::impl<CompositionExpr> compose(const wrapped_vector& v) {
         CompositionExpr e = { 1 };
         e.components[0] = v.wrappedExpr;
         return { e };
     }
-    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_untyped& v1, const wrapped_untyped& v2) {
+    constexpr wrapped_vector::impl<CompositionExpr> compose(const wrapped_untyped& v1, const wrapped_untyped& v2) {
         CompositionExpr e = { 2 };
         e.components[0] = v1.wrappedExpr;
         e.components[1] = v2.wrappedExpr;
         return { e };
     }
-    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_untyped& v1, const wrapped_untyped& v2, const wrapped_untyped& v3) {
+    constexpr wrapped_vector::impl<CompositionExpr> compose(const wrapped_untyped& v1, const wrapped_untyped& v2, const wrapped_untyped& v3) {
         CompositionExpr e = { 3 };
         e.components[0] = v1.wrappedExpr;
         e.components[1] = v2.wrappedExpr;
@@ -871,7 +983,7 @@ namespace code {
         return { e };
     }
 
-    constexpr wrapped<CompositionExpr, vec_t> compose(const wrapped_untyped& v1, const wrapped_untyped& v2, const wrapped_untyped& v3, const wrapped_untyped& v4) {
+    constexpr wrapped_vector::impl<CompositionExpr> compose(const wrapped_untyped& v1, const wrapped_untyped& v2, const wrapped_untyped& v3, const wrapped_untyped& v4) {
         CompositionExpr e = { 4 };
         e.components[0] = v1.wrappedExpr;
         e.components[1] = v2.wrappedExpr;

@@ -541,10 +541,10 @@ struct BuildDriver {
         emitStmt(declStmt);
         return { decl };
     }
-    constexpr wrapped<VarRefExpr, void> declareScalar(std::string_view name, const Type* type) {
+    constexpr wrapped_scalar::impl<VarRefExpr> declareScalar(std::string_view name, const Type* type) {
         return { declareVariable(name, type) };
     }
-    constexpr wrapped<VarRefExpr, vec_t> declareVector(std::string_view name, const VectorType* type) {
+    constexpr wrapped_vector::impl<VarRefExpr> declareVector(std::string_view name, const VectorType* type) {
         return { declareVariable(name, type) };
     }
 

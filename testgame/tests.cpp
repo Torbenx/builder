@@ -36,7 +36,7 @@ static constexpr void createAST(BuildDriver& ast) {
     ast, baz = compose(foo, bar.xy(), foo);
     ast, res = !(foo * foo + bar < bar + baz) || constant(true, false, false, true);
     ast.branch(
-        res.x,
+        all(res),
         [&]() {
             ast, foo = constant(1.5f);
         },
