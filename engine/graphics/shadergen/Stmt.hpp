@@ -57,12 +57,6 @@ constexpr FixedBitset operator&(const FixedBitset& left, const FixedBitset& righ
 // Types
 struct Type;
 
-struct MemberInfo {
-    std::string_view name;
-    FixedBitset fieldMask;
-    const Type* type;
-};
-
 struct Type {
     bool isUser;
     bool isScalar;
@@ -128,11 +122,17 @@ struct ScalarTypeFromCXX_v<float> { static constexpr const ScalarType* type = &F
 template<typename T>
 static constexpr const ScalarType* scalarTypeFromCXX = ScalarTypeFromCXX_v<T>::type;
 
+struct MemberInfo {
+    std::string_view name;
+    const Type* type;
+    int_t offset;
+};
+
 struct UserType : Type {
+    std::string_view name;
     ArrayView<const MemberInfo> members;
-    int_t fieldCount;
-    constexpr UserType()
-        : Type(true, false, false, false) { }
+    constexpr UserType(std::string_view name, ArrayView<const MemberInfo> members)
+        : Type(true, false, false, false), name(name), members(members) { }
 };
 
 static constexpr const UserType* asUserType(const Type* type) {
@@ -374,7 +374,7 @@ struct wrapped_scalar : wrapped_untyped {
 template<typename E>
 struct wrapped_scalar::impl : E, wrapped_scalar {
     constexpr impl(const E& e)
-        : E(e), wrapped_scalar { (E*)this } { }
+        : E(e), wrapped_scalar { (Expr*)this } { }
 
     constexpr AssignmentStmt operator=(const wrapped_scalar::impl<E>& right) {
         return { this, right.wrappedExpr };
@@ -382,13 +382,6 @@ struct wrapped_scalar::impl : E, wrapped_scalar {
     constexpr AssignmentStmt operator=(const wrapped_scalar& right) {
         return { this, right.wrappedExpr };
     }
-};
-// Member access
-struct MemberAccessExpr : Expr {
-    const Expr* base;
-    int_t memberIndex;
-    constexpr MemberAccessExpr(const Expr* base, int_t index)
-        : Expr(StmtKind::MemberAccessExpr), base(base), memberIndex(index) { }
 };
 
 // Vector components
@@ -525,7 +518,6 @@ struct wrapped_vector::impl : E, wrapped_vector {
     }
 };
 
-
 constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xx() { return { { wrappedExpr, { 0, 0 } } }; }
 constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xy() { return { { wrappedExpr, { 0, 1 } } }; }
 constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xz() { return { { wrappedExpr, { 0, 2 } } }; }
@@ -625,6 +617,112 @@ constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwx() { retu
 constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwy() { return { { wrappedExpr, { 3, 3, 1 } } }; }
 constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwz() { return { { wrappedExpr, { 3, 3, 2 } } }; }
 constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::www() { return { { wrappedExpr, { 3, 3, 3 } } }; }
+
+// Member access
+struct MemberAccessExpr : Expr {
+    const Expr* base;
+    int_t memberIndex;
+    constexpr MemberAccessExpr(const Expr* base, int_t index)
+        : Expr(StmtKind::MemberAccessExpr), base(base), memberIndex(index) { }
+};
+
+struct FieldInfo {
+    std::string_view name;
+    const Type* type = nullptr;
+    size_t alignment = 0;
+    int_t size = -1;
+};
+
+template<typename T>
+static constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
+template<>
+constexpr const Type* typeFromCXX<bool> = &BoolType;
+template<>
+constexpr const Type* typeFromCXX<int> = &IntType;
+template<>
+constexpr const Type* typeFromCXX<float> = &FloatType;
+
+template<typename T>
+static constexpr FieldInfo makeFieldInfo(std::string_view name) { return { name, typeFromCXX<T>, alignof(T), sizeof(T) }; }
+
+struct StructLayoutHelper {
+    size_t prevEnd = 0;
+    constexpr size_t addField(size_t alignment, size_t size) {
+        size_t offset = alignmentCeil(alignment, prevEnd);
+        prevEnd = offset + size;
+        return offset;
+    }
+};
+template<int_t N>
+struct UserTypeImpl : UserType {
+    MemberInfo memberInfos[N];
+    constexpr UserTypeImpl(std::string_view name)
+        : UserType(name, memberInfos) { }
+    constexpr UserTypeImpl(const UserTypeImpl& other)
+        : UserType(other.name, memberInfos) { std::copy_n(other.memberInfos, N, memberInfos); }
+};
+static constexpr MemberInfo makeMemberInfo(FieldInfo info, StructLayoutHelper& layout) {
+    return { info.name, info.type, (int_t)layout.addField(info.alignment, info.size) };
+}
+template<typename T, int_t... I>
+static constexpr void makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, std::integer_sequence<int_t, I...>) {
+    StructLayoutHelper layout;
+    ((out.memberInfos[I] = makeMemberInfo(T::template _gen_field_info_<I>, layout)), ...);
+}
+template<typename T, int_t N>
+static constexpr UserTypeImpl<N> makeUserType() {
+    UserTypeImpl<N> ret { T::_gen_struct_name_ };
+    makeUserType_helper<T>(ret, std::make_integer_sequence<int_t, N>());
+    return ret;
+}
+
+struct wrapped_user_untyped {
+    const Expr* wrappedExpr;
+};
+
+#define BEGIN_GEN_STRUCT(name)                                           \
+    template<int_t fieldIndex>                                           \
+    struct _gen_fields_;                                                 \
+    template<>                                                           \
+    struct _gen_fields_<-1> : wrapped_user_untyped { };                  \
+    using _gen_base_alias_ = name;                                       \
+    template<int_t fieldIndex>                                           \
+    static constexpr ::shadergen::FieldInfo _gen_field_info_;            \
+    static constexpr int_t _gen_field_counter_offset_ = __COUNTER__ + 1; \
+    static constexpr std::string_view _gen_struct_name_ = #name;
+
+#define GEN_FIELD_HELPER(name, index)                                                                          \
+    name;                                                                                                      \
+    template<>                                                                                                 \
+    struct _gen_fields_<index> : _gen_fields_<index - 1> {                                                     \
+        get_wrapper<decltype(_gen_base_alias_::name)>::impl<MemberAccessExpr> name { { wrappedExpr, index } }; \
+    };                                                                                                         \
+    template<>                                                                                                 \
+    static constexpr ::shadergen::FieldInfo _gen_field_info_<index> = ::shadergen::makeFieldInfo<decltype(_gen_base_alias_::name)>(#name);
+
+#define GEN_FIELD(name) GEN_FIELD_HELPER(name, __COUNTER__ - _gen_field_counter_offset_);
+
+#define END_GEN_STRUCT_HELPER(index)                    \
+    using _gen_fields_final_ = _gen_fields_<index - 1>; \
+    static constexpr ::shadergen::UserTypeImpl SHADERGEN_TYPE = ::shadergen::makeUserType<_gen_base_alias_, index>();
+
+#define END_GEN_STRUCT() END_GEN_STRUCT_HELPER(__COUNTER__ - _gen_field_counter_offset_);
+
+template<typename T>
+struct wrapped_user : T::_gen_fields_final_ {
+    const Expr* wrappedExpr;
+    template<typename E>
+    struct impl;
+};
+template<typename T>
+template<typename E>
+struct wrapped_user<T>::impl : E, wrapped_user<T> {
+    constexpr impl(const E& e)
+        : E(e), wrapped_user<T> { (Expr*)this } { }
+};
+
+template<typename T>
+using get_wrapper = std::conditional_t<typeFromCXX<T>->isScalar, wrapped_scalar, std::conditional_t<typeFromCXX<T>->isVector, wrapped_vector, wrapped_user<T>>>;
 
 // Unary operators
 enum class UnaryOperator {

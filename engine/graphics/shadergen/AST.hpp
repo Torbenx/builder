@@ -146,7 +146,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
             if (type->isVector)
                 return FixedBitset::bitsBelow(asVectorType(type)->vectorSize);
             else if (type->isUser)
-                return FixedBitset::bitsBelow(asUserType(type)->fieldCount);
+                return FixedBitset::bitsBelow(asUserType(type)->members.size());
             else {
                 return {};
             }
@@ -156,7 +156,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         }
         constexpr void visitExpr(const Expr*, FixedBitset) { }
         constexpr void visitMemberAccessExpr(const MemberAccessExpr* e, FixedBitset mask) {
-            impl()->dispatchVisit(e->base, asUserType(e->base->type)->members[e->memberIndex].fieldMask); // FIXME: this is wrong!
+            //impl()->dispatchVisit(e->base, asUserType(e->base->type)->members[e->memberIndex].fieldMask); // FIXME: this is wrong!
             impl()->visitExpr(e, mask);
         }
         constexpr void visitVectorComponentExpr(const VectorComponentExpr* e, FixedBitset mask) {
@@ -534,18 +534,22 @@ struct BuildDriver {
         storage.pushBackOnList(*builder.currentBlock->body, stmt);
     }
 
-    constexpr VarRefExpr declareVariable(std::string_view name, const Type* type) {
+    constexpr VarRefExpr declareVariableImpl(std::string_view name, const Type* type) {
         auto* decl = storage.allocateVarDecl({ name, type, &builder.currentBlock->declContext });
         storage.pushBackOnList(builder.currentBlock->declContext.decls, decl);
         auto* declStmt = storage.allocateStmt<VarDeclStmt>({ decl });
         emitStmt(declStmt);
         return { decl };
     }
+    template<typename T>
+    constexpr typename get_wrapper<T>::template impl<VarRefExpr> declareVariable(std::string_view name) {
+        return { declareVariableImpl(name, typeFromCXX<T>) };
+    }
     constexpr wrapped_scalar::impl<VarRefExpr> declareScalar(std::string_view name, const Type* type) {
-        return { declareVariable(name, type) };
+        return { declareVariableImpl(name, type) };
     }
     constexpr wrapped_vector::impl<VarRefExpr> declareVector(std::string_view name, const VectorType* type) {
-        return { declareVariable(name, type) };
+        return { declareVariableImpl(name, type) };
     }
 
     constexpr BlockStmt* newBlock() {

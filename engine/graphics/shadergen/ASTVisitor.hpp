@@ -13,6 +13,8 @@ constexpr void formatType(const Type* type, Stream& out) {
     } else if (type->isVector) {
         const auto* vType = shadergen::asVectorType(type);
         out << vType->scalarType->name << vType->vectorSize;
+    } else if (type->isUser) {
+        out << asUserType(type)->name;
     } else if (type->isError) {
         out << "error";
     } else {
@@ -417,7 +419,7 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitBlockStmt(e);
     }
     void visitMemberAccessExpr(const MemberAccessExpr* e) {
-        info("MemberAccessExpr", fmt::format(".{}", asUserType(e->type)->members[e->memberIndex].name));
+        info("MemberAccessExpr", fmt::format("'.{}'", asUserType(e->base->type)->members[e->memberIndex].name));
         Base::visitMemberAccessExpr(e);
     }
     void visitVectorComponentExpr(const VectorComponentExpr* e) {
