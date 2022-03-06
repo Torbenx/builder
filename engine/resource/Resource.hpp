@@ -1,10 +1,10 @@
 #pragma once
 
+#include "resource/Owned.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
-#include "resource/Owned.hpp"
 
-#define DEBUG_RESOURCE(str) //log(str " refCount={}", refCount)
+#define DEBUG_RESOURCE(str) // log(str " refCount={}", refCount)
 
 template<typename T>
 class Resource;
@@ -104,6 +104,8 @@ public:
     Resource(const T& value, ResourceMonitor* monitor)
         : value(value), monitor(monitor) { ref(); }
 
+    void LEAK() { monitor = nullptr; }
+
 private:
     mutable ResourceMonitor* monitor = nullptr;
 
@@ -119,7 +121,7 @@ private:
         const_cast<T&>(value).release();
     }
 
-    void do_release() requires (!Releasable<T>) {
+    void do_release() requires(!Releasable<T>) {
         log("monitor::release() returned true but T is not Releaseable, resource might be leaked!");
     }
 

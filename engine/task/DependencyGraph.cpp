@@ -407,8 +407,8 @@ Task DependencyGraph::newTask(Promise* prom, Cluster cluster, uint8_t harmonic, 
 }
 
 void DependencyGraph::taskCompleted(Promise& prom, Task task, utick_t tick) {
-    signalSource(prom.sourceImpl, task.source(), tick);
-    unlockNextTarget(prom.targetImpl, task.target(), tick);
+    signalSource(prom.impl.sourceImpl, task.source(), tick);
+    unlockNextTarget(prom.impl.targetImpl, task.target(), tick);
 }
 
 Cluster DependencyGraph::newCluster(int_t firstTick, ClusterInitializaionBounds bounds) {

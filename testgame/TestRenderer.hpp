@@ -21,6 +21,8 @@
 #include <util/text.hpp>
 #include <ui/renderer/Renderer.hpp>
 
+#include <graphics/render3d/render3d.hpp>
+
 template<Gapi G>
 class TestRenderer : public Renderer<G> {
 public:
@@ -80,6 +82,14 @@ public:
 
     //std::unique_ptr<ui_renderer::Renderer> uiRenderer;
     Resource<Texture> uiTexture;
+
+    render3d::Renderer renderer3d;
+    render3d::Instance instance3d;
+    std::unique_ptr<render3d::CG::ItemsNode> reflectedItems, unreflectedItems;
+    std::unique_ptr<render3d::CG::TransformNode> reflectionTransform, cameraTransform, spotLightTransform;
+    std::unique_ptr<render3d::CG::PortalNode> reflectionPortal;
+    std::unique_ptr<render3d::CG::CompoundNode> cameraChildren, lightChildren;
+    render3d::RT::Node* cameraTree;
 
     TestRenderer();
     void change(int_t width, int_t height);

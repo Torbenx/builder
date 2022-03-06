@@ -91,7 +91,6 @@ add_library(engine ${linkage}
     "3d/Renderpass.cpp"
     "containers/RangeAllocator.cpp"
     "graphics/GAllocator.cpp"
-    "task/DependencyGraph.cpp"
     "ui/renderer/ComputeShader.cpp"
     ${platform_source}
     ${vulkan_source}

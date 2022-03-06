@@ -53,7 +53,6 @@ static constexpr void createAST(BuildDriver& ast) {
 }
 
 void runShadergenTest() {
-    log("leafs: {}", A::SHADERGEN_TYPE.leafFieldCount);
     ASTDumper dumper;
 
     // static constexpr auto tuple = createTuple<createAST>();

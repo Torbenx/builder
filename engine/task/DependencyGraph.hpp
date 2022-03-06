@@ -120,7 +120,7 @@ struct TargetNodeImpl {
     }
 };
 
-struct Promise {
+struct PromiseImpl {
     SourceNodeImpl sourceImpl;
     TargetNodeImpl targetImpl;
 };
@@ -176,7 +176,7 @@ struct RetireTaskImpl {
     int_t nextTickToFinalize = 0;
 };
 
-struct RetireTaskPromise : Promise{
+struct RetireTaskPromise : Promise {
     RetireTaskImpl retireImpl;
 };
 
@@ -286,18 +286,6 @@ struct ClusterImpl {
     ClusterImpl(Cluster cluster, int_t firstTick, ClusterInitializaionBounds bounds);
     ~ClusterImpl();
 };
-
-inline utick_t ceilTickToHarmonic(uint8_t harmonic, utick_t tick) {
-    utick_t mask = ((utick_t)1 << harmonic) - 1;
-    return (tick + mask) & ~mask;
-}
-inline utick_t floorTickToHarmonic(uint8_t harmonic, utick_t tick) {
-    utick_t mask = ((utick_t)1 << harmonic) - 1;
-    return tick & ~mask;
-}
-inline Address tickBase(Cluster cluster, utick_t tick) {
-    return Address().withCluster(cluster).withTick(tick);
-}
 
 struct DependencyGraph {
 

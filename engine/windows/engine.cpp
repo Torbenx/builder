@@ -187,10 +187,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 int_t dx, dy;
                 if (raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) {
                     if (lastMouseX != INT_MAX) {
-                        log<Tag::Windows>("switched from relative to absolute input");
                         dx = raw->data.mouse.lLastX - lastMouseX;
                         dy = raw->data.mouse.lLastY - lastMouseY;
                     } else {
+                        log<Tag::Windows>("switched from relative to absolute input");
                         dx = 0;
                         dy = 0;
                     }
@@ -237,7 +237,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
         }
         return DefWindowProc(hwnd, msg, wParam, lParam);
-        ;
     case WM_MOUSEMOVE: {
         PointerEvent event;
         event.pointerId = POINTER_ID_CURSOR;
@@ -353,35 +352,3 @@ int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]]
 
     return msg.wParam;
 }
-
-/*#include <bit>
-uintptr_t allocPtr = 0;
-
-void* operator new(std::size_t count, std::align_val_t al) {
-    std::size_t alignment = (std::size_t)al;
-    if (!allocPtr) {
-        int_t size =  1024 * 1024 * 1024;
-        allocPtr = (uintptr_t)VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-        std::memset((void*)allocPtr, 0, size);
-        log("allocPtr={}", allocPtr);
-    }
-    alignment = std::bit_ceil(alignment);
-    allocPtr = (allocPtr & ~(alignment - 1)) + alignment;
-    uintptr_t ret = allocPtr;
-    allocPtr += count;
-    //log("alloc {}: size={}, alignment={}", (void*)ret, count, alignment);
-    return (void*)ret;
-}
-
-void operator delete(void* ptr, std::align_val_t al) noexcept {
-    std::size_t alignment = (std::size_t)al;
-    //log("free {}: alignment={}", ptr, alignment);
-}
-
-void* operator new(std::size_t count) {
-    return operator new(count, (std::align_val_t)__STDCPP_DEFAULT_NEW_ALIGNMENT__);
-}
-
-void operator delete(void* ptr) noexcept {
-    operator delete(ptr, (std::align_val_t)__STDCPP_DEFAULT_NEW_ALIGNMENT__);
-}*/

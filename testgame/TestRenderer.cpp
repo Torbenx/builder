@@ -12,7 +12,6 @@
 #include <resource/asset_istream.hpp>
 #include <script/events.hpp>
 #include <string>
-//#include <task/Promise.hpp>
 #include <thread>
 #include <util/LogTimer.hpp>
 #include <util/draw_util.hpp>
@@ -24,98 +23,6 @@
 #ifdef PLATFORM_WINDOWS
 #include <windows/fullscreen.hpp>
 #endif
-
-#include <task/DependencyGraph.hpp>
-
-/*struct Test {
-    int_t registerEvent(EventReceiver*, uint64_t bitmask) {
-        log("bitmask: {:#b}", bitmask);
-        return 0;
-    }
-
-    void cancelEvent(EventReceiver*, int_t) { }
-};
-
-Script<float> test2() {
-    co_return;
-}
-
-Script<int> test() {
-    ScriptPromise<int>& self = co_await get_self;
-    auto a = waitable(Test {});
-    auto b = waitable(Test {});
-    auto c = waitable(Test {});
-    auto r = (a && c) || (b && c);
-
-    future_script<float> ref = self.acquire_future(test2());
-    float& inf = ref.interface();
-
-    //log("a={}, b={}, c={}, size={}", r.LS.bitmask(a.ID), r.LS.bitmask(b.ID), r.LS.bitmask(c.ID), std::tuple_size_v<decltype(r.tuple)>);
-
-    co_await r;
-}*/
-
-/*struct MyData {
-    int i;
-};
-
-class MyInterface {
-public:
-    task::DataRef<MyData> dat;
-    void setData(task::DataParameter<MyData> dat, [[context]] task::TaskInfo info) {
-        this->dat = std::move(dat);
-    }
-};
-
-task::Task<task::Description { task::interface<MyInterface> }> testChild([[context]] task::TaskInfo taskInfo) {
-    auto& self = co_await get_self;
-
-    task::DataRef<MyData> dat;
-    while (true) {
-        dat = std::move(self.get<MyInterface>()->dat);
-        if (dat)
-            break;
-        co_yield 0;
-    };
-
-    while (true) {
-        log("tick={}, i={}", taskInfo.tick, dat->i);
-
-        co_yield 0;
-    }
-}
-
-task::Task<> testParent([[context]] task::TaskInfo taskInfo) {
-    auto& self = co_await get_self;
-
-    auto dat = task::makeData<MyData>();
-
-    auto ext = task::Spawn<testChild>();
-    task::InterfaceRef<MyInterface> inf = ext.get<MyInterface>(2);
-    co_await ext.execute();
-    inf->setData(dat);
-
-    int counter = 0;
-    while (true) {
-        log("tick={}, c={}", taskInfo.tick, counter);
-        dat->i = counter;
-        counter++;
-        co_yield 0;
-    }
-}*/
-
-task::Promise promises[2][10];
-
-constexpr int_t MAX_TICKS = 25;
-std::list<task::Task> queue[MAX_TICKS];
-
-namespace task {
-void DependencyGraph::scheduleTask(Task task, utick_t tick) {
-    if (tick < MAX_TICKS)
-        queue[tick].push_back(task);
-    // log("scheduling {{{},{}}} at tick={}", task.cluster().id, task.id, tick);
-}
-}
 
 void runShadergenTest();
 
@@ -135,80 +42,6 @@ TestRenderer<G>::TestRenderer()
     runShadergenTest();
 
     log("=========================================");
-
-    /*task::DependencyGraph& graph = task::dependencyGraphGlobal;
-    graph.globalInitialize();
-
-    task::ClusterInitializaionBounds bounds = {
-        .maxTasks = 10,
-        .maxMappedTargets = 10,
-        .maxSourceMappings = 10,
-        .maxInterfaceTicksDelay = 4,
-        .maxInterfaceHeapSize = 10,
-        .maxDataHeapSize = 10,
-    };
-    auto cluster1 = graph.newCluster(1, bounds);
-    auto cluster2 = graph.newCluster(1, bounds);
-    graph.clusterImpl(cluster1).interactingClusters[0] = cluster2;
-    graph.clusterImpl(cluster1).numInteractingClusters = 1;
-    graph.clusterImpl(cluster2).interactingClusters[0] = cluster1;
-    graph.clusterImpl(cluster2).numInteractingClusters = 1;
-
-    auto task1 = graph.newTask(&promises[0][2], cluster1, 0, 1);
-    auto task2 = graph.newTask(&promises[1][2], cluster2, 0, 1);
-
-    graph.updateDependency(task1.source(), task2.target(), 1, 0, 1);
-
-    graph.taskCompleted(promises[0][2], task1, 0);
-    graph.taskCompleted(promises[1][2], task2, 0);
-    graph.beginClusterTicks({ cluster1, cluster2 });
-
-    for (task::utick_t tick = 2; tick < MAX_TICKS; tick++) {
-        graph.initializeClusterTick(cluster1, tick);
-        graph.initializeClusterTick(cluster2, tick);
-        log("begin tick={}", tick);
-
-        std::vector<task::Cluster> clusters;
-        clusters.push_back(cluster1);
-        if (tick % 4 == 0 && tick / 4 > 1)
-            clusters.push_back(cluster2);
-        graph.beginClusterTicks(clusters);
-    }
-    while (true) {
-        bool scheduled = false;
-        for (int_t tick = 1; tick < MAX_TICKS; tick++) {
-            if (!queue[tick].empty()) {
-                auto task = queue[tick].front();
-                queue[tick].pop_front();
-                scheduled = true;
-                if (task.id == 1) {
-                    auto& prom = graph.clusterImpl(task.cluster()).retireTaskPromise;
-                    graph.retireClusterTick(prom.retireImpl, task.cluster(), tick);
-                    // log("{{{},{}}} complete at tick={}", task.cluster().id, task.id, tick);
-                    graph.taskCompleted(prom, task, tick);
-                    break;
-                }
-                log("{{{},{}}} complete at tick={}", task.cluster().id, task.id, tick);
-                if (task == task2) {
-                    log("depending on floor={}, ceil={}", graph.translateTickFloor(cluster2, cluster1, tick), graph.translateTickCeil(cluster2, cluster1, tick));
-                }
-                if (task == task1 && tick == 20) {
-                    graph.updateDependency(task1.source(), task2.target(), tick, 0, -1);
-                    task::StubAllocator stub(task.cluster(), tick);
-                    auto allocator = stub.interfaceHeapHeader().persistentDataParameter(stub);
-                    auto ptr = allocator.template allocate<1, 4000>();
-                    allocator.template free<1, 4000>(ptr);
-                }
-                graph.taskCompleted(promises[task.cluster().id][task.id], task, tick);
-                break;
-            }
-        }
-        if (!scheduled)
-            break;
-    }
-
-    graph.globalFinalize();
-    log("=========================================");*/
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));
@@ -307,11 +140,11 @@ TestRenderer<G>::TestRenderer()
     id_t id4 = objects.insertObject(f4);
     id_t id5 = objects.insertObject(f5);
 
-    std::vector<Effect::Handle> effects1 { col1.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-    std::vector<Effect::Handle> effects2 { col2.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-    std::vector<Effect::Handle> effects3 { col3.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle(), reflection.handle() };
-    std::vector<Effect::Handle> effects4 { col4.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() };
-    std::vector<Effect::Handle> effects5 { col5.handle(), ambientLight.handle(), spotLight.handle() };
+    std::vector<Effect::Handle> effects1 { col1.handle(), ambientLight.handle(), };
+    std::vector<Effect::Handle> effects2 { col2.handle(), ambientLight.handle(), };
+    std::vector<Effect::Handle> effects3 { col3.handle(), ambientLight.handle(), reflection.handle() };
+    std::vector<Effect::Handle> effects4 { col4.handle(), ambientLight.handle(), };
+    std::vector<Effect::Handle> effects5 { col5.handle(), ambientLight.handle(), };
 
     look.dir = Vec3::normalize(Vec3(0, -1, 0) - pos);
     lframe = getNanos();
@@ -416,6 +249,47 @@ TestRenderer<G>::TestRenderer()
     }
     spotLightDepthPass.draw(objects);
     glDisable(GL_DEPTH_TEST);
+
+    using namespace render3d;
+
+    unreflectedItems = std::make_unique<CG::ItemsNode>();
+    unreflectedItems->addStaticItem({ Vec3(0.0f), 1.0f, instance3d.addObject({ &f1, effects1 }) });
+    unreflectedItems->addStaticItem({ Vec3(0.0f), 1.0f, instance3d.addObject({ &f2, effects2 }) });
+    unreflectedItems->addStaticItem({ Vec3(0.0f), 1.0f, instance3d.addObject({ &f4, effects4 }) });
+    unreflectedItems->addDynamicItem({ Vec3(0.0f), 1.0f, instance3d.addObject({ &f5, effects5 }) });
+    reflectedItems = std::make_unique<CG::ItemsNode>();
+    reflectedItems->addStaticItem({ Vec3(0.0f), 1.0f, instance3d.addObject({ &f3, effects3 }) });
+
+    reflectionTransform = std::make_unique<CG::TransformNode>();
+    reflectionTransform->child = unreflectedItems.get();
+    reflectionTransform->transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
+    reflectionPortal = std::make_unique<CG::PortalNode>();
+    reflectionPortal->child = reflectionTransform.get();
+
+    cameraChildren = std::make_unique<CG::CompoundNode>();
+    cameraChildren->addChild(unreflectedItems.get());
+    cameraChildren->addChild(reflectedItems.get());
+    cameraChildren->addChild(reflectionPortal.get());
+    cameraTransform = std::make_unique<CG::TransformNode>();
+    cameraTransform->child = cameraChildren.get();
+    cameraTransform->transform = Mat4x4::look(pos, look.dir, up);
+
+    lightChildren = std::make_unique<CG::CompoundNode>();
+    lightChildren->addChild(unreflectedItems.get());
+    lightChildren->addChild(reflectedItems.get());
+    spotLightTransform = std::make_unique<CG::TransformNode>();
+    spotLightTransform->child = lightChildren.get();
+    spotLightTransform->transform = Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
+
+    RTUpdater updater;
+    cameraTree = static_cast<RT::CompoundNode*>(updater.dispatchUpdate(cameraTransform.get(), nullptr));
+    unreflectedItems->clearUpdates();
+    reflectedItems->clearUpdates();
+    cameraChildren->clearUpdates();
+    lightChildren->clearUpdates();
+
+    renderer3d.dispatchVisit(cameraTree);
+    VDUMP(renderer3d.objects.size());
 }
 
 template<Gapi G>
@@ -555,6 +429,7 @@ void TestRenderer<G>::pointer(PointerEvent event) {
 template<Gapi G>
 void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
+    return;
 
     log("\n\n--------------------------------------");
     /*sparse::Inverse inv;
@@ -707,6 +582,7 @@ void TestRenderer<G>::drawFrame() {
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
     renderpass.viewProjectionMatrix = projection * view;
     reflectionPass.viewProjectionMatrix = renderpass.viewProjectionMatrix * Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
+    cameraTransform->transform = view;
 
     Vec3& plp = pointLightPosition;
     plp += Vec3(plp.z * dt, plp.z * dt * 0.5f, -plp.x * dt);
@@ -725,11 +601,19 @@ void TestRenderer<G>::drawFrame() {
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     for (int_t i = 0; i < 6; i++) {
-        pointLightDepthPasses[i].draw(objects);
+        //pointLightDepthPasses[i].draw(objects);
     }
 
-    reflectionPass.draw(objects);
-    renderpass.draw(objects);
+    //reflectionPass.draw(objects);
+    //renderpass.draw(objects);
+
+    render3d::RTUpdater updater;
+    updater.dispatchUpdate(cameraTransform.get(), cameraTree);
+
+    Framebuffer::DEFAULT.bind();
+    Framebuffer::DEFAULT.clear();
+    renderer3d.render(&instance3d, &allocator, &Framebuffer::DEFAULT, projection);
+
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
 
