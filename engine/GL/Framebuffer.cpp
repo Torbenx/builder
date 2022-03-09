@@ -6,7 +6,7 @@ Framebuffer Framebuffer::DEFAULT(true, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
 Framebuffer* Framebuffer::currentFramebuffer = &Framebuffer::DEFAULT;
 
 // must match Texture::Type
-GLenum GL_ATTACHMENTS[] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+GLenum GL_ATTACHMENTS[] = { GL_COLOR_ATTACHMENT7, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
 GLenum GL_BUFFER_BITS[] = { GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT };
 
 Framebuffer::Framebuffer(bool isDefault, GLbitfield clearMask)

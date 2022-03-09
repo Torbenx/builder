@@ -26,7 +26,7 @@ std::string ShaderBuilder::buildVertexSource() {
 
 std::string ShaderBuilder::buildFragmentSource() {
     std::ostringstream s;
-    s << fExt.str() << fInit.str() << "out vec4 " << Shader::FRAGMENT_COLOR << ";\n"
+    s << fExt.str() << fInit.str() << "layout(location=0) out vec4 " << Shader::FRAGMENT_COLOR << ";\n"
       << "void main(){\n"
       << fMain.str() << "}";
     return s.str();

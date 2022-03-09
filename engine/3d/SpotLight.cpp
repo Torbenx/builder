@@ -25,7 +25,6 @@ void SpotLight::addTo(EffectShaderBuilder& s) {
     s.vMain << positionVarying << " = " << pos << ".xyz / " << pos << ".w;\n";
     s.fMain << "vec3 " << direction << " = " << EffectShader::WORLD_POSITION << " - " << lightPosUniform << ";\n";
     s.fMain << "float " << result << " = texture(" << textureUniform << "," << positionVarying << ");\n";
-    s.fMain << "if("
-            << "dot(" << positionVarying << ".xy - 0.5," << positionVarying << ".xy - 0.5) <= 0.25 && " << positionVarying << ".z >= 0.0){\n";
+    s.fMain << "if(dot(" << positionVarying << ".xy - 0.5," << positionVarying << ".xy - 0.5) <= 0.25 && " << positionVarying << ".z >= 0.0){\n";
     s.fMain << EffectShader::LIGHT_INTENSITY << " += " << result << " * max(0.0, -dot(" << EffectShader::WORLD_NORMAL << ", normalize(" << direction << "))) * " << colorUniform << " / dot(" << direction << "," << direction << ");\n}\n";
 }

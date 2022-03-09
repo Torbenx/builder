@@ -278,6 +278,7 @@ struct VarDeclStmt : Stmt {
         : Stmt(StmtKind::VarDeclStmt), decl(decl) { }
 };
 struct VarDeclContext {
+    VarDeclContext* parent = nullptr;
     ASTList<VarDecl> decls;
 };
 struct VarRefExpr : Expr {
@@ -306,6 +307,11 @@ struct BlockStmt : Stmt {
     VarDeclContext declContext;
     constexpr BlockStmt(CompoundStmt* body)
         : Stmt(StmtKind::BlockStmt), body(body) { }
+
+    constexpr void setParentBlock(BlockStmt* parent) {
+        this->parent = parent;
+        declContext.parent = &parent->declContext;
+    }
 };
 
 struct IfStmt : Stmt {

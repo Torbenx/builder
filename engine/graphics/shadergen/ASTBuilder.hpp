@@ -69,6 +69,60 @@ struct ErrorBuilder : MessageBuilder {
     }
 };
 
+struct AccessMaskUtils {
+    static constexpr FixedBitset fullMask(const Type* type) {
+        if (type->isVector)
+            return FixedBitset::bitsBelow(asVectorType(type)->vectorSize);
+        else if (type->isUser)
+            return FixedBitset::bitsBelow(asUserType(type)->leafFieldCount);
+        else {
+            return {};
+        }
+    }
+};
+
+template<typename Impl>
+struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
+    constexpr Impl* impl() { return static_cast<Impl*>(this); }
+
+    constexpr void dispatchVisitWithFullMask(const Expr* e) {
+        impl()->dispatchVisit(e, AccessMaskUtils::fullMask(e->type));
+    }
+    constexpr void visitExpr(const Expr*, FixedBitset) { }
+    constexpr void visitMemberAccessExpr(const MemberAccessExpr* e, FixedBitset mask) {
+        impl()->dispatchVisit(e->base, mask << e->member().leafFieldOffset);
+        impl()->visitExpr(e, mask);
+    }
+    constexpr void visitVectorComponentExpr(const VectorComponentExpr* e, FixedBitset mask) {
+        FixedBitset baseMask = 0;
+        for (int_t i = 0; i < e->componentCount; i++) {
+            if (mask.test(i))
+                baseMask.set(e->components[i]);
+        }
+        impl()->dispatchVisit(e->base, baseMask);
+        impl()->visitExpr(e, mask);
+    }
+    constexpr void visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr* e, FixedBitset mask) {
+        impl()->dispatchVisit(e->vector, mask);
+        impl()->dispatchVisitWithFullMask(e->scalar);
+        impl()->visitExpr(e, mask);
+    }
+    constexpr void visitCallExpr(const CallExpr* e, FixedBitset mask) {
+        e->arguments.forEachEntry([&](const Expr* arg) {
+            impl()->dispatchVisitWithFullMask(arg); // be more accurate?
+        });
+        impl()->visitExpr(e, mask);
+    }
+    constexpr void visitCompositionExpr(const CompositionExpr* e, FixedBitset mask) {
+        for (int_t i = 0; i < e->componentCount; i++)
+            impl()->dispatchVisitWithFullMask(e->components[i]); // be more accurate?
+        impl()->visitExpr(e, mask);
+    }
+    constexpr void visit(const Expr* e) {
+        impl()->dispatchVisitWithFullMask(e);
+    }
+};
+
 template<typename Storage>
 struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     using Base = ASTTransform<ASTBuilder, Storage>;
@@ -77,56 +131,6 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     constexpr ASTBuilder(Storage* storage)
         : Base(storage) { }
 
-    template<typename Impl>
-    struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
-        constexpr Impl* impl() { return static_cast<Impl*>(this); }
-
-        constexpr FixedBitset fullMask(const Type* type) {
-            if (type->isVector)
-                return FixedBitset::bitsBelow(asVectorType(type)->vectorSize);
-            else if (type->isUser)
-                return FixedBitset::bitsBelow(asUserType(type)->leafFieldCount);
-            else {
-                return {};
-            }
-        }
-        constexpr void dispatchVisitWithFullMask(const Expr* e) {
-            impl()->dispatchVisit(e, fullMask(e->type));
-        }
-        constexpr void visitExpr(const Expr*, FixedBitset) { }
-        constexpr void visitMemberAccessExpr(const MemberAccessExpr* e, FixedBitset mask) {
-            impl()->dispatchVisit(e->base, mask << e->member().leafFieldOffset);
-            impl()->visitExpr(e, mask);
-        }
-        constexpr void visitVectorComponentExpr(const VectorComponentExpr* e, FixedBitset mask) {
-            FixedBitset baseMask = 0;
-            for (int_t i = 0; i < e->componentCount; i++) {
-                if (mask.test(i))
-                    baseMask.set(e->components[i]);
-            }
-            impl()->dispatchVisit(e->base, baseMask);
-            impl()->visitExpr(e, mask);
-        }
-        constexpr void visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr* e, FixedBitset mask) {
-            impl()->dispatchVisit(e->vector, mask);
-            impl()->dispatchVisitWithFullMask(e->scalar);
-            impl()->visitExpr(e, mask);
-        }
-        constexpr void visitCallExpr(const CallExpr* e, FixedBitset mask) {
-            e->arguments.forEachEntry([&](const Expr* arg) {
-                impl()->dispatchVisitWithFullMask(arg); // be more accurate?
-            });
-            impl()->visitExpr(e, mask);
-        }
-        constexpr void visitCompositionExpr(const CompositionExpr* e, FixedBitset mask) {
-            for (int_t i = 0; i < e->componentCount; i++)
-                impl()->dispatchVisitWithFullMask(e->components[i]); // be more accurate?
-            impl()->visitExpr(e, mask);
-        }
-        constexpr void visit(const Expr* e) {
-            impl()->dispatchVisitWithFullMask(e);
-        }
-    };
     struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
         ASTBuilder& ast;
         constexpr CheckInitialized(ASTBuilder& ast)
@@ -189,10 +193,10 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
 
     constexpr void transformVarRefExpr(VarRefExpr* e) {
-        BlockStmt* block = this->currentBlock;
-        while (block && (&block->declContext != e->decl->declContext))
-            block = block->parent;
-        check(block) << "variable " << e << " not found";
+        VarDeclContext* currentContext = &this->currentBlock->declContext;
+        while (currentContext && (currentContext != e->decl->declContext))
+            currentContext = currentContext->parent;
+        check(currentContext) << "variable " << e << " not found";
 
         e->type = e->decl->type;
         e->valueKind = ValueKind::LVALUE;
@@ -447,6 +451,21 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         return wrapStmtWithError(stmt);
     }
 
+    constexpr BlockStmt* newBlock() {
+        auto* body = this->storage->template allocateStmt<CompoundStmt>({});
+        auto* block = this->storage->template allocateStmt<BlockStmt>({ body });
+        return block;
+    }
+    constexpr void pushBlock() {
+        auto* newBlock = this->newBlock();
+        newBlock->setParentBlock(this->currentBlock);
+        this->currentBlock = newBlock;
+    }
+    constexpr Stmt* popBlock() {
+        Stmt* block = checkCompleteBlock(this->currentBlock);
+        this->currentBlock = this->currentBlock->parent;
+        return block;
+    }
     constexpr Stmt* checkCompleteBlock(BlockStmt* block) {
         Stmt* ret = block;
         block->declContext.decls.forEachEntry([&](const VarDecl* decl) {

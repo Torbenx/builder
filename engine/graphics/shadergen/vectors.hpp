@@ -1,6 +1,7 @@
 #pragma once
 
 #include "statements.hpp"
+#include "math/Vec4.hpp"
 
 namespace shadergen {
 
@@ -55,6 +56,12 @@ template<>
 constexpr const Type* typeFromCXX<int> = &IntType;
 template<>
 constexpr const Type* typeFromCXX<float> = &FloatType;
+template<>
+constexpr const Type* typeFromCXX<Vec2> = FloatType.vectorType(2);
+template<>
+constexpr const Type* typeFromCXX<Vec3> = FloatType.vectorType(3);
+template<>
+constexpr const Type* typeFromCXX<Vec4> = FloatType.vectorType(4);
 
 struct wrapped_untyped {
     const Expr* wrappedExpr;
