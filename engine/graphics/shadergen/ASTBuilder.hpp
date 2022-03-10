@@ -432,6 +432,11 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
         Base::transformIfStmt(e);
         checkBranchCondtion(e->condition);
     }
+    constexpr void transformParenExpr(ParenExpr* e) {
+        Base::transformParenExpr(e);
+        e->type = e->subExpr->type;
+        e->valueKind = e->subExpr->valueKind;
+    }
 
     constexpr Stmt* createErrorStmt(const ErrorStmt& in) {
         return this->impl()->dispatchTransform(in.subStmt);

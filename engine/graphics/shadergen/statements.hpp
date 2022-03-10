@@ -91,13 +91,14 @@ static constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
     callback(CompositionExpr)            \
     callback(IfStmt)                     \
     callback(UpdateStmt)                 \
+    callback(ParenExpr)
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
     callback(ASTListEntry)            \
     callback(VarDecl)                 \
     callback(ErrorNote)               \
-    callback(StageDecl)               \
+    callback(StageDecl)
 // clang-format on
 
 struct ASTNode { };
@@ -231,6 +232,12 @@ struct Expr : Stmt {
     ValueKind valueKind = ValueKind::UNKNOWN;
     constexpr Expr(StmtKind kind)
         : Stmt(kind) { }
+};
+
+struct ParenExpr : Expr {
+    const Expr* subExpr;
+    constexpr ParenExpr(const Expr* subExpr)
+        : Expr(StmtKind::ParenExpr), subExpr(subExpr) { }
 };
 
 // Errors

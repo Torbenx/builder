@@ -97,6 +97,30 @@ static constexpr std::string_view toString(BinaryOperator op) {
         return "??";
     }
 }
+static constexpr int_t operatorPrecedence(BinaryOperator op) {
+    switch (op) {
+    case BinaryOperator::PLUS:
+    case BinaryOperator::MINUS:
+        return 6;
+    case BinaryOperator::MULTIPLY:
+    case BinaryOperator::DIVIDE:
+        return 5;
+    case BinaryOperator::CMP_LE:
+    case BinaryOperator::CMP_L:
+    case BinaryOperator::CMP_GE:
+    case BinaryOperator::CMP_G:
+        return 9;
+    case BinaryOperator::CMP_EQ:
+    case BinaryOperator::CMP_NE:
+        return 10;
+    case BinaryOperator::AND:
+        return 14;
+    case BinaryOperator::OR:
+        return 15;
+    default:
+        return 1;
+    }
+}
 
 // Elementwise operators
 struct ElementwiseOperatorExpr : Expr {
@@ -157,6 +181,14 @@ namespace code {
     constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator-(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::MINUS, right.wrappedExpr, left.wrappedExpr, false } }; }
     constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator*(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::MULTIPLY, right.wrappedExpr, left.wrappedExpr, false } }; }
     constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator/(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::DIVIDE, right.wrappedExpr, left.wrappedExpr, false } }; }
+}
+
+static constexpr int_t resolveOperatorPrecedence(const Stmt* e) {
+    if (e->stmtKind == StmtKind::ElementwiseOperatorExpr)
+        return operatorPrecedence(castStmt<ElementwiseOperatorExpr>(e)->op);
+    if (e->stmtKind == StmtKind::VectorByScalarOperatorExpr)
+        return operatorPrecedence(castStmt<VectorByScalarOperatorExpr>(e)->op);
+    return 1;
 }
 
 // Updates

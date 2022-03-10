@@ -11,6 +11,36 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform<Storage>, Stora
     constexpr GLSLStmtTransform(Storage* storage)
         : Base(storage) { }
 
+    constexpr Expr* wrapWithParenExpr(const Expr* e) {
+        auto* paren = this->storage->template allocateStmt<ParenExpr>({ e });
+        paren->type = e->type;
+        paren->valueKind = e->valueKind;
+        return paren;
+    }
+    constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {
+        Base::transformElementwiseOperatorExpr(e);
+        int_t myPrecedence = operatorPrecedence(e->op);
+        if (myPrecedence <= resolveOperatorPrecedence(e->left))
+            e->left = wrapWithParenExpr(e->left);
+        if (myPrecedence < resolveOperatorPrecedence(e->right))
+            e->right = wrapWithParenExpr(e->right);
+    }
+    constexpr void transformVectorByScalarOperatorExpr(VectorByScalarOperatorExpr* e) {
+        Base::transformVectorByScalarOperatorExpr(e);
+        int_t myPrecedence = operatorPrecedence(e->op);
+        int_t vectorPrecedence = resolveOperatorPrecedence(e->vector);
+        if (myPrecedence < vectorPrecedence || (!e->isVectorLeft && myPrecedence == vectorPrecedence))
+            e->vector = wrapWithParenExpr(e->vector);
+        int_t scalarPrecedence = resolveOperatorPrecedence(e->scalar);
+        if (myPrecedence < scalarPrecedence || (e->isVectorLeft && myPrecedence == scalarPrecedence))
+            e->scalar = wrapWithParenExpr(e->scalar);
+    }
+    constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
+        Base::transformUnaryOperatorExpr(e);
+        if (1 < resolveOperatorPrecedence(e->subExpr))
+            e->subExpr = wrapWithParenExpr(e->subExpr);
+    }
+
     constexpr const Function* binaryToFuntion(BinaryOperator op) {
         switch (op) {
         case BinaryOperator::CMP_LE:
@@ -34,14 +64,14 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform<Storage>, Stora
             return nullptr;
         }
     }
-    constexpr const Function* unaryToFunction(UnaryOperator e) {
-        VERIFY(ShaderGen, e == UnaryOperator::NOT);
-        return &notFunc;
-    }
     constexpr Stmt* createElementwiseOperatorExpr(const ElementwiseOperatorExpr& e) {
         if ((isComparisonOp(e.op) || isLogicalOp(e.op)) && !e.type->isScalar)
             return this->createCallExpr(UnresolvedCall<2> { binaryToFuntion(e.op), { e.left, e.right } });
         return Base::createElementwiseOperatorExpr(e);
+    }
+    constexpr const Function* unaryToFunction(UnaryOperator e) {
+        VERIFY(ShaderGen, e == UnaryOperator::NOT);
+        return &notFunc;
     }
     constexpr Stmt* createUnaryOperatorExpr(const UnaryOperatorExpr& e) {
         if (isLogicalOp(e.op) && !e.type->isScalar)
@@ -129,46 +159,14 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
     constexpr void visitVarDecl(const VarDecl* decl) {
         out() << decl->type << " " << decl->name;
     }
-    constexpr std::string_view binaryToFuntion(BinaryOperator op) {
-        switch (op) {
-        case BinaryOperator::CMP_LE:
-            return "lessThanEqual";
-        case BinaryOperator::CMP_L:
-            return "lessThan";
-        case BinaryOperator::CMP_EQ:
-            return "equal";
-        case BinaryOperator::CMP_GE:
-            return "greaterThanEqual";
-        case BinaryOperator::CMP_G:
-            return "greaterThan";
-        case BinaryOperator::CMP_NE:
-            return "notEqual";
-        case BinaryOperator::AND:
-            return "and";
-        case BinaryOperator::OR:
-            return "or";
-        default:
-            return "invalid_cmp_op";
-        }
-    }
     constexpr void visitElementwiseOperatorExpr(const ElementwiseOperatorExpr* e) {
-        if ((isComparisonOp(e->op) || isLogicalOp(e->op)) && !e->type->isScalar)
-            out() << binaryToFuntion(e->op) << "(" << e->left << ", " << e->right << ")";
-        else
-            out() << "(" << e->left << " " << toString(e->op) << " " << e->right << ")";
+        out() << e->left << " " << toString(e->op) << " " << e->right;
     }
     constexpr void visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr* e) {
-        out() << "(" << (e->isVectorLeft ? e->vector : e->scalar) << " " << toString(e->op) << " " << (e->isVectorLeft ? e->scalar : e->vector) << ")";
-    }
-    constexpr std::string_view unaryToFunction(UnaryOperator e) {
-        VERIFY(ShaderGen, e == UnaryOperator::NOT);
-        return "not";
+        out() << (e->isVectorLeft ? e->vector : e->scalar) << " " << toString(e->op) << " " << (e->isVectorLeft ? e->scalar : e->vector);
     }
     constexpr void visitUnaryOperatorExpr(const UnaryOperatorExpr* e) {
-        if (isLogicalOp(e->op) && !e->type->isScalar)
-            out() << unaryToFunction(e->op) << "(" << e->subExpr << ")";
-        else
-            out() << "(" << toString(e->op) << e->subExpr << ")";
+        out() << toString(e->op) << e->subExpr;
     }
     constexpr void visitAssignmentStmt(const AssignmentStmt* e) {
         out() << e->left << " = " << e->right;
@@ -225,7 +223,7 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
         bool first = true;
         e->arguments.forEachEntry([&](const Expr* expr) {
             if (!first)
-                out() << " ,";
+                out() << ", ";
             first = false;
             out() << expr;
         });
@@ -242,6 +240,9 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
         out() << e->body;
         indent -= 1;
         out() << Indentation() << "}";
+    }
+    constexpr void visitParenExpr(const ParenExpr* e) {
+        out() << "(" << e->subExpr << ")";
     }
 };
 

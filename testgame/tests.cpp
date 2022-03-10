@@ -39,7 +39,7 @@ static constexpr void createAST(GraphicsDriver& prog) {
         ast, bar.yw() = compose(scale, constant(2.0f));
         ast, bar.x = floor(foo);
         ast, baz = compose(foo, bar.xy(), foo);
-        ast, res = all(!(foo * foo + bar < bar + baz) || constant(true, false, false, true));
+        ast, res = all(!(foo * foo * bar < bar + baz) || constant(true, false, false, true));
         ast.branch(
             res,
             [&]() {
@@ -89,10 +89,12 @@ void runShadergenTest() {
 
     static constexpr auto ast = GraphicsDriver(createAST);
     dumper.dump(ast.vert.stageDecl->entryPoint);
-    static const auto ast2 = transformAST(ast);
+    static constexpr auto ast2 = transformAST(ast);
     dumper.dump(ast2.vert.stageDecl->entryPoint);
     static constexpr auto glsl = toGLSL(ast);
     log("{}", glsl.data());
+    static constexpr auto glsl2 = toGLSL(ast2);
+    log("{}", glsl2.data());
 
     /*A aVal;
     aVal.b2.i = 123;

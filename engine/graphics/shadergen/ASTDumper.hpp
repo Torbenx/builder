@@ -120,6 +120,11 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitUpdateStmt(e);
     }
 
+    void visitParenExpr(const ParenExpr* e) {
+        info("ParenExpr");
+        visitExpr(e);
+        dispatchVisit(e->subExpr);
+    }
     void visitErrorNode(const ErrorNode* e) {
         info("ErrorNode", fmt::format("!!! {} !!!", e->message));
     }
