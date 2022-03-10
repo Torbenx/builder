@@ -197,6 +197,13 @@ struct PrevDeclStripper : ASTVisitor<PrevDeclStripper> {
         Base::visitBlockStmt(block);
         stripDeclContext(&block->declContext);
     }
+    constexpr void stripStage(const StageDecl* stageDecl) {
+        stripDeclContext(&stageDecl->builtins);
+        stripDeclContext(&stageDecl->uniforms);
+        stripDeclContext(&stageDecl->inputs);
+        stripDeclContext(&stageDecl->outputs);
+        dispatchVisit(stageDecl->entryPoint);
+    }
 };
 
 template<typename Impl, typename Storage>
@@ -228,6 +235,8 @@ struct ASTTransform {
             declContext = declContext->parent;
         }
         VERIFY(ShaderGen, newDecl);
+        if (!newDecl)
+            VDUMP(oldDecl->name);
         e->decl = newDecl;
     }
     constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {
@@ -252,25 +261,22 @@ struct ASTTransform {
     constexpr void transformLiteralExpr(LiteralExpr* e) {
         impl()->transformExpr(e);
     }
-    constexpr void transformVarDecl(VarDecl* decl, const VarDecl* oldDecl) {
-        decl->declContext = currentDeclContext;
-        decl->prevDecl = oldDecl;
-        storage->pushBackOnList(currentDeclContext->decls, decl);
-    }
     constexpr void transformCompoundStmt(CompoundStmt* e) {
         impl()->transformStmt(e);
         e->consumeEntries([&](const Stmt* stmt) {
             storage->pushBackOnList(*e, impl()->dispatchTransform(stmt));
         });
     }
+    constexpr void transformDeclContext(VarDeclContext* declContext) {
+        declContext->decls.consumeEntries([&](const VarDecl* oldDecl) {
+            VarDecl* newDecl = impl()->createVarDecl(oldDecl, declContext);
+        });
+    }
     constexpr void transformBlockStmt(BlockStmt* e) {
         impl()->transformStmt(e);
+        impl()->transformDeclContext(&e->declContext);
         e->declContext.parent = currentDeclContext;
         currentDeclContext = &e->declContext;
-        e->declContext.decls.consumeEntries([&](const VarDecl* oldDecl) {
-            VarDecl* newDecl = impl()->dispatchTransformVarDecl(oldDecl);
-            storage->pushBackOnList(e->declContext.decls, newDecl);
-        });
         e->body = castStmt<CompoundStmt>(impl()->dispatchTransform(e->body));
         currentDeclContext = e->declContext.parent;
     }
@@ -312,37 +318,77 @@ struct ASTTransform {
     constexpr void transformErrorExpr(ErrorExpr* e) {
         impl()->transformExpr(e);
         e->notes.consumeEntries([&](const ErrorNote* n) {
-            storage->pushBackOnList(e->notes, impl()->dispatchTransformNote(n));
+            storage->pushBackOnList(e->notes, impl()->createNote(*n));
         });
         e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
     }
     constexpr void transformNote(ErrorNote* e) { }
 
-    constexpr Stmt* dispatchTransform(const Stmt* stmt) {
-        switch (stmt->stmtKind) {
-#define STMT_KIND(S)                                     \
-    case StmtKind::S: {                                  \
-        S* ret = storage->allocateStmt(*(const S*)stmt); \
-        impl()->transform##S(ret);                       \
-        return ret;                                      \
+    constexpr void transformStageDeclContext(StageDecl* e) {
+        VERIFY(ShaderGen, e->builtins.parent == nullptr);
+        e->uniforms.parent = &e->builtins;
+        e->inputs.parent = &e->uniforms;
+        e->outputs.parent = &e->inputs;
+        impl()->transformDeclContext(&e->builtins);
+        impl()->transformDeclContext(&e->uniforms);
+        impl()->transformDeclContext(&e->inputs);
+        impl()->transformDeclContext(&e->outputs);
+    }
+    constexpr void transformStageDecl(StageDecl* e) {
+        impl()->transformStageDeclContext(e);
+        currentDeclContext = &e->outputs;
+        e->entryPoint = impl()->dispatchTransform(e->entryPoint);
+    }
+    constexpr StageDecl* createStageDecl(const StageDecl& in) {
+        StageDecl* out = storage->allocateStageDecl(in);
+        impl()->transformStageDecl(out);
+        return out;
+    }
+    constexpr StageDecl* createEmptyStageDecl() {
+        StageDecl* out = storage->allocateStageDecl({});
+        impl()->transformStageDeclContext(out);
+        return out;
     }
 
-            ENUMERATE_STMT_KINDS(STMT_KIND)
+#define STMT_KIND(S)                         \
+    constexpr Stmt* create##S(const S& in) { \
+        S* out = storage->allocateStmt(in);  \
+        impl()->transform##S(out);           \
+        return out;                          \
+    }
+    ENUMERATE_STMT_KINDS(STMT_KIND)
 #undef STMT_KIND
+
+    constexpr Stmt* dispatchTransform(const Stmt* stmt) {
+#define STMT_KIND(S)  \
+    case StmtKind::S: \
+        return impl()->create##S((const S&)*stmt);
+
+        switch (stmt->stmtKind) {
+            ENUMERATE_STMT_KINDS(STMT_KIND)
         default:
             VERIFY_NOT_REACHED(ShaderGen);
         }
+
+#undef STMT_KIND
     }
-    constexpr VarDecl* dispatchTransformVarDecl(const VarDecl* decl) {
-        VarDecl* ret = storage->allocateVarDecl(*decl);
-        impl()->transformVarDecl(ret, decl);
-        return ret;
+    constexpr VarDecl* createVarDecl(const VarDecl* in, VarDeclContext* declContext) {
+        VarDecl* out = storage->allocateVarDecl(*in);
+        out->declContext = declContext;
+        out->prevDecl = in;
+        storage->pushBackOnList(declContext->decls, out);
+        return out;
     }
-    constexpr ErrorNote* dispatchTransformNote(const ErrorNote* note) {
-        ErrorNote* ret = storage->allocateNote(*note);
-        impl()->transformNote(ret);
-        return ret;
+    constexpr ErrorNote* createNote(const ErrorNote& in) {
+        ErrorNote* out = storage->allocateNote(in);
+        impl()->transformNote(out);
+        return out;
     }
 };
 
+template<typename Storage>
+struct BasicASTTransform : ASTTransform<BasicASTTransform<Storage>, Storage> {
+    using Base = ASTTransform<BasicASTTransform<Storage>, Storage>;
+    using ASTTransform<BasicASTTransform<Storage>, Storage>::ASTTransform;
+};
 }

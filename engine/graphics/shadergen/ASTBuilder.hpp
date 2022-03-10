@@ -123,9 +123,9 @@ struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
     }
 };
 
-template<typename Storage>
-struct CheckedASTTransform : ASTTransform<CheckedASTTransform<Storage>, Storage> {
-    using Base = ASTTransform<CheckedASTTransform<Storage>, Storage>;
+template<typename Impl, typename Storage>
+struct CheckedASTTransform : ASTTransform<Impl, Storage> {
+    using Base = ASTTransform<Impl, Storage>;
 
     constexpr CheckedASTTransform() = default;
     constexpr CheckedASTTransform(Storage* storage)
@@ -433,6 +433,12 @@ struct CheckedASTTransform : ASTTransform<CheckedASTTransform<Storage>, Storage>
         checkBranchCondtion(e->condition);
     }
 
+    constexpr Stmt* createErrorStmt(const ErrorStmt& in) {
+        return this->impl()->dispatchTransform(in.subStmt);
+    }
+    constexpr Stmt* createErrorExpr(const ErrorExpr& in) {
+        return this->impl()->dispatchTransform(in.subExpr);
+    }
     constexpr Expr* wrapExprWithError(Expr* expr) {
         if (currentError.hasError()) {
             auto* err = this->storage->template allocateStmt<ErrorExpr>({ currentError });

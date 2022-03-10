@@ -48,8 +48,16 @@ struct BuiltinFunctionInstance : FunctionInstance {
 };
 struct FunctionGroup : Function {
     ArrayView<const FunctionInstance*> instances;
-    constexpr FunctionGroup(std::string_view name)
-        : Function(true, name) { }
+    constexpr FunctionGroup(std::string_view name, ArrayView<const FunctionInstance*> instances)
+        : Function(true, name), instances(instances) { }
+};
+template<int_t N>
+struct BuiltinFunctionGroup : FunctionGroup {
+    const FunctionInstance* insts[N];
+    constexpr BuiltinFunctionGroup(std::string_view name, const FunctionInstance* const (&instances)[N])
+        : FunctionGroup(name, insts) {
+        std::copy_n(instances, N, insts);
+    }
 };
 static constexpr const FunctionInstance* asFunctionInstance(const Function* func) {
     return (const FunctionInstance*)func;
@@ -82,10 +90,46 @@ struct UnresolvedCall : CallExpr {
 static constexpr BuiltinFunctionInstance floorFunc { "floor", { FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&FloatType) };
 static constexpr BuiltinFunctionInstance allFunc { "all", { FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeFixed(&BoolType) };
 
+static constexpr BuiltinFunctionInstance lessThanEqualFuncI { "lessThanEqual", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance lessThanEqualFuncF { "lessThanEqual", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup lessThanEqualFunc { "lessThanEqual", { &lessThanEqualFuncI, &lessThanEqualFuncF } };
+static constexpr BuiltinFunctionInstance lessThanFuncI { "lessThan", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance lessThanFuncF { "lessThan", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup lessThanFunc { "lessThan", { &lessThanFuncI, &lessThanFuncF } };
+static constexpr BuiltinFunctionInstance equalFuncI { "equal", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance equalFuncF { "equal", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup equalFunc { "equal", { &equalFuncI, &equalFuncF } };
+static constexpr BuiltinFunctionInstance greaterThanEqualFuncI { "greaterThanEqual", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance greaterThanEqualFuncF { "greaterThanEqual", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup greaterThanEqualFunc { "greaterThanEqual", { &greaterThanEqualFuncI, &greaterThanEqualFuncF } };
+static constexpr BuiltinFunctionInstance greaterThanFuncI { "greaterThan", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance greaterThanFuncF { "greaterThan", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup greaterThanFunc { "greaterThan", { &greaterThanFuncI, &greaterThanFuncF } };
+static constexpr BuiltinFunctionInstance notEqualFuncI { "notEqual", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance notEqualFuncF { "notEqual", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup notEqualFunc { "notEqual", { &notEqualFuncI, &notEqualFuncF } };
+
+static constexpr BuiltinFunctionInstance andFunc { "and", { FunctionParameter::makeDynamic(&BoolType), FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance orFunc { "or", { FunctionParameter::makeDynamic(&BoolType), FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeDynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance notFunc { "not", { FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeDynamic(&BoolType) };
+
 namespace code {
     constexpr wrapped_vector::impl<UnresolvedCall<1>> floor(const wrapped_vector& arg) { return { { &floorFunc, { arg.wrappedExpr } } }; }
     constexpr wrapped_scalar::impl<UnresolvedCall<1>> floor(const wrapped_scalar& arg) { return { { &floorFunc, { arg.wrappedExpr } } }; }
     constexpr wrapped_scalar::impl<UnresolvedCall<1>> all(const wrapped_untyped& arg) { return { { &allFunc, { arg.wrappedExpr } } }; }
+
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> lessThan(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &lessThanFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> lessThan(const wrapped_vector& l, const wrapped_vector& r) { return { { &lessThanFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> equal(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &equalFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> equal(const wrapped_vector& l, const wrapped_vector& r) { return { { &equalFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> greaterThanEqual(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &greaterThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> greaterThanEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &greaterThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> greaterThan(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &greaterThanFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> greaterThan(const wrapped_vector& l, const wrapped_vector& r) { return { { &greaterThanFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> notEqual(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &notEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> notEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &notEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
 }
 
 }

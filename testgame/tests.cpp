@@ -57,14 +57,14 @@ static constexpr void createShader(GraphicsDriver& prog) {
 
     auto varColor = prog.varying<Vec3>("v_color");
 
-    auto posAttr = vert.attribute<Vec2>("a_position");
-    auto colorAttr = vert.attribute<Vec3>("a_color");
+    auto posAttr = vert.input<Vec2>("a_position");
+    auto colorAttr = vert.input<Vec3>("a_color");
     vert, vert.position = compose(posAttr, constant(0.0f, 1.0f));
-    vert, varColor = colorAttr;
+    vert, varColor.in = colorAttr;
 
-    auto fragColor = frag.colorOutput<Vec4>("fragColor");
+    auto fragColor = frag.output<Vec4>("fragColor");
     auto multiplier = frag.uniform<float>("u_multiplier");
-    frag, fragColor = compose(multiplier * varColor, constant(1.0f));
+    frag, fragColor = compose(multiplier * varColor.out, constant(1.0f));
 }
 
 static constexpr auto toGLSL(const GraphicsDriver& prog) {
@@ -74,6 +74,13 @@ static constexpr auto toGLSL(const GraphicsDriver& prog) {
     return buffer;
 }
 
+static constexpr auto transformAST(const GraphicsDriver& in) {
+    return GraphicsDriver([&](GraphicsDriver& out) {
+        GLSLStmtTransform transform { &out.storage };
+        out.vert.stageDecl = transform.createStageDecl(*in.vert.stageDecl);
+    });
+}
+
 void runShadergenTest() {
     ASTDumper dumper;
 
@@ -81,7 +88,9 @@ void runShadergenTest() {
     // dumper.dump(tuple.root);
 
     static constexpr auto ast = GraphicsDriver(createAST);
-    dumper.dump(ast.vert.mainBlock);
+    dumper.dump(ast.vert.stageDecl->entryPoint);
+    static const auto ast2 = transformAST(ast);
+    dumper.dump(ast2.vert.stageDecl->entryPoint);
     static constexpr auto glsl = toGLSL(ast);
     log("{}", glsl.data());
 

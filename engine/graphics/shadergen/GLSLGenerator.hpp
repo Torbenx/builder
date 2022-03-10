@@ -4,6 +4,52 @@
 
 namespace shadergen {
 
+template<typename Storage>
+struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform<Storage>, Storage> {
+    using Base = CheckedASTTransform<GLSLStmtTransform<Storage>, Storage>;
+    constexpr GLSLStmtTransform() = default;
+    constexpr GLSLStmtTransform(Storage* storage)
+        : Base(storage) { }
+
+    constexpr const Function* binaryToFuntion(BinaryOperator op) {
+        switch (op) {
+        case BinaryOperator::CMP_LE:
+            return &lessThanEqualFunc;
+        case BinaryOperator::CMP_L:
+            return &lessThanFunc;
+        case BinaryOperator::CMP_EQ:
+            return &equalFunc;
+        case BinaryOperator::CMP_GE:
+            return &greaterThanEqualFunc;
+        case BinaryOperator::CMP_G:
+            return &greaterThanFunc;
+        case BinaryOperator::CMP_NE:
+            return &notEqualFunc;
+        case BinaryOperator::AND:
+            return &andFunc;
+        case BinaryOperator::OR:
+            return &orFunc;
+        default:
+            VERIFY_NOT_REACHED(ShaderGen);
+            return nullptr;
+        }
+    }
+    constexpr const Function* unaryToFunction(UnaryOperator e) {
+        VERIFY(ShaderGen, e == UnaryOperator::NOT);
+        return &notFunc;
+    }
+    constexpr Stmt* createElementwiseOperatorExpr(const ElementwiseOperatorExpr& e) {
+        if ((isComparisonOp(e.op) || isLogicalOp(e.op)) && !e.type->isScalar)
+            return this->createCallExpr(UnresolvedCall<2> { binaryToFuntion(e.op), { e.left, e.right } });
+        return Base::createElementwiseOperatorExpr(e);
+    }
+    constexpr Stmt* createUnaryOperatorExpr(const UnaryOperatorExpr& e) {
+        if (isLogicalOp(e.op) && !e.type->isScalar)
+            return this->createCallExpr(UnresolvedCall<1> { unaryToFunction(e.op), { e.subExpr } });
+        return Base::createUnaryOperatorExpr(e);
+    }
+};
+
 struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
     using Base = ASTVisitor<GLSLStmtGenerator>;
     struct Indentation { };
@@ -205,13 +251,13 @@ struct GLSLStageGenerator : GLSLStmtGenerator {
         : GLSLStmtGenerator(buffer) { }
 
     constexpr void visitStage(const StageDriver& stage) {
-        stage.uniforms.decls.forEachEntry([&](const VarDecl* decl) {
+        stage.stageDecl->uniforms.decls.forEachEntry([&](const VarDecl* decl) {
             out() << "uniform ";
             visitVarDecl(decl);
             out() << ";\n";
         });
         out() << "void main() ";
-        dispatchVisit(stage.mainBlock);
+        dispatchVisit(stage.stageDecl->entryPoint);
     }
 };
 

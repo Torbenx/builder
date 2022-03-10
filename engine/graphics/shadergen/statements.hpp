@@ -90,13 +90,14 @@ static constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
     callback(ErrorStmt)                  \
     callback(CompositionExpr)            \
     callback(IfStmt)                     \
-    callback(UpdateStmt)
+    callback(UpdateStmt)                 \
 
 #define ENUMERATE_AST_NODES(callback) \
     ENUMERATE_STMT_KINDS(callback)    \
     callback(ASTListEntry)            \
     callback(VarDecl)                 \
-    callback(ErrorNote)
+    callback(ErrorNote)               \
+    callback(StageDecl)               \
 // clang-format on
 
 struct ASTNode { };
@@ -309,6 +310,15 @@ struct IfStmt : Stmt {
     Stmt* whenFalse = nullptr;
     constexpr IfStmt(const Expr* condition)
         : Stmt(StmtKind::IfStmt), condition(condition) { }
+};
+
+// Shader Stages
+struct StageDecl : ASTNode {
+    VarDeclContext builtins;
+    VarDeclContext uniforms;
+    VarDeclContext inputs;
+    VarDeclContext outputs;
+    Stmt* entryPoint = nullptr;
 };
 
 }
