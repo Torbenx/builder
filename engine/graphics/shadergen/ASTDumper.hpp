@@ -76,10 +76,6 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         info("LiteralExpr", literal.str());
         Base::visitLiteralExpr(e);
     }
-    void visitVarDeclStmt(const VarDeclStmt* e) {
-        info("VarDeclStmt", fmt::format("{}", *e->decl->type), fmt::format("\"{}\"", e->decl->name));
-        Base::visitVarDeclStmt(e);
-    }
     void visitCompoundStmt(const CompoundStmt* e) {
         info("CompoundStmt", fmt::format("({} children)", e->entryCount));
         Base::visitCompoundStmt(e);

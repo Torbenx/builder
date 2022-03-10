@@ -83,9 +83,6 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
     constexpr void visitVarDecl(const VarDecl* decl) {
         out() << decl->type << " " << decl->name;
     }
-    constexpr void visitVarDeclStmt(const VarDeclStmt* e) {
-        visitVarDecl(e->decl);
-    }
     constexpr std::string_view binaryToFuntion(BinaryOperator op) {
         switch (op) {
         case BinaryOperator::CMP_LE:

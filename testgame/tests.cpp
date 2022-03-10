@@ -24,11 +24,11 @@ struct A {
 static constexpr void createAST(GraphicsDriver& prog) {
     auto& ast = prog.vert;
     auto scale = ast.uniform<float>("scale");
-    auto foo = ast.declareScalar("foo", &FloatType);
-    auto bar = ast.declareVector("bar", FloatType.vectorType(4));
-    auto baz = ast.declareVector("baz", FloatType.vectorType(4));
+    auto foo = ast.variable<float>("foo");
+    auto bar = ast.variable<Vec4>("bar");
+    auto baz = ast.variable<Vec4>("baz");
     auto a = ast.variable<A>("a");
-    auto res = ast.declareVector("res", BoolType.vectorType(4));
+    auto res = ast.variable<bool>("res");
 
     ast.block([&]() {
         ast, a.b1.i = constant(1);
@@ -39,9 +39,9 @@ static constexpr void createAST(GraphicsDriver& prog) {
         ast, bar.yw() = compose(scale, constant(2.0f));
         ast, bar.x = floor(foo);
         ast, baz = compose(foo, bar.xy(), foo);
-        ast, res = !(foo * foo + bar < bar + baz) || constant(true, false, false, true);
+        ast, res = all(!(foo * foo + bar < bar + baz) || constant(true, false, false, true));
         ast.branch(
-            all(res),
+            res,
             [&]() {
                 ast, foo = constant(1.5f);
             },
@@ -59,7 +59,7 @@ static constexpr void createShader(GraphicsDriver& prog) {
 
     auto posAttr = vert.attribute<Vec2>("a_position");
     auto colorAttr = vert.attribute<Vec3>("a_color");
-    vert, vert.position() = compose(posAttr, constant(0.0f, 1.0f));
+    vert, vert.position = compose(posAttr, constant(0.0f, 1.0f));
     vert, varColor = colorAttr;
 
     auto fragColor = frag.colorOutput<Vec4>("fragColor");
@@ -80,7 +80,7 @@ void runShadergenTest() {
     // static constexpr auto tuple = createTuple<createAST>();
     // dumper.dump(tuple.root);
 
-    static constexpr auto ast = GraphicsDriver(createShader);
+    static constexpr auto ast = GraphicsDriver(createAST);
     dumper.dump(ast.vert.mainBlock);
     static constexpr auto glsl = toGLSL(ast);
     log("{}", glsl.data());

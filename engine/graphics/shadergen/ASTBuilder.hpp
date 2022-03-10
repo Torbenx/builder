@@ -124,16 +124,16 @@ struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
 };
 
 template<typename Storage>
-struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
-    using Base = ASTTransform<ASTBuilder, Storage>;
+struct CheckedASTTransform : ASTTransform<CheckedASTTransform<Storage>, Storage> {
+    using Base = ASTTransform<CheckedASTTransform<Storage>, Storage>;
 
-    constexpr ASTBuilder() = default;
-    constexpr ASTBuilder(Storage* storage)
+    constexpr CheckedASTTransform() = default;
+    constexpr CheckedASTTransform(Storage* storage)
         : Base(storage) { }
 
     struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
-        ASTBuilder& ast;
-        constexpr CheckInitialized(ASTBuilder& ast)
+        CheckedASTTransform& ast;
+        constexpr CheckInitialized(CheckedASTTransform& ast)
             : ast(ast) { }
         constexpr void visitVarRefExpr(const VarRefExpr* e, FixedBitset mask) {
             ast.check(!(mask & ~e->decl->initMask)) << "variable " << e << " uninitialized when used";
@@ -193,11 +193,7 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     }
 
     constexpr void transformVarRefExpr(VarRefExpr* e) {
-        VarDeclContext* currentContext = &this->currentBlock->declContext;
-        while (currentContext && (currentContext != e->decl->declContext))
-            currentContext = currentContext->parent;
-        check(currentContext) << "variable " << e << " not found";
-
+        Base::transformVarRefExpr(e);
         e->type = e->decl->type;
         e->valueKind = ValueKind::LVALUE;
     }
@@ -418,6 +414,24 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
         checkSameType(lType->scalarType, rType->scalarType, "operands must have the same base type");
         check(rType->isScalar || rType->vectorSize == lType->vectorSize) << "the right operand must either be a scalar or a vector of same size as the left operand";
     }
+    constexpr void checkCompleteBlock(BlockStmt* block) {
+        block->declContext.decls.forEachEntry([&](const VarDecl* decl) {
+            check(decl->usedMask != 0) << "variable " << decl << " not used";
+        });
+    }
+    constexpr void transformBlockStmt(BlockStmt* block) {
+        Base::transformBlockStmt(block);
+        checkCompleteBlock(block);
+    }
+    constexpr void checkBranchCondtion(const Expr* condition) {
+        check(condition->type == &BoolType) << "branch condition must be a scalar boolean, got " << condition->type;
+        CheckInitialized check(*this);
+        check.visit(condition);
+    }
+    constexpr void transformIfStmt(IfStmt* e) {
+        Base::transformIfStmt(e);
+        checkBranchCondtion(e->condition);
+    }
 
     constexpr Expr* wrapExprWithError(Expr* expr) {
         if (currentError.hasError()) {
@@ -449,36 +463,6 @@ struct ASTBuilder : ASTTransform<ASTBuilder<Storage>, Storage> {
     constexpr Stmt* dispatchTransform(const Stmt* in) {
         Stmt* stmt = Base::dispatchTransform(in);
         return wrapStmtWithError(stmt);
-    }
-
-    constexpr BlockStmt* newBlock() {
-        auto* body = this->storage->template allocateStmt<CompoundStmt>({});
-        auto* block = this->storage->template allocateStmt<BlockStmt>({ body });
-        return block;
-    }
-    constexpr void pushBlock() {
-        auto* newBlock = this->newBlock();
-        newBlock->setParentBlock(this->currentBlock);
-        this->currentBlock = newBlock;
-    }
-    constexpr Stmt* popBlock() {
-        Stmt* block = checkCompleteBlock(this->currentBlock);
-        this->currentBlock = this->currentBlock->parent;
-        return block;
-    }
-    constexpr Stmt* checkCompleteBlock(BlockStmt* block) {
-        Stmt* ret = block;
-        block->declContext.decls.forEachEntry([&](const VarDecl* decl) {
-            check(decl->usedMask != 0) << "variable " << decl << " not used";
-            ret = wrapStmtWithError(ret);
-        });
-        return ret;
-    }
-    constexpr Expr* checkBranchCondtion(Expr* condition) {
-        check(condition->type == &BoolType) << "branch condition must be a scalar boolean, got " << condition->type;
-        CheckInitialized check(*this);
-        check.visit(condition);
-        return wrapExprWithError(condition);
     }
 };
 

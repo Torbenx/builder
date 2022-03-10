@@ -64,60 +64,97 @@ struct BasicASTStorage {
     constexpr BasicASTStorage(const BasicASTStorage&) = delete;
 };
 
-// Driver
-struct CoreDriver {
-    using Storage = BasicASTStorage<1000, 1000>;
-    ASTBuilder<Storage> builder;
+template<typename T>
+struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
+    using Base = typename get_wrapper<T>::template impl<VarRefExpr>;
+    VarDecl driverDecl;
+    template<typename Storage>
+    constexpr DriverVariable(Storage* storage, std::string_view name, VarDeclContext* declContext)
+        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, nullptr) {
+        CheckedASTTransform<Storage> ast { storage };
+        ast.currentDeclContext = declContext;
+        ast.dispatchTransformVarDecl(&driverDecl);
+    }
+    DriverVariable(const DriverVariable&) = delete;
 
-    constexpr CoreDriver(Storage* storage)
-        : builder(storage) { }
+    using Base::operator=;
+};
+
+// Driver
+struct BlockDriver {
+    using Storage = BasicASTStorage<1000, 1000>;
+
+    CheckedASTTransform<Storage> builder;
+    BlockStmt* currentBlock = nullptr;
+
+    struct BlockScope {
+        BlockDriver* thiz;
+        BlockStmt* prevBlock;
+        constexpr BlockScope(BlockDriver* thiz)
+            : thiz(thiz), prevBlock(thiz->currentBlock) {
+            thiz->currentBlock = thiz->newBlock();
+            thiz->currentBlock->declContext.parent = thiz->builder.currentDeclContext;
+            thiz->builder.currentDeclContext = &thiz->currentBlock->declContext;
+        }
+        constexpr Stmt* pop() {
+            thiz->builder.checkCompleteBlock(thiz->currentBlock);
+            Stmt* stmt = thiz->builder.wrapStmtWithError(thiz->currentBlock);
+            thiz->currentBlock = prevBlock;
+            prevBlock = nullptr;
+            return stmt;
+        }
+        constexpr ~BlockScope() {
+            if (prevBlock)
+                thiz->emitStmt(pop());
+        }
+    };
+
+    constexpr BlockDriver(Storage* storage, VarDeclContext* parentContext)
+        : builder(storage) {
+        currentBlock = newBlock();
+        currentBlock->declContext.parent = parentContext;
+        builder.currentDeclContext = &currentBlock->declContext;
+    }
 
     constexpr void emitStmt(Stmt* stmt) {
-        builder.storage->pushBackOnList(*builder.currentBlock->body, stmt);
+        builder.storage->pushBackOnList(*currentBlock->body, stmt);
+    }
+    constexpr BlockStmt* newBlock() {
+        auto* body = builder.storage->template allocateStmt<CompoundStmt>({});
+        auto* block = builder.storage->template allocateStmt<BlockStmt>({ body });
+        return block;
     }
 
-    constexpr VarDecl* declareVariableIn(VarDeclContext* declContext, std::string_view name, const Type* type) {
-        auto* decl = builder.storage->allocateVarDecl({ name, type, declContext });
-        builder.storage->pushBackOnList(declContext->decls, decl);
-        return decl;
-    }
-    constexpr VarRefExpr declareVariableImpl(std::string_view name, const Type* type) {
-        auto* decl = declareVariableIn(&builder.currentBlock->declContext, name, type);
-        auto* declStmt = builder.storage->allocateStmt<VarDeclStmt>({ decl });
-        emitStmt(declStmt);
-        return { decl };
+    template<typename T>
+    constexpr DriverVariable<T> declareVariable(std::string_view name, VarDeclContext* declContext) {
+        return { builder.storage, name, declContext };
     }
     template<typename T>
-    constexpr typename get_wrapper<T>::template impl<VarRefExpr> variable(std::string_view name) {
-        return { declareVariableImpl(name, typeFromCXX<T>) };
-    }
-    constexpr wrapped_scalar::impl<VarRefExpr> declareScalar(std::string_view name, const Type* type) {
-        return { declareVariableImpl(name, type) };
-    }
-    constexpr wrapped_vector::impl<VarRefExpr> declareVector(std::string_view name, const VectorType* type) {
-        return { declareVariableImpl(name, type) };
+    constexpr DriverVariable<T> variable(std::string_view name) {
+        return declareVariable<T>(name, builder.currentDeclContext);
     }
 
     template<typename Block>
     constexpr void block(Block&& block) {
-        builder.pushBlock();
+        BlockScope scope { this };
         block();
-        emitStmt(builder.popBlock());
     }
     template<typename WhenTrue, typename WhenFalse = std::nullptr_t>
     constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
         Expr* condition = castStmt<Expr>(builder.dispatchTransform(&conditionIn));
-        condition = builder.checkBranchCondtion(condition);
+        builder.checkBranchCondtion(condition);
         auto* ifStmt = builder.storage->allocateStmt<IfStmt>({ condition });
-        builder.pushBlock();
-        whenTrue();
-        ifStmt->whenTrue = builder.popBlock();
-        if constexpr (!std::is_same_v<WhenFalse, std::nullptr_t>) {
-            builder.pushBlock();
-            whenFalse();
-            ifStmt->whenFalse = builder.popBlock();
+        {
+            BlockScope scope { this };
+            whenTrue();
+            ifStmt->whenTrue = scope.pop();
         }
-        emitStmt(ifStmt);
+        if constexpr (!std::is_same_v<WhenFalse, std::nullptr_t>) {
+            BlockScope scope { this };
+            whenFalse();
+            ifStmt->whenFalse = scope.pop();
+        }
+        emitStmt(builder.wrapStmtWithError(ifStmt));
     }
 
     constexpr void operator,(const Stmt& in) {
@@ -126,22 +163,17 @@ struct CoreDriver {
     }
 };
 
-struct StageDriver : CoreDriver {
+struct StageDriver : BlockDriver {
     VarDeclContext uniforms;
 
     BlockStmt* mainBlock;
 
     constexpr StageDriver(Storage* storage, VarDeclContext* parentContext)
-        : CoreDriver(storage), uniforms { parentContext } {
-        auto* body = storage->allocateStmt<CompoundStmt>({});
-        mainBlock = storage->allocateStmt<BlockStmt>({ body });
-        mainBlock->declContext.parent = &uniforms;
-        builder.currentBlock = mainBlock;
-    }
+        : BlockDriver(storage, &uniforms), uniforms { parentContext }, mainBlock(currentBlock) { }
 
     template<typename T>
-    constexpr typename get_wrapper<T>::template impl<VarRefExpr> uniform(std::string_view name) {
-        return { { declareVariableIn(&uniforms, name, typeFromCXX<T>) } };
+    constexpr auto uniform(std::string_view name) {
+        return declareVariable<T>(name, &uniforms);
     }
 };
 
@@ -149,21 +181,18 @@ struct VertexStageDriver : StageDriver {
     VarDeclContext attributes;
     VarDeclContext builtins;
 
-    VarDecl* positionDecl;
+    DriverVariable<Vec4> position;
 
     constexpr VertexStageDriver(Storage* storage, VarDeclContext* varyings)
-        : StageDriver(storage, &builtins), attributes { varyings }, builtins { &attributes } {
-        positionDecl = declareVariableIn(&builtins, "gl_Position", FloatType.vectorType(4));
-    }
+        : StageDriver(storage, &builtins)
+        , attributes { varyings }
+        , builtins { &attributes }
+        , position { declareVariable<Vec4>("gl_Position", &builtins) } { }
 
     template<typename T>
-    constexpr typename get_wrapper<T>::template impl<VarRefExpr> attribute(std::string_view name) {
-        const Type* type = typeFromCXX<T>;
-        VERIFY(ShaderGen, type->isVector);
-        return { { declareVariableIn(&attributes, name, type) } };
+    constexpr auto attribute(std::string_view name) {
+        return declareVariable<T>(name, &attributes);
     }
-
-    constexpr wrapped_vector::impl<VarRefExpr> position() { return { { positionDecl } }; }
 };
 
 struct FragmentStageDriver : StageDriver {
@@ -171,13 +200,13 @@ struct FragmentStageDriver : StageDriver {
     VarDeclContext builtins;
 
     constexpr FragmentStageDriver(Storage* storage, VarDeclContext* varyings)
-        : StageDriver(storage, &builtins), colorOutputs { varyings }, builtins { &colorOutputs } { }
+        : StageDriver(storage, &builtins)
+        , colorOutputs { varyings }
+        , builtins { &colorOutputs } { }
 
     template<typename T>
-    constexpr typename get_wrapper<T>::template impl<VarRefExpr> colorOutput(std::string_view name) {
-        const Type* type = typeFromCXX<T>;
-        VERIFY(ShaderGen, type->isVector);
-        return { { declareVariableIn(&colorOutputs, name, type) } };
+    constexpr auto colorOutput(std::string_view name) {
+        return declareVariable<T>(name, &colorOutputs);
     }
 };
 
@@ -194,13 +223,21 @@ struct GraphicsDriver {
     template<typename Callback>
     constexpr GraphicsDriver(Callback&& callback) {
         callback(*this);
+        PrevDeclStripper stripper;
+        stripper.dispatchVisit(vert.mainBlock);
+        stripper.dispatchVisit(frag.mainBlock);
+        stripper.stripDeclContext(&varyings);
+        stripper.stripDeclContext(&vert.attributes);
+        stripper.stripDeclContext(&vert.builtins);
+        stripper.stripDeclContext(&vert.uniforms);
+        stripper.stripDeclContext(&frag.colorOutputs);
+        stripper.stripDeclContext(&frag.builtins);
+        stripper.stripDeclContext(&frag.uniforms);
     }
 
     template<typename T>
-    constexpr typename get_wrapper<T>::template impl<VarRefExpr> varying(std::string_view name) {
-        const Type* type = typeFromCXX<T>;
-        VERIFY(ShaderGen, type->isVector);
-        return { { vert.declareVariableIn(&varyings, name, type) } };
+    constexpr auto varying(std::string_view name) {
+        return vert.declareVariable<T>(name, &varyings);
     }
 };
 

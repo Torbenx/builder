@@ -75,7 +75,6 @@ static constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
 #define ENUMERATE_STMT_KINDS(callback)   \
     callback(Stmt)                       \
     callback(Expr)                       \
-    callback(VarDeclStmt)                \
     callback(VarRefExpr)                 \
     callback(UnaryOperatorExpr)          \
     callback(MemberAccessExpr)           \
@@ -267,15 +266,11 @@ struct VarDecl : ASTNode {
     std::string_view name;
     const Type* type;
     VarDeclContext* declContext;
+    const VarDecl* prevDecl = nullptr;
     FixedBitset initMask = 0;
     FixedBitset usedMask = 0;
     constexpr VarDecl(std::string_view name, const Type* type, VarDeclContext* declContext)
         : name(name), type(type), declContext(declContext) { }
-};
-struct VarDeclStmt : Stmt {
-    VarDecl* decl;
-    constexpr VarDeclStmt(VarDecl* decl)
-        : Stmt(StmtKind::VarDeclStmt), decl(decl) { }
 };
 struct VarDeclContext {
     VarDeclContext* parent = nullptr;
@@ -302,16 +297,10 @@ struct CompoundStmt : Stmt, ASTList<Stmt> {
 };
 
 struct BlockStmt : Stmt {
-    BlockStmt* parent = nullptr;
     CompoundStmt* body;
     VarDeclContext declContext;
     constexpr BlockStmt(CompoundStmt* body)
         : Stmt(StmtKind::BlockStmt), body(body) { }
-
-    constexpr void setParentBlock(BlockStmt* parent) {
-        this->parent = parent;
-        declContext.parent = &parent->declContext;
-    }
 };
 
 struct IfStmt : Stmt {

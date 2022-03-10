@@ -108,9 +108,6 @@ struct ASTVisitor {
     constexpr RetT visitLiteralExpr(const LiteralExpr* e, Args... args) {
         return impl()->visitExpr(e, args...);
     }
-    constexpr RetT visitVarDeclStmt(const VarDeclStmt* e, Args... args) {
-        return impl()->visitStmt(e, args...);
-    }
     constexpr RetT visitCompoundStmt(const CompoundStmt* e, Args... args) {
         helper h([&]() {
             e->forEachEntry([&](const Stmt* stmt) {
@@ -189,11 +186,24 @@ struct ASTVisitor {
     }
 };
 
+struct PrevDeclStripper : ASTVisitor<PrevDeclStripper> {
+    using Base = ASTVisitor<PrevDeclStripper>;
+    constexpr void stripDeclContext(const VarDeclContext* declContext) {
+        declContext->decls.forEachEntry([](VarDecl* decl) {
+            decl->prevDecl = nullptr;
+        });
+    }
+    constexpr void visitBlockStmt(const BlockStmt* block) {
+        Base::visitBlockStmt(block);
+        stripDeclContext(&block->declContext);
+    }
+};
+
 template<typename Impl, typename Storage>
 struct ASTTransform {
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
-    BlockStmt* currentBlock = nullptr;
+    VarDeclContext* currentDeclContext = nullptr;
     Storage* storage = nullptr;
 
     constexpr ASTTransform() = default;
@@ -205,17 +215,17 @@ struct ASTTransform {
         impl()->transformStmt(e);
     }
     constexpr void transformVarRefExpr(VarRefExpr* e) {
-        BlockStmt* block = currentBlock;
+        VarDeclContext* declContext = currentDeclContext;
         VarDecl* oldDecl = e->decl;
         VarDecl* newDecl = nullptr;
-        while (block && !newDecl) {
-            block->declContext.decls.forEachEntry([&](VarDecl* decl) {
-                if (decl->name == oldDecl->name) {
+        while (declContext && !newDecl) {
+            declContext->decls.forEachEntry([&](VarDecl* decl) {
+                if (decl->prevDecl == oldDecl) {
                     VERIFY(ShaderGen, !newDecl);
                     newDecl = decl;
                 }
             });
-            block = block->parent;
+            declContext = declContext->parent;
         }
         VERIFY(ShaderGen, newDecl);
         e->decl = newDecl;
@@ -242,13 +252,10 @@ struct ASTTransform {
     constexpr void transformLiteralExpr(LiteralExpr* e) {
         impl()->transformExpr(e);
     }
-    constexpr void transformVarDecl(VarDecl* decl) {
-        decl->declContext = &currentBlock->declContext;
-        storage->pushBackOnList(currentBlock->declContext.decls, decl);
-    }
-    constexpr void transformVarDeclStmt(VarDeclStmt* e) {
-        impl()->transformStmt(e);
-        e->decl = impl()->dispatchTransformVarDecl(e->decl);
+    constexpr void transformVarDecl(VarDecl* decl, const VarDecl* oldDecl) {
+        decl->declContext = currentDeclContext;
+        decl->prevDecl = oldDecl;
+        storage->pushBackOnList(currentDeclContext->decls, decl);
     }
     constexpr void transformCompoundStmt(CompoundStmt* e) {
         impl()->transformStmt(e);
@@ -258,11 +265,14 @@ struct ASTTransform {
     }
     constexpr void transformBlockStmt(BlockStmt* e) {
         impl()->transformStmt(e);
-        e->parent = currentBlock;
-        e->declContext.decls.clear();
-        currentBlock = e;
+        e->declContext.parent = currentDeclContext;
+        currentDeclContext = &e->declContext;
+        e->declContext.decls.consumeEntries([&](const VarDecl* oldDecl) {
+            VarDecl* newDecl = impl()->dispatchTransformVarDecl(oldDecl);
+            storage->pushBackOnList(e->declContext.decls, newDecl);
+        });
         e->body = castStmt<CompoundStmt>(impl()->dispatchTransform(e->body));
-        currentBlock = e->parent;
+        currentDeclContext = e->declContext.parent;
     }
     constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
         impl()->transformExpr(e);
@@ -325,7 +335,7 @@ struct ASTTransform {
     }
     constexpr VarDecl* dispatchTransformVarDecl(const VarDecl* decl) {
         VarDecl* ret = storage->allocateVarDecl(*decl);
-        impl()->transformVarDecl(ret);
+        impl()->transformVarDecl(ret, decl);
         return ret;
     }
     constexpr ErrorNote* dispatchTransformNote(const ErrorNote* note) {
