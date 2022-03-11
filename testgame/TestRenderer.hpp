@@ -83,12 +83,11 @@ public:
     //std::unique_ptr<ui_renderer::Renderer> uiRenderer;
     Resource<Texture> uiTexture;
 
-    render3d::Renderer renderer3d;
-    render3d::Instance instance3d;
-    std::unique_ptr<render3d::CG::ItemsNode> reflectedItems, unreflectedItems;
-    std::unique_ptr<render3d::CG::TransformNode> reflectionTransform, cameraTransform, spotLightTransform;
-    std::unique_ptr<render3d::CG::PortalNode> reflectionPortal;
-    std::unique_ptr<render3d::CG::CompoundNode> cameraChildren, lightChildren;
+    std::unique_ptr<render3d::SG::ObjectNode> o1, o2, o3, o4, o5;
+    std::unique_ptr<render3d::SG::CompoundNode> reflectedItems, unreflectedItems;
+    std::unique_ptr<render3d::SG::TransformNode> reflectionTransform, cameraTransform, spotLightTransform;
+    std::unique_ptr<render3d::SG::PortalNode> reflectionPortal;
+    std::unique_ptr<render3d::SG::CompoundNode> cameraChildren, lightChildren;
     render3d::RT::Node* cameraTree;
 
     TestRenderer();

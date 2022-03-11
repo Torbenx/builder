@@ -14,20 +14,20 @@ struct render3d {
 
 namespace render3d {
 
-struct CullItem {
+struct BoundingSphere {
     Vec3 position;
     float radius;
-    uint32_t id;
 };
 
 enum class NodeKind {
     Portal,
     Transform,
-    Items,
+    Bounding,
+    Object,
     Compound,
 };
 
-namespace CG /* Cull Graph */ {
+namespace SG /* Scene Graph */ {
     struct Node {
         NodeKind kind;
         Node(NodeKind kind)
@@ -46,31 +46,26 @@ namespace CG /* Cull Graph */ {
         TransformNode()
             : Node(NodeKind::Transform) { }
     };
-    struct ItemsNode : Node {
-        struct Update {
-            bool isAddition = true;
-            bool isDynamic;
-        };
-        std::vector<CullItem> staticItems;
-        std::vector<CullItem> dynamicItems;
-        std::vector<Update> updates;
-
-        ItemsNode()
-            : Node(NodeKind::Items) { }
-
-        void addStaticItem(CullItem item) {
-            staticItems.push_back(item);
-            updates.push_back({ .isDynamic = false });
-        }
-        void addDynamicItem(CullItem item) {
-            dynamicItems.push_back(item);
-            updates.push_back({ .isDynamic = true });
-        }
-        void clearUpdates() { updates.clear(); }
+    struct BoundingNode : Node {
+        Node* child = nullptr;
+        BoundingSphere bound;
+        BoundingNode()
+            : Node(NodeKind::Bounding) { }
+    };
+    struct ObjectNode : Node {
+        const GraphicsObject* object;
+        std::vector<Effect::Handle> effects;
+        ObjectNode()
+            : Node(NodeKind::Object) { }
     };
     struct CompoundNode : Node {
         struct Update {
-            bool isAddition = true;
+            enum class Kind {
+                Insertion,
+                Update,
+            };
+            Kind kind;
+            int_t index;
         };
         std::vector<Node*> children;
         std::vector<Update> updates;
@@ -79,8 +74,9 @@ namespace CG /* Cull Graph */ {
             : Node(NodeKind::Compound) { }
 
         void addChild(Node* node) {
+            int_t index = children.size();
             children.push_back(node);
-            updates.push_back({});
+            updates.push_back({ Update::Kind::Insertion, index });
         }
         void clearUpdates() { updates.clear(); }
     };
@@ -94,7 +90,10 @@ namespace CG /* Cull Graph */ {
         void visitTransformNode(TransformNode* node, Args... args) {
             impl()->dispatchVisit(node->child, args...);
         }
-        void visitItemsNode(ItemsNode*, Args...) { }
+        void visitBoundingNode(BoundingNode* node, Args... args) {
+            impl()->dispatchVisit(node->child, args...);
+        }
+        void visitObjectNode(ObjectNode*, Args...) { }
         void visitCompoundNode(CompoundNode* node, Args... args) {
             for (Node* child : node->children)
                 impl()->dispatchVisit(child, args...);
@@ -105,8 +104,10 @@ namespace CG /* Cull Graph */ {
                 return impl()->visitPortalNode((PortalNode*)node, args...);
             case NodeKind::Transform:
                 return impl()->visitTransformNode((TransformNode*)node, args...);
-            case NodeKind::Items:
-                return impl()->visitItemsNode((ItemsNode*)node, args...);
+            case NodeKind::Bounding:
+                return impl()->visitBoundingNode((BoundingNode*)node, args...);
+            case NodeKind::Object:
+                return impl()->visitObjectNode((ObjectNode*)node, args...);
             case NodeKind::Compound:
                 return impl()->visitCompoundNode((CompoundNode*)node, args...);
             default:
@@ -134,22 +135,17 @@ namespace RT /* Rendering Tree */ {
         TransformNode()
             : Node(NodeKind::Transform) { }
     };
-    struct ItemsNode : Node {
-        struct Update {
-            enum class Kind {
-                Added,
-                BecameVisible,
-                BecameInvisible,
-            };
-            Kind kind;
-            uint32_t id;
-        };
-        BitSet staticItems;
-        BitSet dynamicItems;
-        std::vector<Update> updates;
-
-        ItemsNode()
-            : Node(NodeKind::Items) { }
+    struct BoundingNode : Node {
+        Node* child = nullptr;
+        bool isVisible = false;
+        BoundingNode()
+            : Node(NodeKind::Bounding) { }
+    };
+    struct ObjectNode : Node {
+        ObjectNode()
+            : Node(NodeKind::Object) { }
+        const GraphicsObject* object;
+        std::vector<Effect::Handle> effects;
     };
     struct CompoundNode : Node {
         std::vector<Node*> children;
@@ -166,7 +162,11 @@ namespace RT /* Rendering Tree */ {
         void visitTransformNode(TransformNode* node, Args... args) {
             impl()->dispatchVisit(node->child, args...);
         }
-        void visitItemsNode(ItemsNode*, Args...) { }
+        void visitBoundingNode(BoundingNode* node, Args... args) {
+            if (node->isVisible)
+                impl()->dispatchVisit(node->child, args...);
+        }
+        void visitObjectNode(ObjectNode*, Args...) { }
         void visitCompoundNode(CompoundNode* node, Args... args) {
             for (Node* child : node->children)
                 impl()->dispatchVisit(child, args...);
@@ -177,8 +177,10 @@ namespace RT /* Rendering Tree */ {
                 return impl()->visitPortalNode((PortalNode*)node, args...);
             case NodeKind::Transform:
                 return impl()->visitTransformNode((TransformNode*)node, args...);
-            case NodeKind::Items:
-                return impl()->visitItemsNode((ItemsNode*)node, args...);
+            case NodeKind::Bounding:
+                return impl()->visitBoundingNode((BoundingNode*)node, args...);
+            case NodeKind::Object:
+                return impl()->visitObjectNode((ObjectNode*)node, args...);
             case NodeKind::Compound:
                 return impl()->visitCompoundNode((CompoundNode*)node, args...);
             default:
@@ -190,96 +192,7 @@ namespace RT /* Rendering Tree */ {
 }
 
 struct CullStack {
-    bool visible(CullItem) const { return true; }
-};
-
-struct RTUpdater {
-    CullStack cullStack;
-    Mat4x4 fullTransform { true };
-    RT::Node* updatePortalNode(CG::PortalNode* cgNode, RT::PortalNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::PortalNode;
-        rtNode->child = dispatchUpdate(cgNode->child, rtNode->child);
-        return rtNode;
-    }
-    RT::Node* updateTransformNode(CG::TransformNode* cgNode, RT::TransformNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::TransformNode;
-
-        CullStack oldCullStack = std::move(cullStack);
-        // cullStack = cgNode->transform * oldCullStack;
-        Mat4x4 oldFullTransform = fullTransform;
-        fullTransform = fullTransform * cgNode->transform;
-        rtNode->fullTransform = fullTransform;
-
-        rtNode->child = dispatchUpdate(cgNode->child, rtNode->child);
-
-        cullStack = std::move(oldCullStack);
-        fullTransform = oldFullTransform;
-
-        return rtNode;
-    }
-    void cullArray(RT::ItemsNode* out, ArrayView<const CullItem> items, BitSet& pastResults) {
-        pastResults.reserve(items.size());
-        for (int_t i = 0; i < items.size(); i++) {
-            bool isVisible = cullStack.visible(items[i]);
-            bool wasVisible = pastResults.get(i);
-            if (isVisible && !wasVisible)
-                out->updates.push_back({ RT::ItemsNode::Update::Kind::BecameVisible, items[i].id });
-            else if (!isVisible && wasVisible)
-                out->updates.push_back({ RT::ItemsNode::Update::Kind::BecameInvisible, items[i].id });
-            pastResults.set(i, isVisible);
-        }
-    }
-    RT::Node* updateItemsNode(CG::ItemsNode* cgNode, RT::ItemsNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::ItemsNode;
-        rtNode->updates.clear();
-
-        int_t staticCount = 0;
-        int_t dynamicCount = 0;
-        for (auto update : cgNode->updates) {
-            uint32_t id;
-            if (update.isDynamic)
-                id = cgNode->dynamicItems[cgNode->dynamicItems.size() - (++dynamicCount)].id;
-            else
-                id = cgNode->staticItems[cgNode->staticItems.size() - (++staticCount)].id;
-            rtNode->updates.push_back({ RT::ItemsNode::Update::Kind::Added, id });
-        }
-        cullArray(rtNode, cgNode->staticItems, rtNode->staticItems);
-        cullArray(rtNode, cgNode->dynamicItems, rtNode->dynamicItems);
-        return rtNode;
-    }
-    RT::Node* updateCompoundNode(CG::CompoundNode* cgNode, RT::CompoundNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::CompoundNode;
-        for (auto update : cgNode->updates) {
-            if (update.isAddition)
-                rtNode->children.push_back(nullptr);
-        }
-        VERIFY(render3d, cgNode->children.size() == rtNode->children.size());
-        for (int_t i = 0; i < cgNode->children.size(); i++) {
-            rtNode->children[i] = dispatchUpdate(cgNode->children[i], rtNode->children[i]);
-        }
-        return rtNode;
-    }
-    RT::Node* dispatchUpdate(CG::Node* cgNode, RT::Node* rtNode) {
-        if (rtNode)
-            VERIFY(render3d, cgNode->kind == rtNode->kind);
-        switch (cgNode->kind) {
-        case NodeKind::Portal:
-            return updatePortalNode((CG::PortalNode*)cgNode, (RT::PortalNode*)rtNode);
-        case NodeKind::Transform:
-            return updateTransformNode((CG::TransformNode*)cgNode, (RT::TransformNode*)rtNode);
-        case NodeKind::Items:
-            return updateItemsNode((CG::ItemsNode*)cgNode, (RT::ItemsNode*)rtNode);
-        case NodeKind::Compound:
-            return updateCompoundNode((CG::CompoundNode*)cgNode, (RT::CompoundNode*)rtNode);
-        default:
-            VERIFY_NOT_REACHED(render3d);
-            return nullptr;
-        }
-    }
+    bool visible(BoundingSphere) const { return true; }
 };
 
 struct RTDestroyer : RT::Visitor<RTDestroyer> {
@@ -292,8 +205,13 @@ struct RTDestroyer : RT::Visitor<RTDestroyer> {
         Base::visitTransformNode(node);
         delete node;
     }
-    void visitItemsNode(RT::ItemsNode* node) {
-        Base::visitItemsNode(node);
+    void visitBoundingNode(RT::BoundingNode* node) {
+        Base::visitBoundingNode(node);
+        if (node->isVisible)
+            delete node;
+    }
+    void visitObjectNode(RT::ObjectNode* node) {
+        Base::visitObjectNode(node);
         delete node;
     }
     void visitCompoundNode(RT::CompoundNode* node) {
@@ -302,85 +220,128 @@ struct RTDestroyer : RT::Visitor<RTDestroyer> {
     }
 };
 
-struct Instance {
-    struct Object {
-        const GraphicsObject* object;
-        std::vector<Effect::Handle> effects;
-    };
-    IdAllocator<> objectIdAllocator;
-    std::vector<Object> objects;
-
-    uint32_t addObject(Object object) {
-        uint32_t id = objectIdAllocator.allocateId();
-        if (id >= objects.size())
-            objects.resize(id + 1);
-        objects[id] = std::move(object);
-        return id;
+struct RTUpdater {
+    CullStack cullStack;
+    Mat4x4 fullTransform { true };
+    RT::Node* updatePortalNode(SG::PortalNode* sgNode, RT::PortalNode* rtNode) {
+        if (!rtNode)
+            rtNode = new RT::PortalNode;
+        rtNode->child = dispatchUpdate(sgNode->child, rtNode->child);
+        return rtNode;
     }
-};
+    RT::Node* updateTransformNode(SG::TransformNode* sgNode, RT::TransformNode* rtNode) {
+        if (!rtNode)
+            rtNode = new RT::TransformNode;
 
-struct LightAttacher : RT::Visitor<LightAttacher> {
-    using Base = RT::Visitor<LightAttacher>;
+        CullStack oldCullStack = std::move(cullStack);
+        // cullStack = sgNode->transform * oldCullStack;
+        Mat4x4 oldFullTransform = fullTransform;
+        fullTransform = fullTransform * sgNode->transform;
+        rtNode->fullTransform = fullTransform;
 
-    Instance* instance = nullptr;
-    Effect::Handle effect;
+        rtNode->child = dispatchUpdate(sgNode->child, rtNode->child);
 
-    void visitItemsNode(RT::ItemsNode* node) {
-        for (auto update : node->updates) {
-            if (update.kind == RT::ItemsNode::Update::Kind::Added) {
-                instance->objects[update.id].effects.push_back(effect);
-            }
+        cullStack = std::move(oldCullStack);
+        fullTransform = oldFullTransform;
+
+        return rtNode;
+    }
+    RT::Node* updateBoundingNode(SG::BoundingNode* sgNode, RT::BoundingNode* rtNode) {
+        if (!rtNode)
+            rtNode = new RT::BoundingNode;
+        bool isVisible = cullStack.visible(sgNode->bound);
+        if (!isVisible && rtNode->isVisible) {
+            RTDestroyer dest;
+            dest.dispatchVisit(rtNode->child);
+        }
+        rtNode->isVisible = isVisible;
+        if (isVisible)
+            rtNode->child = dispatchUpdate(sgNode->child, rtNode->child);
+
+        return rtNode;
+    }
+    RT::Node* updateObjectNode(SG::ObjectNode* sgNode, RT::ObjectNode* rtNode) {
+        if (!rtNode)
+            rtNode = new RT::ObjectNode;
+        rtNode->effects = sgNode->effects;
+        rtNode->object = sgNode->object;
+        return rtNode;
+    }
+    RT::Node* updateCompoundNode(SG::CompoundNode* sgNode, RT::CompoundNode* rtNode) {
+        if (!rtNode)
+            rtNode = new RT::CompoundNode;
+        for (auto update : sgNode->updates) {
+            if (update.kind == SG::CompoundNode::Update::Kind::Insertion)
+                rtNode->children.push_back(nullptr);
+        }
+        VERIFY(render3d, sgNode->children.size() == rtNode->children.size());
+        for (int_t i = 0; i < sgNode->children.size(); i++) {
+            rtNode->children[i] = dispatchUpdate(sgNode->children[i], rtNode->children[i]);
+        }
+        return rtNode;
+    }
+    RT::Node* dispatchUpdate(SG::Node* sgNode, RT::Node* rtNode) {
+        if (rtNode)
+            VERIFY(render3d, sgNode->kind == rtNode->kind);
+        switch (sgNode->kind) {
+        case NodeKind::Portal:
+            return updatePortalNode((SG::PortalNode*)sgNode, (RT::PortalNode*)rtNode);
+        case NodeKind::Transform:
+            return updateTransformNode((SG::TransformNode*)sgNode, (RT::TransformNode*)rtNode);
+        case NodeKind::Bounding:
+            return updateBoundingNode((SG::BoundingNode*)sgNode, (RT::BoundingNode*)rtNode);
+        case NodeKind::Object:
+            return updateObjectNode((SG::ObjectNode*)sgNode, (RT::ObjectNode*)rtNode);
+        case NodeKind::Compound:
+            return updateCompoundNode((SG::CompoundNode*)sgNode, (RT::CompoundNode*)rtNode);
+        default:
+            VERIFY_NOT_REACHED(render3d);
+            return nullptr;
         }
     }
 };
 
 struct Renderer : RT::Visitor<Renderer> {
     using Base = RT::Visitor<Renderer>;
+    Renderer(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection)
+        : allocator(allocator), framebuffer(framebuffer), projection(projection) { }
 
-    std::vector<std::pair<uint32_t, Mat4x4*>> objects;
-    Mat4x4* currentTransform = nullptr;
+    Mat4x4 currentTransform;
+    GAllocator* allocator;
+    Framebuffer* framebuffer;
+    Mat4x4 projection;
 
     void visitTransformNode(RT::TransformNode* node) {
-        currentTransform = &node->fullTransform;
+        currentTransform = node->fullTransform;
         Base::visitTransformNode(node);
     }
 
-    void visitItemsNode(RT::ItemsNode* node) {
-        for (auto update : node->updates) {
-            if (update.kind == RT::ItemsNode::Update::Kind::Added)
-                objects.push_back({ update.id, currentTransform });
+    void visitObjectNode(RT::ObjectNode* node) {
+        auto shaderHandle = EffectShaderFactory::getHandle(node->effects);
+
+        auto& shader = EffectShaderFactory::instance(*shaderHandle);
+        shader.use();
+        shader.uniformMat4x4(shader.viewProjectionUniform, projection * currentTransform);
+
+        int_t slot = 0;
+        for (auto& effect : node->effects) {
+            auto state = shader.ordered(shader.slots[slot++]);
+            auto data = Effect::data(effect.type);
+            auto buffers = data.vertexBuffers.view(effect.ptr);
+            for (int_t i = 0; i < buffers.size(); i++)
+                state.attribPointer({ allocator->buffer(buffers[i]), data.vertexBufferElementSizes[i] });
+            for (auto& tex : data.textures.view(effect.ptr))
+                state.uniformTexture(tex);
+            if (data.vertexUniformDesc.size > 0)
+                state.uniformBuffer({ allocator->buffer(data.vertexUniformPtr.get(effect.ptr)), data.vertexUniformDesc.size });
+            if (data.fragmentUniformDesc.size > 0)
+                state.uniformBuffer({ allocator->buffer(data.fragmentUniformPtr.get(effect.ptr)), data.fragmentUniformDesc.size });
         }
-    }
-
-    void render(Instance* instance, GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection) {
-        for (auto [id, transform] : objects) {
-            auto& object = instance->objects[id];
-            auto shaderHandle = EffectShaderFactory::getHandle(object.effects);
-
-            auto& shader = EffectShaderFactory::instance(*shaderHandle);
-            shader.use();
-            shader.uniformMat4x4(shader.viewProjectionUniform, projection * (*transform));
-
-            int_t slot = 0;
-            for (auto& effect : object.effects) {
-                auto state = shader.ordered(shader.slots[slot++]);
-                auto data = Effect::data(effect.type);
-                auto buffers = data.vertexBuffers.view(effect.ptr);
-                for (int_t i = 0; i < buffers.size(); i++)
-                    state.attribPointer({ allocator->buffer(buffers[i]), data.vertexBufferElementSizes[i] });
-                for (auto& tex : data.textures.view(effect.ptr))
-                    state.uniformTexture(tex);
-                if (data.vertexUniformDesc.size > 0)
-                    state.uniformBuffer({ allocator->buffer(data.vertexUniformPtr.get(effect.ptr)), data.vertexUniformDesc.size });
-                if (data.fragmentUniformDesc.size > 0)
-                    state.uniformBuffer({ allocator->buffer(data.fragmentUniformPtr.get(effect.ptr)), data.fragmentUniformDesc.size });
-            }
-            shader.uniformMat4x4(shader.modelUniform, object.object->modelMatrix);
-            shader.attribPointer(shader.positionAttrib, object.object->vertices.vertexBuffer(allocator));
-            shader.attribPointer(shader.normalAttrib, object.object->normals.vertexBuffer(allocator));
-            framebuffer->draw(object.object->drawMode, object.object->indices);
-            shaderHandle.LEAK();
-        }
+        shader.uniformMat4x4(shader.modelUniform, node->object->modelMatrix);
+        shader.attribPointer(shader.positionAttrib, node->object->vertices.vertexBuffer(allocator));
+        shader.attribPointer(shader.normalAttrib, node->object->normals.vertexBuffer(allocator));
+        framebuffer->draw(node->object->drawMode, node->object->indices);
+        shaderHandle.LEAK();
     }
 };
 
