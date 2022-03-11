@@ -303,8 +303,8 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
         arguments.forEachEntry([&](const Expr* arg) {
             const FunctionParameter& parm = func->parameters[i++];
             if (!parm.isDynamic) {
-                if (arg->type != parm.fixed.type) {
-                    note() << "parameter " << i << " expects " << parm.fixed.type << " but got " << arg->type << "";
+                if (arg->type != parm.u.fixed.type) {
+                    note() << "parameter " << i << " expects " << parm.u.fixed.type << " but got " << arg->type << "";
                     isMatch = false;
                 }
                 return;
@@ -315,8 +315,8 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
                 return;
             }
             const auto* vType = asVectorType(arg->type);
-            if (vType->scalarType != parm.dynamic.scalarType) {
-                note() << "parameter " << i << " expects vector of base type " << parm.dynamic.scalarType << " but got base type " << vType->scalarType << "";
+            if (vType->scalarType != parm.u.dynamic.scalarType) {
+                note() << "parameter " << i << " expects vector of base type " << parm.u.dynamic.scalarType << " but got base type " << vType->scalarType << "";
                 isMatch = false;
                 return;
             }
@@ -371,11 +371,11 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
         e->function = func;
         if (func->returnType.isDynamic) {
             if (dynamicSize > 0)
-                e->type = func->returnType.dynamic.scalarType->vectorType(dynamicSize);
+                e->type = func->returnType.u.dynamic.scalarType->vectorType(dynamicSize);
             else
                 e->type = &ErrorType;
         } else {
-            e->type = func->returnType.fixed.type;
+            e->type = func->returnType.u.fixed.type;
         }
     }
     constexpr void transformCompositionExpr(CompositionExpr* e) {

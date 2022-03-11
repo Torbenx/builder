@@ -42,6 +42,7 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform<Storage>, Stora
     }
 
     constexpr const Function* binaryToFuntion(BinaryOperator op) {
+        using namespace functions;
         switch (op) {
         case BinaryOperator::CMP_LE:
             return &lessThanEqualFunc;
@@ -70,6 +71,7 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform<Storage>, Stora
         return Base::createElementwiseOperatorExpr(e);
     }
     constexpr const Function* unaryToFunction(UnaryOperator e) {
+        using namespace functions;
         VERIFY(ShaderGen, e == UnaryOperator::NOT);
         return &notFunc;
     }
@@ -105,6 +107,10 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
     }
     constexpr auto& operator<<(const Type* type) {
         visitType(type);
+        return *this;
+    }
+    constexpr auto& operator<<(const VarDecl* decl) {
+        visitVarDecl(decl);
         return *this;
     }
     constexpr auto& operator<<(Indentation) {
@@ -244,6 +250,19 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
     constexpr void visitParenExpr(const ParenExpr* e) {
         out() << "(" << e->subExpr << ")";
     }
+    constexpr void visitStageDecl(const StageDecl* stage) {
+        stage->uniforms.decls.forEachEntry([&](const VarDecl* decl) {
+            out() << "uniform " << decl << ";\n";
+        });
+        stage->inputs.decls.forEachEntry([&](const VarDecl* decl) {
+            out() << "in " << decl << ";\n";
+        });
+        stage->outputs.decls.forEachEntry([&](const VarDecl* decl) {
+            out() << "out " << decl << ";\n";
+        });
+        out() << "void main() ";
+        dispatchVisit(stage->entryPoint);
+    }
 };
 
 struct GLSLStageGenerator : GLSLStmtGenerator {
@@ -252,13 +271,7 @@ struct GLSLStageGenerator : GLSLStmtGenerator {
         : GLSLStmtGenerator(buffer) { }
 
     constexpr void visitStage(const StageDriver& stage) {
-        stage.stageDecl->uniforms.decls.forEachEntry([&](const VarDecl* decl) {
-            out() << "uniform ";
-            visitVarDecl(decl);
-            out() << ";\n";
-        });
-        out() << "void main() ";
-        dispatchVisit(stage.stageDecl->entryPoint);
+        visitStageDecl(stage.stageDecl);
     }
 };
 

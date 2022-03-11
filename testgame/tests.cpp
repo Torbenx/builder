@@ -55,22 +55,24 @@ static constexpr void createShader(GraphicsDriver& prog) {
     auto& vert = prog.vert;
     auto& frag = prog.frag;
 
-    auto varColor = prog.varying<Vec3>("v_color");
+    auto varPos = prog.varying<Vec2>("v_texCoord");
 
     auto posAttr = vert.input<Vec2>("a_position");
-    auto colorAttr = vert.input<Vec3>("a_color");
     vert, vert.position = compose(posAttr, constant(0.0f, 1.0f));
-    vert, varColor.in = colorAttr;
+    vert, varPos.in = posAttr;
 
     auto fragColor = frag.output<Vec4>("fragColor");
     auto multiplier = frag.uniform<float>("u_multiplier");
-    frag, fragColor = compose(multiplier * varColor.out, constant(1.0f));
+    auto tex = frag.uniform<Sampler2D>("u_texture");
+    frag, fragColor = multiplier * texture(tex, varPos.out);
 }
 
 static constexpr auto toGLSL(const GraphicsDriver& prog) {
     std::array<char, 10000> buffer = {};
     GLSLStageGenerator glsl { buffer.data() };
     glsl.visitStage(prog.vert);
+    glsl.out() << "\n------------------\n";
+    glsl.visitStage(prog.frag);
     return buffer;
 }
 
@@ -78,6 +80,7 @@ static constexpr auto transformAST(const GraphicsDriver& in) {
     return GraphicsDriver([&](GraphicsDriver& out) {
         GLSLStmtTransform transform { &out.storage };
         out.vert.stageDecl = transform.createStageDecl(*in.vert.stageDecl);
+        out.frag.stageDecl = transform.createStageDecl(*in.frag.stageDecl);
     });
 }
 
@@ -87,12 +90,10 @@ void runShadergenTest() {
     // static constexpr auto tuple = createTuple<createAST>();
     // dumper.dump(tuple.root);
 
-    static constexpr auto ast = GraphicsDriver(createAST);
+    static constexpr auto ast = GraphicsDriver(createShader);
     dumper.dump(ast.vert.stageDecl->entryPoint);
+    dumper.dump(ast.frag.stageDecl->entryPoint);
     static constexpr auto ast2 = transformAST(ast);
-    dumper.dump(ast2.vert.stageDecl->entryPoint);
-    static constexpr auto glsl = toGLSL(ast);
-    log("{}", glsl.data());
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data());
 

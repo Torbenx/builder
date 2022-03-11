@@ -13,7 +13,7 @@ struct MemberInfo {
 struct UserType : Type {
     std::string_view name;
     ArrayView<const MemberInfo> members;
-    int_t leafFieldCount;
+    int_t leafFieldCount = 0;
     constexpr UserType(std::string_view name, ArrayView<const MemberInfo> members)
         : Type(true, false, false, false), name(name), members(members) { }
 };
@@ -149,5 +149,24 @@ struct wrapped_user<T>::impl : E, wrapped_user<T> {
 
 template<typename T>
 using get_wrapper = std::conditional_t<typeFromCXX<T>->isScalar, wrapped_scalar, std::conditional_t<typeFromCXX<T>->isVector, wrapped_vector, wrapped_user<T>>>;
+
+// opaque sampler types
+struct OpaqueBuiltinType {
+    struct _gen_fields_final_ : wrapped_user_untyped { };
+};
+namespace code {
+    struct Sampler2D : OpaqueBuiltinType {
+        static constexpr UserType SHADERGEN_TYPE { "sampler2D", { } };
+    };
+    struct SamplerCube : OpaqueBuiltinType {
+        static constexpr UserType SHADERGEN_TYPE { "samplerCube", { } };
+    };
+    struct Sampler2DShadow : OpaqueBuiltinType {
+        static constexpr UserType SHADERGEN_TYPE { "sampler2DShadow", { } };
+    };
+    struct SamplerCubeShadow : OpaqueBuiltinType {
+        static constexpr UserType SHADERGEN_TYPE { "samplerCubeShadow", { } };
+    };
+}
 
 }

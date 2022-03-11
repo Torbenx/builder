@@ -15,12 +15,12 @@ struct FunctionParameter {
     union {
         DynamicParameter dynamic;
         FixedParameter fixed;
-    };
-    static constexpr FunctionParameter makeFixed(const Type* type) {
-        return { .isDynamic = false, .fixed = { type } };
+    } u;
+    static constexpr FunctionParameter fixed(const Type* type) {
+        return { .isDynamic = false, .u = { .fixed = { type } } };
     }
-    static constexpr FunctionParameter makeDynamic(const ScalarType* baseType) {
-        return { .isDynamic = true, .dynamic = { baseType } };
+    static constexpr FunctionParameter dynamic(const ScalarType* baseType) {
+        return { .isDynamic = true, .u = { .dynamic = { baseType } } };
     }
 };
 struct Function {
@@ -87,37 +87,51 @@ struct UnresolvedCall : CallExpr {
     }
 };
 
-static constexpr BuiltinFunctionInstance floorFunc { "floor", { FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&FloatType) };
-static constexpr BuiltinFunctionInstance allFunc { "all", { FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeFixed(&BoolType) };
+}
 
-static constexpr BuiltinFunctionInstance lessThanEqualFuncI { "lessThanEqual", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance lessThanEqualFuncF { "lessThanEqual", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup lessThanEqualFunc { "lessThanEqual", { &lessThanEqualFuncI, &lessThanEqualFuncF } };
-static constexpr BuiltinFunctionInstance lessThanFuncI { "lessThan", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance lessThanFuncF { "lessThan", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup lessThanFunc { "lessThan", { &lessThanFuncI, &lessThanFuncF } };
-static constexpr BuiltinFunctionInstance equalFuncI { "equal", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance equalFuncF { "equal", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup equalFunc { "equal", { &equalFuncI, &equalFuncF } };
-static constexpr BuiltinFunctionInstance greaterThanEqualFuncI { "greaterThanEqual", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance greaterThanEqualFuncF { "greaterThanEqual", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup greaterThanEqualFunc { "greaterThanEqual", { &greaterThanEqualFuncI, &greaterThanEqualFuncF } };
-static constexpr BuiltinFunctionInstance greaterThanFuncI { "greaterThan", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance greaterThanFuncF { "greaterThan", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup greaterThanFunc { "greaterThan", { &greaterThanFuncI, &greaterThanFuncF } };
-static constexpr BuiltinFunctionInstance notEqualFuncI { "notEqual", { FunctionParameter::makeDynamic(&IntType), FunctionParameter::makeDynamic(&IntType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance notEqualFuncF { "notEqual", { FunctionParameter::makeDynamic(&FloatType), FunctionParameter::makeDynamic(&FloatType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup notEqualFunc { "notEqual", { &notEqualFuncI, &notEqualFuncF } };
+namespace shadergen::functions {
 
-static constexpr BuiltinFunctionInstance andFunc { "and", { FunctionParameter::makeDynamic(&BoolType), FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance orFunc { "or", { FunctionParameter::makeDynamic(&BoolType), FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeDynamic(&BoolType) };
-static constexpr BuiltinFunctionInstance notFunc { "not", { FunctionParameter::makeDynamic(&BoolType) }, FunctionParameter::makeDynamic(&BoolType) };
+using FP = FunctionParameter;
+template<int_t N>
+using ScalarCall = wrapped_scalar::impl<UnresolvedCall<N>>;
+template<int_t N>
+using VectorCall = wrapped_vector::impl<UnresolvedCall<N>>;
 
-namespace code {
+static constexpr BuiltinFunctionInstance texture2DFunc { "texture", { FP::fixed(typeFromCXX<code::Sampler2D>), FP::fixed(FloatType.vectorType(2)) }, FP::fixed(FloatType.vectorType(4)) };
+static constexpr BuiltinFunctionInstance textureCubeFunc { "texture", { FP::fixed(typeFromCXX<code::SamplerCube>), FP::fixed(FloatType.vectorType(3)) }, FP::fixed(FloatType.vectorType(4)) };
+static constexpr BuiltinFunctionInstance texture2DShadow { "texture", { FP::fixed(typeFromCXX<code::Sampler2DShadow>), FP::fixed(FloatType.vectorType(2)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
+static constexpr BuiltinFunctionInstance textureCubeShadow { "texture", { FP::fixed(typeFromCXX<code::SamplerCubeShadow>), FP::fixed(FloatType.vectorType(3)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
+namespace impls {
+    constexpr auto texture(const wrapped_user<code::Sampler2D>& sampler, wrapped_vector& coord) { return VectorCall<2> { { &texture2DFunc, { sampler.wrappedExpr, coord.wrappedExpr } } }; }
+}
+
+static constexpr BuiltinFunctionInstance floorFunc { "floor", { FP::dynamic(&FloatType) }, FP::dynamic(&FloatType) };
+static constexpr BuiltinFunctionInstance allFunc { "all", { FP::dynamic(&BoolType) }, FP::fixed(&BoolType) };
+namespace impls {
     constexpr wrapped_vector::impl<UnresolvedCall<1>> floor(const wrapped_vector& arg) { return { { &floorFunc, { arg.wrappedExpr } } }; }
     constexpr wrapped_scalar::impl<UnresolvedCall<1>> floor(const wrapped_scalar& arg) { return { { &floorFunc, { arg.wrappedExpr } } }; }
     constexpr wrapped_scalar::impl<UnresolvedCall<1>> all(const wrapped_untyped& arg) { return { { &allFunc, { arg.wrappedExpr } } }; }
+}
 
+static constexpr BuiltinFunctionInstance lessThanEqualFuncI { "lessThanEqual", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance lessThanEqualFuncF { "lessThanEqual", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup lessThanEqualFunc { "lessThanEqual", { &lessThanEqualFuncI, &lessThanEqualFuncF } };
+static constexpr BuiltinFunctionInstance lessThanFuncI { "lessThan", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance lessThanFuncF { "lessThan", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup lessThanFunc { "lessThan", { &lessThanFuncI, &lessThanFuncF } };
+static constexpr BuiltinFunctionInstance equalFuncI { "equal", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance equalFuncF { "equal", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup equalFunc { "equal", { &equalFuncI, &equalFuncF } };
+static constexpr BuiltinFunctionInstance greaterThanEqualFuncI { "greaterThanEqual", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance greaterThanEqualFuncF { "greaterThanEqual", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup greaterThanEqualFunc { "greaterThanEqual", { &greaterThanEqualFuncI, &greaterThanEqualFuncF } };
+static constexpr BuiltinFunctionInstance greaterThanFuncI { "greaterThan", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance greaterThanFuncF { "greaterThan", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup greaterThanFunc { "greaterThan", { &greaterThanFuncI, &greaterThanFuncF } };
+static constexpr BuiltinFunctionInstance notEqualFuncI { "notEqual", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance notEqualFuncF { "notEqual", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionGroup notEqualFunc { "notEqual", { &notEqualFuncI, &notEqualFuncF } };
+namespace impls {
     constexpr wrapped_scalar::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
     constexpr wrapped_vector::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
     constexpr wrapped_scalar::impl<UnresolvedCall<2>> lessThan(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &lessThanFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
@@ -132,4 +146,12 @@ namespace code {
     constexpr wrapped_vector::impl<UnresolvedCall<2>> notEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &notEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
 }
 
+static constexpr BuiltinFunctionInstance andFunc { "and", { FP::dynamic(&BoolType), FP::dynamic(&BoolType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance orFunc { "or", { FP::dynamic(&BoolType), FP::dynamic(&BoolType) }, FP::dynamic(&BoolType) };
+static constexpr BuiltinFunctionInstance notFunc { "not", { FP::dynamic(&BoolType) }, FP::dynamic(&BoolType) };
+
+}
+
+namespace shadergen::code {
+using namespace shadergen::functions::impls;
 }
