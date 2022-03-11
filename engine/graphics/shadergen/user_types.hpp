@@ -101,20 +101,20 @@ static constexpr UserTypeImpl<N> makeUserType() {
     template<int_t fieldIndex>                                           \
     struct _gen_fields_;                                                 \
     template<>                                                           \
-    struct _gen_fields_<-1> : wrapped_user_untyped { };                  \
+    struct _gen_fields_<-1> : ::shadergen::wrapped_user_untyped { };     \
     using _gen_base_alias_ = name;                                       \
     template<int_t fieldIndex>                                           \
     static constexpr ::shadergen::FieldInfo _gen_field_info_;            \
     static constexpr int_t _gen_field_counter_offset_ = __COUNTER__ + 1; \
     static constexpr std::string_view _gen_struct_name_ = #name;
 
-#define GEN_FIELD_HELPER(name, index)                                                                          \
-    name;                                                                                                      \
-    template<>                                                                                                 \
-    struct _gen_fields_<index> : _gen_fields_<index - 1> {                                                     \
-        get_wrapper<decltype(_gen_base_alias_::name)>::impl<MemberAccessExpr> name { { wrappedExpr, index } }; \
-    };                                                                                                         \
-    template<>                                                                                                 \
+#define GEN_FIELD_HELPER(name, index)                                                                                                    \
+    name;                                                                                                                                \
+    template<>                                                                                                                           \
+    struct _gen_fields_<index> : _gen_fields_<index - 1> {                                                                               \
+        ::shadergen::get_wrapper<decltype(_gen_base_alias_::name)>::impl<::shadergen::MemberAccessExpr> name { { wrappedExpr, index } }; \
+    };                                                                                                                                   \
+    template<>                                                                                                                           \
     static constexpr ::shadergen::FieldInfo _gen_field_info_<index> = ::shadergen::FieldInfo::create<decltype(_gen_base_alias_::name)>(#name);
 
 #define GEN_FIELD(name) GEN_FIELD_HELPER(name, __COUNTER__ - _gen_field_counter_offset_);
@@ -156,16 +156,16 @@ struct OpaqueBuiltinType {
 };
 namespace code {
     struct Sampler2D : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "sampler2D", { } };
+        static constexpr UserType SHADERGEN_TYPE { "sampler2D", {} };
     };
     struct SamplerCube : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "samplerCube", { } };
+        static constexpr UserType SHADERGEN_TYPE { "samplerCube", {} };
     };
     struct Sampler2DShadow : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "sampler2DShadow", { } };
+        static constexpr UserType SHADERGEN_TYPE { "sampler2DShadow", {} };
     };
     struct SamplerCubeShadow : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "samplerCubeShadow", { } };
+        static constexpr UserType SHADERGEN_TYPE { "samplerCubeShadow", {} };
     };
 }
 

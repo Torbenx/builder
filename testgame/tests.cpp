@@ -3,9 +3,10 @@
 #include "graphics/shadergen/GLSLGenerator.hpp"
 #include "util/log.hpp"
 
+#include "graphics/render3d/effect.hpp"
+
 using namespace shadergen;
 using namespace shadergen::code;
-// using namespace shadergen::compressed;
 
 struct A {
     struct B {
@@ -96,6 +97,8 @@ void runShadergenTest() {
     static constexpr auto ast2 = transformAST(ast);
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data());
+
+    VDUMP(effect::descriptorStore<SomeEffect>.vert.source);
 
     /*A aVal;
     aVal.b2.i = 123;

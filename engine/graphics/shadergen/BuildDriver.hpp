@@ -74,11 +74,10 @@ template<typename T>
 struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
     using Base = typename get_wrapper<T>::template impl<VarRefExpr>;
     VarDecl driverDecl;
-    template<typename Storage>
-    constexpr DriverVariable(Storage* storage, std::string_view name, VarDeclContext* declContext)
+    template<typename Callback>
+    constexpr DriverVariable(std::string_view name, Callback&& callback)
         : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, nullptr) {
-        BasicASTTransform<Storage> ast { storage };
-        ast.createVarDecl(&driverDecl, declContext);
+        callback(&driverDecl);
     }
     DriverVariable(const DriverVariable&) = delete;
 
@@ -132,7 +131,10 @@ struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000
 
     template<typename T>
     constexpr DriverVariable<T> declareVariable(std::string_view name, VarDeclContext* declContext) {
-        return { storage, name, declContext };
+        return {
+            name,
+            [&](const VarDecl* driverDecl) { createVarDecl(driverDecl, declContext); }
+        };
     }
     template<typename T>
     constexpr DriverVariable<T> variable(std::string_view name) {
