@@ -19,7 +19,19 @@ struct BoundingSphere {
     float radius;
 };
 
+struct CullStack {
+    bool visible(BoundingSphere) const { return true; }
+};
+
+#define IMPORT_NODES(S)                              \
+    using PortalNode = typename S::PortalNode;       \
+    using TransformNode = typename S::TransformNode; \
+    using BoundingNode = typename S::BoundingNode;   \
+    using ObjectNode = typename S::ObjectNode;       \
+    using CompoundNode = typename S::CompoundNode;
+
 enum class NodeKind {
+    Invalid = 0,
     Portal,
     Transform,
     Bounding,
@@ -27,301 +39,423 @@ enum class NodeKind {
     Compound,
 };
 
-namespace SG /* Scene Graph */ {
-    struct Node {
-        NodeKind kind;
-        Node(NodeKind kind)
-            : kind(kind) { }
+struct NodeKindSequence {
+    static constexpr int_t KIND_BIT_SIZE = 4;
+    using mask_t = uint32_t;
+    static constexpr mask_t FIRST_NODE_MASK = ((mask_t)1 << KIND_BIT_SIZE) - 1;
+    static constexpr int_t MASK_DIGITS = std::numeric_limits<mask_t>::digits;
+    static constexpr int_t CAPACITY = MASK_DIGITS / KIND_BIT_SIZE;
+
+    struct iterator;
+    struct end_iterator { };
+
+    mask_t sequence = 0;
+
+    constexpr NodeKindSequence() { }
+    template<int_t N>
+    constexpr NodeKindSequence(const NodeKind (&kinds)[N]) {
+        static_assert(N <= CAPACITY);
+        for (int_t i = N - 1; i >= 0; i--)
+            pushFront(kinds[i]);
+    }
+    constexpr NodeKindSequence(mask_t sequence)
+        : sequence(sequence) { }
+    constexpr int_t size() const {
+        return (MASK_DIGITS - std::countl_zero(sequence) + KIND_BIT_SIZE - 1) / KIND_BIT_SIZE;
+    }
+    constexpr bool empty() const { return sequence == 0; }
+    constexpr void pushBack(NodeKind kind) {
+        sequence |= (mask_t)kind << (size() * KIND_BIT_SIZE);
+    }
+    constexpr void pushFront(NodeKind kind) {
+        sequence <<= KIND_BIT_SIZE;
+        sequence |= (mask_t)kind;
+    }
+    constexpr NodeKind operator[](int_t index) const {
+        return static_cast<NodeKind>((sequence >> (index * KIND_BIT_SIZE)) & FIRST_NODE_MASK);
+    }
+    constexpr NodeKind front() const { return static_cast<NodeKind>(sequence & FIRST_NODE_MASK); }
+    constexpr NodeKind back() const { return (*this)[size() - 1]; }
+    constexpr NodeKind popFront() {
+        NodeKind r = front();
+        sequence >>= KIND_BIT_SIZE;
+        return r;
+    }
+    constexpr NodeKindSequence subSequence() const {
+        return { sequence >> KIND_BIT_SIZE };
+    }
+    constexpr NodeKind popBack() {
+        int_t newSize = size() - 1;
+        NodeKind r = (*this)[newSize];
+        sequence &= ((mask_t)1 << (newSize * KIND_BIT_SIZE)) - 1;
+        return r;
+    }
+    constexpr iterator begin() const;
+    constexpr end_iterator end() const { return {}; }
+};
+struct NodeKindSequence::iterator : NodeKindSequence {
+    constexpr iterator& operator++() {
+        popFront();
+        return *this;
+    }
+    constexpr NodeKind operator*() const { return front(); }
+    constexpr bool operator==(const end_iterator&) const { return empty(); }
+};
+constexpr NodeKindSequence::iterator NodeKindSequence::begin() const { return { *this }; }
+
+struct NodeHandle {
+    NodeKind kind = NodeKind::Invalid;
+    void* node = nullptr;
+};
+template<typename S>
+struct NodeSequence {
+    IMPORT_NODES(S);
+    // must match the NodeKind enum
+    static constexpr int_t byteSizes[] = { 0, sizeof(PortalNode), sizeof(TransformNode), sizeof(BoundingNode), sizeof(ObjectNode), sizeof(CompoundNode) };
+    static constexpr int_t sizeOf(NodeKind kind) { return byteSizes[(int_t)kind]; }
+    static constexpr int_t sequenceSizeInBytes(NodeKindSequence kinds) {
+        int_t size = 0;
+        for (auto kind : kinds)
+            size += sizeOf(kind);
+        return size;
+    }
+    static constexpr NodeSequence allocateStorageFor(NodeKindSequence kinds) {
+        int_t size = sequenceSizeInBytes(kinds);
+        std::allocator<std::byte> allocator;
+        std::byte* storage = allocator.allocate(size);
+        return { storage };
+    }
+
+    std::byte* begin = nullptr;
+    NodeKindSequence kinds;
+    uint32_t sizeInBytes = 0;
+
+    bool empty() const { return kinds.empty(); }
+    int_t size() const { return kinds.size(); }
+
+    NodeKind frontKind() const { return kinds.front(); }
+    NodeHandle front() const { return { kinds.front(), begin }; }
+    NodeHandle popFront() {
+        NodeKind kind = kinds.popFront();
+        int_t advance = sizeOf(kind);
+        void* element = begin;
+        begin += advance;
+        sizeInBytes -= advance;
+        return { kind, element };
+    }
+    NodeSequence subSequence() const {
+        NodeKind kind = kinds.front();
+        int_t advance = sizeOf(kind);
+        return { begin + advance, kinds.subSequence(), static_cast<uint32_t>(sizeInBytes - advance) };
+    }
+
+    NodeKind backKind() const { return kinds.back(); }
+    NodeHandle back() const {
+        NodeKind kind = kinds.back();
+        return { kind, begin + sizeInBytes - sizeOf(kind) };
+    }
+    NodeHandle popBack() {
+        NodeKind kind = kinds.back();
+        sizeInBytes -= sizeOf(kind);
+        return { kind, begin + sizeInBytes };
+    }
+    template<typename T>
+    T* pushBack(const T& node) {
+        T* r = std::construct_at(reinterpret_cast<T*>(begin + sizeInBytes), node);
+        sizeInBytes += sizeof(T);
+        kinds.pushBack(T::NODE_KIND);
+        return r;
+    }
+
+    template<typename T>
+    struct FirstIs : NodeSequence {
+        T* first() const { return reinterpret_cast<T*>(begin); }
     };
-    struct PortalNode : Node {
-        Node* child = nullptr;
+    template<typename T>
+    struct LastIs : NodeSequence {
+        T* last() const { return reinterpret_cast<T*>(begin + sizeInBytes - sizeof(T)); }
+    };
+
+    template<typename T>
+    FirstIs<T> firstIs() const { return { *this }; }
+    template<typename T>
+    LastIs<T> lastIs() const { return { *this }; }
+};
+
+struct SG /* Scene Graph */ {
+    struct alignas(8) PortalNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Portal;
         bool isDirty = false;
         // portal data...
-        PortalNode()
-            : Node(NodeKind::Portal) { }
     };
-    struct TransformNode : Node {
-        Node* child = nullptr;
+    struct alignas(8) TransformNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Transform;
         Mat4x4 transform;
-        TransformNode()
-            : Node(NodeKind::Transform) { }
     };
-    struct BoundingNode : Node {
-        Node* child = nullptr;
+    struct alignas(8) BoundingNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Bounding;
         BoundingSphere bound;
-        BoundingNode()
-            : Node(NodeKind::Bounding) { }
     };
-    struct ObjectNode : Node {
+    struct alignas(8) ObjectNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Object;
         const GraphicsObject* object;
         std::vector<Effect::Handle> effects;
-        ObjectNode()
-            : Node(NodeKind::Object) { }
     };
-    struct CompoundNode : Node {
+    struct alignas(8) CompoundNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Compound;
+        enum class UpdateKind {
+            Insertion,
+            Update,
+            Removal,
+        };
         struct Update {
-            enum class Kind {
-                Insertion,
-                Update,
-            };
-            Kind kind;
+            UpdateKind kind;
+            bool isObjectSeq;
             int_t index;
         };
-        std::vector<Node*> children;
+        std::vector<NodeSequence<SG>::LastIs<SG::ObjectNode>> objectSeqs;
+        std::vector<NodeSequence<SG>::LastIs<SG::CompoundNode>> compoundSeqs;
         std::vector<Update> updates;
 
-        CompoundNode()
-            : Node(NodeKind::Compound) { }
-
-        void addChild(Node* node) {
-            int_t index = children.size();
-            children.push_back(node);
-            updates.push_back({ Update::Kind::Insertion, index });
-        }
         void clearUpdates() { updates.clear(); }
-    };
-
-    template<typename Impl, typename RetT = void, typename... Args>
-    struct Visitor {
-        Impl* impl() { return static_cast<Impl*>(this); }
-        void visitPortalNode(PortalNode* node, Args... args) {
-            impl()->dispatchVisit(node->child, args...);
+        void addObjectSequence(NodeSequence<SG>::LastIs<SG::ObjectNode> seq) {
+            updates.push_back({ UpdateKind::Insertion, true, (int_t)objectSeqs.size() });
+            objectSeqs.push_back(seq);
         }
-        void visitTransformNode(TransformNode* node, Args... args) {
-            impl()->dispatchVisit(node->child, args...);
-        }
-        void visitBoundingNode(BoundingNode* node, Args... args) {
-            impl()->dispatchVisit(node->child, args...);
-        }
-        void visitObjectNode(ObjectNode*, Args...) { }
-        void visitCompoundNode(CompoundNode* node, Args... args) {
-            for (Node* child : node->children)
-                impl()->dispatchVisit(child, args...);
-        }
-        RetT dispatchVisit(Node* node, Args... args) {
-            switch (node->kind) {
-            case NodeKind::Portal:
-                return impl()->visitPortalNode((PortalNode*)node, args...);
-            case NodeKind::Transform:
-                return impl()->visitTransformNode((TransformNode*)node, args...);
-            case NodeKind::Bounding:
-                return impl()->visitBoundingNode((BoundingNode*)node, args...);
-            case NodeKind::Object:
-                return impl()->visitObjectNode((ObjectNode*)node, args...);
-            case NodeKind::Compound:
-                return impl()->visitCompoundNode((CompoundNode*)node, args...);
-            default:
-                VERIFY_NOT_REACHED(render3d);
-                std::abort();
-            }
+        void addCompoundSequence(NodeSequence<SG>::LastIs<SG::CompoundNode> seq) {
+            updates.push_back({ UpdateKind::Insertion, false, (int_t)compoundSeqs.size() });
+            compoundSeqs.push_back(seq);
         }
     };
-}
-
-namespace RT /* Rendering Tree */ {
-    struct Node {
-        NodeKind kind;
-        Node(NodeKind kind)
-            : kind(kind) { }
-    };
-    struct PortalNode : Node {
-        Node* child = nullptr;
-        PortalNode()
-            : Node(NodeKind::Portal) { }
-    };
-    struct TransformNode : Node {
-        Node* child = nullptr;
-        Mat4x4 fullTransform;
-        TransformNode()
-            : Node(NodeKind::Transform) { }
-    };
-    struct BoundingNode : Node {
-        Node* child = nullptr;
-        bool isVisible = false;
-        BoundingNode()
-            : Node(NodeKind::Bounding) { }
-    };
-    struct ObjectNode : Node {
-        ObjectNode()
-            : Node(NodeKind::Object) { }
-        const GraphicsObject* object;
-        std::vector<Effect::Handle> effects;
-    };
-    struct CompoundNode : Node {
-        std::vector<Node*> children;
-        CompoundNode()
-            : Node(NodeKind::Compound) { }
-    };
-
-    template<typename Impl, typename RetT = void, typename... Args>
-    struct Visitor {
-        Impl* impl() { return static_cast<Impl*>(this); }
-        void visitPortalNode(PortalNode* node, Args... args) {
-            impl()->dispatchVisit(node->child, args...);
-        }
-        void visitTransformNode(TransformNode* node, Args... args) {
-            impl()->dispatchVisit(node->child, args...);
-        }
-        void visitBoundingNode(BoundingNode* node, Args... args) {
-            if (node->isVisible)
-                impl()->dispatchVisit(node->child, args...);
-        }
-        void visitObjectNode(ObjectNode*, Args...) { }
-        void visitCompoundNode(CompoundNode* node, Args... args) {
-            for (Node* child : node->children)
-                impl()->dispatchVisit(child, args...);
-        }
-        RetT dispatchVisit(Node* node, Args... args) {
-            switch (node->kind) {
-            case NodeKind::Portal:
-                return impl()->visitPortalNode((PortalNode*)node, args...);
-            case NodeKind::Transform:
-                return impl()->visitTransformNode((TransformNode*)node, args...);
-            case NodeKind::Bounding:
-                return impl()->visitBoundingNode((BoundingNode*)node, args...);
-            case NodeKind::Object:
-                return impl()->visitObjectNode((ObjectNode*)node, args...);
-            case NodeKind::Compound:
-                return impl()->visitCompoundNode((CompoundNode*)node, args...);
-            default:
-                VERIFY_NOT_REACHED(render3d);
-                std::abort();
-            }
-        }
-    };
-}
-
-struct CullStack {
-    bool visible(BoundingSphere) const { return true; }
 };
 
-struct RTDestroyer : RT::Visitor<RTDestroyer> {
-    using Base = RT::Visitor<RTDestroyer>;
-    void visitPortalNode(RT::PortalNode* node) {
-        Base::visitPortalNode(node);
-        delete node;
-    }
-    void visitTransformNode(RT::TransformNode* node) {
-        Base::visitTransformNode(node);
-        delete node;
-    }
-    void visitBoundingNode(RT::BoundingNode* node) {
-        Base::visitBoundingNode(node);
-        if (node->isVisible)
-            delete node;
-    }
-    void visitObjectNode(RT::ObjectNode* node) {
-        Base::visitObjectNode(node);
-        delete node;
-    }
-    void visitCompoundNode(RT::CompoundNode* node) {
-        Base::visitCompoundNode(node);
-        delete node;
+namespace detail {
+    template<typename... Types>
+    struct LastPackParameter;
+    template<typename T, typename... Types>
+    struct LastPackParameter<T, Types...> : LastPackParameter<Types...> { };
+    template<typename T>
+    struct LastPackParameter<T> {
+        using type = T;
+    };
+}
+template<typename... NodeTypes>
+struct StaticNodeSequence {
+    static constexpr NodeKindSequence kinds { { NodeTypes::NODE_KIND... } };
+    std::tuple<NodeTypes...> storage;
+    operator NodeSequence<SG>::LastIs<typename detail::LastPackParameter<NodeTypes...>::type>() {
+        return { (std::byte*)&storage, kinds, (uint32_t)sizeof(decltype(storage)) };
     }
 };
 
-struct RTUpdater {
-    CullStack cullStack;
-    Mat4x4 fullTransform { true };
-    RT::Node* updatePortalNode(SG::PortalNode* sgNode, RT::PortalNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::PortalNode;
-        rtNode->child = dispatchUpdate(sgNode->child, rtNode->child);
-        return rtNode;
-    }
-    RT::Node* updateTransformNode(SG::TransformNode* sgNode, RT::TransformNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::TransformNode;
+struct RT /* Rendering Tree */ {
+    struct PortalNode;
+    struct TransformNode;
+    struct BoundingNode;
+    struct ObjectNode;
+    struct CompoundNode;
 
-        CullStack oldCullStack = std::move(cullStack);
-        // cullStack = sgNode->transform * oldCullStack;
-        Mat4x4 oldFullTransform = fullTransform;
-        fullTransform = fullTransform * sgNode->transform;
-        rtNode->fullTransform = fullTransform;
+    struct PortalItem {
+        RT::TransformNode* worldTransform = nullptr;
+        RT::PortalNode* sourceStack = nullptr;
+        NodeSequence<SG>::FirstIs<SG::PortalNode> input;
+        RT::PortalNode* output;
+    };
+    struct TransformItem {
+        RT::TransformNode* sourceTransform = nullptr;
+        SG::TransformNode* input = nullptr;
+        RT::TransformNode* output = nullptr;
+    };
+    struct BoundingItem {
+        RT::TransformNode* worldTransform = nullptr;
+        NodeSequence<SG>::FirstIs<SG::BoundingNode> input;
+        RT::BoundingNode* output = nullptr;
+    };
+    struct ObjectItem {
+        RT::TransformNode* worldTransform = nullptr;
+        SG::ObjectNode* input = nullptr;
+        RT::ObjectNode* output = nullptr;
+    };
 
-        rtNode->child = dispatchUpdate(sgNode->child, rtNode->child);
+    struct PortalNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Portal;
+        CullStack stack;
+        bool culled = false;
+        std::vector<BoundingItem> boundingItems;
+    };
+    struct TransformNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Transform;
 
-        cullStack = std::move(oldCullStack);
-        fullTransform = oldFullTransform;
+        Mat4x4 transform;
+    };
+    struct BoundingNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Bounding;
 
-        return rtNode;
-    }
-    RT::Node* updateBoundingNode(SG::BoundingNode* sgNode, RT::BoundingNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::BoundingNode;
-        bool isVisible = cullStack.visible(sgNode->bound);
-        if (!isVisible && rtNode->isVisible) {
-            RTDestroyer dest;
-            dest.dispatchVisit(rtNode->child);
-        }
-        rtNode->isVisible = isVisible;
-        if (isVisible)
-            rtNode->child = dispatchUpdate(sgNode->child, rtNode->child);
+        bool culled = false;
+    };
+    struct ObjectNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Object;
+    };
+    struct CompoundNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Compound;
 
-        return rtNode;
+        RT::TransformNode* worldTransform;
+        RT::PortalNode* portalStack;
+        std::vector<NodeSequence<RT>::LastIs<RT::ObjectNode>> objectSeqs;
+        std::vector<NodeSequence<RT>::LastIs<RT::CompoundNode>> compoundSeqs;
+    };
+
+    struct CoalescedUpdates {
+        std::vector<TransformItem> transformItems;
+        std::vector<PortalItem> portalItems;
+        std::vector<ObjectItem> objectItems;
+    };
+};
+
+template<typename S, typename Impl>
+struct Visitor {
+    IMPORT_NODES(S);
+    Impl* impl() { return static_cast<Impl*>(this); }
+    void visitObjectSequence(typename NodeSequence<S>::template LastIs<ObjectNode> seq) {
+        impl()->dispatchVisit(seq);
     }
-    RT::Node* updateObjectNode(SG::ObjectNode* sgNode, RT::ObjectNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::ObjectNode;
-        rtNode->effects = sgNode->effects;
-        rtNode->object = sgNode->object;
-        return rtNode;
+    void visitCompoundSequence(typename NodeSequence<S>::template LastIs<CompoundNode> seq) {
+        impl()->dispatchVisit(seq);
     }
-    RT::Node* updateCompoundNode(SG::CompoundNode* sgNode, RT::CompoundNode* rtNode) {
-        if (!rtNode)
-            rtNode = new RT::CompoundNode;
-        for (auto update : sgNode->updates) {
-            if (update.kind == SG::CompoundNode::Update::Kind::Insertion)
-                rtNode->children.push_back(nullptr);
-        }
-        VERIFY(render3d, sgNode->children.size() == rtNode->children.size());
-        for (int_t i = 0; i < sgNode->children.size(); i++) {
-            rtNode->children[i] = dispatchUpdate(sgNode->children[i], rtNode->children[i]);
-        }
-        return rtNode;
-    }
-    RT::Node* dispatchUpdate(SG::Node* sgNode, RT::Node* rtNode) {
-        if (rtNode)
-            VERIFY(render3d, sgNode->kind == rtNode->kind);
-        switch (sgNode->kind) {
+    void dispatchVisit(NodeSequence<S> seq) {
+        switch (seq.frontKind()) {
         case NodeKind::Portal:
-            return updatePortalNode((SG::PortalNode*)sgNode, (RT::PortalNode*)rtNode);
+            impl()->visitPortalNode(seq.template firstIs<PortalNode>());
+            break;
         case NodeKind::Transform:
-            return updateTransformNode((SG::TransformNode*)sgNode, (RT::TransformNode*)rtNode);
+            impl()->visitTransformNode(seq.template firstIs<TransformNode>());
+            break;
         case NodeKind::Bounding:
-            return updateBoundingNode((SG::BoundingNode*)sgNode, (RT::BoundingNode*)rtNode);
+            impl()->visitBoundingNode(seq.template firstIs<BoundingNode>());
+            break;
         case NodeKind::Object:
-            return updateObjectNode((SG::ObjectNode*)sgNode, (RT::ObjectNode*)rtNode);
+            impl()->visitObjectNode(seq.template firstIs<ObjectNode>());
+            break;
         case NodeKind::Compound:
-            return updateCompoundNode((SG::CompoundNode*)sgNode, (RT::CompoundNode*)rtNode);
+            impl()->visitCompoundNode(seq.template firstIs<CompoundNode>());
+            break;
         default:
-            VERIFY_NOT_REACHED(render3d);
-            return nullptr;
+            std::abort();
         }
+    }
+    void visitPortalNode(typename NodeSequence<S>::template FirstIs<PortalNode> seq) {
+        impl()->dispatchVisit(seq.subSequence());
+    }
+    void visitTransformNode(typename NodeSequence<S>::template FirstIs<TransformNode> seq) {
+        impl()->dispatchVisit(seq.subSequence());
+    }
+    void visitBoundingNode(typename NodeSequence<S>::template FirstIs<BoundingNode> seq) {
+        impl()->dispatchVisit(seq.subSequence());
+    }
+    void visitObjectNode(typename NodeSequence<S>::template FirstIs<ObjectNode>) { }
+    void visitCompoundNode(typename NodeSequence<S>::template FirstIs<CompoundNode> seq) {
+        for (auto subSeq : seq.first()->objectSeqs)
+            impl()->visitObjectSequence(subSeq);
+        for (auto subSeq : seq.first()->CompoundSeqs)
+            impl()->visitCompoundSequence(subSeq);
     }
 };
 
-struct Renderer : RT::Visitor<Renderer> {
-    using Base = RT::Visitor<Renderer>;
-    Renderer(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection)
-        : allocator(allocator), framebuffer(framebuffer), projection(projection) { }
+struct RTCreator : Visitor<SG, RTCreator> {
+    RT::TransformNode* worldTransform = nullptr;
+    RT::PortalNode* portalStack = nullptr;
+    RT::CoalescedUpdates* rtUpdates = nullptr;
+    NodeSequence<RT> rtSequence;
 
-    Mat4x4 currentTransform;
-    GAllocator* allocator;
-    Framebuffer* framebuffer;
-    Mat4x4 projection;
-
-    void visitTransformNode(RT::TransformNode* node) {
-        currentTransform = node->fullTransform;
-        Base::visitTransformNode(node);
+    template<typename T>
+    T* constructNode(const T& node) {
+        return rtSequence.pushBack(node);
     }
 
-    void visitObjectNode(RT::ObjectNode* node) {
+    void visitPortalNode(NodeSequence<SG>::FirstIs<SG::PortalNode> sgSeq) {
+        auto* sgNode = sgSeq.first();
+        auto* rtNode = constructNode<RT::PortalNode>({});
+        rtUpdates->portalItems.push_back({ worldTransform, portalStack, sgSeq, rtNode });
+        portalStack = rtNode;
+        dispatchVisit(sgSeq.subSequence());
+    }
+    void visitTransformNode(NodeSequence<SG>::FirstIs<SG::TransformNode> sgSeq) {
+        auto* sgNode = sgSeq.first();
+        auto* rtNode = constructNode<RT::TransformNode>({});
+        VDUMP((void*)sgNode);
+        rtNode->transform = worldTransform->transform * sgNode->transform;
+        rtUpdates->transformItems.push_back({ worldTransform, sgNode, rtNode });
+        worldTransform = rtNode;
+        dispatchVisit(sgSeq.subSequence());
+    }
+    void visitBoundingNode(NodeSequence<SG>::FirstIs<SG::BoundingNode> sgSeq) {
+        auto* rtNode = constructNode<RT::BoundingNode>({});
+        portalStack->boundingItems.push_back({ worldTransform, sgSeq, rtNode });
+        dispatchVisit(sgSeq.subSequence());
+    }
+    void visitObjectNode(NodeSequence<SG>::FirstIs<SG::ObjectNode> sgSeq) {
+        auto* sgNode = sgSeq.first();
+        auto* rtNode = constructNode<RT::ObjectNode>({});
+        rtUpdates->objectItems.push_back({ worldTransform, sgNode, rtNode });
+    }
+    void visitCompoundNode(NodeSequence<SG>::FirstIs<SG::CompoundNode> sgSeq) {
+        auto* sgNode = sgSeq.first();
+        auto* rtNode = constructNode<RT::CompoundNode>({ worldTransform, portalStack });
+        VDUMP((void*)sgNode);
+        rtNode->objectSeqs.reserve(sgNode->objectSeqs.size());
+        for (auto seq : sgNode->objectSeqs) {
+            RTCreator creator { {}, worldTransform, portalStack, rtUpdates };
+            rtNode->objectSeqs.push_back({ creator.construct(seq) });
+        }
+        rtNode->compoundSeqs.reserve(sgNode->compoundSeqs.size());
+        for (auto seq : sgNode->compoundSeqs) {
+            RTCreator creator { {}, worldTransform, portalStack, rtUpdates };
+            rtNode->compoundSeqs.push_back({ creator.construct(seq) });
+        }
+    }
+
+    NodeSequence<RT> construct(NodeSequence<SG> sgSeq) {
+        rtSequence = NodeSequence<RT>::allocateStorageFor(sgSeq.kinds);
+        dispatchVisit(sgSeq);
+        return rtSequence;
+    }
+};
+
+struct RTUpdateChecker {
+    RT::CoalescedUpdates* rtUpdates = nullptr;
+    void checkCompoundSequence(NodeSequence<SG>::LastIs<SG::CompoundNode> sgSeq, NodeSequence<RT>::LastIs<RT::CompoundNode> rtSeq) {
+        checkCompoundNode(sgSeq.last(), rtSeq.last());
+    }
+    void checkCompoundNode(SG::CompoundNode* sgNode, RT::CompoundNode* rtNode) {
+        for (auto update : sgNode->updates) {
+            switch (update.kind) {
+            case SG::CompoundNode::UpdateKind::Insertion: {
+                RTCreator creator { {}, rtNode->worldTransform, rtNode->portalStack, rtUpdates };
+                auto sgSeq = update.isObjectSeq ? (NodeSequence<SG>)sgNode->objectSeqs[update.index] : (NodeSequence<SG>)sgNode->compoundSeqs[update.index];
+                auto rtSeq = creator.construct(sgSeq);
+                if (update.isObjectSeq)
+                    rtNode->objectSeqs.push_back({ rtSeq });
+                else
+                    rtNode->compoundSeqs.push_back({ rtSeq });
+                break;
+            }
+            }
+        }
+
+        VERIFY(render3d, sgNode->compoundSeqs.size() == rtNode->compoundSeqs.size());
+        for (int_t i = 0; i < sgNode->compoundSeqs.size(); i++)
+            checkCompoundSequence(sgNode->compoundSeqs[i], rtNode->compoundSeqs[i]);
+    }
+};
+
+inline void render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection, RT::CoalescedUpdates* rtUpdates) {
+    for (RT::ObjectItem item : rtUpdates->objectItems) {
+        auto* node = item.input;
         auto shaderHandle = EffectShaderFactory::getHandle(node->effects);
 
         auto& shader = EffectShaderFactory::instance(*shaderHandle);
         shader.use();
-        shader.uniformMat4x4(shader.viewProjectionUniform, projection * currentTransform);
+        shader.uniformMat4x4(shader.viewProjectionUniform, projection * item.worldTransform->transform);
 
         int_t slot = 0;
         for (auto& effect : node->effects) {
@@ -343,6 +477,6 @@ struct Renderer : RT::Visitor<Renderer> {
         framebuffer->draw(node->object->drawMode, node->object->indices);
         shaderHandle.LEAK();
     }
-};
+}
 
 }

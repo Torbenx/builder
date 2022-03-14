@@ -264,56 +264,50 @@ TestRenderer<G>::TestRenderer()
 
     using namespace render3d;
 
-    o1 = std::make_unique<SG::ObjectNode>();
-    o1->effects = effects1;
-    o1->object = &f1;
-    o2 = std::make_unique<SG::ObjectNode>();
-    o2->effects = effects2;
-    o2->object = &f2;
-    o3 = std::make_unique<SG::ObjectNode>();
-    o3->effects = effects3;
-    o3->object = &f3;
-    o4 = std::make_unique<SG::ObjectNode>();
-    o4->effects = effects4;
-    o4->object = &f4;
-    o5 = std::make_unique<SG::ObjectNode>();
-    o5->effects = effects5;
-    o5->object = &f5;
-    unreflectedItems = std::make_unique<SG::CompoundNode>();
-    unreflectedItems->addChild(o1.get());
-    unreflectedItems->addChild(o2.get());
-    unreflectedItems->addChild(o4.get());
-    unreflectedItems->addChild(o5.get());
-    reflectedItems = std::make_unique<SG::CompoundNode>();
-    reflectedItems->addChild(o3.get());
+    std::get<0>(o1.storage).effects = effects1;
+    std::get<0>(o1.storage).object = &f1;
+    std::get<0>(o2.storage).effects = effects2;
+    std::get<0>(o2.storage).object = &f2;
+    std::get<0>(o3.storage).effects = effects3;
+    std::get<0>(o3.storage).object = &f3;
+    std::get<0>(o4.storage).effects = effects4;
+    std::get<0>(o4.storage).object = &f4;
+    std::get<0>(o5.storage).effects = effects5;
+    std::get<0>(o5.storage).object = &f5;
+    std::get<0>(unreflectedItems.storage).addObjectSequence(static_cast<render3d::NodeSequence<SG>::LastIs<SG::ObjectNode>>(o1));
+    std::get<0>(unreflectedItems.storage).addObjectSequence(o2);
+    std::get<0>(unreflectedItems.storage).addObjectSequence(o4);
+    std::get<0>(unreflectedItems.storage).addObjectSequence(o5);
+    std::get<0>(reflectedItems.storage).addObjectSequence(o3);
 
-    reflectionTransform = std::make_unique<SG::TransformNode>();
-    reflectionTransform->child = unreflectedItems.get();
-    reflectionTransform->transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
-    reflectionPortal = std::make_unique<SG::PortalNode>();
-    reflectionPortal->child = reflectionTransform.get();
+    std::get<1>(reflectionSeq.storage).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
+    std::get<2>(reflectionSeq.storage).addCompoundSequence(reflectedItems);
 
-    cameraChildren = std::make_unique<SG::CompoundNode>();
-    cameraChildren->addChild(unreflectedItems.get());
-    cameraChildren->addChild(reflectedItems.get());
-    cameraChildren->addChild(reflectionPortal.get());
-    cameraTransform = std::make_unique<SG::TransformNode>();
-    cameraTransform->child = cameraChildren.get();
-    cameraTransform->transform = Mat4x4::look(pos, look.dir, up);
+    std::get<0>(cameraSeq.storage).transform = Mat4x4::look(pos, look.dir, up);
+    std::get<1>(cameraSeq.storage).addCompoundSequence(unreflectedItems);
+    std::get<1>(cameraSeq.storage).addCompoundSequence(reflectedItems);
+    std::get<1>(cameraSeq.storage).addCompoundSequence(reflectionSeq);
+    VDUMP((void*)&std::get<0>(cameraSeq.storage));
+    VDUMP((void*)&std::get<1>(cameraSeq.storage));
 
-    lightChildren = std::make_unique<SG::CompoundNode>();
-    lightChildren->addChild(unreflectedItems.get());
-    lightChildren->addChild(reflectedItems.get());
-    spotLightTransform = std::make_unique<SG::TransformNode>();
-    spotLightTransform->child = lightChildren.get();
-    spotLightTransform->transform = Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
+    render3d::RT::TransformNode idTransform;
+    idTransform.transform = Mat4x4::Id;
+    RTCreator creator { {}, &idTransform, nullptr, &rtUpdates };
+    creator.construct(cameraSeq);
 
-    RTUpdater updater;
+    //lightChildren = std::make_unique<SG::CompoundNode>();
+    //lightChildren->addChild(unreflectedItems.get());
+    //lightChildren->addChild(reflectedItems.get());
+    //spotLightTransform = std::make_unique<SG::TransformNode>();
+    //spotLightTransform->child = lightChildren.get();
+    //spotLightTransform->transform = Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
+
+    /*RTUpdater updater;
     cameraTree = static_cast<RT::CompoundNode*>(updater.dispatchUpdate(cameraTransform.get(), nullptr));
     unreflectedItems->clearUpdates();
     reflectedItems->clearUpdates();
     cameraChildren->clearUpdates();
-    lightChildren->clearUpdates();
+    lightChildren->clearUpdates();*/
 }
 
 template<Gapi G>
@@ -606,7 +600,7 @@ void TestRenderer<G>::drawFrame() {
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
     renderpass.viewProjectionMatrix = projection * view;
     reflectionPass.viewProjectionMatrix = renderpass.viewProjectionMatrix * Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
-    cameraTransform->transform = view;
+    // cameraTransform->transform = view;
 
     Vec3& plp = pointLightPosition;
     plp += Vec3(plp.z * dt, plp.z * dt * 0.5f, -plp.x * dt);
@@ -631,13 +625,9 @@ void TestRenderer<G>::drawFrame() {
     // reflectionPass.draw(objects);
     // renderpass.draw(objects);
 
-    render3d::RTUpdater updater;
-    updater.dispatchUpdate(cameraTransform.get(), cameraTree);
-
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
-    render3d::Renderer renderer { &allocator, &Framebuffer::DEFAULT, projection };
-    renderer.dispatchVisit(cameraTree);
+    render3d::render(&allocator, &Framebuffer::DEFAULT, projection, &rtUpdates);
 
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
