@@ -11,7 +11,7 @@ public:
     };
     UniformHelper<FragmentUniform> fragmentUniform;
 
-    ~AmbientLight([[context]] GAllocator* allocator) { }
+
     static void addTo(EffectShaderBuilder&);
 };
 
@@ -22,7 +22,7 @@ public:
     };
     UniformHelper<FragmentUniform> fragmentUniform;
 
-    ~UniformColor([[context]] GAllocator* allocator) { }
+
     static void addTo(EffectShaderBuilder&);
 };
 

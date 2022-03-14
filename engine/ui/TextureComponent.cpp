@@ -7,7 +7,7 @@ TextureComponent::TextureComponent(bool createShader)
     setTexRect(Rect::bltr(0.0f, 0.0f, 1.0f, 1.0f));
 }
 
-void TextureComponent::draw(Framebuffer& framebuffer, [[context]] GAllocator*) {
+void TextureComponent::draw(Framebuffer& framebuffer, GAllocator*) {
     if (!texture)
         return;
     shader->use();
@@ -18,7 +18,7 @@ void TextureComponent::draw(Framebuffer& framebuffer, [[context]] GAllocator*) {
     framebuffer.draw(DrawMode::TriangleStrip, 4);
 }
 
-void TextureComponent::updateRect(ScreenMetrics&, [[context]] GAllocator*) {
+void TextureComponent::updateRect(ScreenMetrics&, GAllocator*) {
     coords.value.update(rect.corners());
 }
 

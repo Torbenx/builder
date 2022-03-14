@@ -10,10 +10,10 @@ void UiSceneComponent::makeClickable(UiComponent& comp, int id) {
     clickables.push_back(clickable);
 }
 
-void UiSceneComponent::updateRect(ScreenMetrics& metrics, [[context]] GAllocator* allocator) {
+void UiSceneComponent::updateRect(ScreenMetrics& metrics, GAllocator* allocator) {
     scene.metrics = metrics;
     scene.setParent(rect);
-    scene.build();
+    scene.build(allocator);
 }
 
 void UiSceneComponent::pointer(PointerEvent event) {

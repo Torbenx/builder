@@ -66,11 +66,11 @@ public:
         }
     }
 
-    void release([[context]] GAllocator* allocator) {
-        allocation.release();
+    void release(GAllocator* allocator) {
+        allocation.release(allocator);
     }
 
-    ~Renderer([[context]] GAllocator* allocator) { }
+
 
 private:
     GAllocationHelper<> allocation;

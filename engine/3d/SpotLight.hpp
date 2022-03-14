@@ -22,6 +22,6 @@ public:
     UniformHelper<VertexUniform> vertexUniform;
 
     SpotLight();
-    ~SpotLight([[context]] GAllocator* allocator) { }
+    
     static void addTo(EffectShaderBuilder&);
 };

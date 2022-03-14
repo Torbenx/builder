@@ -17,7 +17,7 @@ public:
 
     ShaderpassImpl(Resource<id_t> shaderHandle);
 
-    void draw(GraphicsObjectCollection&, Renderpass&, [[context]] GAllocator*) override;
+    void draw(GraphicsObjectCollection&, Renderpass&, GAllocator*) override;
     void addEntry(id_t objectId, std::vector<Effect::Handle>& effects) override;
 };
 
@@ -111,7 +111,7 @@ std::array<DataStream::Reader, N> createReaderArray_helper(const std::array<Data
 }
 
 template<uint32_t N>
-void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& renderpass, [[context]] GAllocator* allocator) {
+void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& renderpass, GAllocator* allocator) {
     EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
@@ -143,8 +143,8 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
         }
         const GraphicsObject& object = objects[entry.objectId];
         shader.uniformMat4x4(shader.modelUniform, object.modelMatrix);
-        shader.attribPointer(shader.positionAttrib, object.vertices.vertexBuffer());
-        shader.attribPointer(shader.normalAttrib, object.normals.vertexBuffer());
+        shader.attribPointer(shader.positionAttrib, object.vertices.vertexBuffer(allocator));
+        shader.attribPointer(shader.normalAttrib, object.normals.vertexBuffer(allocator));
         renderpass.framebuffer->draw(object.drawMode, object.indices);
     }
 }

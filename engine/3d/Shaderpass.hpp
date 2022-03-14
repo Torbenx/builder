@@ -17,7 +17,7 @@ struct Shaderpass {
 
     static std::unique_ptr<Shaderpass> construct(Resource<id_t> shaderHandle);
 
-    virtual void draw(GraphicsObjectCollection&, Renderpass&, [[context]] GAllocator*) = 0;
+    virtual void draw(GraphicsObjectCollection&, Renderpass&, GAllocator*) = 0;
     virtual void addEntry(id_t objectId, std::vector<Effect::Handle>& effects) = 0;
     virtual ~Shaderpass() { }
 };

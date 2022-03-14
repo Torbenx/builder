@@ -4,6 +4,7 @@
 #include "containers/BitSet.hpp"
 #include "util/log.hpp"
 #include <vector>
+#include <memory>
 
 namespace Tag {
 struct render3d {

@@ -7,5 +7,5 @@ public:
     float farDepth;
     DepthMapComponent();
     void doUniforms() override;
-    ~DepthMapComponent([[context]] GAllocator* allocator) { }
+    
 };

@@ -12,7 +12,7 @@ struct GraphicsObject {
     VertexAttribHelper<Vec3> normals;
     IndexBuffer indices;
 
-    ~GraphicsObject([[context]] GAllocator* allocator) { }
+    
 };
 
 class GraphicsObjectCollection {

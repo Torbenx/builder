@@ -11,9 +11,9 @@ public:
     Resource<VertexBuffer> coords;
     Resource<VertexBuffer> texCoords;
     TextureComponent(bool createShader = true);
-    ~TextureComponent([[context]] GAllocator* allocator) { }
+    
     void setTexRect(Rect rect);
-    void draw(Framebuffer&, [[context]] GAllocator*) override;
-    void updateRect(ScreenMetrics&, [[context]] GAllocator*) override;
+    void draw(Framebuffer&, GAllocator*) override;
+    void updateRect(ScreenMetrics&, GAllocator*) override;
     virtual void doUniforms() { }
 };

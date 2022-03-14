@@ -12,10 +12,10 @@ public:
     TypedSize textSize;
     bool noBreaks = false;
     TextComponent();
-    void draw(Framebuffer&, [[context]] GAllocator*) override;
-    void updateRect(ScreenMetrics&, [[context]] GAllocator*) override;
-    void updateContent(ScreenMetrics&, [[context]] GAllocator*) override;
+    void draw(Framebuffer&, GAllocator*) override;
+    void updateRect(ScreenMetrics&, GAllocator*) override;
+    void updateContent(ScreenMetrics&, GAllocator*) override;
     TypedSizeXY getContentWidth() override;
     TypedSizeXY getContentHeight() override;
-    ~TextComponent([[context]] GAllocator*);
+    ~TextComponent();
 };

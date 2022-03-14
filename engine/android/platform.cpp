@@ -6,7 +6,7 @@
 
 size_t platform::detail::pageSize;
 
-void* platform::reserveMemoryRegion(size_t size, size_t alignment) {
+void* platform::reserveMemoryRegion(size_t size, size_t alignment, void* baseAddress) {
     VERIFY(Android, isPageAligned(alignment));
     VERIFY(Android, isPageAligned(size));
     void* addr = mmap(nullptr, size + alignment, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
@@ -14,7 +14,7 @@ void* platform::reserveMemoryRegion(size_t size, size_t alignment) {
 
     if (alignment == 0)
         return addr;
-    
+
     uintptr_t uAddr = (uintptr_t)addr;
     uintptr_t uAligned = alignmentCeil(alignment, uAddr);
     if (uAligned > uAddr) {

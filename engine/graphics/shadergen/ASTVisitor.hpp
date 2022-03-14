@@ -44,7 +44,7 @@ namespace shadergen {
 static constexpr bool isExpr(const Stmt* stmt) {
 #define STMT_KIND(S)  \
     case StmtKind::S: \
-        return std::derived_from<S, Expr>;
+        return std::is_base_of_v<Expr, S>;
 
     switch (stmt->stmtKind) {
         ENUMERATE_STMT_KINDS(STMT_KIND)

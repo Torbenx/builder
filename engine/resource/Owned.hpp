@@ -13,23 +13,10 @@ struct Resources {
 namespace detail {
 
 template<typename T>
-concept ParameterReleasable = requires(T value, typename T::ReleaseParameter param) { value.release(param); };
-
-template<typename T>
 concept PtrReleasable = std::is_pointer_v<T>;
 
 template<typename T>
 concept SimpleReleasable = requires(T value) { value.release(); };
-
-template<typename T>
-struct ParameterTraits {
-    using type = struct { };
-};
-template<typename T>
-requires ParameterReleasable<T>
-struct ParameterTraits<T> {
-    using type = typename T::ReleaseParameter;
-};
 
 template<typename T>
 struct IsMemberFunction {
@@ -45,14 +32,13 @@ concept HasOperatorArrow = IsMemberFunction<decltype(&T::operator->)>::value;
 }
 
 template<typename T>
-concept Releasable = detail::ParameterReleasable<T> || detail::PtrReleasable<T> || detail::SimpleReleasable<T>;
+concept Releasable = detail::PtrReleasable<T> || detail::SimpleReleasable<T>;
 
 template<typename T>
 requires Releasable<T>
 class Owned {
 private:
     T value;
-    using Parameter = typename detail::ParameterTraits<T>::type;
 
 public:
     Owned()
@@ -65,18 +51,18 @@ public:
         other.value = {};
     }
 
-    void set(const T& newValue, Parameter param = {}) {
-        release(param);
+    void set(const T& newValue) {
+        release();
         value = newValue;
     }
     Owned& operator=(const Owned&) = delete;
-    Owned& operator=(Owned&& other, Parameter param = {}) {
-        set(other.value, param);
+    Owned& operator=(Owned&& other) {
+        set(other.value);
         other.value = {};
         return *this;
     }
-    Owned& operator=(const T& newValue, Parameter param = {}) {
-        set(newValue, param);
+    Owned& operator=(const T& newValue) {
+        set(newValue);
         return *this;
     }
 
@@ -91,20 +77,16 @@ public:
     const T& operator*() { return value; }
     const T& get() { return value; }
 
-    void release(Parameter = {}) requires detail::SimpleReleasable<T> {
+    void release() requires detail::SimpleReleasable<T> {
         value.release();
     }
 
-    void release(Parameter = {}) requires detail::PtrReleasable<T> {
+    void release() requires detail::PtrReleasable<T> {
         delete value;
         value = nullptr;
     }
 
-    void release(Parameter param = {}) requires detail::ParameterReleasable<T> {
-        value.release(param);
-    }
-
-    ~Owned(Parameter param = {}) {
-        release(param);
+    ~Owned() {
+        release();
     }
 };

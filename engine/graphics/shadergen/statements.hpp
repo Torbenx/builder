@@ -5,6 +5,8 @@
 #include "util/types.hpp"
 #include <array>
 #include <string_view>
+#include <type_traits>
+#include <concepts>
 
 namespace Tag {
 struct ShaderGen {
