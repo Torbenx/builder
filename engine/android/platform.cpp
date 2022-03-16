@@ -6,27 +6,12 @@
 
 size_t platform::detail::pageSize;
 
-void* platform::reserveMemoryRegion(size_t size, size_t alignment, void* baseAddress) {
-    VERIFY(Android, isPageAligned(alignment));
+void* platform::reserveMemoryRegion(size_t size) {
     VERIFY(Android, isPageAligned(size));
-    void* addr = mmap(nullptr, size + alignment, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+    void* addr = mmap(nullptr, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
     VERIFY(Android, addr != nullptr);
 
-    if (alignment == 0)
-        return addr;
-
-    uintptr_t uAddr = (uintptr_t)addr;
-    uintptr_t uAligned = alignmentCeil(alignment, uAddr);
-    if (uAligned > uAddr) {
-        int ret = munmap((void*)uAddr, uAligned - uAddr);
-        VERIFY(Android, ret == 0);
-    }
-    if (uAligned + size < uAddr + size + alignment) {
-        int ret = munmap((void*)(uAligned + size), alignment - (uAligned - uAddr));
-        VERIFY(Android, ret == 0);
-    }
-
-    return (void*)uAligned;
+    return addr;
 }
 
 void platform::commitMemory(void* addr, size_t size) {

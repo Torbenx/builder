@@ -125,12 +125,12 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
     static constexpr int_t sizeInBytes() { return sizeof(Type); }
     static constexpr size_t alignment() { return alignof(Type); }
     template<typename Callback, int_t... I>
-    static constexpr void forEachFieldBefore_helper(Callback&& callback, std::integer_sequence<int_t, I...>) requires(hasReflectedType()) {
+    static constexpr void forEachFieldBefore_helper(Callback&& callback, stx::int_sequence<I...>) requires(hasReflectedType()) {
         (callback(get<I>()), ...);
     }
     template<int_t I, typename Callback>
     static constexpr void forEachFieldBefore(Callback&& callback) {
-        forEachFieldBefore_helper(std::forward<Callback>(callback), std::make_integer_sequence<int_t, I>());
+        forEachFieldBefore_helper(std::forward<Callback>(callback), stx::make_int_sequence<I>());
     }
     template<typename Callback>
     static constexpr void forEachField(Callback&& callback) {

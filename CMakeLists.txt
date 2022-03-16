@@ -112,7 +112,7 @@ else()
     message(FATAL_ERROR "Unsupported system: ${CMAKE_SYSTEM_NAME}")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -DVULKAN_HPP_NO_EXCEPTIONS")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -DVULKAN_HPP_NO_EXCEPTIONS")
 
 find_package(Threads REQUIRED)
 find_package(Vulkan)

@@ -27,6 +27,8 @@
 
 #if defined(__GNUC__)
 
+#define COMPILER_INTERFACE_GNU
+
 #define ASSUME(expr) { if (!(expr)) { __builtin_unreachable(); } }
 
 #define ALIGN_AS(al) __attribute__((aligned(al)))
@@ -40,6 +42,8 @@
 #define IN_SECTION(name) __attribute__((section(#name)))
 
 #elif defined(_MSC_VER)
+
+#define COMPILER_INTERFACE_MSVC
 
 #define ASSUME(expr) __assume(expr)
 
@@ -86,22 +90,20 @@ inline int_t logPageSize() { return std::countr_zero(pageSize()); }
 inline bool isPageAligned(uintptr_t addr) { return (addr & (pageSize() - 1)) == 0; }
 inline bool isPageAligned(void* addr) { return isPageAligned((uintptr_t)addr); }
 
-// use alignment = 0 for default alignment
-void* reserveMemoryRegion(size_t size, size_t alignment = 0, void* baseAddress = nullptr);
+void* reserveMemoryRegion(size_t size);
 void commitMemory(void* addr, size_t size);
 void decommitMemory(void* addr, size_t size);
 // can only release the entire region at once
 void releaseMemoryRegion(void* addr, size_t size);
 
-constexpr bool isWindows() {
+consteval bool isWindows() {
 #ifdef PLATFORM_WINDOWS
     return true;
 #else
     return false;
 #endif
 }
-
-constexpr bool isAndroid() {
+consteval bool isAndroid() {
 #ifdef PLATFORM_ANDROID
     return true;
 #else
@@ -109,11 +111,26 @@ constexpr bool isAndroid() {
 #endif
 }
 
-constexpr bool rawInput() {
+consteval bool hasGNUCompilerInterface() {
+#ifdef COMPILER_INTERFACE_GNU
+    return true;
+#else
+    return false;
+#endif
+}
+consteval bool hasMSVCCompilerInterface() {
+#ifdef COMPILER_INTERFACE_MSVC
+    return true;
+#else
+    return false;
+#endif
+}
+
+consteval bool rawInput() {
     return isWindows();
 }
 
-constexpr bool usingGLES() {
+consteval bool usingGLES() {
     return isAndroid();
 }
 

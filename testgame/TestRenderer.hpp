@@ -27,7 +27,6 @@ template<Gapi G>
 class TestRenderer : public Renderer<G> {
 public:
     GAllocator allocator;
-    [[context]] GAllocator* allocatorPtr = &allocator;
     uint64_t lframe;
     uint64_t lsecond;
     int_t frameCounter = 0;

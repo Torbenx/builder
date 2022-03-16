@@ -4,9 +4,9 @@
 #include "util/log.hpp"
 #include "util/types.hpp"
 #include <array>
+#include <concepts>
 #include <string_view>
 #include <type_traits>
-#include <concepts>
 
 namespace Tag {
 struct ShaderGen {

@@ -54,9 +54,9 @@ struct FunctionGroup : Function {
 template<int_t N>
 struct BuiltinFunctionGroup : FunctionGroup {
     const FunctionInstance* insts[N];
-    constexpr BuiltinFunctionGroup(std::string_view name, const FunctionInstance* const (&instances)[N])
+    constexpr BuiltinFunctionGroup(std::string_view name, std::array<const FunctionInstance*, N> instances)
         : FunctionGroup(name, insts) {
-        std::copy_n(instances, N, insts);
+        std::copy_n(instances.data(), N, insts);
     }
 };
 static constexpr const FunctionInstance* asFunctionInstance(const Function* func) {
@@ -115,22 +115,22 @@ namespace impls {
 
 static constexpr BuiltinFunctionInstance lessThanEqualFuncI { "lessThanEqual", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionInstance lessThanEqualFuncF { "lessThanEqual", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup lessThanEqualFunc { "lessThanEqual", { &lessThanEqualFuncI, &lessThanEqualFuncF } };
+static constexpr BuiltinFunctionGroup<2> lessThanEqualFunc { "lessThanEqual", { &lessThanEqualFuncI, &lessThanEqualFuncF } };
 static constexpr BuiltinFunctionInstance lessThanFuncI { "lessThan", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionInstance lessThanFuncF { "lessThan", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup lessThanFunc { "lessThan", { &lessThanFuncI, &lessThanFuncF } };
+static constexpr BuiltinFunctionGroup<2> lessThanFunc { "lessThan", { &lessThanFuncI, &lessThanFuncF } };
 static constexpr BuiltinFunctionInstance equalFuncI { "equal", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionInstance equalFuncF { "equal", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup equalFunc { "equal", { &equalFuncI, &equalFuncF } };
+static constexpr BuiltinFunctionGroup<2> equalFunc { "equal", { &equalFuncI, &equalFuncF } };
 static constexpr BuiltinFunctionInstance greaterThanEqualFuncI { "greaterThanEqual", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionInstance greaterThanEqualFuncF { "greaterThanEqual", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup greaterThanEqualFunc { "greaterThanEqual", { &greaterThanEqualFuncI, &greaterThanEqualFuncF } };
+static constexpr BuiltinFunctionGroup<2> greaterThanEqualFunc { "greaterThanEqual", { &greaterThanEqualFuncI, &greaterThanEqualFuncF } };
 static constexpr BuiltinFunctionInstance greaterThanFuncI { "greaterThan", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionInstance greaterThanFuncF { "greaterThan", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup greaterThanFunc { "greaterThan", { &greaterThanFuncI, &greaterThanFuncF } };
+static constexpr BuiltinFunctionGroup<2> greaterThanFunc { "greaterThan", { &greaterThanFuncI, &greaterThanFuncF } };
 static constexpr BuiltinFunctionInstance notEqualFuncI { "notEqual", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionInstance notEqualFuncF { "notEqual", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
-static constexpr BuiltinFunctionGroup notEqualFunc { "notEqual", { &notEqualFuncI, &notEqualFuncF } };
+static constexpr BuiltinFunctionGroup<2> notEqualFunc { "notEqual", { &notEqualFuncI, &notEqualFuncF } };
 namespace impls {
     constexpr wrapped_scalar::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
     constexpr wrapped_vector::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }

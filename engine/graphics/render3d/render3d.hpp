@@ -5,6 +5,7 @@
 #include "util/log.hpp"
 #include <vector>
 #include <memory>
+#include "containers/Tuple.hpp"
 
 namespace Tag {
 struct render3d {
@@ -110,10 +111,7 @@ struct NodeHandle {
 };
 template<typename S>
 struct NodeSequence {
-    IMPORT_NODES(S);
-    // must match the NodeKind enum
-    static constexpr int_t byteSizes[] = { 0, sizeof(PortalNode), sizeof(TransformNode), sizeof(BoundingNode), sizeof(ObjectNode), sizeof(CompoundNode) };
-    static constexpr int_t sizeOf(NodeKind kind) { return byteSizes[(int_t)kind]; }
+    static constexpr int_t sizeOf(NodeKind kind);
     static constexpr int_t sequenceSizeInBytes(NodeKindSequence kinds) {
         int_t size = 0;
         for (auto kind : kinds)
@@ -183,6 +181,14 @@ struct NodeSequence {
     LastIs<T> lastIs() const { return { *this }; }
 };
 
+template<typename S>
+constexpr int_t NodeSequence<S>::sizeOf(NodeKind kind) {
+    IMPORT_NODES(S)
+    // must match the NodeKind enum
+    constexpr int_t byteSizes[] = { 0, sizeof(PortalNode), sizeof(TransformNode), sizeof(BoundingNode), sizeof(ObjectNode), sizeof(CompoundNode) };
+    return byteSizes[(int_t)kind];
+}
+
 struct SG /* Scene Graph */ {
     struct alignas(8) PortalNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Portal;
@@ -241,11 +247,10 @@ namespace detail {
     };
 }
 template<typename... NodeTypes>
-struct StaticNodeSequence {
+struct StaticNodeSequence : stx::Tuple<NodeTypes...> {
     static constexpr NodeKindSequence kinds { { NodeTypes::NODE_KIND... } };
-    std::tuple<NodeTypes...> storage;
     operator NodeSequence<SG>::LastIs<typename detail::LastPackParameter<NodeTypes...>::type>() {
-        return { (std::byte*)&storage, kinds, (uint32_t)sizeof(decltype(storage)) };
+        return { (std::byte*)this, kinds, (uint32_t)sizeof(StaticNodeSequence) };
     }
 };
 
@@ -383,7 +388,6 @@ struct RTCreator : Visitor<SG, RTCreator> {
     void visitTransformNode(NodeSequence<SG>::FirstIs<SG::TransformNode> sgSeq) {
         auto* sgNode = sgSeq.first();
         auto* rtNode = constructNode<RT::TransformNode>({});
-        VDUMP((void*)sgNode);
         rtNode->transform = worldTransform->transform * sgNode->transform;
         rtUpdates->transformItems.push_back({ worldTransform, sgNode, rtNode });
         worldTransform = rtNode;
@@ -402,7 +406,6 @@ struct RTCreator : Visitor<SG, RTCreator> {
     void visitCompoundNode(NodeSequence<SG>::FirstIs<SG::CompoundNode> sgSeq) {
         auto* sgNode = sgSeq.first();
         auto* rtNode = constructNode<RT::CompoundNode>({ worldTransform, portalStack });
-        VDUMP((void*)sgNode);
         rtNode->objectSeqs.reserve(sgNode->objectSeqs.size());
         for (auto seq : sgNode->objectSeqs) {
             RTCreator creator { {}, worldTransform, portalStack, rtUpdates };

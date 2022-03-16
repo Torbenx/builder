@@ -99,10 +99,4 @@ void runShadergenTest() {
     log("{}", glsl2.data());
 
     VDUMP(effect::descriptorStore<SomeEffect>.vert.source);
-
-    /*A aVal;
-    aVal.b2.i = 123;
-    auto a = reflect(aVal);
-    log("leafFieldCount: {}", a.leafFieldCount());
-    log("test: {}", a.nameOf(a.b2.d).view());*/
 }

@@ -129,7 +129,7 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
 
     constexpr CheckedASTTransform() = default;
     constexpr CheckedASTTransform(Storage* storage)
-        : Base(storage) { }
+        : ASTTransform<Impl, Storage>(storage) { }
 
     struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
         CheckedASTTransform& ast;

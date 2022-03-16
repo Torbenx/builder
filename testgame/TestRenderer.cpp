@@ -264,31 +264,29 @@ TestRenderer<G>::TestRenderer()
 
     using namespace render3d;
 
-    std::get<0>(o1.storage).effects = effects1;
-    std::get<0>(o1.storage).object = &f1;
-    std::get<0>(o2.storage).effects = effects2;
-    std::get<0>(o2.storage).object = &f2;
-    std::get<0>(o3.storage).effects = effects3;
-    std::get<0>(o3.storage).object = &f3;
-    std::get<0>(o4.storage).effects = effects4;
-    std::get<0>(o4.storage).object = &f4;
-    std::get<0>(o5.storage).effects = effects5;
-    std::get<0>(o5.storage).object = &f5;
-    std::get<0>(unreflectedItems.storage).addObjectSequence(static_cast<render3d::NodeSequence<SG>::LastIs<SG::ObjectNode>>(o1));
-    std::get<0>(unreflectedItems.storage).addObjectSequence(o2);
-    std::get<0>(unreflectedItems.storage).addObjectSequence(o4);
-    std::get<0>(unreflectedItems.storage).addObjectSequence(o5);
-    std::get<0>(reflectedItems.storage).addObjectSequence(o3);
+    stx::get<0>(o1).effects = effects1;
+    stx::get<0>(o1).object = &f1;
+    stx::get<0>(o2).effects = effects2;
+    stx::get<0>(o2).object = &f2;
+    stx::get<0>(o3).effects = effects3;
+    stx::get<0>(o3).object = &f3;
+    stx::get<0>(o4).effects = effects4;
+    stx::get<0>(o4).object = &f4;
+    stx::get<0>(o5).effects = effects5;
+    stx::get<0>(o5).object = &f5;
+    stx::get<0>(unreflectedItems).addObjectSequence(static_cast<render3d::NodeSequence<SG>::LastIs<SG::ObjectNode>>(o1));
+    stx::get<0>(unreflectedItems).addObjectSequence(o2);
+    stx::get<0>(unreflectedItems).addObjectSequence(o4);
+    stx::get<0>(unreflectedItems).addObjectSequence(o5);
+    stx::get<0>(reflectedItems).addObjectSequence(o3);
 
-    std::get<1>(reflectionSeq.storage).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
-    std::get<2>(reflectionSeq.storage).addCompoundSequence(reflectedItems);
+    stx::get<1>(reflectionSeq).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
+    stx::get<2>(reflectionSeq).addCompoundSequence(reflectedItems);
 
-    std::get<0>(cameraSeq.storage).transform = Mat4x4::look(pos, look.dir, up);
-    std::get<1>(cameraSeq.storage).addCompoundSequence(unreflectedItems);
-    std::get<1>(cameraSeq.storage).addCompoundSequence(reflectedItems);
-    std::get<1>(cameraSeq.storage).addCompoundSequence(reflectionSeq);
-    VDUMP((void*)&std::get<0>(cameraSeq.storage));
-    VDUMP((void*)&std::get<1>(cameraSeq.storage));
+    stx::get<0>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
+    stx::get<1>(cameraSeq).addCompoundSequence(unreflectedItems);
+    stx::get<1>(cameraSeq).addCompoundSequence(reflectedItems);
+    stx::get<1>(cameraSeq).addCompoundSequence(reflectionSeq);
 
     render3d::RT::TransformNode idTransform;
     idTransform.transform = Mat4x4::Id;

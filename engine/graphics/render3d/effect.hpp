@@ -69,7 +69,7 @@ struct StageDriver : BlockDriver {
     constexpr DriverVariable<typename CXXTypeFromMemberPtr<decltype(memberPtr)>::type> declareEffectVariable(std::string_view name, VarDeclContext* declContext) {
         return {
             name,
-            [&](const VarDecl* driverDecl) {
+            [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
                 auto& off = offsets.data[offsets.size++];
                 off.decl = driverDecl;
@@ -159,7 +159,7 @@ namespace {
         static inline const VariableDescriptor array[] = { { descriptors.type, *descriptors.offsetInStruct }... };
     };
     template<auto oversized, int_t... I>
-    constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray_helper(std::integer_sequence<int_t, I...>) {
+    constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray_helper(stx::int_sequence<I...>) {
         return StaticVariableDescriptorArray<oversized.data[I]...>::array;
     }
     template<auto oversized>
@@ -167,7 +167,7 @@ namespace {
         if constexpr (oversized.size == 0) // this is necessary because 0 sized arrays aren't allowed
             return {};
         else
-            return createVariableDescriptorArray_helper<oversized>(std::make_integer_sequence<int_t, oversized.size>());
+            return createVariableDescriptorArray_helper<oversized>(stx::make_int_sequence<oversized.size>());
     }
     template<auto oversized>
     constexpr auto createSource_helper() {

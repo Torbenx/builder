@@ -55,7 +55,7 @@ static constexpr int_t getLeafFieldCount(const Type* type) {
 struct StructLayoutHelper {
     size_t prevEnd = 0;
     constexpr size_t addField(size_t alignment, size_t size) {
-        size_t offset = alignmentCeil(alignment, prevEnd);
+        size_t offset = stx::alignmentCeil(alignment, prevEnd);
         prevEnd = offset + size;
         return offset;
     }
@@ -83,7 +83,7 @@ static constexpr MemberInfo makeMemberInfo(FieldInfo info, StructLayoutHelper& l
     return { info.name, info.type, (int_t)layout.addField(info.alignment, info.size), leafFields.addField(info.type) };
 }
 template<typename T, int_t... I>
-static constexpr int_t makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, std::integer_sequence<int_t, I...>) {
+static constexpr int_t makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, stx::int_sequence<I...>) {
     StructLayoutHelper layout;
     LeafFieldHelper leafFields;
     ((out.memberInfos[I] = makeMemberInfo(T::template _gen_field_info_<I>, layout, leafFields)), ...);
@@ -92,7 +92,7 @@ static constexpr int_t makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, std:
 template<typename T, int_t N>
 static constexpr UserTypeImpl<N> makeUserType() {
     UserTypeImpl<N> ret { T::_gen_struct_name_ };
-    ret.leafFieldCount = makeUserType_helper<T>(ret, std::make_integer_sequence<int_t, N>());
+    ret.leafFieldCount = makeUserType_helper<T>(ret, stx::make_int_sequence<N>());
     return ret;
 }
 
@@ -104,7 +104,7 @@ static constexpr UserTypeImpl<N> makeUserType() {
     struct _gen_fields_<-1> : ::shadergen::wrapped_user_untyped { };     \
     using _gen_base_alias_ = name;                                       \
     template<int_t fieldIndex>                                           \
-    static constexpr ::shadergen::FieldInfo _gen_field_info_;            \
+    static constexpr ::shadergen::FieldInfo _gen_field_info_ = {};       \
     static constexpr int_t _gen_field_counter_offset_ = __COUNTER__ + 1; \
     static constexpr std::string_view _gen_struct_name_ = #name;
 
@@ -147,6 +147,8 @@ struct wrapped_user<T>::impl : E, wrapped_user<T> {
     }
 };
 
+template<typename T>
+concept CanBeUserType = std::is_convertible_v<decltype(&T::SHADERGEN_TYPE), const UserType*>;
 template<typename T>
 using get_wrapper = std::conditional_t<typeFromCXX<T>->isScalar, wrapped_scalar, std::conditional_t<typeFromCXX<T>->isVector, wrapped_vector, wrapped_user<T>>>;
 

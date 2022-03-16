@@ -133,42 +133,44 @@ struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000
     constexpr DriverVariable<T> declareVariable(std::string_view name, VarDeclContext* declContext) {
         return {
             name,
-            [&](const VarDecl* driverDecl) { createVarDecl(driverDecl, declContext); }
-        };
-    }
-    template<typename T>
-    constexpr DriverVariable<T> variable(std::string_view name) {
-        return declareVariable<T>(name, currentDeclContext);
-    }
-
-    template<typename Block>
-    constexpr void block(Block&& block) {
-        BlockScope scope { this };
-        block();
-    }
-    template<typename WhenTrue, typename WhenFalse = std::nullptr_t>
-    constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
-        Expr* condition = castStmt<Expr>(dispatchTransform(&conditionIn));
-        checkBranchCondtion(condition);
-        auto* ifStmt = storage->allocateStmt<IfStmt>({ condition });
-        {
-            BlockScope scope { this };
-            whenTrue();
-            ifStmt->whenTrue = scope.pop();
-        }
-        if constexpr (!std::is_same_v<WhenFalse, std::nullptr_t>) {
-            BlockScope scope { this };
-            whenFalse();
-            ifStmt->whenFalse = scope.pop();
-        }
-        emitStmt(wrapStmtWithError(ifStmt));
-    }
-
-    constexpr void operator,(const Stmt& in) {
-        Stmt* stmt = dispatchTransform(&in);
-        emitStmt(stmt);
+            [&](const VarDecl* driverDecl) constexpr { createVarDecl(driverDecl, declContext);
     }
 };
+}
+template<typename T>
+constexpr DriverVariable<T> variable(std::string_view name) {
+    return declareVariable<T>(name, currentDeclContext);
+}
+
+template<typename Block>
+constexpr void block(Block&& block) {
+    BlockScope scope { this };
+    block();
+}
+template<typename WhenTrue, typename WhenFalse = std::nullptr_t>
+constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
+    Expr* condition = castStmt<Expr>(dispatchTransform(&conditionIn));
+    checkBranchCondtion(condition);
+    auto* ifStmt = storage->allocateStmt<IfStmt>({ condition });
+    {
+        BlockScope scope { this };
+        whenTrue();
+        ifStmt->whenTrue = scope.pop();
+    }
+    if constexpr (!std::is_same_v<WhenFalse, std::nullptr_t>) {
+        BlockScope scope { this };
+        whenFalse();
+        ifStmt->whenFalse = scope.pop();
+    }
+    emitStmt(wrapStmtWithError(ifStmt));
+}
+
+constexpr void operator,(const Stmt& in) {
+    Stmt* stmt = dispatchTransform(&in);
+    emitStmt(stmt);
+}
+}
+;
 
 struct StageDriver : BlockDriver {
     StageDecl* stageDecl = nullptr;
@@ -227,13 +229,14 @@ struct GraphicsDriver {
 
     template<typename T>
     struct VaryingReturnType {
+        constexpr VaryingReturnType(std::string_view name, StageDriver& inStage, StageDriver& outStage)
+            : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
         DriverVariable<T> in;
         DriverVariable<T> out;
     };
     template<typename T>
     constexpr VaryingReturnType<T> varying(std::string_view name) {
-        return { vert.output<T>(name), frag.input<T>(name) };
+        return { name, vert, frag };
     }
 };
-
 }

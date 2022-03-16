@@ -17,7 +17,7 @@ public:
             }
         }
         size_t alignment = uniformAlignment();
-        tileStride = alignmentCeil(alignment, Tile::requiredBytes(layers));
+        tileStride = stx::alignmentCeil(alignment, Tile::requiredBytes(layers));
         allocator.allocateDynamic(&allocation.ptr, alignment, tileCountX * tileCountY * tileStride);
     }
 

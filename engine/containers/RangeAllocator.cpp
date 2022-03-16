@@ -16,7 +16,7 @@ RangeAllocator::size_type RangeAllocator::allocate(size_type alignment, size_typ
         if (!it->free())
             continue;
 
-        size_type aligned_start = alignmentCeil(alignment, start);
+        size_type aligned_start = stx::alignmentCeil(alignment, start);
         if (it->end() - aligned_start < size)
             continue;
 
