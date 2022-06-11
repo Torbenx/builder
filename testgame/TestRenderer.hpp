@@ -86,7 +86,7 @@ public:
     render3d::RT::CoalescedUpdates rtUpdates;
     render3d::StaticNodeSequence<SG::ObjectNode> o1, o2, o3, o4, o5;
     render3d::StaticNodeSequence<SG::CompoundNode> reflectedItems, unreflectedItems;
-    render3d::StaticNodeSequence<SG::TransformNode, SG::CompoundNode> cameraSeq;
+    render3d::StaticNodeSequence<SG::TransformNode, SG::WorldCoordinatesMarkerNode, SG::CompoundNode> cameraSeq;
     render3d::StaticNodeSequence<SG::PortalNode, SG::TransformNode, SG::CompoundNode> reflectionSeq;
 
     TestRenderer();

@@ -264,41 +264,43 @@ TestRenderer<G>::TestRenderer()
 
     using namespace render3d;
 
-    stx::get<0>(o1).effects = effects1;
-    stx::get<0>(o1).object = &f1;
-    stx::get<0>(o2).effects = effects2;
-    stx::get<0>(o2).object = &f2;
-    stx::get<0>(o3).effects = effects3;
-    stx::get<0>(o3).object = &f3;
-    stx::get<0>(o4).effects = effects4;
-    stx::get<0>(o4).object = &f4;
-    stx::get<0>(o5).effects = effects5;
-    stx::get<0>(o5).object = &f5;
-    stx::get<0>(unreflectedItems).addObjectSequence(static_cast<render3d::NodeSequence<SG>::LastIs<SG::ObjectNode>>(o1));
-    stx::get<0>(unreflectedItems).addObjectSequence(o2);
-    stx::get<0>(unreflectedItems).addObjectSequence(o4);
-    stx::get<0>(unreflectedItems).addObjectSequence(o5);
-    stx::get<0>(reflectedItems).addObjectSequence(o3);
+    stx::get<SG::ObjectNode>(o1).effects = effects1;
+    stx::get<SG::ObjectNode>(o1).object = &f1;
+    stx::get<SG::ObjectNode>(o2).effects = effects2;
+    stx::get<SG::ObjectNode>(o2).object = &f2;
+    stx::get<SG::ObjectNode>(o3).effects = effects3;
+    stx::get<SG::ObjectNode>(o3).object = &f3;
+    stx::get<SG::ObjectNode>(o4).effects = effects4;
+    stx::get<SG::ObjectNode>(o4).object = &f4;
+    stx::get<SG::ObjectNode>(o5).effects = effects5;
+    stx::get<SG::ObjectNode>(o5).object = &f5;
+    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o1);
+    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o2);
+    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o4);
+    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o5);
+    stx::get<SG::CompoundNode>(reflectedItems).addObjectSequence(o3);
 
-    stx::get<1>(reflectionSeq).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
-    stx::get<2>(reflectionSeq).addCompoundSequence(reflectedItems);
+    stx::get<SG::TransformNode>(reflectionSeq).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
+    stx::get<SG::CompoundNode>(reflectionSeq).addCompoundSequence(unreflectedItems);
 
-    stx::get<0>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
-    stx::get<1>(cameraSeq).addCompoundSequence(unreflectedItems);
-    stx::get<1>(cameraSeq).addCompoundSequence(reflectedItems);
-    stx::get<1>(cameraSeq).addCompoundSequence(reflectionSeq);
+    stx::get<SG::TransformNode>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
+    stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(unreflectedItems);
+    stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectedItems);
+    stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
 
     render3d::RT::TransformNode idTransform;
     idTransform.transform = Mat4x4::Id;
-    RTCreator creator { {}, &idTransform, nullptr, &rtUpdates };
-    creator.construct(cameraSeq);
+    RTCreator creator { {}, &rtUpdates.rootTransform, nullptr, &rtUpdates };
+    auto rtSeq = creator.construct(cameraSeq);
+    RTDumper dumper;
+    dumper.dump(rtSeq);
 
-    //lightChildren = std::make_unique<SG::CompoundNode>();
-    //lightChildren->addChild(unreflectedItems.get());
-    //lightChildren->addChild(reflectedItems.get());
-    //spotLightTransform = std::make_unique<SG::TransformNode>();
-    //spotLightTransform->child = lightChildren.get();
-    //spotLightTransform->transform = Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
+    // lightChildren = std::make_unique<SG::CompoundNode>();
+    // lightChildren->addChild(unreflectedItems.get());
+    // lightChildren->addChild(reflectedItems.get());
+    // spotLightTransform = std::make_unique<SG::TransformNode>();
+    // spotLightTransform->child = lightChildren.get();
+    // spotLightTransform->transform = Mat4x4::look(Vec3(0, 3.4f, 0), Vec3(0, -1, 0), Vec3(1, 0, 0));
 
     /*RTUpdater updater;
     cameraTree = static_cast<RT::CompoundNode*>(updater.dispatchUpdate(cameraTransform.get(), nullptr));
@@ -543,6 +545,8 @@ void TestRenderer<G>::rawKey(uint32_t keycode, bool down) {
     }
 }
 
+#include <math/ConvexPolygon.hpp>
+
 template<Gapi G>
 void TestRenderer<G>::drawFrame() {
     LogTimer timer;
@@ -625,6 +629,7 @@ void TestRenderer<G>::drawFrame() {
 
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
+    stx::get<0>(cameraSeq).transform = view;
     render3d::render(&allocator, &Framebuffer::DEFAULT, projection, &rtUpdates);
 
     glDisable(GL_DEPTH_TEST);
@@ -646,6 +651,22 @@ void TestRenderer<G>::drawFrame() {
     // refComp.draw(Framebuffer::DEFAULT);
     textBackground.draw(Framebuffer::DEFAULT, &allocator);
     textComp.draw(Framebuffer::DEFAULT, &allocator);
+
+    /*ConvexPolygon screen = ConvexPolygon::fromOrderedVertices({ { 1.0f, 1.0f }, { -1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f, -1.0f } });
+    std::array<Vec3, 4> worldVerts = { Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) };
+    std::array<Vec2, 4> screenVerts;
+    for (int_t i = 0; i < 4; i++) {
+        //const_cast<Vec3&>(worldVerts[i]).debug();
+        Vec4 v = projection * (view * Vec4(worldVerts[i], 1.0f));
+        //v.debug();
+        screenVerts[i] = v.xy / v.w;
+        //screenVerts[i].debug();
+    }
+    std::sort(screenVerts.begin(), screenVerts.end(), ConvexPolygon::compareAngles);
+    ConvexPolygon portal = ConvexPolygon::fromOrderedVertices(screenVerts);
+    //portal.planes.erase(portal.planes.begin());
+    ConvexPolygon result = ConvexPolygon::intersection(screen, portal);
+    VDUMP(result.planes.size());*/
 }
 
 template<Gapi G>

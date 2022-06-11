@@ -42,6 +42,7 @@ public:
     Vec2& operator/=(float f);
     void debug() { log<Tag::Math>("Vec2({}, {})", x, y); }
     static float dot(Vec2 v1, Vec2 v2) { return v1.x * v2.x + v1.y * v2.y; }
+    static Vec2 findOrthogonal(Vec2 v) { return { v.y, -v.x }; }
 };
 
 inline Vec2 operator+(Vec2 v1, Vec2 v2) { return { v1.x + v2.x, v1.y + v2.y }; }

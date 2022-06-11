@@ -2,10 +2,10 @@
 
 #include "containers/ArrayView.hpp"
 #include "containers/BitSet.hpp"
-#include "util/log.hpp"
-#include <vector>
-#include <memory>
 #include "containers/Tuple.hpp"
+#include "util/log.hpp"
+#include <memory>
+#include <vector>
 
 namespace Tag {
 struct render3d {
@@ -30,7 +30,8 @@ struct CullStack {
     using TransformNode = typename S::TransformNode; \
     using BoundingNode = typename S::BoundingNode;   \
     using ObjectNode = typename S::ObjectNode;       \
-    using CompoundNode = typename S::CompoundNode;
+    using CompoundNode = typename S::CompoundNode;   \
+    using WorldCoordinatesMarkerNode = typename S::WorldCoordinatesMarkerNode;
 
 enum class NodeKind {
     Invalid = 0,
@@ -39,6 +40,7 @@ enum class NodeKind {
     Bounding,
     Object,
     Compound,
+    WorldCoordinatesMarker,
 };
 
 struct NodeKindSequence {
@@ -124,6 +126,14 @@ struct NodeSequence {
         std::byte* storage = allocator.allocate(size);
         return { storage };
     }
+    template<typename T>
+    static constexpr int_t sizeOf() { return sizeOf(T::NODE_KIND); }
+    template<typename T>
+    static constexpr bool isSizeOfValid() {
+        if (std::is_empty_v<T>)
+            return sizeOf<T>() == 0;
+        return sizeOf<T>() == sizeof(T);
+    }
 
     std::byte* begin = nullptr;
     NodeKindSequence kinds;
@@ -161,7 +171,7 @@ struct NodeSequence {
     template<typename T>
     T* pushBack(const T& node) {
         T* r = std::construct_at(reinterpret_cast<T*>(begin + sizeInBytes), node);
-        sizeInBytes += sizeof(T);
+        sizeInBytes += sizeOf<T>();
         kinds.pushBack(T::NODE_KIND);
         return r;
     }
@@ -172,27 +182,37 @@ struct NodeSequence {
     };
     template<typename T>
     struct LastIs : NodeSequence {
-        T* last() const { return reinterpret_cast<T*>(begin + sizeInBytes - sizeof(T)); }
+        T* last() const { return reinterpret_cast<T*>(begin + sizeInBytes - sizeOf<T>()); }
     };
 
     template<typename T>
     FirstIs<T> firstIs() const { return { *this }; }
     template<typename T>
     LastIs<T> lastIs() const { return { *this }; }
+
+    ~NodeSequence() {
+        IMPORT_NODES(S)
+        static_assert(isSizeOfValid<PortalNode>());
+        static_assert(isSizeOfValid<TransformNode>());
+        static_assert(isSizeOfValid<BoundingNode>());
+        static_assert(isSizeOfValid<ObjectNode>());
+        static_assert(isSizeOfValid<CompoundNode>());
+        static_assert(isSizeOfValid<WorldCoordinatesMarkerNode>());
+    }
 };
 
 template<typename S>
 constexpr int_t NodeSequence<S>::sizeOf(NodeKind kind) {
     IMPORT_NODES(S)
     // must match the NodeKind enum
-    constexpr int_t byteSizes[] = { 0, sizeof(PortalNode), sizeof(TransformNode), sizeof(BoundingNode), sizeof(ObjectNode), sizeof(CompoundNode) };
+    constexpr int_t byteSizes[] = { 0, sizeof(PortalNode), sizeof(TransformNode), sizeof(BoundingNode), sizeof(ObjectNode), sizeof(CompoundNode), 0 };
     return byteSizes[(int_t)kind];
 }
 
 struct SG /* Scene Graph */ {
     struct alignas(8) PortalNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Portal;
-        bool isDirty = false;
+        bool b = false;
         // portal data...
     };
     struct alignas(8) TransformNode {
@@ -233,6 +253,9 @@ struct SG /* Scene Graph */ {
             updates.push_back({ UpdateKind::Insertion, false, (int_t)compoundSeqs.size() });
             compoundSeqs.push_back(seq);
         }
+    };
+    struct alignas(8) WorldCoordinatesMarkerNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::WorldCoordinatesMarker;
     };
 };
 
@@ -301,6 +324,8 @@ struct RT /* Rendering Tree */ {
     };
     struct ObjectNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Object;
+
+        bool b = false;
     };
     struct CompoundNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Compound;
@@ -310,8 +335,13 @@ struct RT /* Rendering Tree */ {
         std::vector<NodeSequence<RT>::LastIs<RT::ObjectNode>> objectSeqs;
         std::vector<NodeSequence<RT>::LastIs<RT::CompoundNode>> compoundSeqs;
     };
+    struct WorldCoordinatesMarkerNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::WorldCoordinatesMarker;
+    };
 
     struct CoalescedUpdates {
+        RT::TransformNode rootTransform { Mat4x4::Id };
+        std::vector<SG::TransformNode*> cameraTransforms;
         std::vector<TransformItem> transformItems;
         std::vector<PortalItem> portalItems;
         std::vector<ObjectItem> objectItems;
@@ -323,9 +353,12 @@ struct Visitor {
     IMPORT_NODES(S);
     Impl* impl() { return static_cast<Impl*>(this); }
     void visitObjectSequence(typename NodeSequence<S>::template LastIs<ObjectNode> seq) {
-        impl()->dispatchVisit(seq);
+        impl()->visitSequence(seq);
     }
     void visitCompoundSequence(typename NodeSequence<S>::template LastIs<CompoundNode> seq) {
+        impl()->visitSequence(seq);
+    }
+    void visitSequence(NodeSequence<S> seq) {
         impl()->dispatchVisit(seq);
     }
     void dispatchVisit(NodeSequence<S> seq) {
@@ -345,8 +378,12 @@ struct Visitor {
         case NodeKind::Compound:
             impl()->visitCompoundNode(seq.template firstIs<CompoundNode>());
             break;
+        case NodeKind::WorldCoordinatesMarker:
+            impl()->visitWorldCoordinatesMarkerNode(seq.template firstIs<WorldCoordinatesMarkerNode>());
+            break;
         default:
-            std::abort();
+            VERIFY_NOT_REACHED(render3d);
+            break;
         }
     }
     void visitPortalNode(typename NodeSequence<S>::template FirstIs<PortalNode> seq) {
@@ -362,8 +399,11 @@ struct Visitor {
     void visitCompoundNode(typename NodeSequence<S>::template FirstIs<CompoundNode> seq) {
         for (auto subSeq : seq.first()->objectSeqs)
             impl()->visitObjectSequence(subSeq);
-        for (auto subSeq : seq.first()->CompoundSeqs)
+        for (auto subSeq : seq.first()->compoundSeqs)
             impl()->visitCompoundSequence(subSeq);
+    }
+    void visitWorldCoordinatesMarkerNode(typename NodeSequence<S>::template FirstIs<WorldCoordinatesMarkerNode> seq) {
+        impl()->dispatchVisit(seq.subSequence());
     }
 };
 
@@ -372,6 +412,7 @@ struct RTCreator : Visitor<SG, RTCreator> {
     RT::PortalNode* portalStack = nullptr;
     RT::CoalescedUpdates* rtUpdates = nullptr;
     NodeSequence<RT> rtSequence;
+    bool backPropagateCameraTransform = false;
 
     template<typename T>
     T* constructNode(const T& node) {
@@ -392,6 +433,8 @@ struct RTCreator : Visitor<SG, RTCreator> {
         rtUpdates->transformItems.push_back({ worldTransform, sgNode, rtNode });
         worldTransform = rtNode;
         dispatchVisit(sgSeq.subSequence());
+        if (backPropagateCameraTransform)
+            rtUpdates->cameraTransforms.push_back(sgNode);
     }
     void visitBoundingNode(NodeSequence<SG>::FirstIs<SG::BoundingNode> sgSeq) {
         auto* rtNode = constructNode<RT::BoundingNode>({});
@@ -410,12 +453,21 @@ struct RTCreator : Visitor<SG, RTCreator> {
         for (auto seq : sgNode->objectSeqs) {
             RTCreator creator { {}, worldTransform, portalStack, rtUpdates };
             rtNode->objectSeqs.push_back({ creator.construct(seq) });
+            if (creator.backPropagateCameraTransform)
+                backPropagateCameraTransform = true;
         }
         rtNode->compoundSeqs.reserve(sgNode->compoundSeqs.size());
         for (auto seq : sgNode->compoundSeqs) {
             RTCreator creator { {}, worldTransform, portalStack, rtUpdates };
             rtNode->compoundSeqs.push_back({ creator.construct(seq) });
+            if (creator.backPropagateCameraTransform)
+                backPropagateCameraTransform = true;
         }
+    }
+    void visitWorldCoordinatesMarkerNode(NodeSequence<SG>::FirstIs<SG::WorldCoordinatesMarkerNode> sgSeq) {
+        constructNode<RT::WorldCoordinatesMarkerNode>({});
+        dispatchVisit(sgSeq.subSequence());
+        backPropagateCameraTransform = true;
     }
 
     NodeSequence<RT> construct(NodeSequence<SG> sgSeq) {
@@ -453,13 +505,22 @@ struct RTUpdateChecker {
 };
 
 inline void render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection, RT::CoalescedUpdates* rtUpdates) {
+    Mat4x4 viewMatrix = Mat4x4::Id;
+    for (int_t i = rtUpdates->cameraTransforms.size() - 1; i >= 0; i--) {
+        viewMatrix = viewMatrix * rtUpdates->cameraTransforms[i]->transform;
+    }
+    Mat4x4 viewProjectionMatrix = projection * viewMatrix;
+    rtUpdates->rootTransform.transform = Mat4x4::invert(viewMatrix);
+    for (RT::TransformItem item : rtUpdates->transformItems) {
+        item.output->transform = item.sourceTransform->transform * item.input->transform;
+    }
     for (RT::ObjectItem item : rtUpdates->objectItems) {
         auto* node = item.input;
         auto shaderHandle = EffectShaderFactory::getHandle(node->effects);
 
         auto& shader = EffectShaderFactory::instance(*shaderHandle);
         shader.use();
-        shader.uniformMat4x4(shader.viewProjectionUniform, projection * item.worldTransform->transform);
+        shader.uniformMat4x4(shader.viewProjectionUniform, viewProjectionMatrix);
 
         int_t slot = 0;
         for (auto& effect : node->effects) {
@@ -475,12 +536,61 @@ inline void render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 proje
             if (data.fragmentUniformDesc.size > 0)
                 state.uniformBuffer({ allocator->buffer(data.fragmentUniformPtr.get(effect.ptr)), data.fragmentUniformDesc.size });
         }
-        shader.uniformMat4x4(shader.modelUniform, node->object->modelMatrix);
+        shader.uniformMat4x4(shader.modelUniform, item.worldTransform->transform);
         shader.attribPointer(shader.positionAttrib, node->object->vertices.vertexBuffer(allocator));
         shader.attribPointer(shader.normalAttrib, node->object->normals.vertexBuffer(allocator));
         framebuffer->draw(node->object->drawMode, node->object->indices);
         shaderHandle.LEAK();
     }
 }
+
+struct RTDumper : Visitor<RT, RTDumper> {
+    using Base = Visitor<RT, RTDumper>;
+    int_t indent = 0;
+    std::string output;
+    void info(std::string_view name, bool isLast = false) {
+        output += name;
+        if (!isLast)
+            output += " -> ";
+    }
+    void visitPortalNode(NodeSequence<RT>::FirstIs<RT::PortalNode> seq) {
+        info("Portal");
+        Base::visitPortalNode(seq);
+    }
+    void visitTransformNode(NodeSequence<RT>::FirstIs<RT::TransformNode> seq) {
+        info("Transform");
+        Base::visitTransformNode(seq);
+    }
+    void visitBoundingNode(NodeSequence<RT>::FirstIs<RT::BoundingNode> seq) {
+        info("Bounding");
+        Base::visitBoundingNode(seq);
+    }
+    void visitObjectNode(NodeSequence<RT>::FirstIs<RT::ObjectNode> seq) {
+        info("Object", true);
+        Base::visitObjectNode(seq);
+    }
+    void visitCompoundNode(NodeSequence<RT>::FirstIs<RT::CompoundNode> seq) {
+        info("Compound ", true);
+        output += std::to_string(seq.first()->objectSeqs.size());
+        output += "/";
+        output += std::to_string(seq.first()->compoundSeqs.size());
+        indent += 1;
+        Base::visitCompoundNode(seq);
+        indent -= 1;
+    }
+    void visitWorldCoordinatesMarkerNode(NodeSequence<RT>::FirstIs<RT::WorldCoordinatesMarkerNode> seq) {
+        info("WorldCoordinatesMarker");
+        Base::visitWorldCoordinatesMarkerNode(seq);
+    }
+    void visitSequence(NodeSequence<RT> seq) {
+        log("{}", output);
+        output = std::string(indent * 4, ' ');
+        Base::visitSequence(seq);
+    }
+    void dump(NodeSequence<RT> seq) {
+        visitSequence(seq);
+        log("{}", output);
+    }
+};
 
 }
