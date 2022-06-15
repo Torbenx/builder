@@ -210,6 +210,39 @@ struct PrevDeclStripper : ASTVisitor<PrevDeclStripper> {
     }
 };
 
+struct UserTypeRecorder : ASTVisitor<UserTypeRecorder> {
+    using Base = ASTVisitor<UserTypeRecorder>;
+    const UserType** begin;
+    const UserType** end;
+    constexpr UserTypeRecorder(const UserType** storage)
+        : begin(storage), end(storage) { }
+    constexpr UserTypeRecorder(const UserType** begin, int_t size)
+        : begin(begin), end(begin + size) { }
+    constexpr void recordType(const Type* type) {
+        if (!type->isUser)
+            return;
+        const auto* userType = asUserType(type);
+        if (std::find(begin, end, userType) == end)
+            *(end++) = userType;
+    }
+    constexpr void visitExpr(const Expr* expr) {
+        Base::visitExpr(expr);
+        recordType(expr->type);
+    }
+    constexpr void recordDeclContext(const VarDeclContext* context) {
+        context->decls.forEachEntry([&](VarDecl* decl) {
+            recordType(decl->type);
+        });
+    }
+    constexpr void recordStage(const StageDecl* stageDecl) {
+        recordDeclContext(&stageDecl->builtins);
+        recordDeclContext(&stageDecl->uniforms);
+        recordDeclContext(&stageDecl->inputs);
+        recordDeclContext(&stageDecl->outputs);
+        dispatchVisit(stageDecl->entryPoint);
+    }
+};
+
 template<typename Impl, typename Storage>
 struct ASTTransform {
     constexpr Impl* impl() { return static_cast<Impl*>(this); }

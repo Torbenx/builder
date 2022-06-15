@@ -65,7 +65,7 @@ public:
     Vector copy(int_t extraSize = 0) const;
 
     int_t lowerBound(uint32_t index) const {
-        Entry e0 = (*this)[0];
+        /*Entry e0 = (*this)[0];
         Entry e1 = (*this)[1];
         Entry e2 = (*this)[2];
         Entry e3 = (*this)[3];
@@ -73,13 +73,13 @@ public:
         r = e2.index >= index ? 2 : r;
         r = e1.index >= index ? 1 : r;
         r = e0.index >= index ? 0 : r;
-        return r;
-        /*int_t i;
+        return r;*/
+        int_t i;
         for (i = 0;; i++) {
             if ((*this)[i].index >= index)
                 break;
         }
-        return i;*/
+        return i;
     }
     float findValue(uint32_t index) const {
         Entry e = (*this)[lowerBound(index)];

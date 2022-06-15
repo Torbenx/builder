@@ -98,5 +98,13 @@ void runShadergenTest() {
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data());
 
-    VDUMP(effect::descriptorStore<SomeEffect>.vert.source);
+    const auto& desc = effect::descriptorStore<SomeEffect>;
+    VDUMP(desc.vert.source);
+    VDUMP(desc.userTypes.size());
+    VDUMP(desc.userTypes[0]->name);
+    VDUMP(desc.userTypes[0]->members.size());
+    char buffer[1000] = {};
+    GLSLTypeGenerator typeGenerator { buffer };
+    typeGenerator.visitType(desc.userTypes[0]);
+    VDUMP(buffer);    
 }

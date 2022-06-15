@@ -8,6 +8,7 @@ struct GPtr { };
 
 template<typename T, int_t N>
 struct OversizedArray {
+    using value_type = T;
     T data[N] = {};
     int_t size = 0;
 
@@ -57,7 +58,7 @@ struct StageDriver : BlockDriver {
         currentDeclContext = &currentBlock->declContext;
     }
 
-    constexpr const int_t* findOffset(const VarDecl* decl) const {
+    constexpr const int_t* findOffsetInStruct(const VarDecl* decl) const {
         for (int_t i = 0; i < offsets.size; i++) {
             if (offsets.data[i].decl == decl)
                 return offsets.data[i].offsetPtr;
@@ -108,13 +109,14 @@ struct ConstStageDescriptor {
 };
 struct ConstEffectDescriptor {
     OversizedArray<ConstVariableDescriptor, 100> attributes;
+    OversizedArray<const UserType*, 100> userTypes;
     ConstStageDescriptor vert;
     ConstStageDescriptor frag;
 };
 constexpr int_t fillConstVariableArray(ConstVariableDescriptor* end, const StageDriver& stage, const VarDeclContext& declContext) {
     ConstVariableDescriptor* begin = end;
     declContext.decls.forEachEntry([&](const VarDecl* decl) {
-        *(end++) = { decl->type, stage.findOffset(decl->prevDecl) };
+        *(end++) = { decl->type, stage.findOffsetInStruct(decl->prevDecl) };
     });
     return end - begin;
 }
@@ -136,6 +138,10 @@ constexpr ConstEffectDescriptor createConstEffectDescriptor(DefineFunc_t defineF
     out.attributes.size = fillConstVariableArray(out.attributes.data, effect.vert, effect.vert.stageDecl->inputs);
     fillConstStageDescriptor(out.vert, effect.vert);
     fillConstStageDescriptor(out.frag, effect.frag);
+    UserTypeRecorder typeRecorder { out.userTypes.data };
+    typeRecorder.recordStage(effect.vert.stageDecl);
+    typeRecorder.recordStage(effect.frag.stageDecl);
+    out.userTypes.size = typeRecorder.end - out.userTypes.data;
     return out;
 }
 
@@ -150,6 +156,7 @@ struct StageDescriptor {
 };
 struct EffectDescriptor {
     ArrayView<const VariableDescriptor> attributes;
+    ArrayView<const UserType* const> userTypes;
     StageDescriptor vert;
     StageDescriptor frag;
 };
@@ -170,8 +177,8 @@ namespace {
             return createVariableDescriptorArray_helper<oversized>(stx::make_int_sequence<oversized.size>());
     }
     template<auto oversized>
-    constexpr auto createSource_helper() {
-        std::array<char, oversized.size> array;
+    constexpr auto copyFromOversized() {
+        std::array<typename decltype(oversized)::value_type, oversized.size> array;
         std::copy_n(oversized.data, oversized.size, array.data());
         return array;
     }
@@ -180,8 +187,12 @@ namespace {
         return in;
     }
     template<auto oversized>
+    constexpr const auto& oversizedToArray() {
+        return makeStatic<copyFromOversized<oversized>()>();
+    }
+    template<auto oversized>
     constexpr std::string_view createSource() {
-        const auto& array = makeStatic<createSource_helper<oversized>()>();
+        const auto& array = oversizedToArray<oversized>();
         return { array.data(), array.size() };
     }
     template<ConstStageDescriptor stage>
@@ -192,7 +203,7 @@ namespace {
 template<typename E>
 constexpr EffectDescriptor createEffectDescriptor() {
     constexpr ConstEffectDescriptor effect = createConstEffectDescriptor(E::defineEffect);
-    return { createVariableDescriptorArray<effect.attributes>(), createStageDescriptor<effect.vert>(), createStageDescriptor<effect.frag>() };
+    return { createVariableDescriptorArray<effect.attributes>(), oversizedToArray<effect.userTypes>(), createStageDescriptor<effect.vert>(), createStageDescriptor<effect.frag>() };
 }
 template<typename E>
 constexpr EffectDescriptor descriptorStore = {};

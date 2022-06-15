@@ -266,6 +266,7 @@ TestRenderer<G>::TestRenderer()
 
     stx::get<SG::ObjectNode>(o1).effects = effects1;
     stx::get<SG::ObjectNode>(o1).object = &f1;
+    stx::get<SG::BoundingNode>(o1).bound = {{ 0.0f, 0.0f, 0.0f }, 2.0f * f1Scale };
     stx::get<SG::ObjectNode>(o2).effects = effects2;
     stx::get<SG::ObjectNode>(o2).object = &f2;
     stx::get<SG::ObjectNode>(o3).effects = effects3;
@@ -286,7 +287,7 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::TransformNode>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
     stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(unreflectedItems);
     stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectedItems);
-    stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
+    //stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
 
     render3d::RT::TransformNode idTransform;
     idTransform.transform = Mat4x4::Id;
@@ -355,6 +356,14 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     float as = (float)newWidth / (float)newHeight;
     float fovV = 67.0f * F_PI / 180.0f;
     projection = Mat4x4::frustumV(fovV, as, 0.1f, 100.0f);
+
+    using namespace render3d;
+    stx::get<SG::PortalNode>(cameraSeq).planes.planes.clear();
+    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
+    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, -std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
+    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });
+    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ -std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });
+
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
     metrics.y.size = newHeight;
@@ -449,7 +458,7 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
     return;
 
-    log("\n\n--------------------------------------");
+    //log("\n\n--------------------------------------");
     /*sparse::Inverse inv;
     {
         LogTimer timer;
@@ -476,7 +485,15 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     // inv.inverseTranspose.debug();*/
 
     BindingSolver solver;
-    uint32_t r0 = solver.addResource();
+    for (int_t i = 0; i < 1600; i++) {
+        solver.addUsage(std::array<uint32_t, 4> {
+            solver.addResource(),
+            solver.addResource(),
+            solver.addResource(),
+            solver.addResource()
+        });
+    }
+    /*uint32_t r0 = solver.addResource();
     uint32_t r1 = solver.addResource();
     uint32_t r2 = solver.addResource();
     uint32_t r3 = solver.addResource();
@@ -499,7 +516,7 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
         r1,
         r3,
         solver.addResource(),
-        solver.addResource() });
+        solver.addResource() });*/
     {
         LogTimer timer;
         while (solver.iterate()) { }
@@ -629,7 +646,7 @@ void TestRenderer<G>::drawFrame() {
 
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
-    stx::get<0>(cameraSeq).transform = view;
+    stx::get<render3d::SG::TransformNode>(cameraSeq).transform = view;
     render3d::render(&allocator, &Framebuffer::DEFAULT, projection, &rtUpdates);
 
     glDisable(GL_DEPTH_TEST);

@@ -135,9 +135,9 @@ public:
         internalIndices.push_back(MAX_INDEX);
         transposeA.appendColumn(allocateEmpty());
 
-        A.columns.reserve(index + 1);
+        /*A.columns.reserve(index + 1);
         x.reserve(index + 1);
-        userIndices.reserve(index + 1);
+        userIndices.reserve(index + 1);*/
 
         return index;
     }
@@ -155,7 +155,7 @@ public:
     Vector subOptimalVariable(Vector column, float oldS) {
         // column.debug();
         // clocks[0] += __rdtsc();
-        auto var = NewVariable();
+        auto var = newVariable();
         Vector internalColumn = translateToInternalIndices(column);
         var.oldS = oldS;
         var.column = internalColumn;

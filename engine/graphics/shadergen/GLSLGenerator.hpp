@@ -82,47 +82,43 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform<Storage>, Stora
     }
 };
 
-struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
-    using Base = ASTVisitor<GLSLStmtGenerator>;
+template<typename Impl>
+struct GLSLGeneratorBase {
     struct Indentation { };
 
     char* end = nullptr;
     int_t indent = 0;
-    constexpr GLSLStmtGenerator() = default;
-    constexpr GLSLStmtGenerator(char* buffer)
+    constexpr GLSLGeneratorBase() = default;
+    constexpr GLSLGeneratorBase(char* buffer)
         : end(buffer) { }
 
-    constexpr auto& out() { return *this; }
+    constexpr auto& out() { return *static_cast<Impl*>(this); }
     constexpr auto& operator<<(std::string_view str) {
         std::copy_n(str.data(), str.size(), end);
         end += str.size();
-        return *this;
+        return out();
     }
     constexpr auto& operator<<(const char* str) {
         return *this << std::string_view(str);
     }
-    constexpr auto& operator<<(const Stmt* stmt) {
-        dispatchVisit(stmt);
-        return *this;
-    }
     constexpr auto& operator<<(const Type* type) {
-        visitType(type);
-        return *this;
+        emitTypeName(type);
+        return out();
     }
     constexpr auto& operator<<(const VarDecl* decl) {
-        visitVarDecl(decl);
-        return *this;
+        emitVarDecl(decl);
+        return out();
     }
     constexpr auto& operator<<(Indentation) {
         for (int_t i = 0; i < indent * 4; i++)
             *this << " ";
-        return *this;
+        return out();
     }
     constexpr auto& operator<<(bool b) {
         return *this << (b ? "true" : "false");
     }
 
-    constexpr void visitScalarType(const ScalarType* type) {
+    constexpr void emitScalarTypeName(const ScalarType* type) {
         std::string_view typeName = "invalid_scalar_type";
         if (type->scalarType == &BoolType)
             typeName = "bool";
@@ -132,9 +128,9 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
             typeName = "float";
         out() << typeName;
     }
-    constexpr void visitVectorType(const VectorType* type) {
+    constexpr void emitVectorTypeName(const VectorType* type) {
         if (type->isScalar) {
-            visitScalarType(asScalarType(type));
+            emitScalarTypeName(asScalarType(type));
             return;
         }
         std::string_view typeName = "invalid_vector_type";
@@ -147,23 +143,34 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
         char sizeChar = '0' + type->vectorSize;
         out() << typeName << std::string_view(&sizeChar, 1);
     }
-    constexpr void visitUserType(const UserType* type) {
+    constexpr void emitUserTypeName(const UserType* type) {
         out() << type->name;
     }
-    constexpr void visitType(const Type* type) {
+    constexpr void emitTypeName(const Type* type) {
         if (type->isVector)
-            visitVectorType(asVectorType(type));
+            emitVectorTypeName(asVectorType(type));
         else if (type->isUser)
-            visitUserType(asUserType(type));
+            emitUserTypeName(asUserType(type));
         else
             out() << "invalid_type";
+    }
+    constexpr void emitVarDecl(const VarDecl* decl) {
+        out() << decl->type << " " << decl->name;
+    }
+};
+
+struct GLSLStmtGenerator : GLSLGeneratorBase<GLSLStmtGenerator>, ASTVisitor<GLSLStmtGenerator> {
+    using Base = ASTVisitor<GLSLStmtGenerator>;
+    using GLSLGeneratorBase::GLSLGeneratorBase;
+    using GLSLGeneratorBase::operator<<;
+
+    constexpr auto& operator<<(const Stmt* stmt) {
+        dispatchVisit(stmt);
+        return out();
     }
 
     constexpr void visitVarRefExpr(const VarRefExpr* e) {
         out() << e->decl->name;
-    }
-    constexpr void visitVarDecl(const VarDecl* decl) {
-        out() << decl->type << " " << decl->name;
     }
     constexpr void visitElementwiseOperatorExpr(const ElementwiseOperatorExpr* e) {
         out() << e->left << " " << toString(e->op) << " " << e->right;
@@ -262,6 +269,21 @@ struct GLSLStmtGenerator : ASTVisitor<GLSLStmtGenerator> {
         });
         out() << "void main() ";
         dispatchVisit(stage->entryPoint);
+        out() << "\n";
+    }
+};
+
+struct GLSLTypeGenerator : GLSLGeneratorBase<GLSLTypeGenerator> {
+    using GLSLGeneratorBase::GLSLGeneratorBase;
+    using GLSLGeneratorBase::operator<<;
+
+    constexpr void visitType(const UserType* type) {
+        out() << "struct " << type << " {\n";
+        indent += 1;
+        for (auto member : type->members)
+            out() << Indentation() << member.type << " " << member.name << ";\n";
+        indent -= 1;
+        out() << "};\n";
     }
 };
 

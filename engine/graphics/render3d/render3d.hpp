@@ -22,7 +22,30 @@ struct BoundingSphere {
 };
 
 struct CullStack {
-    bool visible(BoundingSphere) const { return true; }
+    struct Plane {
+        Vec3 unitNormal;
+        float w;
+        Plane transform(const Mat4x4& transform) const {
+            Vec4 v { unitNormal, 0.0f };
+            v = transform * v;
+            Vec3 translation = { transform.matrix[12], transform.matrix[13], transform.matrix[14] };
+            float newW = w + Vec3::dot(translation, v.xyz);
+            return { v.xyz, newW };
+        }
+    };
+    std::vector<Plane> planes;
+    bool visible(BoundingSphere bs) const {
+        for (auto plane : planes) {
+            //VDUMP(plane.w);
+            if (Vec3::dot(bs.position, plane.unitNormal) + plane.w >= bs.radius)
+                return false;
+        }
+        return true;
+    }
+    void merge(const CullStack& other) {
+        planes.insert(planes.end(), other.planes.begin(), other.planes.end());
+    }
+    void clear() { planes.clear(); }
 };
 
 #define IMPORT_NODES(S)                              \
@@ -213,7 +236,7 @@ struct SG /* Scene Graph */ {
     struct alignas(8) PortalNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Portal;
         bool b = false;
-        // portal data...
+        CullStack planes;
     };
     struct alignas(8) TransformNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Transform;
@@ -513,6 +536,20 @@ inline void render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 proje
     rtUpdates->rootTransform.transform = Mat4x4::invert(viewMatrix);
     for (RT::TransformItem item : rtUpdates->transformItems) {
         item.output->transform = item.sourceTransform->transform * item.input->transform;
+    }
+    for (RT::PortalItem item : rtUpdates->portalItems) {
+        item.output->stack.clear();
+        if (item.sourceStack)
+            item.output->stack = item.sourceStack->stack;
+        for (auto plane : item.input.first()->planes.planes) {
+            item.output->stack.planes.push_back(plane.transform(item.worldTransform->transform));
+        }
+        for (RT::BoundingItem bItem : item.output->boundingItems) {
+            auto bound = bItem.input.first()->bound;
+            Vec3 pos = (bItem.worldTransform->transform * Vec4(bound.position, 1.0)).xyz;
+            bool b = item.output->stack.visible({ pos, bound.radius });
+            VDUMP(b);
+        }
     }
     for (RT::ObjectItem item : rtUpdates->objectItems) {
         auto* node = item.input;

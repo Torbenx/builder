@@ -66,7 +66,7 @@ public:
                 if (maxDiffOffset != n) {
                     handleViolation(u, maxDiffOffset, maxDiff);
                     anyViolations = true;
-                    // anyViolationsInUsage = true;
+                    anyViolationsInUsage = true;
                     //debug();
                 }
             } while(anyViolationsInUsage);
