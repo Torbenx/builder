@@ -36,14 +36,17 @@ struct CullStack {
     std::vector<Plane> planes;
     bool visible(BoundingSphere bs) const {
         for (auto plane : planes) {
-            //VDUMP(plane.w);
             if (Vec3::dot(bs.position, plane.unitNormal) + plane.w >= bs.radius)
                 return false;
         }
         return true;
     }
-    void merge(const CullStack& other) {
-        planes.insert(planes.end(), other.planes.begin(), other.planes.end());
+    void set(const CullStack* baseStack, const Mat4x4& transform, const CullStack& append) {
+        clear();
+        if (baseStack)
+            planes = baseStack->planes;
+        for (auto plane : append.planes)
+            planes.push_back(plane.transform(transform));
     }
     void clear() { planes.clear(); }
 };
@@ -312,16 +315,30 @@ struct RT /* Rendering Tree */ {
         RT::PortalNode* sourceStack = nullptr;
         NodeSequence<SG>::FirstIs<SG::PortalNode> input;
         RT::PortalNode* output;
+        bool update() {
+            output->stack.set(sourceStack ? &sourceStack->stack : nullptr, worldTransform->transform, input.first()->planes);
+            return true;
+        }
     };
     struct TransformItem {
         RT::TransformNode* sourceTransform = nullptr;
         SG::TransformNode* input = nullptr;
         RT::TransformNode* output = nullptr;
+        void update() {
+            output->transform = sourceTransform->transform * input->transform;
+        }
     };
     struct BoundingItem {
         RT::TransformNode* worldTransform = nullptr;
         NodeSequence<SG>::FirstIs<SG::BoundingNode> input;
         RT::BoundingNode* output = nullptr;
+        bool update(const CullStack& stack) {
+            auto bound = input.first()->bound;
+            Vec3 pos = (worldTransform->transform * Vec4(bound.position, 1.0)).xyz;
+            bool wasVisible = output->visible;
+            output->visible = stack.visible({ pos, bound.radius });
+            return wasVisible;
+        }
     };
     struct ObjectItem {
         RT::TransformNode* worldTransform = nullptr;
@@ -332,7 +349,6 @@ struct RT /* Rendering Tree */ {
     struct PortalNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Portal;
         CullStack stack;
-        bool culled = false;
         std::vector<BoundingItem> boundingItems;
     };
     struct TransformNode {
@@ -342,12 +358,10 @@ struct RT /* Rendering Tree */ {
     };
     struct BoundingNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Bounding;
-
-        bool culled = false;
+        bool visible = false;
     };
     struct ObjectNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Object;
-
         bool b = false;
     };
     struct CompoundNode {
@@ -445,15 +459,18 @@ struct RTCreator : Visitor<SG, RTCreator> {
     void visitPortalNode(NodeSequence<SG>::FirstIs<SG::PortalNode> sgSeq) {
         auto* sgNode = sgSeq.first();
         auto* rtNode = constructNode<RT::PortalNode>({});
-        rtUpdates->portalItems.push_back({ worldTransform, portalStack, sgSeq, rtNode });
+        RT::PortalItem item { worldTransform, portalStack, sgSeq, rtNode };
+        item.update();
+        rtUpdates->portalItems.push_back(item);
         portalStack = rtNode;
         dispatchVisit(sgSeq.subSequence());
     }
     void visitTransformNode(NodeSequence<SG>::FirstIs<SG::TransformNode> sgSeq) {
         auto* sgNode = sgSeq.first();
         auto* rtNode = constructNode<RT::TransformNode>({});
-        rtNode->transform = worldTransform->transform * sgNode->transform;
-        rtUpdates->transformItems.push_back({ worldTransform, sgNode, rtNode });
+        RT::TransformItem item { worldTransform, sgNode, rtNode };
+        item.update();
+        rtUpdates->transformItems.push_back(item);
         worldTransform = rtNode;
         dispatchVisit(sgSeq.subSequence());
         if (backPropagateCameraTransform)
@@ -461,8 +478,11 @@ struct RTCreator : Visitor<SG, RTCreator> {
     }
     void visitBoundingNode(NodeSequence<SG>::FirstIs<SG::BoundingNode> sgSeq) {
         auto* rtNode = constructNode<RT::BoundingNode>({});
-        portalStack->boundingItems.push_back({ worldTransform, sgSeq, rtNode });
-        dispatchVisit(sgSeq.subSequence());
+        RT::BoundingItem item { worldTransform, sgSeq, rtNode };
+        item.update(portalStack->stack);
+        portalStack->boundingItems.push_back(item);
+        if (item.output->visible)
+            dispatchVisit(sgSeq.subSequence());
     }
     void visitObjectNode(NodeSequence<SG>::FirstIs<SG::ObjectNode> sgSeq) {
         auto* sgNode = sgSeq.first();
@@ -522,8 +542,12 @@ struct RTUpdateChecker {
         }
 
         VERIFY(render3d, sgNode->compoundSeqs.size() == rtNode->compoundSeqs.size());
-        for (int_t i = 0; i < sgNode->compoundSeqs.size(); i++)
-            checkCompoundSequence(sgNode->compoundSeqs[i], rtNode->compoundSeqs[i]);
+        for (int_t i = 0; i < sgNode->compoundSeqs.size(); i++) {
+            if (rtNode->compoundSeqs[i].size() == rtNode->compoundSeqs[i].size())
+                checkCompoundSequence(sgNode->compoundSeqs[i], rtNode->compoundSeqs[i]);
+            else
+                log("skipped!");
+        }
     }
 };
 
@@ -534,21 +558,19 @@ inline void render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 proje
     }
     Mat4x4 viewProjectionMatrix = projection * viewMatrix;
     rtUpdates->rootTransform.transform = Mat4x4::invert(viewMatrix);
-    for (RT::TransformItem item : rtUpdates->transformItems) {
-        item.output->transform = item.sourceTransform->transform * item.input->transform;
-    }
+    for (RT::TransformItem item : rtUpdates->transformItems)
+        item.update();
     for (RT::PortalItem item : rtUpdates->portalItems) {
-        item.output->stack.clear();
-        if (item.sourceStack)
-            item.output->stack = item.sourceStack->stack;
-        for (auto plane : item.input.first()->planes.planes) {
-            item.output->stack.planes.push_back(plane.transform(item.worldTransform->transform));
-        }
+        item.update();
         for (RT::BoundingItem bItem : item.output->boundingItems) {
-            auto bound = bItem.input.first()->bound;
-            Vec3 pos = (bItem.worldTransform->transform * Vec4(bound.position, 1.0)).xyz;
-            bool b = item.output->stack.visible({ pos, bound.radius });
-            VDUMP(b);
+            bool wasVisible = bItem.update(item.output->stack);
+            bool visible = bItem.output->visible;
+            if (wasVisible && !visible) {
+                log("gone");
+            }
+            if (visible && !wasVisible) {
+                log("appear");
+            }
         }
     }
     for (RT::ObjectItem item : rtUpdates->objectItems) {

@@ -34,7 +34,7 @@ public:
         };
     }
     Vec4& operator*=(const Mat4x4& right);
-    void debug() { log<Tag::Math>("Vec4({} ,{} ,{} ,{})", x, y, z, w); }
+    void debug() { log<Tag::Math>("Vec4({}, {}, {}, {})", x, y, z, w); }
 };
 
 inline Vec4 operator*(Vec4 left, const Mat4x4& right) {

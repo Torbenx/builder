@@ -33,11 +33,11 @@
 
 #define ALIGN_AS(al) __attribute__((aligned(al)))
 
-#define DEFINE_SECTION(type, name)                 \
-    extern type __start_##name;                    \
-    extern type __stop_##name;                     \
-    inline type* __begin_##name = &__start_##name; \
-    inline type* __end_##name = &__stop_##name;
+#define DEFINE_SECTION(type, name)                    \
+    extern type __start_##name;                       \
+    extern type __stop_##name;                        \
+    constexpr type* __begin_##name = &__start_##name; \
+    constexpr type* __end_##name = &__stop_##name;
 
 #define IN_SECTION(name) __attribute__((section(#name)))
 
@@ -56,14 +56,14 @@
 #define IN_SECTION(name) IN_SECTION_P(name, m)
 
 // clang-format off
-#define DEFINE_SECTION(type, name)                     \
-    __pragma(section(SECTION_POSTFIX(name, a)))       \
-    __pragma(section(SECTION_POSTFIX(name, m)))       \
-    __pragma(section(SECTION_POSTFIX(name, z)))       \
-    inline type IN_SECTION_P(name, a) __start_##name;  \
-    inline type IN_SECTION_P(name, z) __stop_##name;   \
-    inline type* __begin_##name = &__start_##name + 1; \
-    inline type* __end_##name = &__stop_##name;
+#define DEFINE_SECTION(type, name)                               \
+    __pragma(section(SECTION_POSTFIX(name, a)))                  \
+    __pragma(section(SECTION_POSTFIX(name, m)))                  \
+    __pragma(section(SECTION_POSTFIX(name, z)))                  \
+    inline type IN_SECTION_P(name, a) __before_begin_##name;     \
+    inline type IN_SECTION_P(name, z) __after_end_##name;        \
+    constexpr type* __begin_##name = &__before_begin_##name + 1; \
+    constexpr type* __end_##name = &__after_end_##name;
 // clang-format on
 
 #else
@@ -75,8 +75,8 @@
 #define DEFINE_LINK_COUNTER(name) DEFINE_SECTION(char, name)
 #define LINK_COUNTER_IMPL(name)                                   \
     static inline char IN_SECTION(name) __link_counter_dummy = 0; \
-    static inline int_t link_counter() { return &__link_counter_dummy - &__start_##name; }
-#define LINK_COUNTER_MAX(name) (&__stop_##name - &__start_##name)
+    static inline int_t link_counter() { return &__link_counter_dummy - __begin_##name; }
+#define LINK_COUNTER_MAX(name) (__end_##name - __begin_##name)
 
 namespace platform {
 

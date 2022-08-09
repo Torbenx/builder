@@ -670,20 +670,23 @@ void TestRenderer<G>::drawFrame() {
     textComp.draw(Framebuffer::DEFAULT, &allocator);
 
     /*ConvexPolygon screen = ConvexPolygon::fromOrderedVertices({ { 1.0f, 1.0f }, { -1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f, -1.0f } });
-    std::array<Vec3, 4> worldVerts = { Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, -10), Vec3(10, -2, 10) };
-    std::array<Vec2, 4> screenVerts;
+    std::array<Vec3, 4> worldVerts = { Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, 10), Vec3(10, -2, -10) };
+    Vec3 prevViewSpace = (view * Vec4(worldVerts.back(), 1.0f)).xyz;
     for (int_t i = 0; i < 4; i++) {
         //const_cast<Vec3&>(worldVerts[i]).debug();
-        Vec4 v = projection * (view * Vec4(worldVerts[i], 1.0f));
-        //v.debug();
-        screenVerts[i] = v.xy / v.w;
-        //screenVerts[i].debug();
+        Vec3 viewSpace = (view * Vec4(worldVerts[i], 1.0f)).xyz;
+        Vec3 normal = Vec3::normalize(Vec3::cross(viewSpace, prevViewSpace));
+        //normal.debug();
+        float w = -Vec3::dot(normal, viewSpace);
+        Vec4 plane = Vec4(normal, w) * Mat4x4::invert(projection);
+        //plane.debug();
+        Vec4 screenSpace = projection * Vec4(viewSpace, 1.0f);
+        //log("check: {}", Vec2::dot(plane.xy, screenSpace.xy / screenSpace.w) + plane.w);
+        screen.extendBy({ plane.xy, plane.w });
+
+        prevViewSpace = viewSpace;
     }
-    std::sort(screenVerts.begin(), screenVerts.end(), ConvexPolygon::compareAngles);
-    ConvexPolygon portal = ConvexPolygon::fromOrderedVertices(screenVerts);
-    //portal.planes.erase(portal.planes.begin());
-    ConvexPolygon result = ConvexPolygon::intersection(screen, portal);
-    VDUMP(result.planes.size());*/
+    VDUMP(screen.vertices.size());*/
 }
 
 template<Gapi G>

@@ -1,45 +1,8 @@
 #pragma once
 
 struct ConvexPolygon {
-    struct Plane {
-        Vec2 normal;
-        float w;
-        void debug() const {
-            Vec3 { normal, w }.debug();
-        }
-    };
-    std::vector<Plane> planes;
+    std::vector<Vec2> vertices;
 
-    static Vec2 intersection(Plane p1, Plane p2) {
-        float d = 1.0f / (p1.normal.x * p2.normal.y - p1.normal.y * p2.normal.x);
-        return Vec2 { (p1.normal.y * p2.w - p2.normal.y * p1.w) * d, -(p1.normal.x * p2.w - p2.normal.x * p1.w) * d };
-    }
-    static bool checkIntersectionOrder(Plane on, Plane left, Plane check, Plane right) {
-        if (1.0f - Vec2::dot(on.normal, left.normal) < 0.001f)
-            return true;
-        if (1.0f - Vec2::dot(on.normal, right.normal) < 0.001f)
-            return true;
-        if (Vec2::dot(on.normal, left.normal) + 1.0f < 0.001f)
-            return true;
-        if (Vec2::dot(on.normal, right.normal) + 1.0f < 0.001f)
-            return true;
-        Vec2 edge = Vec2::findOrthogonal(on.normal);
-        float l = Vec2::dot(edge, intersection(on, left));
-        float c = Vec2::dot(edge, intersection(on, check));
-        float r = Vec2::dot(edge, intersection(on, right));
-        // l -> c -> r => true
-        // r -> l -> c => true
-        // c -> r -> l => true
-        // l -> r -> c => false
-        // c -> l -> r => false
-        // r -> c -> l => false
-        int_t count = (l < c) + (c < r) + (r < l);
-        log("{{{}, {}}} -> {{{}, {}}} -> {{{}, {}}}", intersection(on, left).x, intersection(on, left).y, intersection(on, check).x, intersection(on, check).y, intersection(on, right).x, intersection(on, right).y);
-        log("{} -> {} -> {}", l, c, r);
-        VERIFY(Math, count == 2 || count == 1);
-        return count == 2;
-    }
-    static float negateIf(float f, bool b) { return b ? f : -f; }
     static bool compareAngles(Vec2 l, Vec2 r) {
         bool lPositive = l.y >= 0.0f;
         bool rPositive = r.y >= 0.0f;
@@ -54,81 +17,101 @@ struct ConvexPolygon {
         float rx = negateIf(r.x, lPositive);
         return lx < rx;
     }
-    static bool compareNormalAngles(const Plane& l, const Plane& r) {
-        return compareAngles(l.normal, r.normal);
-    }
+    static float negateIf(float f, bool b) { return b ? f : -f; }
 
+    // https://tildesites.bowdoin.edu/~ltoma/teaching/cs3250-CompGeom/spring17/Lectures/cg-convexintersection.pdf
+    // https://www.cs.jhu.edu/~misha/Spring16/ORourke82.pdf
     static ConvexPolygon intersection(const ConvexPolygon& poly1, const ConvexPolygon& poly2) {
+        log("----------------------");
         if (poly1.empty() || poly2.empty())
             return {};
 
-        ConvexPolygon result;
-        result.planes.reserve(poly1.planes.size() + poly2.planes.size());
-        result.planes = poly1.planes;
-        auto removePlains = [&]() -> bool {
-            for (int_t i = 0; i < result.planes.size() && result.planes.size() >= 4; i++) {
-                auto plane = [&](int_t rel) -> Plane { return result.planes[(i + rel + result.planes.size()) % result.planes.size()]; };
-                bool b1 = checkIntersectionOrder(plane(+1), plane(-1), plane(0), plane(+2));
-                bool b2 = checkIntersectionOrder(plane(-1), plane(-2), plane(0), plane(+1));
-                if (!b1 || !b2) {
-                    log("removing");
-                    plane(0).debug();
-                    result.planes.erase(result.planes.begin() + i);
-                    i -= 1;
+        int_t i1 = 0, i2 = 0;
+        for (int_t counter = 0; counter < 2 * (poly1.size() + poly2.size()); counter++) {
+            Vec2 v1 = poly1[i1];
+            Vec2 v2 = poly2[i2];
+            Vec2 e1 = v1 - poly1[i1 - 1];
+            Vec2 e2 = v2 - poly2[i2 - 1];
+
+            Vec2 deltaV = v2 - v1;
+            Vec2 n1 = Vec2::rotateNegative(e1); // rotates 90 degress clockwise
+            Vec2 n2 = Vec2::rotateNegative(e2);
+            float factor = 1.0f / Vec2::dot(e1, n2);
+            float t1 = factor * Vec2::dot(n2, deltaV);
+            float t2 = factor * Vec2::dot(n1, deltaV);
+            // log("({}, {}) -> ({}, {})", e1.x, e1.y, v1.x, v1.y);
+            // log("({}, {}) -> ({}, {})", e2.x, e2.y, v2.x, v2.y);
+            if (t1 >= -1.0f && t1 <= 0.0f && t2 >= -1.0f && t2 <= 0.0f) {
+                log("intersection {}, {}", t1, t2);
+                (v1 + e1 * t1).debug();
+                break;
+            } else {
+                bool s1 = std::signbit(t1);
+                if (s1 != std::signbit(t2)) {
+                    i1 += s1 ? 1 : 0;
+                    i2 += s1 ? 0 : 1;
+                } else {
+                    bool outside = Vec2::dot(n1, deltaV) > 0.0f;
+                    i1 += outside ? 0 : 1;
+                    i2 += outside ? 1 : 0;
                 }
             }
-
-            if (result.planes.size() > 3)
-                return true;
-
-            // triangle base case
-            EXPECT(Math, result.planes.size(), (size_t)3);
-            Vec2 v0 = intersection(result.planes[2], result.planes[0]);
-            Vec2 v1 = intersection(result.planes[0], result.planes[1]);
-            Vec2 v2 = intersection(result.planes[1], result.planes[2]);
-            int_t count = compareAngles(v0, v1) + compareAngles(v1, v2) + compareAngles(v2, v0);
-            if (count == 2)
-                return true;
-            EXPECT(Math, count, (int_t)1);
-            return false;
-        };
-        for (auto plane : poly2.planes) {
-            log("----------------");
-            result.planes.push_back(plane);
-            std::sort(result.planes.begin(), result.planes.end(), compareNormalAngles);
-            if (!removePlains())
-                return {};
-            for (auto p : result.planes)
-                p.debug();
         }
+        return {};
+    }
 
-        return result;
+    int_t size() const { return vertices.size(); }
+
+    struct Plane {
+        Vec2 normal;
+        float w;
+        bool check(Vec2 pos) const {
+            return Vec2::dot(pos, normal) + w > 0.0f;
+        }
+        Vec2 intersection(Vec2 v1, Vec2 v2) const {
+            float t = (Vec2::dot(v2, normal) + w) / Vec2::dot(normal, v2 - v1);
+            VERIFY(Math, t >= 0.0f && t <= 1.0f);
+            return t * v1 + (1.0f - t) * v2;
+        }
+    };
+    void extendBy(Plane plane) {
+        std::vector<Vec2> newVerts;
+        newVerts.reserve(vertices.size() + 1);
+        Vec2 prev = vertices.back();
+        for (Vec2 cur : vertices) {
+            if (plane.check(cur) != plane.check(prev))
+                newVerts.push_back(plane.intersection(prev, cur));
+            if (plane.check(cur))
+                newVerts.push_back(cur);
+            prev = cur;
+        }
+        vertices = newVerts;
     }
 
     static ConvexPolygon fromOrderedVertices(ArrayView<const Vec2> vertices) {
         ConvexPolygon result;
-        result.planes.reserve(vertices.size());
-        auto makePlane = [&](Vec2 v1, Vec2 v2) -> Plane {
-            Vec2 normal = Vec2::findOrthogonal(v2 - v1); // rotates 90 degress clockwise
-            float w = -Vec2::dot(v1, normal);
-            return { normal, w };
-        };
-        Plane p0 = makePlane(vertices[vertices.size() - 1], vertices[0]);
-        if (p0.normal.y >= 0.0f)
-            result.planes.push_back(p0);
-        for (int_t i = 1; i < vertices.size(); i++)
-            result.planes.push_back(makePlane(vertices[i - 1], vertices[i]));
-        if (result.planes.size() != vertices.size())
-            result.planes.push_back(p0);
-
-        std::sort(result.planes.begin(), result.planes.end(), compareNormalAngles);
+        result.vertices.insert(result.vertices.end(), vertices.begin(), vertices.end());
+        return result;
+    }
+    static ConvexPolygon fromUnorderedVertices(ArrayView<const Vec2> vertices) {
+        ConvexPolygon result;
+        result.vertices.insert(result.vertices.end(), vertices.begin(), vertices.end());
+        Vec2 avg { 0.0f, 0.0f };
+        for (Vec2 v : vertices)
+            avg += v;
+        avg /= vertices.size();
+        for (Vec2& v : result.vertices)
+            v -= avg;
+        std::sort(result.vertices.begin(), result.vertices.end(), compareAngles);
+        for (Vec2& v : result.vertices)
+            v += avg;
         return result;
     }
 
-    bool empty() const { return planes.empty(); }
-    void computeVertices(Vec2* out) const {
-        out[0] = intersection(planes[planes.size() - 1], planes[0]);
-        for (int_t i = 1; i < planes.size(); i++)
-            out[i] = intersection(planes[i - 1], planes[i]);
+    bool empty() const { return vertices.empty(); }
+
+private:
+    Vec2 operator[](int_t i) const {
+        return vertices[(size() + i) % size()];
     }
 };
