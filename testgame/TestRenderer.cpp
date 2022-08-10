@@ -275,26 +275,26 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::ObjectNode>(o4).object = &f4;
     stx::get<SG::ObjectNode>(o5).effects = effects5;
     stx::get<SG::ObjectNode>(o5).object = &f5;
-    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o1);
-    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o2);
-    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o4);
-    stx::get<SG::CompoundNode>(unreflectedItems).addObjectSequence(o5);
-    stx::get<SG::CompoundNode>(reflectedItems).addObjectSequence(o3);
+    stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o1);
+    stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o2);
+    stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o4);
+    stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o5);
+    stx::get<SG::CompoundNode>(reflectedItems).addSubSequence(o3);
 
     stx::get<SG::TransformNode>(reflectionSeq).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
-    stx::get<SG::CompoundNode>(reflectionSeq).addCompoundSequence(unreflectedItems);
+    stx::get<SG::CompoundNode>(reflectionSeq).addSubSequence(unreflectedItems);
 
     stx::get<SG::TransformNode>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
-    stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(unreflectedItems);
-    stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectedItems);
+    stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(unreflectedItems);
+    stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectedItems);
     //stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
 
     render3d::RT::TransformNode idTransform;
     idTransform.transform = Mat4x4::Id;
     RTCreator creator { {}, &rtUpdates.rootTransform, nullptr, &rtUpdates };
-    auto rtSeq = creator.construct(cameraSeq);
+    rtSequence = creator.construct(cameraSeq);
     RTDumper dumper;
-    dumper.dump(rtSeq);
+    dumper.dump(rtSequence);
 
     // lightChildren = std::make_unique<SG::CompoundNode>();
     // lightChildren->addChild(unreflectedItems.get());
@@ -582,6 +582,8 @@ void TestRenderer<G>::drawFrame() {
 
         lsecond = now;
         frameCounter = 0;
+
+        VDUMP(rtUpdates.objectItems.size());
     }
     frameCounter++;
 

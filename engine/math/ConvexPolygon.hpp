@@ -19,47 +19,6 @@ struct ConvexPolygon {
     }
     static float negateIf(float f, bool b) { return b ? f : -f; }
 
-    // https://tildesites.bowdoin.edu/~ltoma/teaching/cs3250-CompGeom/spring17/Lectures/cg-convexintersection.pdf
-    // https://www.cs.jhu.edu/~misha/Spring16/ORourke82.pdf
-    static ConvexPolygon intersection(const ConvexPolygon& poly1, const ConvexPolygon& poly2) {
-        log("----------------------");
-        if (poly1.empty() || poly2.empty())
-            return {};
-
-        int_t i1 = 0, i2 = 0;
-        for (int_t counter = 0; counter < 2 * (poly1.size() + poly2.size()); counter++) {
-            Vec2 v1 = poly1[i1];
-            Vec2 v2 = poly2[i2];
-            Vec2 e1 = v1 - poly1[i1 - 1];
-            Vec2 e2 = v2 - poly2[i2 - 1];
-
-            Vec2 deltaV = v2 - v1;
-            Vec2 n1 = Vec2::rotateNegative(e1); // rotates 90 degress clockwise
-            Vec2 n2 = Vec2::rotateNegative(e2);
-            float factor = 1.0f / Vec2::dot(e1, n2);
-            float t1 = factor * Vec2::dot(n2, deltaV);
-            float t2 = factor * Vec2::dot(n1, deltaV);
-            // log("({}, {}) -> ({}, {})", e1.x, e1.y, v1.x, v1.y);
-            // log("({}, {}) -> ({}, {})", e2.x, e2.y, v2.x, v2.y);
-            if (t1 >= -1.0f && t1 <= 0.0f && t2 >= -1.0f && t2 <= 0.0f) {
-                log("intersection {}, {}", t1, t2);
-                (v1 + e1 * t1).debug();
-                break;
-            } else {
-                bool s1 = std::signbit(t1);
-                if (s1 != std::signbit(t2)) {
-                    i1 += s1 ? 1 : 0;
-                    i2 += s1 ? 0 : 1;
-                } else {
-                    bool outside = Vec2::dot(n1, deltaV) > 0.0f;
-                    i1 += outside ? 0 : 1;
-                    i2 += outside ? 1 : 0;
-                }
-            }
-        }
-        return {};
-    }
-
     int_t size() const { return vertices.size(); }
 
     struct Plane {

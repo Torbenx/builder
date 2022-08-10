@@ -84,6 +84,7 @@ public:
 
     using SG = render3d::SG;
     render3d::RT::CoalescedUpdates rtUpdates;
+    render3d::NodeSequence<render3d::RT> rtSequence;
     render3d::StaticNodeSequence<SG::BoundingNode, SG::ObjectNode> o1;
     render3d::StaticNodeSequence<SG::ObjectNode> o2, o3, o4, o5;
     render3d::StaticNodeSequence<SG::CompoundNode> reflectedItems, unreflectedItems;
