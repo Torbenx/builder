@@ -92,6 +92,7 @@ add_library(engine ${linkage}
     "containers/RangeAllocator.cpp"
     "graphics/GAllocator.cpp"
     "ui/renderer/ComputeShader.cpp"
+    "graphics/render3d/renderer.cpp"
     ${platform_source}
     ${vulkan_source}
 )

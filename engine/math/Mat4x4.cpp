@@ -87,7 +87,7 @@ Mat4x4 Mat4x4::rotate(float radians, Vec3 axis){
     Vec3 v = axis;
 
     m[ 0] = v.x * v.x * nc +       c;
-    m[ 1] = v.y * v.x * nc + v.y * s;
+    m[ 1] = v.y * v.x * nc + v.z * s;
     m[ 2] = v.z * v.x * nc - v.y * s;
     m[ 3] = 0.0f;
 

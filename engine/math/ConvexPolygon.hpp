@@ -1,5 +1,9 @@
 #pragma once
 
+#include "geometry.hpp"
+
+namespace newmath {
+
 struct ConvexPolygon {
     std::vector<Vec2> vertices;
 
@@ -19,28 +23,23 @@ struct ConvexPolygon {
     }
     static float negateIf(float f, bool b) { return b ? f : -f; }
 
-    int_t size() const { return vertices.size(); }
+    int_t vertexCount() const { return vertices.size(); }
+    int_t edgeCount() const { return vertexCount() - 1; }
+    bool empty() const { return vertices.empty(); }
 
-    struct Plane {
-        Vec2 normal;
-        float w;
-        bool check(Vec2 pos) const {
-            return Vec2::dot(pos, normal) + w > 0.0f;
-        }
-        Vec2 intersection(Vec2 v1, Vec2 v2) const {
-            float t = (Vec2::dot(v2, normal) + w) / Vec2::dot(normal, v2 - v1);
-            VERIFY(Math, t >= 0.0f && t <= 1.0f);
-            return t * v1 + (1.0f - t) * v2;
-        }
-    };
-    void extendBy(Plane plane) {
+    Vec2 intersection(Surface2 plane, Vec2 v1, Vec2 v2) {
+        float t = (plane * v2) / (plane.normal * (v2 - v1));
+        VERIFY(Math, t >= 0.0f && t <= 1.0f);
+        return t * v1 + (1.0f - t) * v2;
+    }
+    void extendBy(Surface2 plane) {
         std::vector<Vec2> newVerts;
         newVerts.reserve(vertices.size() + 1);
         Vec2 prev = vertices.back();
         for (Vec2 cur : vertices) {
-            if (plane.check(cur) != plane.check(prev))
-                newVerts.push_back(plane.intersection(prev, cur));
-            if (plane.check(cur))
+            if ((plane * cur >= 0) != (plane * prev >= 0))
+                newVerts.push_back(intersection(plane, prev, cur));
+            if (plane * cur >= 0)
                 newVerts.push_back(cur);
             prev = cur;
         }
@@ -66,11 +65,6 @@ struct ConvexPolygon {
             v += avg;
         return result;
     }
-
-    bool empty() const { return vertices.empty(); }
-
-private:
-    Vec2 operator[](int_t i) const {
-        return vertices[(size() + i) % size()];
-    }
 };
+
+}

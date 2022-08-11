@@ -21,7 +21,7 @@
 #include <util/text.hpp>
 #include <ui/renderer/Renderer.hpp>
 
-#include <graphics/render3d/render3d.hpp>
+#include <graphics/render3d/renderer.hpp>
 
 template<Gapi G>
 class TestRenderer : public Renderer<G> {
@@ -83,8 +83,8 @@ public:
     Resource<Texture> uiTexture;
 
     using SG = render3d::SG;
-    render3d::RT::CoalescedUpdates rtUpdates;
-    render3d::NodeSequence<render3d::RT> rtSequence;
+    render3d::Renderer renderer;
+    render3d::Renderpass* renderpass3d;
     render3d::StaticNodeSequence<SG::BoundingNode, SG::ObjectNode> o1;
     render3d::StaticNodeSequence<SG::ObjectNode> o2, o3, o4, o5;
     render3d::StaticNodeSequence<SG::CompoundNode> reflectedItems, unreflectedItems;

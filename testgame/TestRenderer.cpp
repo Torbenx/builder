@@ -5,6 +5,7 @@
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
+#include <math/geometry.hpp>
 #include <numeric>
 #include <random>
 #include <resource/JpegDecoder.hpp>
@@ -42,6 +43,19 @@ TestRenderer<G>::TestRenderer()
     runShadergenTest();
 
     log("=========================================");
+
+    []() {
+        using namespace newmath;
+        auto m = translate({ 2.0f, 1.0f, 0.0f }) * reflectAbout({ { 0.0f, 0.0f, 1.0f }, -2.0f }) * rotateAbout({ 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 0.3f);
+        auto id = inverse(m) * m;
+        auto v = newmath::Vec3 { 1.0f, 2.0f, 3.0f };
+        v = inverse(m)(m(v));
+        log("\n{} {} {} {}\n{} {} {} {}\n{} {} {} {}\n",
+            id.rotation.matrix[0], id.rotation.matrix[3], id.rotation.matrix[6], id.translation.x,
+            id.rotation.matrix[1], id.rotation.matrix[4], id.rotation.matrix[7], id.translation.y,
+            id.rotation.matrix[2], id.rotation.matrix[5], id.rotation.matrix[8], id.translation.z);
+        log("{} {} {}", v.x, v.y, v.z);
+    }();
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));
@@ -266,7 +280,7 @@ TestRenderer<G>::TestRenderer()
 
     stx::get<SG::ObjectNode>(o1).effects = effects1;
     stx::get<SG::ObjectNode>(o1).object = &f1;
-    stx::get<SG::BoundingNode>(o1).bound = {{ 0.0f, 0.0f, 0.0f }, 2.0f * f1Scale };
+    stx::get<SG::BoundingNode>(o1).bound = { { 0.0f, 0.0f, 0.0f }, 2.0f * f1Scale };
     stx::get<SG::ObjectNode>(o2).effects = effects2;
     stx::get<SG::ObjectNode>(o2).object = &f2;
     stx::get<SG::ObjectNode>(o3).effects = effects3;
@@ -287,14 +301,9 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::TransformNode>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(unreflectedItems);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectedItems);
-    //stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
+    // stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
 
-    render3d::RT::TransformNode idTransform;
-    idTransform.transform = Mat4x4::Id;
-    RTCreator creator { {}, &rtUpdates.rootTransform, nullptr, &rtUpdates };
-    rtSequence = creator.construct(cameraSeq);
-    RTDumper dumper;
-    dumper.dump(rtSequence);
+    renderpass3d = renderer.createRenderpass(cameraSeq);
 
     // lightChildren = std::make_unique<SG::CompoundNode>();
     // lightChildren->addChild(unreflectedItems.get());
@@ -357,12 +366,22 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     float fovV = 67.0f * F_PI / 180.0f;
     projection = Mat4x4::frustumV(fovV, as, 0.1f, 100.0f);
 
-    using namespace render3d;
-    stx::get<SG::PortalNode>(cameraSeq).planes.planes.clear();
-    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
-    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, -std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
-    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });
-    stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ -std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });
+    {
+        float near = 0.1f;
+        float height = 2.0f * near * std::tan(fovV / 2.0f);
+        float width = height * as;
+        using namespace render3d;
+        stx::get<SG::PortalNode>(cameraSeq).points.clear();
+        stx::get<SG::PortalNode>(cameraSeq).points.push_back({ +width / 2.0f, -height / 2.0f, -near });
+        stx::get<SG::PortalNode>(cameraSeq).points.push_back({ +width / 2.0f, +height / 2.0f, -near });
+        stx::get<SG::PortalNode>(cameraSeq).points.push_back({ -width / 2.0f, +height / 2.0f, -near });
+        stx::get<SG::PortalNode>(cameraSeq).points.push_back({ -width / 2.0f, -height / 2.0f, -near });
+        /*stx::get<SG::PortalNode>(cameraSeq).planes.planes.clear();
+        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
+        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, -std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
+        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });
+        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ -std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });*/
+    }
 
     ScreenMetrics metrics;
     metrics.x.size = newWidth;
@@ -458,7 +477,7 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
     return;
 
-    //log("\n\n--------------------------------------");
+    // log("\n\n--------------------------------------");
     /*sparse::Inverse inv;
     {
         LogTimer timer;
@@ -490,8 +509,7 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
             solver.addResource(),
             solver.addResource(),
             solver.addResource(),
-            solver.addResource()
-        });
+            solver.addResource() });
     }
     /*uint32_t r0 = solver.addResource();
     uint32_t r1 = solver.addResource();
@@ -583,7 +601,7 @@ void TestRenderer<G>::drawFrame() {
         lsecond = now;
         frameCounter = 0;
 
-        VDUMP(rtUpdates.objectItems.size());
+        VDUMP(renderpass3d->objectItems.size());
     }
     frameCounter++;
 
@@ -649,7 +667,8 @@ void TestRenderer<G>::drawFrame() {
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
     stx::get<render3d::SG::TransformNode>(cameraSeq).transform = view;
-    render3d::render(&allocator, &Framebuffer::DEFAULT, projection, &rtUpdates);
+    renderer.update();
+    renderpass3d->render(&allocator, &Framebuffer::DEFAULT, projection);
 
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
@@ -671,7 +690,8 @@ void TestRenderer<G>::drawFrame() {
     textBackground.draw(Framebuffer::DEFAULT, &allocator);
     textComp.draw(Framebuffer::DEFAULT, &allocator);
 
-    /*ConvexPolygon screen = ConvexPolygon::fromOrderedVertices({ { 1.0f, 1.0f }, { -1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f, -1.0f } });
+    /*
+    ConvexPolygon screen = ConvexPolygon::fromOrderedVertices({ { 1.0f, 1.0f }, { -1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f, -1.0f } });
     std::array<Vec3, 4> worldVerts = { Vec3(-10, -2, -10), Vec3(-10, -2, 10), Vec3(10, -2, 10), Vec3(10, -2, -10) };
     Vec3 prevViewSpace = (view * Vec4(worldVerts.back(), 1.0f)).xyz;
     for (int_t i = 0; i < 4; i++) {

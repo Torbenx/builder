@@ -5,7 +5,10 @@
 #pragma once
 
 #define NTDDI_VERSION 0x0A000005
+#define NOMINMAX 1
 #include <Windows.h>
+#undef near
+#undef far
 //must include Windows.h first
 #include <D3D11.h>
 #include <GL/gl.h>
