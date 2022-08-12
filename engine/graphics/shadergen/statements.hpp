@@ -70,7 +70,7 @@ struct Type {
 };
 
 template<typename T>
-static constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
+constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
 
 // Statements
 // clang-format off
@@ -119,11 +119,11 @@ struct Stmt : ASTNode {
 };
 
 template<typename T>
-static constexpr T* castStmt(Stmt* stmt) {
+constexpr T* castStmt(Stmt* stmt) {
     return (T*)stmt;
 }
 template<typename T>
-static constexpr const T* castStmt(const Stmt* stmt) {
+constexpr const T* castStmt(const Stmt* stmt) {
     return (const T*)stmt;
 }
 
@@ -253,7 +253,7 @@ struct ParenExpr : Expr {
 };
 
 // Errors
-static constexpr Type ErrorType = Type(false, false, false, true);
+constexpr Type ErrorType = Type(false, false, false, true);
 struct ErrorNote : ASTNode {
     std::string_view message;
 };

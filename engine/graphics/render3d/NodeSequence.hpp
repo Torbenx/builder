@@ -191,18 +191,10 @@ struct NodeSequence {
     }
 
     template<typename T>
-    struct FirstIs : NodeSequence {
-        T* first() const { return reinterpret_cast<T*>(begin); }
-    };
-    template<typename T>
-    struct LastIs : NodeSequence {
-        T* last() const { return reinterpret_cast<T*>(begin + sizeInBytes - sizeOf<T>()); }
-    };
+    struct FirstIs;
 
     template<typename T>
-    FirstIs<T> firstIs() const { return { *this }; }
-    template<typename T>
-    LastIs<T> lastIs() const { return { *this }; }
+    FirstIs<T> firstIs() const;
 
     ~NodeSequence() {
         IMPORT_NODES(S)
@@ -216,6 +208,16 @@ struct NodeSequence {
 };
 
 template<typename S>
+template<typename T>
+struct NodeSequence<S>::FirstIs : NodeSequence<S> {
+    T* first() const { return reinterpret_cast<T*>(begin); }
+};
+
+template<typename S>
+template<typename T>
+typename NodeSequence<S>::template FirstIs<T> NodeSequence<S>::firstIs() const { return { *this }; }
+
+template<typename S>
 constexpr int_t NodeSequence<S>::sizeOf(NodeKind kind) {
     IMPORT_NODES(S)
     // must match the NodeKind enum
@@ -223,20 +225,10 @@ constexpr int_t NodeSequence<S>::sizeOf(NodeKind kind) {
     return byteSizes[(int_t)kind];
 }
 
-namespace detail {
-    template<typename... Types>
-    struct LastPackParameter;
-    template<typename T, typename... Types>
-    struct LastPackParameter<T, Types...> : LastPackParameter<Types...> { };
-    template<typename T>
-    struct LastPackParameter<T> {
-        using type = T;
-    };
-}
 template<typename... NodeTypes>
 struct StaticNodeSequence : stx::Tuple<NodeTypes...> {
     static constexpr NodeKindSequence kinds { { NodeTypes::NODE_KIND... } };
-    operator NodeSequence<SG>::LastIs<typename detail::LastPackParameter<NodeTypes...>::type>() {
+    operator NodeSequence<SG>() {
         return { (std::byte*)this, kinds, (uint32_t)sizeof(StaticNodeSequence) };
     }
 };

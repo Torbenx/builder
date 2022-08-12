@@ -17,7 +17,7 @@ struct UserType : Type {
     constexpr UserType(std::string_view name, ArrayView<const MemberInfo> members)
         : Type(true, false, false, false), name(name), members(members) { }
 };
-static constexpr const UserType* asUserType(const Type* type) {
+constexpr const UserType* asUserType(const Type* type) {
     VERIFY(ShaderGen, type->isUser);
     return static_cast<const UserType*>(type);
 }
@@ -42,7 +42,7 @@ struct FieldInfo {
 };
 
 // makeUserType
-static constexpr int_t getLeafFieldCount(const Type* type) {
+constexpr int_t getLeafFieldCount(const Type* type) {
     if (type->isVector) {
         return asVectorType(type)->vectorSize;
     } else if (type->isUser) {
@@ -79,18 +79,18 @@ struct UserTypeImpl : UserType {
         std::copy_n(other.memberInfos, N, memberInfos);
     }
 };
-static constexpr MemberInfo makeMemberInfo(FieldInfo info, StructLayoutHelper& layout, LeafFieldHelper& leafFields) {
+constexpr MemberInfo makeMemberInfo(FieldInfo info, StructLayoutHelper& layout, LeafFieldHelper& leafFields) {
     return { info.name, info.type, (int_t)layout.addField(info.alignment, info.size), leafFields.addField(info.type) };
 }
 template<typename T, int_t... I>
-static constexpr int_t makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, stx::int_sequence<I...>) {
+constexpr int_t makeUserType_helper(UserTypeImpl<sizeof...(I)>& out, stx::int_sequence<I...>) {
     StructLayoutHelper layout;
     LeafFieldHelper leafFields;
     ((out.memberInfos[I] = makeMemberInfo(T::template _gen_field_info_<I>, layout, leafFields)), ...);
     return leafFields.leafFieldCount;
 }
 template<typename T, int_t N>
-static constexpr UserTypeImpl<N> makeUserType() {
+constexpr UserTypeImpl<N> makeUserType() {
     UserTypeImpl<N> ret { T::_gen_struct_name_ };
     ret.leafFieldCount = makeUserType_helper<T>(ret, stx::make_int_sequence<N>());
     return ret;

@@ -36,19 +36,19 @@ struct ScalarType : VectorType {
         : VectorType(this, 1, isArithmetic, isLogical, true), name(name) { }
 };
 
-static constexpr const ScalarType* asScalarType(const Type* type) {
+constexpr const ScalarType* asScalarType(const Type* type) {
     VERIFY(ShaderGen, type->isScalar);
     return static_cast<const ScalarType*>(type);
 }
 
-static constexpr const VectorType* asVectorType(const Type* type) {
+constexpr const VectorType* asVectorType(const Type* type) {
     VERIFY(ShaderGen, type->isVector);
     return static_cast<const VectorType*>(type);
 }
 
-static constexpr ScalarType BoolType { "bool", false, true };
-static constexpr ScalarType IntType { "int", true, false };
-static constexpr ScalarType FloatType { "float", true, false };
+constexpr ScalarType BoolType { "bool", false, true };
+constexpr ScalarType IntType { "int", true, false };
+constexpr ScalarType FloatType { "float", true, false };
 
 template<>
 constexpr const Type* typeFromCXX<bool> = &BoolType;

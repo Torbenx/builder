@@ -5,7 +5,7 @@
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
-//#include <math/geometry.hpp>
+#include <math/geometry.hpp>
 #include <numeric>
 #include <random>
 #include <resource/JpegDecoder.hpp>

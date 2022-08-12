@@ -99,10 +99,10 @@ struct RT /* Rendering Tree */ {
     };
     struct alignas(8) Sentinel {
         std::atomic<NodeState> state = NodeState::Alive;
-        constexpr Sentinel() { }
-        constexpr Sentinel(const Sentinel& other)
+        Sentinel() { }
+        Sentinel(const Sentinel& other)
             : state(other.state.load(std::memory_order_relaxed)) { }
-        constexpr Sentinel(NodeState state)
+        Sentinel(NodeState state)
             : state(state) { }
     };
     struct PortalNode : Sentinel {

@@ -41,7 +41,7 @@ struct fmt::formatter<shadergen::Type> {
 
 namespace shadergen {
 
-static constexpr bool isExpr(const Stmt* stmt) {
+constexpr bool isExpr(const Stmt* stmt) {
 #define STMT_KIND(S)  \
     case StmtKind::S: \
         return std::is_base_of_v<Expr, S>;

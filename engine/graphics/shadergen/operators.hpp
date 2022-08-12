@@ -9,9 +9,9 @@ enum class UnaryOperator {
     NEGATE,
     NOT,
 };
-static constexpr bool isArithmeticOp(UnaryOperator op) { return op == UnaryOperator::NEGATE; }
-static constexpr bool isLogicalOp(UnaryOperator op) { return op == UnaryOperator::NOT; }
-static constexpr std::string_view toString(UnaryOperator op) {
+constexpr bool isArithmeticOp(UnaryOperator op) { return op == UnaryOperator::NEGATE; }
+constexpr bool isLogicalOp(UnaryOperator op) { return op == UnaryOperator::NOT; }
+constexpr std::string_view toString(UnaryOperator op) {
     switch (op) {
     case UnaryOperator::NEGATE:
         return "-";
@@ -49,17 +49,17 @@ enum class BinaryOperator {
     AND,
     OR,
 };
-static constexpr bool isArithmeticOp(BinaryOperator op) {
+constexpr bool isArithmeticOp(BinaryOperator op) {
     return op == BinaryOperator::PLUS
         || op == BinaryOperator::MINUS
         || op == BinaryOperator::MULTIPLY
         || op == BinaryOperator::DIVIDE;
 }
-static constexpr bool isLogicalOp(BinaryOperator op) {
+constexpr bool isLogicalOp(BinaryOperator op) {
     return op == BinaryOperator::AND
         || op == BinaryOperator::OR;
 }
-static constexpr bool isComparisonOp(BinaryOperator op) {
+constexpr bool isComparisonOp(BinaryOperator op) {
     return op == BinaryOperator::CMP_LE
         || op == BinaryOperator::CMP_L
         || op == BinaryOperator::CMP_EQ
@@ -67,7 +67,7 @@ static constexpr bool isComparisonOp(BinaryOperator op) {
         || op == BinaryOperator::CMP_G
         || op == BinaryOperator::CMP_NE;
 }
-static constexpr std::string_view toString(BinaryOperator op) {
+constexpr std::string_view toString(BinaryOperator op) {
     switch (op) {
     case BinaryOperator::PLUS:
         return "+";
@@ -97,7 +97,7 @@ static constexpr std::string_view toString(BinaryOperator op) {
         return "??";
     }
 }
-static constexpr int_t operatorPrecedence(BinaryOperator op) {
+constexpr int_t operatorPrecedence(BinaryOperator op) {
     switch (op) {
     case BinaryOperator::PLUS:
     case BinaryOperator::MINUS:
@@ -183,7 +183,7 @@ namespace code {
     constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator/(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::DIVIDE, right.wrappedExpr, left.wrappedExpr, false } }; }
 }
 
-static constexpr int_t resolveOperatorPrecedence(const Stmt* e) {
+constexpr int_t resolveOperatorPrecedence(const Stmt* e) {
     if (e->stmtKind == StmtKind::ElementwiseOperatorExpr)
         return operatorPrecedence(castStmt<ElementwiseOperatorExpr>(e)->op);
     if (e->stmtKind == StmtKind::VectorByScalarOperatorExpr)

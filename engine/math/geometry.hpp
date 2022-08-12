@@ -139,9 +139,7 @@ struct Vec3 {
             float y = 0.0f;
             float z = 0.0f;
         };
-        struct {
-            Vec2 xy;
-        };
+        Vec2 xy;
     };
     constexpr Vec3();
     constexpr Vec3(float, float, float);

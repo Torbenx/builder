@@ -287,45 +287,43 @@ struct EffectDescriptor {
     StageDescriptor vert;
     StageDescriptor frag;
 };
-namespace {
-    template<ConstVariableDescriptor... descriptors>
-    struct StaticVariableDescriptorArray {
-        static inline const VariableDescriptor array[] = { { descriptors.type, *descriptors.offsetInStruct }... };
-    };
-    template<auto oversized, int_t... I>
-    constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray_helper(stx::int_sequence<I...>) {
-        return StaticVariableDescriptorArray<oversized.data[I]...>::array;
-    }
-    template<auto oversized>
-    constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray() {
-        if constexpr (oversized.size == 0) // this is necessary because 0 sized arrays aren't allowed
-            return {};
-        else
-            return createVariableDescriptorArray_helper<oversized>(stx::make_int_sequence<oversized.size>());
-    }
-    template<auto oversized>
-    constexpr auto copyFromOversized() {
-        std::array<typename decltype(oversized)::value_type, oversized.size> array;
-        std::copy_n(oversized.data, oversized.size, array.data());
-        return array;
-    }
-    template<auto in>
-    constexpr const auto& makeStatic() {
-        return in;
-    }
-    template<auto oversized>
-    constexpr const auto& oversizedToArray() {
-        return makeStatic<copyFromOversized<oversized>()>();
-    }
-    template<auto oversized>
-    constexpr std::string_view createSource() {
-        const auto& array = oversizedToArray<oversized>();
-        return { array.data(), array.size() };
-    }
-    template<ConstStageDescriptor stage>
-    constexpr StageDescriptor createStageDescriptor() {
-        return { createVariableDescriptorArray<stage.uniforms>(), oversizedToArray<stage.ceUsages>(), createSource<stage.source>() };
-    }
+template<ConstVariableDescriptor... descriptors>
+struct StaticVariableDescriptorArray {
+    static inline const VariableDescriptor array[] = { { descriptors.type, *descriptors.offsetInStruct }... };
+};
+template<auto oversized, int_t... I>
+constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray_helper(stx::int_sequence<I...>) {
+    return StaticVariableDescriptorArray<oversized.data[I]...>::array;
+}
+template<auto oversized>
+constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray() {
+    if constexpr (oversized.size == 0) // this is necessary because 0 sized arrays aren't allowed
+        return {};
+    else
+        return createVariableDescriptorArray_helper<oversized>(stx::make_int_sequence<oversized.size>());
+}
+template<auto oversized>
+constexpr auto copyFromOversized() {
+    std::array<typename decltype(oversized)::value_type, oversized.size> array;
+    std::copy_n(oversized.data, oversized.size, array.data());
+    return array;
+}
+template<auto in>
+constexpr const auto& makeStatic() {
+    return in;
+}
+template<auto oversized>
+constexpr const auto& oversizedToArray() {
+    return makeStatic<copyFromOversized<oversized>()>();
+}
+template<auto oversized>
+constexpr std::string_view createSource() {
+    const auto& array = oversizedToArray<oversized>();
+    return { array.data(), array.size() };
+}
+template<ConstStageDescriptor stage>
+constexpr StageDescriptor createStageDescriptor() {
+    return { createVariableDescriptorArray<stage.uniforms>(), oversizedToArray<stage.ceUsages>(), createSource<stage.source>() };
 }
 template<typename E>
 constexpr EffectDescriptor createEffectDescriptor() {

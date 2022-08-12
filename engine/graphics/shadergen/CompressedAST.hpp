@@ -49,7 +49,7 @@ struct NodeResolver : ASTVisitor<NodeResolver> {
     }
 };
 
-static constexpr ResolvedNodes resolveNodes(const Stmt* root) {
+constexpr ResolvedNodes resolveNodes(const Stmt* root) {
     NodeResolver res;
     res.dispatchVisit(root);
     return res.nodes;
@@ -125,18 +125,18 @@ struct ASTHolder {
 };
 
 template<ResolvedNodes nodes, size_t... I>
-static constexpr auto createTuple3(const Stmt* root, std::index_sequence<I...>) {
+constexpr auto createTuple3(const Stmt* root, std::index_sequence<I...>) {
     return FilledTuple<storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(root);
 }
 
 template<typename Holder>
-static constexpr auto createTuple2() {
+constexpr auto createTuple2() {
     constexpr auto nodes = resolveNodes(Holder::ast.builder.currentBlock);
     return createTuple3<nodes>(Holder::ast.builder.currentBlock, std::make_index_sequence<nodes.nodeCount>());
 }
 
 template<auto callback>
-static constexpr auto createTuple() {
+constexpr auto createTuple() {
     constexpr auto nodes = resolveNodes(BuildDriver(callback).builder.currentBlock);
     return createTuple3<nodes>(BuildDriver(callback).builder.currentBlock, std::make_index_sequence<nodes.nodeCount>());
 }
