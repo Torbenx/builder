@@ -110,15 +110,10 @@ namespace {
     };
 }
 
-Renderpass::Renderpass()
-    : rootTransform(new RT::TransformNode { {}, Mat4x4::Id }) { }
-
-Renderpass* Renderer::createRenderpass(NodeSequence<SG> sgRoot) {
-    Renderpass* renderpass = &renderpasses.emplace_back();
-    renderpass->sgRoot = sgRoot;
-    RTCreator creator { {}, renderpass->rootTransform.get(), nullptr, renderpass };
-    renderpass->rtRoot = creator.construct(sgRoot);
-    return renderpass;
+Renderpass::Renderpass(NodeSequence<SG> sgRoot)
+    : sgRoot(sgRoot), rootTransform(new RT::TransformNode { {}, Mat4x4::Id }) {
+    RTCreator creator { {}, rootTransform.get(), nullptr, this };
+    rtRoot = creator.construct(sgRoot);
 }
 
 void Renderpass::render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection) {
@@ -151,7 +146,6 @@ void Renderpass::render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 
             }
         }
     }
-
 
     for (int_t itemOffset = 0; itemOffset < (int_t)objectItems.size(); itemOffset++) {
         auto item = objectItems[itemOffset];

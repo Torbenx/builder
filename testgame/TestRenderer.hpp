@@ -83,7 +83,6 @@ public:
     Resource<Texture> uiTexture;
 
     using SG = render3d::SG;
-    render3d::Renderer renderer;
     render3d::Renderpass* renderpass3d;
     render3d::StaticNodeSequence<SG::BoundingNode, SG::ObjectNode> o1;
     render3d::StaticNodeSequence<SG::ObjectNode> o2, o3, o4, o5;

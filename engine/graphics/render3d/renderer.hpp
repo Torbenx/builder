@@ -14,13 +14,8 @@ struct Renderpass {
     std::vector<RT::PortalItem> portalItems;
     std::vector<RT::ObjectItem> objectItems;
     Vec3 worldEye;
-    Renderpass();
+    Renderpass(NodeSequence<SG> sgRoot);
     void render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection);
-};
-
-struct Renderer {
-    std::vector<Renderpass> renderpasses;
-    Renderpass* createRenderpass(NodeSequence<SG> sgRoot);
 };
 
 }

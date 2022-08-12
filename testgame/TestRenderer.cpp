@@ -123,12 +123,12 @@ TestRenderer<G>::TestRenderer()
     reflectionDepthBuffer = Texture::depth(2048, 2048, Texture::DepthBits::D16);
     reflectionTexture = Texture::color(2048, 2048, Texture::Format::RGBA8888);
     reflectionFB.bind();
+    reflectionFB.viewport(2048, 2048);
+    reflectionFB.clearColor(0, 0, 0, 1);
     reflectionFB.attach(reflectionDepthBuffer);
     reflectionFB.attach(reflectionTexture);
-    reflectionFB.viewport(2048, 2048);
     reflection.fragmentUniform.staticUpdate(&allocator).factor = 0.7f;
     reflection.texture = *reflectionTexture;
-    reflectionFB.clearColor(0, 0, 0, 1);
 
     col1.fragmentUniform.staticUpdate(&allocator).color = Vec3(1, 0, 0) * 0.5f;
     col2.fragmentUniform.staticUpdate(&allocator).color = Vec3(0, 1, 0) * 0.5f;
@@ -157,33 +157,33 @@ TestRenderer<G>::TestRenderer()
     std::vector<Effect::Handle> effects1 {
         col1.handle(),
         ambientLight.handle(),
-        spotLight.handle(),
-        pointLight.handle(),
+        //spotLight.handle(),
+        //pointLight.handle(),
     };
     std::vector<Effect::Handle> effects2 {
         col2.handle(),
         ambientLight.handle(),
-        spotLight.handle(),
-        pointLight.handle(),
+        //spotLight.handle(),
+        //pointLight.handle(),
     };
     std::vector<Effect::Handle> effects3 {
         col3.handle(),
         ambientLight.handle(),
+        //spotLight.handle(),
+        //pointLight.handle(),
         reflection.handle(),
-        spotLight.handle(),
-        pointLight.handle(),
     };
     std::vector<Effect::Handle> effects4 {
         col4.handle(),
         ambientLight.handle(),
-        spotLight.handle(),
-        pointLight.handle(),
+        //spotLight.handle(),
+        //pointLight.handle(),
     };
     std::vector<Effect::Handle> effects5 {
         col5.handle(),
         ambientLight.handle(),
-        spotLight.handle(),
-        pointLight.handle(),
+        //spotLight.handle(),
+        //pointLight.handle(),
     };
 
     look.dir = Vec3::normalize(Vec3(0, -1, 0) - pos);
@@ -276,8 +276,8 @@ TestRenderer<G>::TestRenderer()
         pointLightDepthPasses[i].addObject(id4);
     }
 
-    renderpass.addObject(pawnId, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
-    reflectionPass.addObject(pawnId, { pawnCol.handle(), ambientLight.handle(), spotLight.handle(), pointLight.handle() });
+    renderpass.addObject(pawnId, { pawnCol.handle(), ambientLight.handle(), /*spotLight.handle(), pointLight.handle()*/ });
+    reflectionPass.addObject(pawnId, { pawnCol.handle(), ambientLight.handle(), /*spotLight.handle(), pointLight.handle()*/ });
     spotLightDepthPass.addObject(pawnId);
     for (int_t i = 0; i < 6; i++) {
         pointLightDepthPasses[i].addObject(pawnId);
@@ -292,7 +292,7 @@ TestRenderer<G>::TestRenderer()
 
     using namespace render3d;
 
-    /*stx::get<SG::ObjectNode>(o1).effects = effects1;
+    stx::get<SG::ObjectNode>(o1).effects = effects1;
     stx::get<SG::ObjectNode>(o1).object = &f1;
     stx::get<SG::BoundingNode>(o1).bound = { { 0.0f, 0.0f, 0.0f }, 2.0f * f1Scale };
     stx::get<SG::ObjectNode>(o2).effects = effects2;
@@ -315,9 +315,9 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::TransformNode>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(unreflectedItems);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectedItems);
-    // stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
+    stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectionSeq);
 
-    renderpass3d = renderer.createRenderpass(cameraSeq);*/
+    renderpass3d = new render3d::Renderpass { cameraSeq };
 
     // lightChildren = std::make_unique<SG::CompoundNode>();
     // lightChildren->addChild(unreflectedItems.get());
@@ -650,7 +650,6 @@ void TestRenderer<G>::drawFrame() {
     Mat4x4 view = Mat4x4::look(pos, look.dir, up);
     renderpass.viewProjectionMatrix = projection * view;
     reflectionPass.viewProjectionMatrix = renderpass.viewProjectionMatrix * Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
-    // cameraTransform->transform = view;
 
     Vec3& plp = pointLightPosition;
     plp += Vec3(plp.z * dt, plp.z * dt * 0.5f, -plp.x * dt);
@@ -671,13 +670,14 @@ void TestRenderer<G>::drawFrame() {
     for (int_t i = 0; i < 6; i++) {
         pointLightDepthPasses[i].draw(objects, &allocator);
     }
+    spotLightDepthPass.draw(objects, &allocator);
     reflectionPass.draw(objects, &allocator);
-    renderpass.draw(objects, &allocator);
+    // renderpass.draw(objects, &allocator);
 
-    // stx::get<render3d::SG::TransformNode>(cameraSeq).transform = view;
-    // Framebuffer::DEFAULT.bind();
-    // Framebuffer::DEFAULT.clear();
-    // renderpass3d->render(&allocator, &Framebuffer::DEFAULT, projection);
+    stx::get<render3d::SG::TransformNode>(cameraSeq).transform = view;
+    Framebuffer::DEFAULT.bind();
+    Framebuffer::DEFAULT.clear();
+    renderpass3d->render(&allocator, &Framebuffer::DEFAULT, projection);
 
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
