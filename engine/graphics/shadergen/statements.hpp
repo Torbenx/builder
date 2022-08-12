@@ -169,6 +169,16 @@ struct ASTList {
         std::construct_at(&linked, Linked { nullptr, nullptr });
         entryCount = 0;
     }
+    constexpr bool empty() const {
+        return entryCount == 0;
+    }
+    constexpr T* front() const {
+        if (isLinked) {
+            return (T*)linked.first->node;
+        } else {
+            return array.begin[0];
+        }
+    }
     constexpr void initArray(T** begin, int_t cap) {
         isLinked = false;
         std::construct_at(&array, Array { begin, cap });
@@ -275,17 +285,18 @@ struct VarDeclContext;
 struct VarDecl : ASTNode {
     std::string_view name;
     const Type* type;
-    VarDeclContext* declContext;
+    const VarDeclContext* declContext;
     const VarDecl* prevDecl = nullptr;
     FixedBitset initMask = 0;
     FixedBitset usedMask = 0;
-    constexpr VarDecl(std::string_view name, const Type* type, VarDeclContext* declContext)
+    constexpr VarDecl(std::string_view name, const Type* type, const VarDeclContext* declContext)
         : name(name), type(type), declContext(declContext) { }
 };
 struct VarDeclContext {
     VarDeclContext* parent = nullptr;
     ASTList<VarDecl> decls;
 };
+constexpr VarDeclContext globalPseudoVarDeclContext {};
 struct VarRefExpr : Expr {
     VarDecl* decl;
     constexpr VarRefExpr(VarDecl* decl)

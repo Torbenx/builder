@@ -131,6 +131,12 @@ static constexpr BuiltinFunctionGroup<2> greaterThanFunc { "greaterThan", { &gre
 static constexpr BuiltinFunctionInstance notEqualFuncI { "notEqual", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionInstance notEqualFuncF { "notEqual", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&BoolType) };
 static constexpr BuiltinFunctionGroup<2> notEqualFunc { "notEqual", { &notEqualFuncI, &notEqualFuncF } };
+static constexpr BuiltinFunctionInstance minFuncI { "min", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&IntType) };
+static constexpr BuiltinFunctionInstance minFuncF { "min", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&FloatType) };
+static constexpr BuiltinFunctionGroup<2> minFunc { "min", { &minFuncI, &minFuncF } };
+static constexpr BuiltinFunctionInstance maxFuncI { "max", { FP::dynamic(&IntType), FP::dynamic(&IntType) }, FP::dynamic(&IntType) };
+static constexpr BuiltinFunctionInstance maxFuncF { "max", { FP::dynamic(&FloatType), FP::dynamic(&FloatType) }, FP::dynamic(&FloatType) };
+static constexpr BuiltinFunctionGroup<2> maxFunc { "max", { &maxFuncI, &maxFuncF } };
 namespace impls {
     constexpr wrapped_scalar::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
     constexpr wrapped_vector::impl<UnresolvedCall<2>> lessThanEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &lessThanEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
@@ -144,6 +150,10 @@ namespace impls {
     constexpr wrapped_vector::impl<UnresolvedCall<2>> greaterThan(const wrapped_vector& l, const wrapped_vector& r) { return { { &greaterThanFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
     constexpr wrapped_scalar::impl<UnresolvedCall<2>> notEqual(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &notEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
     constexpr wrapped_vector::impl<UnresolvedCall<2>> notEqual(const wrapped_vector& l, const wrapped_vector& r) { return { { &notEqualFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> min(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &minFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> min(const wrapped_vector& l, const wrapped_vector& r) { return { { &minFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_scalar::impl<UnresolvedCall<2>> max(const wrapped_scalar& l, const wrapped_scalar& r) { return { { &maxFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> max(const wrapped_vector& l, const wrapped_vector& r) { return { { &maxFunc, { l.wrappedExpr, r.wrappedExpr } } }; }
 }
 
 static constexpr BuiltinFunctionInstance andFunc { "and", { FP::dynamic(&BoolType), FP::dynamic(&BoolType) }, FP::dynamic(&BoolType) };

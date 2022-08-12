@@ -75,8 +75,8 @@ struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
     using Base = typename get_wrapper<T>::template impl<VarRefExpr>;
     VarDecl driverDecl;
     template<typename Callback>
-    constexpr DriverVariable(std::string_view name, Callback&& callback)
-        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, nullptr) {
+    constexpr DriverVariable(std::string_view name, Callback&& callback, const VarDeclContext* declContext = nullptr)
+        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, declContext) {
         callback(&driverDecl);
     }
     DriverVariable(const DriverVariable&) = delete;
@@ -131,46 +131,44 @@ struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000
 
     template<typename T>
     constexpr DriverVariable<T> declareVariable(std::string_view name, VarDeclContext* declContext) {
-        return {
-            name,
-            [&](const VarDecl* driverDecl) constexpr { createVarDecl(driverDecl, declContext);
+        return DriverVariable<T>(
+            name, [&](const VarDecl* driverDecl) constexpr {
+                createVarDecl(driverDecl, declContext);
+            });
+    }
+    template<typename T>
+    constexpr DriverVariable<T> variable(std::string_view name) {
+        return declareVariable<T>(name, currentDeclContext);
+    }
+
+    template<typename Block>
+    constexpr void block(Block&& block) {
+        BlockScope scope { this };
+        block();
+    }
+    template<typename WhenTrue, typename WhenFalse = std::nullptr_t>
+    constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
+        Expr* condition = castStmt<Expr>(dispatchTransform(&conditionIn));
+        checkBranchCondtion(condition);
+        auto* ifStmt = storage->allocateStmt<IfStmt>({ condition });
+        {
+            BlockScope scope { this };
+            whenTrue();
+            ifStmt->whenTrue = scope.pop();
+        }
+        if constexpr (!std::is_same_v<WhenFalse, std::nullptr_t>) {
+            BlockScope scope { this };
+            whenFalse();
+            ifStmt->whenFalse = scope.pop();
+        }
+        emitStmt(wrapStmtWithError(ifStmt));
+    }
+
+    constexpr void operator,(const Stmt& in) {
+        Stmt* stmt = dispatchTransform(&in);
+        emitStmt(stmt);
     }
 };
-}
-template<typename T>
-constexpr DriverVariable<T> variable(std::string_view name) {
-    return declareVariable<T>(name, currentDeclContext);
-}
-
-template<typename Block>
-constexpr void block(Block&& block) {
-    BlockScope scope { this };
-    block();
-}
-template<typename WhenTrue, typename WhenFalse = std::nullptr_t>
-constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
-    Expr* condition = castStmt<Expr>(dispatchTransform(&conditionIn));
-    checkBranchCondtion(condition);
-    auto* ifStmt = storage->allocateStmt<IfStmt>({ condition });
-    {
-        BlockScope scope { this };
-        whenTrue();
-        ifStmt->whenTrue = scope.pop();
-    }
-    if constexpr (!std::is_same_v<WhenFalse, std::nullptr_t>) {
-        BlockScope scope { this };
-        whenFalse();
-        ifStmt->whenFalse = scope.pop();
-    }
-    emitStmt(wrapStmtWithError(ifStmt));
-}
-
-constexpr void operator,(const Stmt& in) {
-    Stmt* stmt = dispatchTransform(&in);
-    emitStmt(stmt);
-}
-}
-;
 
 struct StageDriver : BlockDriver {
     StageDecl* stageDecl = nullptr;
@@ -195,6 +193,10 @@ struct StageDriver : BlockDriver {
     constexpr auto output(std::string_view name) {
         return declareVariable<T>(name, &stageDecl->outputs);
     }
+    template<typename T>
+    constexpr auto builtin(std::string_view name) {
+        return declareVariable<T>(name, &stageDecl->builtins);
+    }
 };
 
 struct VertexStageDriver : StageDriver {
@@ -202,7 +204,7 @@ struct VertexStageDriver : StageDriver {
 
     constexpr VertexStageDriver(Storage* storage)
         : StageDriver(storage)
-        , position { declareVariable<Vec4>("gl_Position", &stageDecl->builtins) } { }
+        , position { builtin<Vec4>("gl_Position") } { }
 };
 
 struct FragmentStageDriver : StageDriver {

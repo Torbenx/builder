@@ -106,5 +106,6 @@ void runShadergenTest() {
     char buffer[1000] = {};
     GLSLTypeGenerator typeGenerator { buffer };
     typeGenerator.visitType(desc.userTypes[0]);
-    VDUMP(buffer);    
+    VDUMP(buffer);
+    VDUMP(desc.vert.ceUsages.size());
 }

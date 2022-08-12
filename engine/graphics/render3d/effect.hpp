@@ -41,22 +41,15 @@ namespace {
 };
 
 // Driver
-struct StageDriver : BlockDriver {
+struct EffectStageDriver : StageDriver {
     struct EffectVariableOffset {
         const VarDecl* decl = nullptr;
         const int_t* offsetPtr = nullptr;
     };
-
-    StageDecl* stageDecl;
     OversizedArray<EffectVariableOffset, 300> offsets;
 
-    constexpr StageDriver(Storage* storage)
-        : BlockDriver(storage) {
-        stageDecl = createEmptyStageDecl();
-        currentBlock = newBlock(&stageDecl->outputs);
-        stageDecl->entryPoint = currentBlock;
-        currentDeclContext = &currentBlock->declContext;
-    }
+    constexpr EffectStageDriver(Storage* storage)
+        : StageDriver(storage) { }
 
     constexpr const int_t* findOffsetInStruct(const VarDecl* decl) const {
         for (int_t i = 0; i < offsets.size; i++) {
@@ -68,15 +61,14 @@ struct StageDriver : BlockDriver {
     }
     template<auto memberPtr>
     constexpr DriverVariable<typename CXXTypeFromMemberPtr<decltype(memberPtr)>::type> declareEffectVariable(std::string_view name, VarDeclContext* declContext) {
-        return {
+        return DriverVariable<typename CXXTypeFromMemberPtr<decltype(memberPtr)>::type>(
             name,
             [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
                 auto& off = offsets.data[offsets.size++];
                 off.decl = driverDecl;
                 off.offsetPtr = &StaticOffsetHolder<memberPtr>::offset;
-            }
-        };
+            });
     }
     template<auto memberPtr>
     constexpr auto uniform(std::string_view name) {
@@ -91,11 +83,141 @@ struct StageDriver : BlockDriver {
         return declareEffectVariable<memberPtr>(name, &stageDecl->outputs);
     }
 };
+
 struct EffectDriver {
     using Storage = BlockDriver::Storage;
     Storage storage;
-    StageDriver vert { &storage };
-    StageDriver frag { &storage };
+    EffectStageDriver vert { &storage };
+    EffectStageDriver frag { &storage };
+};
+
+// cross effect variables
+enum class CumulativeUpdateOp {
+    NONE,
+    ADD,
+    MULTIPLY,
+    AND,
+    OR,
+    MIN,
+    MAX,
+};
+template<typename T>
+struct CrossEffectVariable : DriverVariable<T> {
+    CumulativeUpdateOp cumOp;
+    constexpr CrossEffectVariable(std::string_view name, CumulativeUpdateOp cumOp = CumulativeUpdateOp::NONE)
+        : DriverVariable<T>(name, [](const VarDecl*) constexpr {}, &globalPseudoVarDeclContext), cumOp(cumOp) { }
+    constexpr void update(const get_wrapper<T>& value) {
+        using namespace shadergen::code;
+        switch (cumOp) {
+        case CumulativeUpdateOp::ADD:
+            return *this = *this + value;
+        case CumulativeUpdateOp::MULTIPLY:
+            return *this = *this * value;
+        case CumulativeUpdateOp::AND:
+            return *this = *this && value;
+        case CumulativeUpdateOp::OR:
+            return *this = *this || value;
+        case CumulativeUpdateOp::MIN:
+            return *this = min(*this, value);
+        case CumulativeUpdateOp::MAX:
+            return *this = max(*this, value);
+        default:
+            VERIFY_NOT_REACHED(ShaderGen);
+            return *this = value;
+        }
+    }
+};
+struct CrossEffectVarUsage {
+    enum class UsageType {
+        Read,
+        Write,
+        Update,
+    };
+    const VarDecl* varDecl;
+    UsageType usage;
+    CumulativeUpdateOp op;
+};
+struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
+    using Base = ASTVisitor<CrossEffectVarUsageFinder>;
+    using UsageType = CrossEffectVarUsage::UsageType;
+    CrossEffectVarUsage* begin;
+    CrossEffectVarUsage* end;
+    constexpr CrossEffectVarUsageFinder(CrossEffectVarUsage* begin)
+        : begin(begin), end(begin) { }
+    constexpr bool checkForUpdate(const VarRefExpr* l, const Expr* e) {
+        if (e->stmtKind != StmtKind::VarRefExpr)
+            return false;
+        const auto* r = (const VarRefExpr*)e;
+        if (l->decl != r->decl)
+            return false;
+        return true;
+    }
+    constexpr CrossEffectVarUsage* findPrev(const VarDecl* decl) {
+        for (auto* it = begin; it < end; it++) {
+            if (it->varDecl == decl)
+                return it;
+        }
+        return nullptr;
+    }
+    constexpr void emitUsage(const VarRefExpr* e, UsageType usage, CumulativeUpdateOp op = CumulativeUpdateOp::NONE) {
+        if (usage == UsageType::Update && op == CumulativeUpdateOp::NONE) {
+            VERIFY_NOT_REACHED(ShaderGen);
+            return;
+        }
+        auto* prev = findPrev(e->decl);
+        if (!prev) {
+            *(end++) = { e->decl, usage, op };
+            return;
+        }
+        if (prev->usage == UsageType::Write && usage == UsageType::Read)
+            return;
+        if (prev->usage == UsageType::Update && usage == UsageType::Update && prev->op == op)
+            return;
+        VERIFY_NOT_REACHED(ShaderGen);
+    }
+    constexpr void visitAssignmentStmt(const AssignmentStmt* s) {
+        if (s->left->stmtKind != StmtKind::VarRefExpr)
+            return Base::visitAssignmentStmt(s);
+        const auto* l = (const VarRefExpr*)s->left;
+        if (l->decl->declContext != &globalPseudoVarDeclContext)
+            return Base::visitAssignmentStmt(s);
+        if (s->right->stmtKind == StmtKind::ElementwiseOperatorExpr) {
+            const auto* e = (const ElementwiseOperatorExpr*)s->right;
+            if (checkForUpdate(l, e->left)) {
+                dispatchVisit(e->right);
+                emitUsage(l, UsageType::Update);
+                return;
+            }
+        } else if (s->right->stmtKind == StmtKind::CallExpr) {
+            const auto* e = (const CallExpr*)s->right;
+            if (!e->arguments.empty() && checkForUpdate(l, e->arguments.front())) {
+                bool first = true;
+                e->arguments.forEachEntry([&](const Expr* arg) {
+                    if (first)
+                        first = false;
+                    else
+                        dispatchVisit(arg);
+                });
+                emitUsage(l, UsageType::Update);
+                return;
+            }
+        }
+        dispatchVisit(s->right);
+        emitUsage(l, UsageType::Write);
+    };
+    constexpr void visitUpdateStmt(const UpdateStmt* s) {
+        if (s->left->stmtKind != StmtKind::VarRefExpr)
+            return Base::visitUpdateStmt(s);
+        const auto* l = (const VarRefExpr*)s->left;
+        if (l->decl->declContext != &globalPseudoVarDeclContext)
+            return Base::visitUpdateStmt(s);
+        dispatchVisit(s->right);
+        emitUsage(l, UsageType::Update);
+    }
+    constexpr void visitVarRefExpr(const VarRefExpr* e) {
+        if (e->decl->declContext == &globalPseudoVarDeclContext)
+            emitUsage(e, UsageType::Read);
+    }
 };
 
 // constexpr descriptor
@@ -105,6 +227,7 @@ struct ConstVariableDescriptor {
 };
 struct ConstStageDescriptor {
     OversizedArray<ConstVariableDescriptor, 100> uniforms;
+    OversizedArray<CrossEffectVarUsage, 100> ceUsages;
     OversizedArray<char, 10000> source;
 };
 struct ConstEffectDescriptor {
@@ -113,16 +236,19 @@ struct ConstEffectDescriptor {
     ConstStageDescriptor vert;
     ConstStageDescriptor frag;
 };
-constexpr int_t fillConstVariableArray(ConstVariableDescriptor* end, const StageDriver& stage, const VarDeclContext& declContext) {
+constexpr int_t fillConstVariableArray(ConstVariableDescriptor* end, const EffectStageDriver& stage, const VarDeclContext& declContext) {
     ConstVariableDescriptor* begin = end;
     declContext.decls.forEachEntry([&](const VarDecl* decl) {
         *(end++) = { decl->type, stage.findOffsetInStruct(decl->prevDecl) };
     });
     return end - begin;
 }
-constexpr void fillConstStageDescriptor(ConstStageDescriptor& out, const StageDriver& in) {
+constexpr void fillConstStageDescriptor(ConstStageDescriptor& out, const EffectStageDriver& in) {
     out.uniforms.size = fillConstVariableArray(out.uniforms.data, in, in.stageDecl->uniforms);
 
+    CrossEffectVarUsageFinder usageFinder { out.ceUsages.data };
+    usageFinder.dispatchVisit(in.stageDecl->entryPoint);
+    out.ceUsages.size = usageFinder.end - usageFinder.begin;
     BlockDriver::Storage storage;
     GLSLStmtTransform transform { &storage };
     StageDecl* transformed = transform.createStageDecl(*in.stageDecl);
@@ -152,6 +278,7 @@ struct VariableDescriptor {
 };
 struct StageDescriptor {
     ArrayView<const VariableDescriptor> uniforms;
+    ArrayView<const CrossEffectVarUsage> ceUsages;
     std::string_view source;
 };
 struct EffectDescriptor {
@@ -197,7 +324,7 @@ namespace {
     }
     template<ConstStageDescriptor stage>
     constexpr StageDescriptor createStageDescriptor() {
-        return { createVariableDescriptorArray<stage.uniforms>(), createSource<stage.source>() };
+        return { createVariableDescriptorArray<stage.uniforms>(), oversizedToArray<stage.ceUsages>(), createSource<stage.source>() };
     }
 }
 template<typename E>
@@ -207,7 +334,6 @@ constexpr EffectDescriptor createEffectDescriptor() {
 }
 template<typename E>
 constexpr EffectDescriptor descriptorStore = {};
-
 }
 
 DEFINE_SECTION(const shadergen::effect::EffectDescriptor, effects)
@@ -231,10 +357,12 @@ struct SomeEffect {
 
 // in .cpp
 
+constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
+
 constexpr void SomeEffect::defineEffect(shadergen::effect::EffectDriver& prog) {
     using namespace shadergen::code;
     auto attr = prog.vert.uniform<&SomeEffect::vertexUniform>("a_attr");
-    prog.vert, attr.position += constant(1.0f, 1.0f, 1.0f);
+    prog.vert, attr.position += compose(constant(1.0f, 1.0f), myVar);
 }
 
 DEFINE_EFFECT(SomeEffect)

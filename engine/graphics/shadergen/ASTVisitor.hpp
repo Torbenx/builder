@@ -259,21 +259,23 @@ struct ASTTransform {
         impl()->transformStmt(e);
     }
     constexpr void transformVarRefExpr(VarRefExpr* e) {
-        VarDeclContext* declContext = currentDeclContext;
         VarDecl* oldDecl = e->decl;
         VarDecl* newDecl = nullptr;
-        while (declContext && !newDecl) {
-            declContext->decls.forEachEntry([&](VarDecl* decl) {
-                if (decl->prevDecl == oldDecl) {
-                    VERIFY(ShaderGen, !newDecl);
-                    newDecl = decl;
-                }
-            });
-            declContext = declContext->parent;
+        if (oldDecl->declContext == &globalPseudoVarDeclContext) {
+            newDecl = oldDecl;
+        } else {
+            VarDeclContext* declContext = currentDeclContext;
+            while (declContext && !newDecl) {
+                declContext->decls.forEachEntry([&](VarDecl* decl) {
+                    if (decl->prevDecl == oldDecl) {
+                        VERIFY(ShaderGen, !newDecl);
+                        newDecl = decl;
+                    }
+                });
+                declContext = declContext->parent;
+            }
         }
         VERIFY(ShaderGen, newDecl);
-        if (!newDecl)
-            VDUMP(oldDecl->name);
         e->decl = newDecl;
     }
     constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {

@@ -5,7 +5,7 @@
 #include <fstream>
 #include <input/keycodes.hpp>
 #include <math/constants.hpp>
-#include <math/geometry.hpp>
+//#include <math/geometry.hpp>
 #include <numeric>
 #include <random>
 #include <resource/JpegDecoder.hpp>
@@ -44,7 +44,7 @@ TestRenderer<G>::TestRenderer()
 
     log("=========================================");
 
-    []() {
+    /*[]() {
         using namespace newmath;
         auto m = translate({ 2.0f, 1.0f, 0.0f }) * reflectAbout({ { 0.0f, 0.0f, 1.0f }, -2.0f }) * rotateAbout({ 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 0.3f);
         auto id = inverse(m) * m;
@@ -55,7 +55,7 @@ TestRenderer<G>::TestRenderer()
             id.rotation.matrix[1], id.rotation.matrix[4], id.rotation.matrix[7], id.translation.y,
             id.rotation.matrix[2], id.rotation.matrix[5], id.rotation.matrix[8], id.translation.z);
         log("{} {} {}", v.x, v.y, v.z);
-    }();
+    }();*/
 
     /*HANDLE token;
     VERIFY(Default, OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token));
