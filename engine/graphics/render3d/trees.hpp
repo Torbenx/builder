@@ -71,8 +71,7 @@ struct RT /* Rendering Tree */ {
         RT::PortalNode* sourceStack = nullptr;
         NodeSequence<SG>::FirstIs<SG::PortalNode> input;
         RT::PortalNode* output;
-        Renderpass* renderpass = nullptr;
-        bool update();
+        bool update(Vec3 eye);
     };
     struct TransformItem {
         RT::TransformNode* sourceTransform = nullptr;

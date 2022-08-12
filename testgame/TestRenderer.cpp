@@ -157,19 +157,33 @@ TestRenderer<G>::TestRenderer()
     std::vector<Effect::Handle> effects1 {
         col1.handle(),
         ambientLight.handle(),
+        spotLight.handle(),
+        pointLight.handle(),
     };
     std::vector<Effect::Handle> effects2 {
         col2.handle(),
         ambientLight.handle(),
+        spotLight.handle(),
+        pointLight.handle(),
     };
-    std::vector<Effect::Handle> effects3 { col3.handle(), ambientLight.handle(), reflection.handle() };
+    std::vector<Effect::Handle> effects3 {
+        col3.handle(),
+        ambientLight.handle(),
+        reflection.handle(),
+        spotLight.handle(),
+        pointLight.handle(),
+    };
     std::vector<Effect::Handle> effects4 {
         col4.handle(),
         ambientLight.handle(),
+        spotLight.handle(),
+        pointLight.handle(),
     };
     std::vector<Effect::Handle> effects5 {
         col5.handle(),
         ambientLight.handle(),
+        spotLight.handle(),
+        pointLight.handle(),
     };
 
     look.dir = Vec3::normalize(Vec3(0, -1, 0) - pos);
@@ -198,7 +212,7 @@ TestRenderer<G>::TestRenderer()
     cubeComp.farDepth = 1.0f;
     cubeComp.cubeMap = &pointLight.depthMap;
     cubeComp.positiveZ(Rect::bltr(-1, -1, 1, 1));
-    refComp.texture = &reflection.texture;
+    refComp.texture = &reflectionTexture.value;
 
     uiScene.layout(&textComp)
         .alignTop()
@@ -278,7 +292,7 @@ TestRenderer<G>::TestRenderer()
 
     using namespace render3d;
 
-    stx::get<SG::ObjectNode>(o1).effects = effects1;
+    /*stx::get<SG::ObjectNode>(o1).effects = effects1;
     stx::get<SG::ObjectNode>(o1).object = &f1;
     stx::get<SG::BoundingNode>(o1).bound = { { 0.0f, 0.0f, 0.0f }, 2.0f * f1Scale };
     stx::get<SG::ObjectNode>(o2).effects = effects2;
@@ -303,7 +317,7 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectedItems);
     // stx::get<SG::CompoundNode>(cameraSeq).addCompoundSequence(reflectionSeq);
 
-    renderpass3d = renderer.createRenderpass(cameraSeq);
+    renderpass3d = renderer.createRenderpass(cameraSeq);*/
 
     // lightChildren = std::make_unique<SG::CompoundNode>();
     // lightChildren->addChild(unreflectedItems.get());
@@ -397,7 +411,6 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
     uiRenderer->add(1, { 0, 300, 0, 200 });
     uiRenderer->add(1, { 100, 350, 100, 250 });*/
     uiTexture = Texture::color(newWidth, newHeight, Texture::Format::RGBA8888);
-    refComp.texture = &uiTexture.value;
 
     allocator.debug();
 
@@ -600,8 +613,6 @@ void TestRenderer<G>::drawFrame() {
 
         lsecond = now;
         frameCounter = 0;
-
-        VDUMP(renderpass3d->objectItems.size());
     }
     frameCounter++;
 
@@ -658,17 +669,15 @@ void TestRenderer<G>::drawFrame() {
     // glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     for (int_t i = 0; i < 6; i++) {
-        // pointLightDepthPasses[i].draw(objects);
+        pointLightDepthPasses[i].draw(objects, &allocator);
     }
+    reflectionPass.draw(objects, &allocator);
+    renderpass.draw(objects, &allocator);
 
-    // reflectionPass.draw(objects);
-    // renderpass.draw(objects);
-
-    Framebuffer::DEFAULT.bind();
-    Framebuffer::DEFAULT.clear();
-    stx::get<render3d::SG::TransformNode>(cameraSeq).transform = view;
-    renderer.update();
-    renderpass3d->render(&allocator, &Framebuffer::DEFAULT, projection);
+    // stx::get<render3d::SG::TransformNode>(cameraSeq).transform = view;
+    // Framebuffer::DEFAULT.bind();
+    // Framebuffer::DEFAULT.clear();
+    // renderpass3d->render(&allocator, &Framebuffer::DEFAULT, projection);
 
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
@@ -683,10 +692,10 @@ void TestRenderer<G>::drawFrame() {
         // util_drawCircle(center, radius, Vec4(0.4f, 0.4f, 0.4f, 1.0f));
     }
 
-    // cubeComp.draw(Framebuffer::DEFAULT);
+    // cubeComp.draw(Framebuffer::DEFAULT, &allocator);
 
     // uiRenderer->draw(uiTexture);
-    // refComp.draw(Framebuffer::DEFAULT);
+    // refComp.draw(Framebuffer::DEFAULT, &allocator);
     textBackground.draw(Framebuffer::DEFAULT, &allocator);
     textComp.draw(Framebuffer::DEFAULT, &allocator);
 

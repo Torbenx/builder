@@ -7,7 +7,6 @@ namespace {
         using Base = Visitor<SG, RTCreator>;
         RT::TransformNode* worldTransform = nullptr;
         RT::PortalNode* portalStack = nullptr;
-        Renderer* renderer = nullptr;
         Renderpass* renderpass = nullptr;
         NodeSequence<RT> rtSequence {};
         bool backPropagateCameraTransform = false;
@@ -19,9 +18,9 @@ namespace {
 
         void visitPortalNode(NodeSequence<SG>::FirstIs<SG::PortalNode> sgSeq) {
             auto* rtNode = constructNode<RT::PortalNode>({});
-            RT::PortalItem item { worldTransform, portalStack, sgSeq, rtNode, renderpass };
-            item.update();
-            renderer->portalItems.push_back(item);
+            RT::PortalItem item { worldTransform, portalStack, sgSeq, rtNode };
+            item.update(renderpass->worldEye);
+            renderpass->portalItems.push_back(item);
             portalStack = rtNode;
             dispatchVisit(sgSeq.subSequence());
         }
@@ -30,7 +29,7 @@ namespace {
             auto* rtNode = constructNode<RT::TransformNode>({});
             RT::TransformItem item { worldTransform, sgNode, rtNode };
             item.update();
-            renderer->transformItems.push_back(item);
+            renderpass->transformItems.push_back(item);
             worldTransform = rtNode;
             dispatchVisit(sgSeq.subSequence());
             if (backPropagateCameraTransform)
@@ -56,7 +55,7 @@ namespace {
             auto* rtNode = constructNode<RT::CompoundNode>({ worldTransform, portalStack });
             auto replace = rtNode->beginReplace(sgNode->subSeqs().size());
             for (auto seq : sgNode->subSeqs()) {
-                RTCreator creator { {}, worldTransform, portalStack, renderer, renderpass };
+                RTCreator creator { {}, worldTransform, portalStack, renderpass };
                 replace.pushBack({ creator.construct(seq) });
                 if (creator.backPropagateCameraTransform)
                     backPropagateCameraTransform = true;
@@ -117,18 +116,25 @@ Renderpass::Renderpass()
 Renderpass* Renderer::createRenderpass(NodeSequence<SG> sgRoot) {
     Renderpass* renderpass = &renderpasses.emplace_back();
     renderpass->sgRoot = sgRoot;
-    RTCreator creator { {}, renderpass->rootTransform.get(), nullptr, this, renderpass };
+    RTCreator creator { {}, renderpass->rootTransform.get(), nullptr, renderpass };
     renderpass->rtRoot = creator.construct(sgRoot);
     return renderpass;
 }
 
-void Renderer::update() {
-    for (Renderpass& renderpass : renderpasses)
-        renderpass.updateRootNodes();
+void Renderpass::render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection) {
+    Mat4x4 viewMatrix = Mat4x4::Id;
+    for (int_t i = cameraTransforms.size() - 1; i >= 0; i--) {
+        viewMatrix = viewMatrix * cameraTransforms[i]->transform;
+    }
+    Mat4x4 invViewMatrix = Mat4x4::invert(viewMatrix);
+    worldEye = (invViewMatrix * Vec4 { Vec3(0.0f), 1.0f }).xyz;
+    rootTransform->transform = invViewMatrix;
+    Mat4x4 viewProjectionMatrix = projection * viewMatrix;
+
     for (RT::TransformItem item : transformItems)
         item.update();
     for (RT::PortalItem item : portalItems) {
-        item.update();
+        item.update(worldEye);
         for (RT::BoundingItem bItem : item.output->boundingItems) {
             bool wasVisible = bItem.update(item.output->cullPlanes);
             bool visible = bItem.output->visible;
@@ -140,25 +146,13 @@ void Renderer::update() {
             if (visible && !wasVisible) {
                 log("appear");
                 // TODO: must wait at least one frame to revive nodes
-                RTCreator creator { {}, bItem.worldTransform, item.output, this, item.renderpass };
+                RTCreator creator { {}, bItem.worldTransform, item.output, this };
                 creator.constructAfterExisting(bItem.input, bItem.output);
             }
         }
     }
-}
 
-void Renderpass::updateRootNodes() {
-    Mat4x4 viewMatrix = Mat4x4::Id;
-    for (int_t i = cameraTransforms.size() - 1; i >= 0; i--) {
-        viewMatrix = viewMatrix * cameraTransforms[i]->transform;
-    }
-    Mat4x4 invViewMatrix = Mat4x4::invert(viewMatrix);
-    worldEye = (invViewMatrix * Vec4 { Vec3(0.0f), 1.0f }).xyz;
-    rootTransform->transform = invViewMatrix;
-}
 
-void Renderpass::render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection) {
-    Mat4x4 viewProjectionMatrix = projection * Mat4x4::invert(rootTransform->transform);
     for (int_t itemOffset = 0; itemOffset < (int_t)objectItems.size(); itemOffset++) {
         auto item = objectItems[itemOffset];
         auto nodeState = item.output->state.load(std::memory_order_relaxed);
@@ -197,14 +191,13 @@ void Renderpass::render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 
     }
 }
 
-bool RT::PortalItem::update() {
+bool RT::PortalItem::update(Vec3 eye) {
     output->cullPlanes.clear();
     if (sourceStack)
         output->cullPlanes = sourceStack->cullPlanes;
 
     auto transform = [&](Vec3 p) { return (worldTransform->transform * Vec4(p, 1.0f)).xyz; };
     const auto& points = input.first()->points;
-    Vec3 eye = renderpass->worldEye;
     if (points.empty())
         return true;
     Vec3 prev = transform(points.back());
