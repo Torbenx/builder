@@ -276,10 +276,10 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
         Base::transformAssignmentStmt(e);
         checkSameType(e->left->type, e->right->type, "operands must have the same type");
         check(e->left->valueKind == ValueKind::LVALUE) << "left hand side of assignment must be an lvalue";
-        CheckInitialized check(*this);
-        check.visit(e->right);
-        MarkInitialized mark;
-        mark.visit(e->left);
+        // CheckInitialized check(*this);
+        // check.visit(e->right);
+        // MarkInitialized mark;
+        // mark.visit(e->left);
     }
     struct MatchFunctionResult {
         bool match;
@@ -425,8 +425,8 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
     }
     constexpr void checkBranchCondtion(const Expr* condition) {
         check(condition->type == &BoolType) << "branch condition must be a scalar boolean, got " << condition->type;
-        CheckInitialized check(*this);
-        check.visit(condition);
+        // CheckInitialized check(*this);
+        // check.visit(condition);
     }
     constexpr void transformIfStmt(IfStmt* e) {
         Base::transformIfStmt(e);

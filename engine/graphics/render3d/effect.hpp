@@ -1,7 +1,9 @@
 #pragma once
 
+#include "containers/DirectedAcyclicGraph.hpp"
 #include "graphics/shadergen/BuildDriver.hpp"
 #include "graphics/shadergen/GLSLGenerator.hpp"
+#include <unordered_map>
 
 template<typename T>
 struct GPtr { };
@@ -30,7 +32,7 @@ template<typename T>
 struct CXXTypeFromMemberPtr;
 template<typename T, typename E>
 struct CXXTypeFromMemberPtr<GPtr<T> E::*> {
-    using type = T;
+    using type = std::remove_extent_t<T>;
 };
 
 namespace {
@@ -103,6 +105,7 @@ enum class CumulativeUpdateOp {
 };
 template<typename T>
 struct CrossEffectVariable : DriverVariable<T> {
+    using Base = DriverVariable<T>;
     CumulativeUpdateOp cumOp;
     constexpr CrossEffectVariable(std::string_view name, CumulativeUpdateOp cumOp = CumulativeUpdateOp::NONE)
         : DriverVariable<T>(name, [](const VarDecl*) constexpr {}, &globalPseudoVarDeclContext), cumOp(cumOp) { }
@@ -126,12 +129,16 @@ struct CrossEffectVariable : DriverVariable<T> {
             return *this = value;
         }
     }
+    using Base::operator=;
+    constexpr AssignmentStmt operator=(const CrossEffectVariable<T>& right) const {
+        return { this, right.wrappedExpr };
+    }
 };
 struct CrossEffectVarUsage {
     enum class UsageType {
-        Read,
-        Write,
-        Update,
+        Write = 0,
+        Update = 1,
+        Read = 2,
     };
     const VarDecl* varDecl;
     UsageType usage;
@@ -332,35 +339,78 @@ constexpr EffectDescriptor createEffectDescriptor() {
 }
 template<typename E>
 constexpr EffectDescriptor descriptorStore = {};
+
+struct EffectHandle {
+    const EffectDescriptor* descriptor = nullptr;
+    const void* effect = nullptr;
+    constexpr EffectHandle() { }
+    template<typename E>
+    constexpr EffectHandle(const E* effect)
+        : descriptor(&descriptorStore<E>), effect(effect) { }
+    constexpr EffectHandle(const EffectDescriptor* desc, const void* effect)
+        : descriptor(desc), effect(effect) { }
+};
+
+inline void generateSource(ArrayView<const EffectHandle> effectHandles) {
+    struct DagNode {
+        std::string name = {};
+    };
+    using DAG = DirectedAcyclicGraph<DagNode>;
+    using NodeHandle = DAG::NodeHandle;
+    struct VarInfo {
+        NodeHandle afterWrite, beforeRead;
+    };
+
+    using UsageType = CrossEffectVarUsage::UsageType;
+    auto handleStage = [&](StageDescriptor EffectDescriptor::*stage) {
+        DAG dag;
+        std::unordered_map<const VarDecl*, VarInfo> varMap;
+        int_t counter = 1;
+        for (auto effectHandle : effectHandles) {
+            NodeHandle effectNode = dag.newNode({ std::string("effect ") + std::to_string(counter++) });
+            const auto& stageDesc = effectHandle.descriptor->*stage;
+            for (auto usage : stageDesc.ceUsages) {
+                auto it = varMap.find(usage.varDecl);
+                if (it == varMap.end()) {
+                    log("new var: {}", usage.varDecl->name);
+                    VarInfo varInfo { dag.newNode({ std::string(usage.varDecl->name) + " aW" }), dag.newNode({ std::string(usage.varDecl->name) + " bR" }) };
+                    dag.addChild(varInfo.afterWrite, varInfo.beforeRead);
+                    it = varMap.insert({ usage.varDecl, varInfo }).first;
+                }
+                VarInfo& varInfo = it->second;
+                switch (usage.usage) {
+                case UsageType::Write:
+                    dag.addChild(effectNode, varInfo.afterWrite);
+                    break;
+                case UsageType::Update:
+                    dag.addChild(varInfo.afterWrite, effectNode);
+                    dag.addChild(effectNode, varInfo.beforeRead);
+                    break;
+                case UsageType::Read:
+                    dag.addChild(varInfo.beforeRead, effectNode);
+                    break;
+                default:
+                    VERIFY_NOT_REACHED(ShaderGen);
+                    break;
+                }
+            }
+        }
+        log("all notes:");
+        dag.forEachNode([&](NodeHandle node) {
+            log(" {}", dag[node].name);
+        });
+        log("ordered:");
+        bool b = dag.topologicalOrdering([&](NodeHandle node) {
+            log(" {}", dag[node].name);
+        });
+        VDUMP(b);
+    };
+    handleStage(&EffectDescriptor::vert);
+    handleStage(&EffectDescriptor::frag);
+}
 }
 
 DEFINE_SECTION(const shadergen::effect::EffectDescriptor, effects)
 #define DEFINE_EFFECT(effect_type) \
     template<>                     \
     constinit IN_SECTION(effects) const shadergen::effect::EffectDescriptor shadergen::effect::descriptorStore<effect_type> = shadergen::effect::createEffectDescriptor<effect_type>();
-
-// in .hpp
-
-struct SomeEffect {
-    GPtr<Vec3[]> attribute;
-    struct VertexUniform {
-        BEGIN_GEN_STRUCT(VertexUniform)
-        Vec3 GEN_FIELD(position);
-        END_GEN_STRUCT()
-    };
-    GPtr<VertexUniform> vertexUniform;
-
-    static constexpr void defineEffect(shadergen::effect::EffectDriver&);
-};
-
-// in .cpp
-
-constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
-
-constexpr void SomeEffect::defineEffect(shadergen::effect::EffectDriver& prog) {
-    using namespace shadergen::code;
-    auto attr = prog.vert.uniform<&SomeEffect::vertexUniform>("a_attr");
-    prog.vert, attr.position += compose(constant(1.0f, 1.0f), myVar);
-}
-
-DEFINE_EFFECT(SomeEffect)

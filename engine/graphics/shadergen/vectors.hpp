@@ -75,10 +75,10 @@ struct wrapped_scalar::impl : E, wrapped_scalar {
     constexpr impl(const E& e)
         : E(e), wrapped_scalar { (Expr*)this } { }
 
-    constexpr AssignmentStmt operator=(const wrapped_scalar::impl<E>& right) {
+    constexpr AssignmentStmt operator=(const wrapped_scalar::impl<E>& right) const {
         return { this, right.wrappedExpr };
     }
-    constexpr AssignmentStmt operator=(const wrapped_scalar& right) {
+    constexpr AssignmentStmt operator=(const wrapped_scalar& right) const {
         return { this, right.wrappedExpr };
     }
 };
@@ -209,10 +209,10 @@ struct wrapped_vector::impl : E, wrapped_vector {
     constexpr impl(const E& e)
         : E(e), wrapped_vector { (E*)this } { }
 
-    constexpr AssignmentStmt operator=(const impl<E>& right) {
+    constexpr AssignmentStmt operator=(const impl<E>& right) const {
         return { this, right.wrappedExpr };
     }
-    constexpr AssignmentStmt operator=(const wrapped_vector& right) {
+    constexpr AssignmentStmt operator=(const wrapped_vector& right) const {
         return { this, right.wrappedExpr };
     }
 };

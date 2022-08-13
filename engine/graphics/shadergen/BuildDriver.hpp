@@ -82,7 +82,7 @@ struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
     DriverVariable(const DriverVariable&) = delete;
 
     using Base::operator=;
-    constexpr AssignmentStmt operator=(const DriverVariable& right) {
+    constexpr AssignmentStmt operator=(const DriverVariable& right) const {
         return { this, right.wrappedExpr };
     }
 };

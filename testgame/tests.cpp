@@ -85,6 +85,34 @@ static constexpr auto transformAST(const GraphicsDriver& in) {
     });
 }
 
+constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
+
+struct Effect1 {
+    GPtr<Vec3[]> attribute;
+    struct VertexUniform {
+        BEGIN_GEN_STRUCT(VertexUniform)
+        Vec3 GEN_FIELD(position);
+        END_GEN_STRUCT()
+    };
+    GPtr<VertexUniform> vertexUniform;
+
+    static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
+        using namespace shadergen::code;
+        auto attr = prog.vert.uniform<&Effect1::vertexUniform>("a_attr");
+        prog.vert, attr.position += compose(constant(1.0f, 1.0f), myVar);
+    }
+};
+DEFINE_EFFECT(Effect1)
+struct Effect2 {
+    GPtr<float[]> attribute;
+    static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
+        using namespace shadergen::code;
+        auto attr = prog.vert.uniform<&Effect2::attribute>("a_attr");
+        prog.vert, myVar = attr;
+    }
+};
+DEFINE_EFFECT(Effect2)
+
 void runShadergenTest() {
     ASTDumper dumper;
 
@@ -98,14 +126,8 @@ void runShadergenTest() {
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data());
 
-    const auto& desc = effect::descriptorStore<SomeEffect>;
-    VDUMP(desc.vert.source);
-    VDUMP(desc.userTypes.size());
-    VDUMP(desc.userTypes[0]->name);
-    VDUMP(desc.userTypes[0]->members.size());
-    char buffer[1000] = {};
-    GLSLTypeGenerator typeGenerator { buffer };
-    typeGenerator.visitType(desc.userTypes[0]);
-    VDUMP(buffer);
-    VDUMP(desc.vert.ceUsages.size());
+    Effect1 e1;
+    Effect2 e2;
+    shadergen::effect::EffectHandle handles[] = { &e1, &e2 };
+    shadergen::effect::generateSource(handles);
 }

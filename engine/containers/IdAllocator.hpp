@@ -22,7 +22,7 @@ public:
         return id;
     }
 
-    void debug() {
+    void debug() const {
         for (auto& b : buckets) {
             b.debug();
         }
@@ -79,29 +79,24 @@ public:
         buckets.emplace(min, max - 1);
     }
 
-    size_t bucketCount() {
+    size_t bucketCount() const {
         return buckets.size();
     }
 
     template<typename Callback>
-    void enumerateFreeIdRanges(Callback&& callback) {
+    void enumerateFreeIdRanges(Callback&& callback) const {
         for (auto& bucket : buckets) {
             if (bucket.isRange) {
-                auto begin = bucket.rangeFirst();
-                auto size = bucket.size;
-                callback(begin, size);
+                callback(bucket.rangeFirst(), bucket.size);
             } else {
-                for (size_t i = N - bucket.size; i < N; i++) {
-                    auto begin = bucket.elements[i];
-                    auto size = 1;
-                    callback(begin, size);
-                }
+                for (size_t i = N - bucket.size; i < N; i++)
+                    callback(bucket.elements[i], 1);
             }
         }
     }
 
     template<typename Callback>
-    void enumerateUsedIdRanges(Callback&& callback, T min = 0) {
+    void enumerateUsedIdRanges(Callback&& callback, T min = 0) const {
         T prevEnd = min;
         enumerateFreeIdRanges([&](T begin, size_t size) {
             size_t s = begin - prevEnd;
@@ -116,9 +111,9 @@ private:
         mutable size_t size;
         mutable bool isRange;
 
-        Bucket(T start, T end) {
-            size = end - start + 1;
-            elements[N - 1] = end;
+        Bucket(T first, T last) {
+            size = last - first + 1;
+            elements[N - 1] = last;
             isRange = true;
         }
 
@@ -130,7 +125,7 @@ private:
 
         T& last() const { return elements[N - 1]; }
         T& first() const { return elements[N - size]; }
-        T rangeFirst() const { return last() - size + 1; }
+        T rangeFirst() const { return last() + 1 - size; }
 
         bool operator<(const Bucket& other) const { return last() < other.last(); }
         bool operator<(T id) const { return last() < id; }

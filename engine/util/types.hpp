@@ -19,6 +19,11 @@ using make_int_sequence = std::make_integer_sequence<int_t, N>;
 template<typename... Types>
 using int_sequence_for = make_int_sequence<sizeof...(Types)>;
 
+template<typename E>
+constexpr auto to_underlying(E e) noexcept {
+    return static_cast<std::underlying_type_t<E>>(e);
+}
+
 }
 
 using int_t = stx::int_t;

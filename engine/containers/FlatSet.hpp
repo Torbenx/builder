@@ -8,16 +8,18 @@
 template<typename /*std::equality_comparable*/ T>
 class FlatSet {
 public:
-    using Iterator = typename std::vector<T>::iterator;
+    using iterator = typename std::vector<T>::iterator;
 
-    Iterator begin() { return m_data.begin(); }
-    Iterator end() { return m_data.end(); }
-    int_t size() { return m_data.size(); }
+    iterator begin() { return m_data.begin(); }
+    iterator end() { return m_data.end(); }
+    int_t size() const { return m_data.size(); }
     void reserve(int_t n) { m_data.reserve(n); }
     void reserveForInsertions(int_t n) { reserve(size() + n); }
     T& operator[](int_t i) { return m_data[i]; }
     T* data() { return m_data.data(); }
+    const T* data() const { return m_data.data(); }
     operator ArrayView<T>() { return { data(), size() }; }
+    operator ArrayView<const T>() const { return { data(), size() }; }
 
     template<typename S>
     int_t find(const S& s) {

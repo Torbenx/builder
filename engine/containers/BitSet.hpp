@@ -63,6 +63,12 @@ public:
         m_data[i] &= ~mask;
     }
 
+    void flipBitUnchecked(size_t i) {
+        T mask = BITSET_MASK(i);
+        i >>= BitTraits<T>::logDigits;
+        m_data[i] ^= mask;
+    }
+
     bool get(size_t i) const {
         T mask = BITSET_MASK(i);
         i >>= BitTraits<T>::logDigits;
@@ -82,6 +88,14 @@ public:
         i >>= BitTraits<T>::logDigits;
         if (i < m_size)
             m_data[i] &= ~mask;
+    }
+
+    void flipBit(size_t i) {
+        T mask = BITSET_MASK(i);
+        i >>= BitTraits<T>::logDigits;
+        if (i >= m_size)
+            growAndClear(i + 1);
+        m_data[i] ^= mask;
     }
 
     void set(size_t i, bool set) {
@@ -123,6 +137,18 @@ public:
         }
         for (size_t i = 0; i < size; i++) {
             m_data[i] &= other.m_data[i];
+        }
+        return *this;
+    }
+    BitSetBase& operator^=(const BitSetBase<T>& other) {
+        size_t size = other.m_size;
+        if (size > m_size) {
+            size = m_size;
+            grow(other.m_size);
+            std::memcpy(m_data + size, other.m_data, (m_size - size) * sizeof(T));
+        }
+        for (size_t i = 0; i < size; i++) {
+            m_data[i] ^= other.m_data[i];
         }
         return *this;
     }
@@ -169,6 +195,19 @@ public:
 
     void clear() {
         std::memset(m_data, 0, m_size * sizeof(T));
+    }
+
+    template<typename Callback>
+    void forEachSetBit(Callback&& callback) const {
+        for (size_t i = 0; i < m_size; i++) {
+            T mask = m_data[i];
+            size_t base = i << BitTraits<T>::logDigits;
+            while (mask != 0) {
+                int k = std::countl_zero(mask);
+                callback(base + k);
+                mask &= (mask - 1);
+            }
+        }
     }
 
     static bool shareAny(const BitSetBase<T>& a, const BitSetBase<T>& b) {
