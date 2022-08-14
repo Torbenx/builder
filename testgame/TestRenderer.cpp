@@ -323,9 +323,7 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectedItems);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectionSeq);
 
-    renderpass3d = new render3d::Renderpass { cameraSeq };
-    RTDumper dumper;
-    dumper.dump(renderpass3d->rtRoot);
+    renderpass3d = render3d::Renderpass::create(cameraSeq);
 
     // lightChildren = std::make_unique<SG::CompoundNode>();
     // lightChildren->addChild(unreflectedItems.get());
@@ -398,11 +396,11 @@ void TestRenderer<G>::change(int_t newWidth, int_t newHeight) {
         stx::get<SG::PortalNode>(cameraSeq).points.push_back({ +width / 2.0f, +height / 2.0f, -near });
         stx::get<SG::PortalNode>(cameraSeq).points.push_back({ -width / 2.0f, +height / 2.0f, -near });
         stx::get<SG::PortalNode>(cameraSeq).points.push_back({ -width / 2.0f, -height / 2.0f, -near });
-        /*stx::get<SG::PortalNode>(cameraSeq).planes.planes.clear();
-        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
-        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ { 0.0f, -std::cos(fovV / 2.0f), -std::sin(fovV / 2.0f) }, 0.0f });
-        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });
-        stx::get<SG::PortalNode>(cameraSeq).planes.planes.push_back({ Vec3::normalize({ -std::cos(fovV / 2.0f), 0.0f, -std::sin(fovV / 2.0f) * as }), 0.0f });*/
+
+        renderpass3d->update(projection);
+        renderpass3d->dumpRenderingTree();
+        //RTDumper dumper;
+        //dumper.dump(renderpass3d->rtRoot);
     }
 
     ScreenMetrics metrics;
@@ -688,7 +686,8 @@ void TestRenderer<G>::drawFrame() {
     //stx::get<render3d::SG::WorldTransformNode>(cameraSeq).transform.debug();
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
-    renderpass3d->render(&allocator, &Framebuffer::DEFAULT, projection);
+    renderpass3d->update(projection);
+    renderpass3d->render(&allocator, &Framebuffer::DEFAULT);
 
     glDisable(GL_DEPTH_TEST);
     // glDisable(GL_CULL_FACE);
