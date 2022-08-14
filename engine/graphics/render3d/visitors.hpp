@@ -19,6 +19,9 @@ struct Visitor {
         case NodeKind::Transform:
             impl()->visitTransformNode(seq.template firstIs<TransformNode>());
             break;
+        case NodeKind::WorldTransform:
+            impl()->visitWorldTransformNode(seq.template firstIs<WorldTransformNode>());
+            break;
         case NodeKind::Bounding:
             impl()->visitBoundingNode(seq.template firstIs<BoundingNode>());
             break;
@@ -27,9 +30,6 @@ struct Visitor {
             break;
         case NodeKind::Compound:
             impl()->visitCompoundNode(seq.template firstIs<CompoundNode>());
-            break;
-        case NodeKind::WorldCoordinatesMarker:
-            impl()->visitWorldCoordinatesMarkerNode(seq.template firstIs<WorldCoordinatesMarkerNode>());
             break;
         default:
             VERIFY_NOT_REACHED(render3d);
@@ -42,6 +42,9 @@ struct Visitor {
     void visitTransformNode(typename NodeSequence<S>::template FirstIs<TransformNode> seq) {
         impl()->dispatchVisit(seq.subSequence());
     }
+    void visitWorldTransformNode(typename NodeSequence<S>::template FirstIs<WorldTransformNode> seq) {
+        impl()->dispatchVisit(seq.subSequence());
+    }
     void visitBoundingNode(typename NodeSequence<S>::template FirstIs<BoundingNode> seq) {
         impl()->dispatchVisit(seq.subSequence());
     }
@@ -49,9 +52,6 @@ struct Visitor {
     void visitCompoundNode(typename NodeSequence<S>::template FirstIs<CompoundNode> seq) {
         for (auto subSeq : seq.first()->subSeqs())
             impl()->visitSequence(subSeq);
-    }
-    void visitWorldCoordinatesMarkerNode(typename NodeSequence<S>::template FirstIs<WorldCoordinatesMarkerNode> seq) {
-        impl()->dispatchVisit(seq.subSequence());
     }
 };
 
@@ -69,6 +69,9 @@ struct ParallelVisitor {
         case NodeKind::Transform:
             impl()->visitTransformNode(sgSeq.firstIs<SG::TransformNode>(), rtSeq.firstIs<RT::TransformNode>());
             break;
+        case NodeKind::WorldTransform:
+            impl()->visitWorldTransformNode(sgSeq.firstIs<SG::WorldTransformNode>(), rtSeq.firstIs<RT::WorldTransformNode>());
+            break;
         case NodeKind::Bounding:
             impl()->visitBoundingNode(sgSeq.firstIs<SG::BoundingNode>(), rtSeq.firstIs<RT::BoundingNode>());
             break;
@@ -77,9 +80,6 @@ struct ParallelVisitor {
             break;
         case NodeKind::Compound:
             impl()->visitCompoundNode(sgSeq.firstIs<SG::CompoundNode>(), rtSeq.firstIs<RT::CompoundNode>());
-            break;
-        case NodeKind::WorldCoordinatesMarker:
-            impl()->visitWorldCoordinatesMarkerNode(sgSeq.firstIs<SG::WorldCoordinatesMarkerNode>(), rtSeq.firstIs<RT::WorldCoordinatesMarkerNode>());
             break;
         default:
             VERIFY_NOT_REACHED(render3d);
@@ -92,6 +92,9 @@ struct ParallelVisitor {
     void visitTransformNode(NodeSequence<SG>::FirstIs<SG::TransformNode> sgSeq, NodeSequence<RT>::FirstIs<RT::TransformNode> rtSeq) {
         impl()->dispatchVisit(sgSeq.subSequence(), rtSeq.subSequence());
     }
+    void visitWorldTransformNode(NodeSequence<SG>::FirstIs<SG::WorldTransformNode> sgSeq, NodeSequence<RT>::FirstIs<RT::WorldTransformNode> rtSeq) {
+        impl()->dispatchVisit(sgSeq.subSequence(), rtSeq.subSequence());
+    }
     void visitBoundingNode(NodeSequence<SG>::FirstIs<SG::BoundingNode> sgSeq, NodeSequence<RT>::FirstIs<RT::BoundingNode> rtSeq) {
         impl()->dispatchVisit(sgSeq.subSequence(), rtSeq.subSequence());
     }
@@ -102,9 +105,6 @@ struct ParallelVisitor {
         VERIFY(render3d, sgSeqs.size() == rtSeqs.size());
         for (int_t i = 0; i < sgSeqs.size(); i++)
             impl()->visitSequence(sgSeqs[i], rtSeqs[i]);
-    }
-    void visitPortalNode(NodeSequence<SG>::FirstIs<SG::WorldCoordinatesMarkerNode> sgSeq, NodeSequence<RT>::FirstIs<RT::WorldCoordinatesMarkerNode> rtSeq) {
-        impl()->dispatchVisit(sgSeq.subSequence(), rtSeq.subSequence());
     }
 };
 
@@ -125,6 +125,10 @@ struct RTDumper : Visitor<RT, RTDumper> {
         info("Transform");
         Base::visitTransformNode(seq);
     }
+    void visitWorldTransformNode(NodeSequence<RT>::FirstIs<RT::WorldTransformNode> seq) {
+        info("WorldTransform");
+        Base::visitWorldTransformNode(seq);
+    }
     void visitBoundingNode(NodeSequence<RT>::FirstIs<RT::BoundingNode> seq) {
         info("Bounding");
         Base::visitBoundingNode(seq);
@@ -139,10 +143,6 @@ struct RTDumper : Visitor<RT, RTDumper> {
         indent += 1;
         Base::visitCompoundNode(seq);
         indent -= 1;
-    }
-    void visitWorldCoordinatesMarkerNode(NodeSequence<RT>::FirstIs<RT::WorldCoordinatesMarkerNode> seq) {
-        info("WorldCoordinatesMarker");
-        Base::visitWorldCoordinatesMarkerNode(seq);
     }
     void visitSequence(NodeSequence<RT> seq) {
         log("{}", output);

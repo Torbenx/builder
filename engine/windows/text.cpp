@@ -1,10 +1,7 @@
 #include "util/text.hpp"
 #include "util/log.hpp"
 #include "windows/engine.hpp"
-#include <Dwrite.h>
 #include <codecvt>
-#include <d2d1.h>
-#include <d2d1_1.h>
 #include <locale>
 #include <math.h>
 

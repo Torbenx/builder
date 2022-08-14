@@ -18,22 +18,22 @@ namespace render3d {
 struct SG;
 struct RT;
 
-#define IMPORT_NODES(S)                              \
-    using PortalNode = typename S::PortalNode;       \
-    using TransformNode = typename S::TransformNode; \
-    using BoundingNode = typename S::BoundingNode;   \
-    using ObjectNode = typename S::ObjectNode;       \
-    using CompoundNode = typename S::CompoundNode;   \
-    using WorldCoordinatesMarkerNode = typename S::WorldCoordinatesMarkerNode;
+#define IMPORT_NODES(S)                                        \
+    using PortalNode = typename S::PortalNode;                 \
+    using TransformNode = typename S::TransformNode;           \
+    using WorldTransformNode = typename S::WorldTransformNode; \
+    using BoundingNode = typename S::BoundingNode;             \
+    using ObjectNode = typename S::ObjectNode;                 \
+    using CompoundNode = typename S::CompoundNode;
 
 enum class NodeKind {
     Invalid = 0,
     Portal,
     Transform,
+    WorldTransform,
     Bounding,
     Object,
     Compound,
-    WorldCoordinatesMarker,
 };
 
 struct NodeKindSequence {
@@ -200,10 +200,10 @@ struct NodeSequence {
         IMPORT_NODES(S)
         static_assert(isSizeOfValid<PortalNode>());
         static_assert(isSizeOfValid<TransformNode>());
+        static_assert(isSizeOfValid<WorldTransformNode>());
         static_assert(isSizeOfValid<BoundingNode>());
         static_assert(isSizeOfValid<ObjectNode>());
         static_assert(isSizeOfValid<CompoundNode>());
-        static_assert(isSizeOfValid<WorldCoordinatesMarkerNode>());
     }
 };
 
@@ -221,7 +221,7 @@ template<typename S>
 constexpr int_t NodeSequence<S>::sizeOf(NodeKind kind) {
     IMPORT_NODES(S)
     // must match the NodeKind enum
-    constexpr int_t byteSizes[] = { 0, sizeOf<PortalNode>(), sizeOf<TransformNode>(), sizeOf<BoundingNode>(), sizeOf<ObjectNode>(), sizeOf<CompoundNode>(), sizeOf<WorldCoordinatesMarkerNode>() };
+    constexpr int_t byteSizes[] = { 0, sizeOf<PortalNode>(), sizeOf<TransformNode>(), sizeOf<WorldTransformNode>(), sizeOf<BoundingNode>(), sizeOf<ObjectNode>(), sizeOf<CompoundNode>() };
     return byteSizes[(int_t)kind];
 }
 

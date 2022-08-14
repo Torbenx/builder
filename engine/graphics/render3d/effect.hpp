@@ -167,10 +167,10 @@ struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
         return nullptr;
     }
     constexpr void emitUsage(const VarRefExpr* e, UsageType usage, CumulativeUpdateOp op = CumulativeUpdateOp::NONE) {
-        if (usage == UsageType::Update && op == CumulativeUpdateOp::NONE) {
+        /*if (usage == UsageType::Update && op == CumulativeUpdateOp::NONE) {
             VERIFY_NOT_REACHED(ShaderGen);
             return;
-        }
+        }*/
         auto* prev = findPrev(e->decl);
         if (!prev) {
             *(end++) = { e->decl, usage, op };
@@ -372,7 +372,6 @@ inline void generateSource(ArrayView<const EffectHandle> effectHandles) {
             for (auto usage : stageDesc.ceUsages) {
                 auto it = varMap.find(usage.varDecl);
                 if (it == varMap.end()) {
-                    log("new var: {}", usage.varDecl->name);
                     VarInfo varInfo { dag.newNode({ std::string(usage.varDecl->name) + " aW" }), dag.newNode({ std::string(usage.varDecl->name) + " bR" }) };
                     dag.addChild(varInfo.afterWrite, varInfo.beforeRead);
                     it = varMap.insert({ usage.varDecl, varInfo }).first;

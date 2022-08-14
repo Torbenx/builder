@@ -158,32 +158,32 @@ TestRenderer<G>::TestRenderer()
         col1.handle(),
         ambientLight.handle(),
         //spotLight.handle(),
-        //pointLight.handle(),
+        pointLight.handle(),
     };
     std::vector<Effect::Handle> effects2 {
         col2.handle(),
         ambientLight.handle(),
         //spotLight.handle(),
-        //pointLight.handle(),
+        pointLight.handle(),
     };
     std::vector<Effect::Handle> effects3 {
         col3.handle(),
         ambientLight.handle(),
         //spotLight.handle(),
-        //pointLight.handle(),
+        pointLight.handle(),
         reflection.handle(),
     };
     std::vector<Effect::Handle> effects4 {
         col4.handle(),
         ambientLight.handle(),
         //spotLight.handle(),
-        //pointLight.handle(),
+        pointLight.handle(),
     };
     std::vector<Effect::Handle> effects5 {
         col5.handle(),
         ambientLight.handle(),
         //spotLight.handle(),
-        //pointLight.handle(),
+        pointLight.handle(),
     };
 
     look.dir = Vec3::normalize(Vec3(0, -1, 0) - pos);
@@ -309,15 +309,23 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o5);
     stx::get<SG::CompoundNode>(reflectedItems).addSubSequence(o3);
 
+    stx::get<SG::PortalNode>(reflectionSeq).points.push_back(Vec3(-10, -2, -10));
+    stx::get<SG::PortalNode>(reflectionSeq).points.push_back(Vec3(-10, -2, 10));
+    stx::get<SG::PortalNode>(reflectionSeq).points.push_back(Vec3(10, -2, 10));
+    stx::get<SG::PortalNode>(reflectionSeq).points.push_back(Vec3(10, -2, -10));
     stx::get<SG::TransformNode>(reflectionSeq).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
+    stx::get<SG::WorldTransformNode>(reflectionSeq).transform = Mat4x4::reflection(Vec3(0, 1, 0), Vec3(0, -2, 0));
     stx::get<SG::CompoundNode>(reflectionSeq).addSubSequence(unreflectedItems);
 
     stx::get<SG::TransformNode>(cameraSeq).transform = Mat4x4::look(pos, look.dir, up);
+    stx::get<SG::WorldTransformNode>(cameraSeq).transform = Mat4x4::invert(stx::get<SG::TransformNode>(cameraSeq).transform);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(unreflectedItems);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectedItems);
     stx::get<SG::CompoundNode>(cameraSeq).addSubSequence(reflectionSeq);
 
     renderpass3d = new render3d::Renderpass { cameraSeq };
+    RTDumper dumper;
+    dumper.dump(renderpass3d->rtRoot);
 
     // lightChildren = std::make_unique<SG::CompoundNode>();
     // lightChildren->addChild(unreflectedItems.get());
@@ -672,9 +680,12 @@ void TestRenderer<G>::drawFrame() {
     }
     spotLightDepthPass.draw(objects, &allocator);
     reflectionPass.draw(objects, &allocator);
-    // renderpass.draw(objects, &allocator);
+    //renderpass.draw(objects, &allocator);
+
 
     stx::get<render3d::SG::TransformNode>(cameraSeq).transform = view;
+    stx::get<render3d::SG::WorldTransformNode>(cameraSeq).transform = Mat4x4::invert(view);
+    //stx::get<render3d::SG::WorldTransformNode>(cameraSeq).transform.debug();
     Framebuffer::DEFAULT.bind();
     Framebuffer::DEFAULT.clear();
     renderpass3d->render(&allocator, &Framebuffer::DEFAULT, projection);

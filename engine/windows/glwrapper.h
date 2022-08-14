@@ -7,13 +7,16 @@
 #define NTDDI_VERSION 0x0A000005
 #define NOMINMAX 1
 #include <Windows.h>
-#undef near
-#undef far
 //must include Windows.h first
 #include <D3D11.h>
+#include <Dwrite.h>
+#include <d2d1.h>
+#include <d2d1_1.h>
 #include <GL/gl.h>
 #include <GL/glcorearb.h>
 #include <GL/wglext.h>
+#undef near
+#undef far
 
 #ifdef __cplusplus
 extern "C" {

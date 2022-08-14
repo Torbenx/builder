@@ -9,11 +9,11 @@ struct Renderpass {
     NodeSequence<SG> sgRoot;
     NodeSequence<RT> rtRoot;
     std::unique_ptr<RT::TransformNode> rootTransform;
-    std::vector<SG::TransformNode*> cameraTransforms;
+    std::unique_ptr<RT::WorldTransformNode> rootWorldTransform;
     std::vector<RT::TransformItem> transformItems;
+    std::vector<RT::WorldTransformItem> worldTransformItems;
     std::vector<RT::PortalItem> portalItems;
     std::vector<RT::ObjectItem> objectItems;
-    Vec3 worldEye;
     Renderpass(NodeSequence<SG> sgRoot);
     void render(GAllocator* allocator, Framebuffer* framebuffer, Mat4x4 projection);
 };

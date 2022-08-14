@@ -45,9 +45,9 @@ constexpr CNumber operator-(float, const CNumber&);
 constexpr CNumber operator-(const CNumber&, float);
 constexpr CNumber operator-(const CNumber&);
 constexpr CNumber conjugate(const CNumber&);
-constexpr float length(const CNumber&);
+/*constexpr*/ float length(const CNumber&);
 constexpr float lengthSq(const CNumber&);
-constexpr float invLength(const CNumber&);
+/*constexpr*/ float invLength(const CNumber&);
 constexpr float invLengthSq(const CNumber&);
 constexpr CNumber inverse(const CNumber&);
 constexpr CNumber expI(float);
@@ -70,9 +70,9 @@ constexpr Vec2 operator/(const Vec2&, float);
 constexpr Vec2 operator+(const Vec2&, const Vec2&);
 constexpr Vec2 operator-(const Vec2&, const Vec2&);
 constexpr Vec2 operator-(const Vec2&);
-constexpr float length(const Vec2&);
+/*constexpr*/ float length(const Vec2&);
 constexpr float lengthSq(const Vec2&);
-constexpr float invLength(const Vec2&);
+/*constexpr*/ float invLength(const Vec2&);
 constexpr float invLengthSq(const Vec2&);
 constexpr Vec2 normalize(const Vec2&);
 constexpr Vec2 quarterTurn(const Vec2&);
@@ -134,13 +134,12 @@ constexpr Transform2 reflectAbout(const Surface2&);
 
 struct Vec3 {
     union {
+        Vec2 xy {};
         struct {
-            float x = 0.0f;
-            float y = 0.0f;
-            float z = 0.0f;
+            float x, y;
         };
-        Vec2 xy;
     };
+    float z = 0.0f;
     constexpr Vec3();
     constexpr Vec3(float, float, float);
     constexpr Vec3(const Vec2&, float);
@@ -156,9 +155,9 @@ constexpr Vec3 operator/(const Vec3&, float);
 constexpr Vec3 operator+(const Vec3&, const Vec3&);
 constexpr Vec3 operator-(const Vec3&, const Vec3&);
 constexpr Vec3 operator-(const Vec3&);
-constexpr float length(const Vec3&);
+/*constexpr*/ float length(const Vec3&);
 constexpr float lengthSq(const Vec3&);
-constexpr float invLength(const Vec3&);
+/*constexpr*/ float invLength(const Vec3&);
 constexpr float invLengthSq(const Vec3&);
 constexpr Vec3 normalize(const Vec3&);
 constexpr Vec3 cross(const Vec3&, const Vec3&);
@@ -287,9 +286,9 @@ constexpr CNumber operator-(float l, const CNumber& r) { return { l - r.r, -r.i 
 constexpr CNumber operator-(const CNumber& l, float r) { return { l.r - r, l.i }; }
 constexpr CNumber operator-(const CNumber& z) { return { -z.r, -z.i }; }
 constexpr CNumber conjugate(const CNumber& z) { return { z.r, -z.i }; }
-constexpr float length(const CNumber& z) { return std::sqrt(lengthSq(z)); }
+/*constexpr*/ float length(const CNumber& z) { return std::sqrt(lengthSq(z)); }
 constexpr float lengthSq(const CNumber& z) { return z.r * z.r + z.i * z.i; }
-constexpr float invLength(const CNumber& z) { return 1.0f / length(z); }
+/*constexpr*/ float invLength(const CNumber& z) { return 1.0f / length(z); }
 constexpr float invLengthSq(const CNumber& z) { return 1.0f / lengthSq(z); }
 constexpr CNumber inverse(const CNumber& z) { return conjugate(z) * invLength(z); }
 constexpr CNumber expI(float rads) { return { std::cos(rads), std::sin(rads) }; }
@@ -310,9 +309,9 @@ constexpr Vec2 operator/(const Vec2& v, float f) { return { v.x / f, v.y / f }; 
 constexpr Vec2 operator+(const Vec2& l, const Vec2& r) { return { l.x + r.x, l.y + r.y }; }
 constexpr Vec2 operator-(const Vec2& l, const Vec2& r) { return { l.x - r.x, l.y - r.y }; }
 constexpr Vec2 operator-(const Vec2& v) { return { -v.x, -v.y }; }
-constexpr float length(const Vec2& v) { return std::sqrt(lengthSq(v)); }
+/*constexpr*/ float length(const Vec2& v) { return std::sqrt(lengthSq(v)); }
 constexpr float lengthSq(const Vec2& v) { return v.x * v.x + v.y * v.y; }
-constexpr float invLength(const Vec2& v) { return 1.0f / length(v); }
+/*constexpr*/ float invLength(const Vec2& v) { return 1.0f / length(v); }
 constexpr float invLengthSq(const Vec2& v) { return 1.0f / lengthSq(v); }
 constexpr Vec2 normalize(const Vec2& v) { return v * invLength(v); }
 constexpr Vec2 quarterTurn(const Vec2& v) { return { -v.y, v.x }; }
@@ -333,9 +332,9 @@ constexpr Vec3 operator/(const Vec3& v, float f) { return { v.x / f, v.y / f, v.
 constexpr Vec3 operator+(const Vec3& l, const Vec3& r) { return { l.x + r.x, l.y + r.y, l.z + r.z }; }
 constexpr Vec3 operator-(const Vec3& l, const Vec3& r) { return { l.x - r.x, l.y - r.y, l.z - r.z }; }
 constexpr Vec3 operator-(const Vec3& v) { return { -v.x, -v.y, -v.z }; }
-constexpr float length(const Vec3& v) { return std::sqrt(lengthSq(v)); }
+/*constexpr*/ float length(const Vec3& v) { return std::sqrt(lengthSq(v)); }
 constexpr float lengthSq(const Vec3& v) { return v.x * v.x + v.y * v.y + v.z * v.z; }
-constexpr float invLength(const Vec3& v) { return 1.0f / length(v); }
+/*constexpr*/ float invLength(const Vec3& v) { return 1.0f / length(v); }
 constexpr float invLengthSq(const Vec3& v) { return 1.0f / lengthSq(v); }
 constexpr Vec3 normalize(const Vec3& v) { return v * invLength(v); }
 constexpr Vec3 cross(const Vec3& l, const Vec3& r) { return { l.y * r.z - l.z * r.y, l.z * r.x - l.x * r.z, l.x * r.y - l.y * r.x }; }

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "3d/Renderpass.hpp"
 #include "NodeSequence.hpp"
 #include "math/Mat4x4.hpp"
-#include "3d/Renderpass.hpp"
 
 namespace render3d {
 
@@ -21,6 +21,10 @@ struct SG /* Scene Graph */ {
     };
     struct alignas(8) TransformNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Transform;
+        Mat4x4 transform;
+    };
+    struct alignas(8) WorldTransformNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::WorldTransform;
         Mat4x4 transform;
     };
     struct alignas(8) BoundingNode {
@@ -54,24 +58,22 @@ struct SG /* Scene Graph */ {
             m_subSeqs.push_back(seq);
         }
     };
-    struct alignas(8) WorldCoordinatesMarkerNode {
-        static constexpr NodeKind NODE_KIND = NodeKind::WorldCoordinatesMarker;
-    };
 };
 
 struct RT /* Rendering Tree */ {
     struct PortalNode;
     struct TransformNode;
+    struct WorldTransformNode;
     struct BoundingNode;
     struct ObjectNode;
     struct CompoundNode;
 
     struct PortalItem {
-        RT::TransformNode* worldTransform = nullptr;
+        RT::TransformNode* viewTransform = nullptr;
         RT::PortalNode* sourceStack = nullptr;
         NodeSequence<SG>::FirstIs<SG::PortalNode> input;
-        RT::PortalNode* output;
-        bool update(Vec3 eye);
+        RT::PortalNode* output = nullptr;
+        bool update();
     };
     struct TransformItem {
         RT::TransformNode* sourceTransform = nullptr;
@@ -81,14 +83,29 @@ struct RT /* Rendering Tree */ {
             output->transform = sourceTransform->transform * input->transform;
         }
     };
+    struct WorldTransformItem {
+        RT::TransformNode* viewTransform = nullptr;
+        RT::WorldTransformNode* sourceWorldTransform = nullptr;
+        SG::WorldTransformNode* input = nullptr;
+        RT::WorldTransformNode* output = nullptr;
+        void update() {
+            output->transform
+                = sourceWorldTransform->transform
+                * viewTransform->transform
+                * input->transform
+                * Mat4x4::invert(viewTransform->transform);
+        }
+    };
     struct BoundingItem {
-        RT::TransformNode* worldTransform = nullptr;
+        RT::TransformNode* viewTransform = nullptr;
+        RT::WorldTransformNode* worldTransform = nullptr;
         NodeSequence<SG>::FirstIs<SG::BoundingNode> input;
         RT::BoundingNode* output = nullptr;
         bool update(const std::vector<Vec4>& planes);
     };
     struct ObjectItem {
-        RT::TransformNode* worldTransform = nullptr;
+        RT::TransformNode* viewTransform = nullptr;
+        RT::WorldTransformNode* worldTransform = nullptr;
         SG::ObjectNode* input = nullptr;
         RT::ObjectNode* output = nullptr;
     };
@@ -108,11 +125,15 @@ struct RT /* Rendering Tree */ {
     struct PortalNode : Sentinel {
         static constexpr NodeKind NODE_KIND = NodeKind::Portal;
         std::vector<Vec4> cullPlanes;
-        //ConvexPolygon screenSpacePolygon;
+        // ConvexPolygon screenSpacePolygon;
         std::vector<BoundingItem> boundingItems;
     };
     struct TransformNode : Sentinel {
         static constexpr NodeKind NODE_KIND = NodeKind::Transform;
+        Mat4x4 transform;
+    };
+    struct WorldTransformNode : Sentinel {
+        static constexpr NodeKind NODE_KIND = NodeKind::WorldTransform;
         Mat4x4 transform;
     };
     struct BoundingNode : Sentinel {
@@ -125,14 +146,14 @@ struct RT /* Rendering Tree */ {
     struct CompoundNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Compound;
 
-        RT::TransformNode* worldTransform;
+        RT::TransformNode* viewTransform;
         RT::PortalNode* portalStack;
         std::atomic<uintptr_t> subSequenceStorage = (uintptr_t)0 | (uintptr_t)1;
 
-        CompoundNode(RT::TransformNode* worldTransform, RT::PortalNode* portalStack)
-            : worldTransform(worldTransform), portalStack(portalStack) { }
+        CompoundNode(RT::TransformNode* viewTransform, RT::PortalNode* portalStack)
+            : viewTransform(viewTransform), portalStack(portalStack) { }
         CompoundNode(const CompoundNode& other)
-            : worldTransform(other.worldTransform), portalStack(other.portalStack), subSequenceStorage(other.subSequenceStorage.load(std::memory_order_relaxed)) { }
+            : viewTransform(other.viewTransform), portalStack(other.portalStack), subSequenceStorage(other.subSequenceStorage.load(std::memory_order_relaxed)) { }
 
         struct ReturnVal {
             ArrayView<NodeSequence<RT>> subSeqs;
@@ -201,9 +222,6 @@ struct RT /* Rendering Tree */ {
                 rep.clearAndLeak();
             return success;
         }
-    };
-    struct WorldCoordinatesMarkerNode : Sentinel {
-        static constexpr NodeKind NODE_KIND = NodeKind::WorldCoordinatesMarker;
     };
     static inline Sentinel* asSentinel(NodeHandle node) {
         return (Sentinel*)node.node;

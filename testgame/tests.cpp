@@ -112,6 +112,15 @@ struct Effect2 {
     }
 };
 DEFINE_EFFECT(Effect2)
+struct Effect3 {
+    GPtr<float[]> attribute;
+    static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
+        using namespace shadergen::code;
+        auto attr = prog.vert.uniform<&Effect3::attribute>("a_attr");
+        prog.vert, myVar = myVar + attr;
+    }
+};
+DEFINE_EFFECT(Effect3)
 
 void runShadergenTest() {
     ASTDumper dumper;
@@ -128,6 +137,7 @@ void runShadergenTest() {
 
     Effect1 e1;
     Effect2 e2;
-    shadergen::effect::EffectHandle handles[] = { &e1, &e2 };
+    Effect3 e3;
+    shadergen::effect::EffectHandle handles[] = { &e1, &e2, &e3 };
     shadergen::effect::generateSource(handles);
 }

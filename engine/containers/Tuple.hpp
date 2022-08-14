@@ -8,13 +8,13 @@ namespace detail {
     struct tuple_storage_untyped { };
 
     template<typename T>
-    struct tuple_storage_base : tuple_storage_untyped {
+    struct tuple_storage_base /*: tuple_storage_untyped*/ {
         T t;
     };
 
     template<typename T, int_t i>
     struct tuple_storage_indexed : tuple_storage_base<T> {
-        tuple_storage_untyped* untyped_ptr() { return this; }
+        //tuple_storage_untyped* untyped_ptr() { return this; }
     };
     template<typename T, int_t i>
     requires std::is_empty_v<T>

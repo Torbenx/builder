@@ -87,8 +87,8 @@ public:
     render3d::StaticNodeSequence<SG::BoundingNode, SG::ObjectNode> o1;
     render3d::StaticNodeSequence<SG::ObjectNode> o2, o3, o4, o5;
     render3d::StaticNodeSequence<SG::CompoundNode> reflectedItems, unreflectedItems;
-    render3d::StaticNodeSequence<SG::PortalNode, SG::TransformNode, SG::WorldCoordinatesMarkerNode, SG::CompoundNode> cameraSeq;
-    render3d::StaticNodeSequence<SG::PortalNode, SG::TransformNode, SG::CompoundNode> reflectionSeq;
+    render3d::StaticNodeSequence<SG::PortalNode, SG::TransformNode, SG::WorldTransformNode, SG::CompoundNode> cameraSeq;
+    render3d::StaticNodeSequence<SG::PortalNode, SG::TransformNode, SG::WorldTransformNode, SG::CompoundNode> reflectionSeq;
 
     TestRenderer();
     void change(int_t width, int_t height);
