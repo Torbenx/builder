@@ -243,15 +243,83 @@ struct UserTypeRecorder : ASTVisitor<UserTypeRecorder> {
     }
 };
 
-template<typename Impl, typename Storage>
+union ASTNodeStorage {
+#define AST_NODE(N) N N##_;
+    ENUMERATE_AST_NODES(AST_NODE)
+#undef AST_NODE
+
+    constexpr Stmt* setStmt(const Stmt& s) {
+#define STMT_KIND(S)  \
+    case StmtKind::S: \
+        return std::construct_at(&(S##_), (const S&)s);
+
+        switch (s.stmtKind) {
+            ENUMERATE_STMT_KINDS(STMT_KIND)
+        default:
+            VERIFY_NOT_REACHED(ShaderGen);
+        }
+#undef STMT_KIND
+    }
+    constexpr ASTListEntry* setListEntry(const ASTListEntry& e) {
+        return std::construct_at(&ASTListEntry_, e);
+    }
+    constexpr VarDecl* setVarDecl(const VarDecl& decl) {
+        return std::construct_at(&VarDecl_, decl);
+    }
+    constexpr ErrorNote* setNote(const ErrorNote& note) {
+        return std::construct_at(&ErrorNote_, note);
+    }
+    constexpr StageDecl* setStageDecl(const StageDecl& stage) {
+        return std::construct_at(&StageDecl_, stage);
+    }
+
+    constexpr ASTNodeStorage() { }
+};
+template<typename T>
+struct PsudoVector {
+    T** endPtr = nullptr;
+    constexpr T* acquireEnd(int_t size = 1) {
+        T* end = *endPtr;
+        *endPtr += size;
+        return end;
+    }
+    constexpr void pushBack(const T& item) {
+        *acquireEnd() = item;
+    }
+    constexpr T* end() const { return *endPtr; }
+};
+struct ASTStorage {
+    PsudoVector<ASTNodeStorage> nodeStorage;
+    PsudoVector<char> messageStorage;
+    template<typename T>
+    constexpr T* allocateStmt(const T& stmt) {
+        return (T*)nodeStorage.acquireEnd()->setStmt(stmt);
+    }
+    constexpr VarDecl* allocateVarDecl(const VarDecl& decl) {
+        return nodeStorage.acquireEnd()->setVarDecl(decl);
+    }
+    template<typename T>
+    constexpr void pushBackOnList(ASTList<T>& list, T* e) {
+        ASTListEntry* entry = nodeStorage.acquireEnd()->setListEntry({ e });
+        list.pushBack(entry);
+    }
+    constexpr ErrorNote* allocateNote(const ErrorNote& note) {
+        return nodeStorage.acquireEnd()->setNote(note);
+    }
+    constexpr StageDecl* allocateStageDecl(const StageDecl& stage) {
+        return nodeStorage.acquireEnd()->setStageDecl(stage);
+    }
+};
+
+template<typename Impl>
 struct ASTTransform {
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
     VarDeclContext* currentDeclContext = nullptr;
-    Storage* storage = nullptr;
+    ASTStorage storage = {};
 
     constexpr ASTTransform() = default;
-    constexpr ASTTransform(Storage* storage)
+    constexpr ASTTransform(ASTStorage storage)
         : storage(storage) { }
 
     constexpr void transformStmt(Stmt* e) { }
@@ -303,7 +371,7 @@ struct ASTTransform {
     constexpr void transformCompoundStmt(CompoundStmt* e) {
         impl()->transformStmt(e);
         e->consumeEntries([&](const Stmt* stmt) {
-            storage->pushBackOnList(*e, impl()->dispatchTransform(stmt));
+            storage.pushBackOnList(*e, impl()->dispatchTransform(stmt));
         });
     }
     constexpr void transformDeclContext(VarDeclContext* declContext) {
@@ -330,7 +398,7 @@ struct ASTTransform {
     constexpr void transformCallExpr(CallExpr* e) {
         impl()->transformExpr(e);
         e->arguments.consumeEntries([&](const Expr* expr) {
-            storage->pushBackOnList(e->arguments, castStmt<const Expr>(impl()->dispatchTransform(expr)));
+            storage.pushBackOnList(e->arguments, castStmt<const Expr>(impl()->dispatchTransform(expr)));
         });
     }
     constexpr void transformCompositionExpr(CompositionExpr* e) {
@@ -361,7 +429,7 @@ struct ASTTransform {
     constexpr void transformErrorExpr(ErrorExpr* e) {
         impl()->transformExpr(e);
         e->notes.consumeEntries([&](const ErrorNote* n) {
-            storage->pushBackOnList(e->notes, impl()->createNote(*n));
+            storage.pushBackOnList(e->notes, impl()->createNote(*n));
         });
         e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
     }
@@ -383,7 +451,7 @@ struct ASTTransform {
         e->entryPoint = impl()->dispatchTransform(e->entryPoint);
     }
     constexpr StageDecl* createStageDecl(const StageDecl& in) {
-        StageDecl* out = storage->allocateStageDecl(in);
+        StageDecl* out = storage.allocateStageDecl(in);
         impl()->transformStageDecl(out);
         return out;
     }
@@ -391,14 +459,14 @@ struct ASTTransform {
         impl()->transformStageDeclContext(e, parentContext);
     }
     constexpr StageDecl* createEmptyStageDecl() {
-        StageDecl* out = storage->allocateStageDecl({});
+        StageDecl* out = storage.allocateStageDecl({});
         initializeEmptyStageDecl(out);
         return out;
     }
 
 #define STMT_KIND(S)                         \
     constexpr Stmt* create##S(const S& in) { \
-        S* out = storage->allocateStmt(in);  \
+        S* out = storage.allocateStmt(in);  \
         impl()->transform##S(out);           \
         return out;                          \
     }
@@ -419,22 +487,16 @@ struct ASTTransform {
 #undef STMT_KIND
     }
     constexpr VarDecl* createVarDecl(const VarDecl* in, VarDeclContext* declContext) {
-        VarDecl* out = storage->allocateVarDecl(*in);
+        VarDecl* out = storage.allocateVarDecl(*in);
         out->declContext = declContext;
         out->prevDecl = in;
-        storage->pushBackOnList(declContext->decls, out);
+        storage.pushBackOnList(declContext->decls, out);
         return out;
     }
     constexpr ErrorNote* createNote(const ErrorNote& in) {
-        ErrorNote* out = storage->allocateNote(in);
+        ErrorNote* out = storage.allocateNote(in);
         impl()->transformNote(out);
         return out;
     }
-};
-
-template<typename Storage>
-struct BasicASTTransform : ASTTransform<BasicASTTransform<Storage>, Storage> {
-    using Base = ASTTransform<BasicASTTransform<Storage>, Storage>;
-    using ASTTransform<BasicASTTransform<Storage>, Storage>::ASTTransform;
 };
 }

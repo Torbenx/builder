@@ -81,7 +81,7 @@ static constexpr auto toGLSL(const GraphicsDriver& prog) {
 
 static constexpr auto transformAST(const GraphicsDriver& in) {
     return GraphicsDriver([&](GraphicsDriver& out) {
-        GLSLStmtTransform transform { &out.storage };
+        GLSLStmtTransform transform { out.storage };
         out.vert.m_stageDecl = transform.createStageDecl(*in.vert.stageDecl());
         out.frag.m_stageDecl = transform.createStageDecl(*in.frag.stageDecl());
     });

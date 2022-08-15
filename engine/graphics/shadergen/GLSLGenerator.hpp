@@ -4,15 +4,14 @@
 
 namespace shadergen {
 
-template<typename Storage>
-struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform<Storage>, Storage> {
-    using Base = CheckedASTTransform<GLSLStmtTransform<Storage>, Storage>;
+struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform> {
+    using Base = CheckedASTTransform<GLSLStmtTransform>;
     constexpr GLSLStmtTransform() = default;
-    constexpr GLSLStmtTransform(Storage* storage)
+    constexpr GLSLStmtTransform(ASTStorage storage)
         : Base(storage) { }
 
     constexpr Expr* wrapWithParenExpr(const Expr* e) {
-        auto* paren = this->storage->template allocateStmt<ParenExpr>({ e });
+        auto* paren = storage.allocateStmt<ParenExpr>({ e });
         paren->type = e->type;
         paren->valueKind = e->valueKind;
         return paren;

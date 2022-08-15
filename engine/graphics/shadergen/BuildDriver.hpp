@@ -5,69 +5,16 @@
 namespace shadergen {
 
 // Storage
-union ASTNodeStorage {
-#define AST_NODE(N) N N##_;
-    ENUMERATE_AST_NODES(AST_NODE)
-#undef AST_NODE
-
-    constexpr Stmt* setStmt(const Stmt& s) {
-#define STMT_KIND(S)  \
-    case StmtKind::S: \
-        return std::construct_at(&(S##_), (const S&)s);
-
-        switch (s.stmtKind) {
-            ENUMERATE_STMT_KINDS(STMT_KIND)
-        default:
-            VERIFY_NOT_REACHED(ShaderGen);
-        }
-#undef STMT_KIND
-    }
-    constexpr ASTListEntry* setListEntry(const ASTListEntry& e) {
-        return std::construct_at(&ASTListEntry_, e);
-    }
-    constexpr VarDecl* setVarDecl(const VarDecl& decl) {
-        return std::construct_at(&VarDecl_, decl);
-    }
-    constexpr ErrorNote* setNote(const ErrorNote& note) {
-        return std::construct_at(&ErrorNote_, note);
-    }
-    constexpr StageDecl* setStageDecl(const StageDecl& stage) {
-        return std::construct_at(&StageDecl_, stage);
-    }
-
-    constexpr ASTNodeStorage() { }
-};
-
 template<int_t N, int_t S>
 struct BasicASTStorage {
-    ASTNodeStorage storage[N];
-    char messageBuffer[S] = {};
-    int_t size = 0;
-    char* messageBufferPosition = messageBuffer;
-    constexpr ASTNodeStorage& acquireBack() {
-        return storage[size++];
-    }
-    template<typename T>
-    constexpr T* allocateStmt(const T& stmt) {
-        return (T*)acquireBack().setStmt(stmt);
-    }
-    constexpr VarDecl* allocateVarDecl(const VarDecl& decl) {
-        return acquireBack().setVarDecl(decl);
-    }
-    template<typename T>
-    constexpr void pushBackOnList(ASTList<T>& list, T* e) {
-        ASTListEntry* entry = acquireBack().setListEntry({ e });
-        list.pushBack(entry);
-    }
-    constexpr ErrorNote* allocateNote(const ErrorNote& note) {
-        return acquireBack().setNote(note);
-    }
-    constexpr StageDecl* allocateStageDecl(const StageDecl& stage) {
-        return acquireBack().setStageDecl(stage);
-    }
+    ASTNodeStorage nodeStorage[N];
+    char messageStorage[S] = {};
+    ASTNodeStorage* nodeEnd = nodeStorage;
+    char* messageEnd = messageStorage;
 
     constexpr BasicASTStorage() = default;
     constexpr BasicASTStorage(const BasicASTStorage&) = delete;
+    constexpr operator ASTStorage() { return { { &nodeEnd }, { &messageEnd } }; }
 };
 
 template<typename T>
@@ -88,9 +35,8 @@ struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
 };
 
 // Driver
-struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000>> {
-    using Storage = BasicASTStorage<1000, 1000>;
-    using Base = CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000>>;
+struct BlockDriver : CheckedASTTransform<BlockDriver> {
+    using Base = CheckedASTTransform<BlockDriver>;
 
     BlockStmt* currentBlock = nullptr;
 
@@ -116,15 +62,15 @@ struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000
         }
     };
 
-    constexpr BlockDriver(Storage* storage)
+    constexpr BlockDriver(ASTStorage storage)
         : Base(storage) { }
 
     constexpr void emitStmt(Stmt* stmt) {
-        storage->pushBackOnList(*currentBlock->body, stmt);
+        storage.pushBackOnList(*currentBlock->body, stmt);
     }
     constexpr BlockStmt* newBlock(VarDeclContext* parent = nullptr) {
-        auto* body = storage->template allocateStmt<CompoundStmt>({});
-        auto* block = storage->template allocateStmt<BlockStmt>({ body });
+        auto* body = storage.template allocateStmt<CompoundStmt>({});
+        auto* block = storage.template allocateStmt<BlockStmt>({ body });
         block->declContext.parent = parent;
         return block;
     }
@@ -150,7 +96,7 @@ struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000
     constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
         Expr* condition = castStmt<Expr>(dispatchTransform(&conditionIn));
         checkBranchCondtion(condition);
-        auto* ifStmt = storage->allocateStmt<IfStmt>({ condition });
+        auto* ifStmt = storage.allocateStmt<IfStmt>({ condition });
         {
             BlockScope scope { this };
             whenTrue();
@@ -173,11 +119,11 @@ struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000
 struct StageDriver : BlockDriver {
     StageDecl* m_stageDecl = nullptr;
 
-    constexpr StageDriver(Storage* storage)
+    constexpr StageDriver(ASTStorage storage)
         : BlockDriver(storage), m_stageDecl(createEmptyStageDecl()) {
         createEntryPoint();
     }
-    constexpr StageDriver(Storage* storage, StageDecl* stageDecl)
+    constexpr StageDriver(ASTStorage storage, StageDecl* stageDecl)
         : BlockDriver(storage), m_stageDecl(stageDecl) {
         if (stageDecl)
             createEntryPoint();
@@ -214,14 +160,14 @@ struct StageDriver : BlockDriver {
 struct VertexStageDriver : StageDriver {
     DriverVariable<Vec4> position;
 
-    constexpr VertexStageDriver(Storage* storage)
+    constexpr VertexStageDriver(ASTStorage storage)
         : StageDriver(storage)
         , position { builtin<Vec4>("gl_Position") } { }
 };
 
 struct FragmentStageDriver : StageDriver {
 
-    constexpr FragmentStageDriver(Storage* storage)
+    constexpr FragmentStageDriver(ASTStorage storage)
         : StageDriver(storage) { }
 };
 
@@ -234,11 +180,11 @@ struct VaryingReturnType {
 };
 
 struct GraphicsDriver {
-    using Storage = StageDriver::Storage;
-    Storage storage;
 
-    VertexStageDriver vert { &storage };
-    FragmentStageDriver frag { &storage };
+    using Storage = BasicASTStorage<1000, 10000>;
+    Storage storage;
+    VertexStageDriver vert { storage };
+    FragmentStageDriver frag { storage };
 
     constexpr GraphicsDriver() = default;
     template<typename Callback>

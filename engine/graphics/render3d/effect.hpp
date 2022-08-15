@@ -56,7 +56,7 @@ struct EffectStageDriver : StageDriver {
     OversizedArray<EffectVariableOffset, 300> offsets;
     EffectStageDecl effectStageDecl;
 
-    constexpr EffectStageDriver(Storage* storage)
+    constexpr EffectStageDriver(ASTStorage storage)
         : StageDriver(storage, nullptr) {
             initializeEmptyStageDecl(&effectStageDecl, &effectStageDecl.subpassInputs);
             initialize(&effectStageDecl);
@@ -105,10 +105,10 @@ struct EffectStageDriver : StageDriver {
 };
 
 struct EffectDriver {
-    using Storage = BlockDriver::Storage;
+    using Storage = GraphicsDriver::Storage;
     Storage storage;
-    EffectStageDriver vert { &storage };
-    EffectStageDriver frag { &storage };
+    EffectStageDriver vert { storage };
+    EffectStageDriver frag { storage };
 
     template<typename T>
     constexpr VaryingReturnType<T> varying(std::string_view name) {
@@ -254,21 +254,20 @@ constexpr CrossEffectVariable<Vec3> modelPosition { "modelPosition" };
 constexpr CrossEffectVariable<Vec4> screenPosition { "screenPosition" };
 constexpr CrossEffectVariable<Vec3> worldPosition { "worldPosition" };
 
-struct OpenglTransform : ASTTransform<OpenglTransform, BlockDriver::Storage> {
-    using Storage = BlockDriver::Storage;
-    using Base = ASTTransform<OpenglTransform, Storage>;
+struct OpenglTransform : ASTTransform<OpenglTransform> {
+    using Base = ASTTransform<OpenglTransform>;
     constexpr OpenglTransform() = default;
-    constexpr OpenglTransform(Storage* storage)
+    constexpr OpenglTransform(ASTStorage storage)
         : Base(storage) { }
     constexpr StageDecl* createOpenglStageDecl(const EffectStageDecl& in) {
-        StageDecl* out = storage->allocateStageDecl(in);
+        StageDecl* out = storage.allocateStageDecl(in);
         transformStageDeclContext(out);
         Stmt* oldEntryPoint = out->entryPoint;
 
         StageDriver driver { storage, out };
         in.subpassInputs.decls.forEachEntry([&](VarDecl* oldDecl) {
             using namespace code;
-            auto sampler = driver.uniform<Sampler2D>("needs_a_name");
+            auto sampler = driver.uniform<Sampler2D>("u_subpassTex");
             driver.createVarDecl(oldDecl, driver.currentDeclContext);
             get_wrapper<Vec4>::impl<VarRefExpr> newVar { { oldDecl } };
             driver, newVar = texture(sampler, screenPosition.xy());
@@ -309,11 +308,11 @@ constexpr void fillConstStageDescriptor(ConstStageDescriptor& out, const EffectS
     CrossEffectVarUsageFinder usageFinder { out.ceUsages.data };
     usageFinder.dispatchVisit(in.stageDecl()->entryPoint);
     out.ceUsages.size = usageFinder.end - usageFinder.begin;
-    BlockDriver::Storage storage;
+    GraphicsDriver::Storage storage;
 
-    OpenglTransform transform1 { &storage };
+    OpenglTransform transform1 { storage };
     StageDecl* transformed1 = transform1.createOpenglStageDecl(*in.stageDecl());
-    GLSLStmtTransform transform2 { &storage };
+    GLSLStmtTransform transform2 { storage };
     StageDecl* transformed2 = transform2.createStageDecl(*transformed1);
     GLSLStmtGenerator generator { out.source.data };
     generator.dispatchVisit(transformed2->entryPoint);

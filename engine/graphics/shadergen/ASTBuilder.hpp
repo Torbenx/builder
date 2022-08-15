@@ -6,24 +6,24 @@ namespace shadergen {
 
 struct MessageBuilder {
     std::string_view* message = nullptr;
-    char** storage = nullptr;
+    PsudoVector<char> storage;
 
     constexpr MessageBuilder() = default;
-    constexpr MessageBuilder(std::string_view& message, char*& storage)
-        : message(&message), storage(&storage) { }
+    constexpr MessageBuilder(std::string_view& message, PsudoVector<char> storage)
+        : message(&message), storage(storage) { }
 
     constexpr void setEmpty() {
         message = nullptr;
-        storage = nullptr;
+        storage = {};
     }
     constexpr void grow(int_t size) {
-        *storage += size;
+        *storage.endPtr += size;
         *message = { message->data(), message->size() + size };
     }
     constexpr MessageBuilder& operator<<(std::string_view str) {
         if (!message)
             return *this;
-        std::copy_n(str.data(), str.size(), *storage);
+        std::copy_n(str.data(), str.size(), storage.end());
         grow(str.size());
         return *this;
     }
@@ -33,7 +33,7 @@ struct MessageBuilder {
         while (in != 0) {
             int_t mod = in % 10;
             int_t div = in / 10;
-            **storage = '0' + mod;
+            *storage.end() = '0' + mod;
             grow(1);
             in = div;
         }
@@ -55,7 +55,7 @@ struct MessageBuilder {
 struct ErrorBuilder : MessageBuilder {
     ErrorNode* error = nullptr;
     constexpr ErrorBuilder() = default;
-    constexpr ErrorBuilder(ErrorNode& error, char*& storage)
+    constexpr ErrorBuilder(ErrorNode& error, PsudoVector<char> storage)
         : MessageBuilder(error.message, storage), error(&error) { }
     constexpr void setEmpty() {
         MessageBuilder::setEmpty();
@@ -123,13 +123,13 @@ struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
     }
 };
 
-template<typename Impl, typename Storage>
-struct CheckedASTTransform : ASTTransform<Impl, Storage> {
-    using Base = ASTTransform<Impl, Storage>;
+template<typename Impl>
+struct CheckedASTTransform : ASTTransform<Impl> {
+    using Base = ASTTransform<Impl>;
 
     constexpr CheckedASTTransform() = default;
-    constexpr CheckedASTTransform(Storage* storage)
-        : ASTTransform<Impl, Storage>(storage) { }
+    constexpr CheckedASTTransform(ASTStorage storage)
+        : Base(storage) { }
 
     struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
         CheckedASTTransform& ast;
@@ -151,8 +151,8 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
 
     ErrorNode currentError;
     constexpr ErrorBuilder buildError(ErrorNode& error) {
-        error.message = { this->storage->messageBufferPosition, 0 };
-        return { error, this->storage->messageBufferPosition };
+        error.message = { this->storage.messageStorage.end(), 0 };
+        return { error, this->storage.messageStorage };
     }
     constexpr ErrorBuilder error() {
         if (currentError.hasError())
@@ -162,10 +162,10 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
     constexpr MessageBuilder addNote(ErrorBuilder err) {
         if (!err.error)
             return {};
-        auto* note = this->storage->allocateNote({});
-        this->storage->pushBackOnList(err.error->notes, note);
-        note->message = { this->storage->messageBufferPosition, 0 };
-        return { note->message, this->storage->messageBufferPosition };
+        auto* note = this->storage.allocateNote({});
+        this->storage.pushBackOnList(err.error->notes, note);
+        note->message = { this->storage.messageStorage.end(), 0 };
+        return { note->message, this->storage.messageStorage };
     }
     constexpr ErrorBuilder check(bool cond) {
         if (!cond)
@@ -446,7 +446,7 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
     }
     constexpr Expr* wrapExprWithError(Expr* expr) {
         if (currentError.hasError()) {
-            auto* err = this->storage->template allocateStmt<ErrorExpr>({ currentError });
+            auto* err = this->storage.template allocateStmt<ErrorExpr>({ currentError });
             err->subExpr = expr;
             if (expr->type) {
                 err->type = expr->type;
@@ -464,7 +464,7 @@ struct CheckedASTTransform : ASTTransform<Impl, Storage> {
         if (isExpr(stmt))
             return wrapExprWithError(castStmt<Expr>(stmt));
         if (currentError.hasError()) {
-            auto* err = this->storage->template allocateStmt<ErrorStmt>({ currentError });
+            auto* err = this->storage.template allocateStmt<ErrorStmt>({ currentError });
             err->subStmt = stmt;
             stmt = err;
             currentError.clear();
