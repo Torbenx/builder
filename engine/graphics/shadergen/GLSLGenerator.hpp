@@ -102,36 +102,38 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform> {
 template<typename Impl>
 struct GLSLGeneratorBase {
     struct Indentation { };
+    using OutRet = Impl;
 
-    char* end = nullptr;
+    PseudoVector<char> buffer;
     int_t indent = 0;
     constexpr GLSLGeneratorBase() = default;
-    constexpr GLSLGeneratorBase(char* buffer)
-        : end(buffer) { }
+    constexpr GLSLGeneratorBase(PseudoVector<char> buffer)
+        : buffer(buffer) { }
 
-    constexpr auto& out() { return *static_cast<Impl*>(this); }
-    constexpr auto& operator<<(std::string_view str) {
-        std::copy_n(str.data(), str.size(), end);
-        end += str.size();
+    constexpr Impl* impl() { return static_cast<Impl*>(this); }
+
+    constexpr OutRet& out() { return *static_cast<Impl*>(this); }
+    constexpr OutRet& operator<<(std::string_view str) {
+        std::copy_n(str.data(), str.size(), buffer.acquireEnd(str.size()));
         return out();
     }
-    constexpr auto& operator<<(const char* str) {
+    constexpr OutRet& operator<<(const char* str) {
         return *this << std::string_view(str);
     }
-    constexpr auto& operator<<(const Type* type) {
+    constexpr OutRet& operator<<(const Type* type) {
         emitTypeName(type);
         return out();
     }
-    constexpr auto& operator<<(const VarDecl* decl) {
+    constexpr OutRet& operator<<(const VarDecl* decl) {
         emitVarDecl(decl);
         return out();
     }
-    constexpr auto& operator<<(Indentation) {
+    constexpr OutRet& operator<<(Indentation) {
         for (int_t i = 0; i < indent * 4; i++)
             *this << " ";
         return out();
     }
-    constexpr auto& operator<<(bool b) {
+    constexpr OutRet& operator<<(bool b) {
         return *this << (b ? "true" : "false");
     }
 
@@ -190,22 +192,31 @@ struct GLSLGeneratorBase {
             out() << "invalid_type";
     }
     constexpr void emitVarDecl(const VarDecl* decl) {
-        out() << decl->type << " " << decl->name;
+        out() << decl->type << " ";
+        impl()->emitVarName(decl);
+    }
+    constexpr void emitVarName(const VarDecl* decl) {
+        out() << decl->name;
     }
 };
 
-struct GLSLStmtGenerator : GLSLGeneratorBase<GLSLStmtGenerator>, ASTVisitor<GLSLStmtGenerator> {
-    using Base = ASTVisitor<GLSLStmtGenerator>;
-    using GLSLGeneratorBase::GLSLGeneratorBase;
-    using GLSLGeneratorBase::operator<<;
+template<typename Impl>
+struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
+    using Base = ASTVisitor<Impl>;
+    using GLSLBase = GLSLGeneratorBase<Impl>;
+    using GLSLBase::GLSLBase;
+    using GLSLBase::operator<<;
+    using Indentation = typename GLSLBase::Indentation;
+    using OutRet = typename GLSLBase::OutRet;
 
-    constexpr auto& operator<<(const Stmt* stmt) {
-        dispatchVisit(stmt);
+    constexpr OutRet& operator<<(const Stmt* stmt) {
+        this->dispatchVisit(stmt);
         return out();
     }
+    constexpr OutRet& out() { return GLSLBase::out(); }
 
     constexpr void visitVarRefExpr(const VarRefExpr* e) {
-        out() << e->decl->name;
+        GLSLBase::impl()->emitVarName(e->decl);
     }
     constexpr void visitElementwiseOperatorExpr(const ElementwiseOperatorExpr* e) {
         out() << e->left << " " << toString(e->op) << " " << e->right;
@@ -287,12 +298,12 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<GLSLStmtGenerator>, ASTVisitor<GLSL
     }
     constexpr void visitBlockStmt(const BlockStmt* e) {
         out() << "{\n";
-        indent += 1;
+        this->indent += 1;
         e->declContext.decls.forEachEntry([&](const VarDecl* decl) {
             out() << Indentation() << decl << ";\n";
         });
         out() << e->body;
-        indent -= 1;
+        this->indent -= 1;
         out() << Indentation() << "}";
     }
     constexpr void visitParenExpr(const ParenExpr* e) {
@@ -326,10 +337,9 @@ struct GLSLTypeGenerator : GLSLGeneratorBase<GLSLTypeGenerator> {
     }
 };
 
-struct GLSLStageGenerator : GLSLStmtGenerator {
-    constexpr GLSLStageGenerator() = default;
-    constexpr GLSLStageGenerator(char* buffer)
-        : GLSLStmtGenerator(buffer) { }
+struct GLSLStageGenerator : GLSLStmtGenerator<GLSLStageGenerator> {
+    using Base = GLSLStmtGenerator<GLSLStageGenerator>;
+    using Base::Base;
 
     constexpr void visitStage(const StageDriver& stage) {
         visitStageDecl(stage.stageDecl());

@@ -9,20 +9,27 @@
 template<typename T>
 struct GraphicsPtr { };
 
+namespace shadergen::effect {
+
+using namespace render3d;
+
 template<typename T, int_t N>
 struct OversizedArray {
     using value_type = T;
     T data[N] = {};
-    int_t size = 0;
+    int_t m_size = 0;
 
+    constexpr T* begin() { return data; }
+    constexpr T* end() { return begin() + size(); }
+    constexpr const T* begin() const { return data; }
+    constexpr const T* end() const { return begin() + size(); }
+    constexpr int_t size() const { return m_size; }
     constexpr void pushBack(T item) {
-        data[size++] = item;
+        *end() = item;
+        m_size += 1;
     }
+    constexpr operator PseudoVector<T>() { return { data, &m_size }; }
 };
-
-namespace shadergen::effect {
-
-using namespace render3d;
 
 template<typename T, typename E>
 inline int_t offsetOfMemberPtr(T E::*ptr) {
@@ -58,15 +65,15 @@ struct EffectStageDriver : StageDriver {
 
     constexpr EffectStageDriver(ASTStorage storage)
         : StageDriver(storage, nullptr) {
-            initializeEmptyStageDecl(&effectStageDecl, &effectStageDecl.subpassInputs);
-            initialize(&effectStageDecl);
-        }
+        initializeEmptyStageDecl(&effectStageDecl, &effectStageDecl.subpassInputs);
+        initialize(&effectStageDecl);
+    }
     constexpr EffectStageDecl* stageDecl() const { return static_cast<EffectStageDecl*>(StageDriver::stageDecl()); }
 
     constexpr const int_t* findOffsetFromVarDecl(const VarDecl* decl) const {
-        for (int_t i = 0; i < offsets.size; i++) {
-            if (offsets.data[i].decl == decl)
-                return offsets.data[i].offsetPtr;
+        for (auto offsetEntry : offsets) {
+            if (offsetEntry.decl == decl)
+                return offsetEntry.offsetPtr;
         }
         VERIFY_NOT_REACHED(ShaderGen);
         return nullptr;
@@ -77,9 +84,7 @@ struct EffectStageDriver : StageDriver {
             name,
             [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
-                auto& off = offsets.data[offsets.size++];
-                off.decl = driverDecl;
-                off.offsetPtr = &StaticOffsetHolder<memberPtr>::offset;
+                offsets.pushBack({ driverDecl, &StaticOffsetHolder<memberPtr>::offset });
             });
     }
     template<auto memberPtr>
@@ -170,10 +175,9 @@ struct CrossEffectVarUsage {
 struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
     using Base = ASTVisitor<CrossEffectVarUsageFinder>;
     using UsageType = CrossEffectVarUsage::UsageType;
-    CrossEffectVarUsage* begin;
-    CrossEffectVarUsage* end;
-    constexpr CrossEffectVarUsageFinder(CrossEffectVarUsage* begin)
-        : begin(begin), end(begin) { }
+    PseudoVector<CrossEffectVarUsage> out;
+    constexpr CrossEffectVarUsageFinder(PseudoVector<CrossEffectVarUsage> out)
+        : out(out) { }
     constexpr bool checkForUpdate(const VarRefExpr* l, const Expr* e) {
         if (e->stmtKind != StmtKind::VarRefExpr)
             return false;
@@ -183,9 +187,9 @@ struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
         return true;
     }
     constexpr CrossEffectVarUsage* findPrev(const VarDecl* decl) {
-        for (auto* it = begin; it < end; it++) {
-            if (it->varDecl == decl)
-                return it;
+        for (auto& usage : out) {
+            if (usage.varDecl == decl)
+                return &usage;
         }
         return nullptr;
     }
@@ -196,7 +200,7 @@ struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
         }*/
         auto* prev = findPrev(e->decl);
         if (!prev) {
-            *(end++) = { e->decl, usage, op };
+            out.pushBack({ e->decl, usage, op });
             return;
         }
         if (prev->usage == UsageType::Write && usage == UsageType::Read)
@@ -278,6 +282,10 @@ struct OpenglTransform : ASTTransform<OpenglTransform> {
         return out;
     }
 };
+struct OpenglGLSLStmtGenerator : GLSLStmtGenerator<OpenglGLSLStmtGenerator> {
+    using Base = GLSLStmtGenerator<OpenglGLSLStmtGenerator>;
+    using Base::Base;
+};
 
 // constexpr descriptor
 struct ConstVariableDescriptor {
@@ -295,41 +303,36 @@ struct ConstEffectDescriptor {
     ConstStageDescriptor vert;
     ConstStageDescriptor frag;
 };
-constexpr int_t fillConstVariableArray(ConstVariableDescriptor* end, const EffectStageDriver& stage, const VarDeclContext& declContext) {
-    ConstVariableDescriptor* begin = end;
+constexpr void fillConstVariableArray(PseudoVector<ConstVariableDescriptor> out, const EffectStageDriver& stage, const VarDeclContext& declContext) {
     declContext.decls.forEachEntry([&](const VarDecl* decl) {
-        *(end++) = { decl->type, stage.findOffsetFromVarDecl(decl->prevDecl) };
+        out.pushBack({ decl->type, stage.findOffsetFromVarDecl(decl->prevDecl) });
     });
-    return end - begin;
 }
 constexpr void fillConstStageDescriptor(ConstStageDescriptor& out, const EffectStageDriver& in) {
-    out.uniforms.size = fillConstVariableArray(out.uniforms.data, in, in.stageDecl()->uniforms);
+    fillConstVariableArray(out.uniforms, in, in.stageDecl()->uniforms);
 
-    CrossEffectVarUsageFinder usageFinder { out.ceUsages.data };
+    CrossEffectVarUsageFinder usageFinder { out.ceUsages };
     usageFinder.dispatchVisit(in.stageDecl()->entryPoint);
-    out.ceUsages.size = usageFinder.end - usageFinder.begin;
-    GraphicsDriver::Storage storage;
 
+    GraphicsDriver::Storage storage;
     OpenglTransform transform1 { storage };
     StageDecl* transformed1 = transform1.createOpenglStageDecl(*in.stageDecl());
     GLSLStmtTransform transform2 { storage };
     StageDecl* transformed2 = transform2.createStageDecl(*transformed1);
-    GLSLStmtGenerator generator { out.source.data };
+    OpenglGLSLStmtGenerator generator { out.source };
     generator.dispatchVisit(transformed2->entryPoint);
-    out.source.size = generator.end - out.source.data;
 }
 using DefineFunc_t = void (*)(EffectDriver&);
 constexpr ConstEffectDescriptor createConstEffectDescriptor(DefineFunc_t defineFunc) {
     EffectDriver effect;
     defineFunc(effect);
     ConstEffectDescriptor out;
-    out.attributes.size = fillConstVariableArray(out.attributes.data, effect.vert, effect.vert.stageDecl()->inputs);
+    fillConstVariableArray(out.attributes, effect.vert, effect.vert.stageDecl()->inputs);
     fillConstStageDescriptor(out.vert, effect.vert);
     fillConstStageDescriptor(out.frag, effect.frag);
-    UserTypeRecorder typeRecorder { out.userTypes.data };
+    UserTypeRecorder typeRecorder { out.userTypes };
     typeRecorder.recordStage(effect.vert.stageDecl());
     typeRecorder.recordStage(effect.frag.stageDecl());
-    out.userTypes.size = typeRecorder.end - out.userTypes.data;
     return out;
 }
 
@@ -359,15 +362,15 @@ constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray_help
 }
 template<auto oversized>
 constexpr ArrayView<const VariableDescriptor> createVariableDescriptorArray() {
-    if constexpr (oversized.size == 0) // this is necessary because 0 sized arrays aren't allowed
+    if constexpr (oversized.size() == 0) // this is necessary because 0 sized arrays aren't allowed
         return {};
     else
-        return createVariableDescriptorArray_helper<oversized>(stx::make_int_sequence<oversized.size>());
+        return createVariableDescriptorArray_helper<oversized>(stx::make_int_sequence<oversized.size()>());
 }
 template<auto oversized>
 constexpr auto copyFromOversized() {
-    std::array<typename decltype(oversized)::value_type, oversized.size> array;
-    std::copy_n(oversized.data, oversized.size, array.data());
+    std::array<typename decltype(oversized)::value_type, oversized.size()> array;
+    std::copy_n(oversized.data, oversized.size(), array.data());
     return array;
 }
 template<auto in>
@@ -466,7 +469,7 @@ inline void generateSource(ArrayView<const EffectHandle> effectHandles) {
 DEFINE_SECTION(const shadergen::effect::EffectDescriptor, effects)
 #define DEFINE_EFFECT(effect_type) \
     template<>                     \
-    constinit IN_SECTION(effects) const ::shadergen::effect::EffectDescriptor (::shadergen::effect::descriptorStore<effect_type>) = ::shadergen::effect::createEffectDescriptor<effect_type>();
+    constinit IN_SECTION(effects) const ::shadergen::effect::EffectDescriptor(::shadergen::effect::descriptorStore<effect_type>) = ::shadergen::effect::createEffectDescriptor<effect_type>();
 
 struct BuiltinPositionEffect {
     using Self = BuiltinPositionEffect;
@@ -488,7 +491,7 @@ struct BuiltinPositionEffect {
         vert, screenPosition = screenPosVert;
         frag, screenPosition = screenPosFrag;
 
-        auto [worldPosVert, worldPosFrag]= prog.varying<Vec3>("v_worldPos");
+        auto [worldPosVert, worldPosFrag] = prog.varying<Vec3>("v_worldPos");
         vert, worldPosVert = (matrices.worldViewMatrix * screenPosVert).xyz();
         vert, worldPosition = worldPosVert;
         frag, worldPosition = worldPosFrag;

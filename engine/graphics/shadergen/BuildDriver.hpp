@@ -9,12 +9,12 @@ template<int_t N, int_t S>
 struct BasicASTStorage {
     ASTNodeStorage nodeStorage[N];
     char messageStorage[S] = {};
-    ASTNodeStorage* nodeEnd = nodeStorage;
-    char* messageEnd = messageStorage;
+    int_t nodeCount = 0;
+    int_t messageSize = 0;
 
     constexpr BasicASTStorage() = default;
     constexpr BasicASTStorage(const BasicASTStorage&) = delete;
-    constexpr operator ASTStorage() { return { { &nodeEnd }, { &messageEnd } }; }
+    constexpr operator ASTStorage() { return { { nodeStorage, &nodeCount }, { messageStorage, &messageSize } }; }
 };
 
 template<typename T>

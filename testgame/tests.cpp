@@ -70,8 +70,8 @@ static constexpr void createShader(GraphicsDriver& prog) {
 }
 
 static constexpr auto toGLSL(const GraphicsDriver& prog) {
-    std::array<char, 10000> buffer = {};
-    GLSLStageGenerator glsl { buffer.data() };
+    shadergen::effect::OversizedArray<char, 10000> buffer = {};
+    GLSLStageGenerator glsl { buffer };
     glsl.visitStage(prog.vert);
     glsl.out() << "\n------------------\n";
     glsl.visitStage(prog.frag);
@@ -135,13 +135,14 @@ void runShadergenTest() {
     dumper.dump(ast.frag.stageDecl()->entryPoint);
     static constexpr auto ast2 = transformAST(ast);
     static constexpr auto glsl2 = toGLSL(ast2);
-    log("{}", glsl2.data());
+    log("{}", glsl2.data);
 
     Effect1 e1;
     Effect2 e2;
     Effect3 e3;
     shadergen::effect::EffectHandle handles[] = { &e1, &e2, &e3 };
     shadergen::effect::generateSource(handles);
+    VDUMP(shadergen::effect::EffectHandle(&e1).descriptor->vert.source);
     shadergen::effect::BuiltinPositionEffect* bpe = nullptr;
     VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->vert.source);
     VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->frag.source);

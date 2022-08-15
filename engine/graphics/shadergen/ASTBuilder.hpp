@@ -6,10 +6,10 @@ namespace shadergen {
 
 struct MessageBuilder {
     std::string_view* message = nullptr;
-    PsudoVector<char> storage;
+    PseudoVector<char> storage;
 
     constexpr MessageBuilder() = default;
-    constexpr MessageBuilder(std::string_view& message, PsudoVector<char> storage)
+    constexpr MessageBuilder(std::string_view& message, PseudoVector<char> storage)
         : message(&message), storage(storage) { }
 
     constexpr void setEmpty() {
@@ -17,7 +17,7 @@ struct MessageBuilder {
         storage = {};
     }
     constexpr void grow(int_t size) {
-        *storage.endPtr += size;
+        *storage.sizePtr += size;
         *message = { message->data(), message->size() + size };
     }
     constexpr MessageBuilder& operator<<(std::string_view str) {
@@ -55,7 +55,7 @@ struct MessageBuilder {
 struct ErrorBuilder : MessageBuilder {
     ErrorNode* error = nullptr;
     constexpr ErrorBuilder() = default;
-    constexpr ErrorBuilder(ErrorNode& error, PsudoVector<char> storage)
+    constexpr ErrorBuilder(ErrorNode& error, PseudoVector<char> storage)
         : MessageBuilder(error.message, storage), error(&error) { }
     constexpr void setEmpty() {
         MessageBuilder::setEmpty();

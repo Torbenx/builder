@@ -57,6 +57,23 @@ constexpr bool isExpr(const Stmt* stmt) {
 #undef STMT_KIND
 }
 
+template<typename T>
+struct PseudoVector {
+    T* m_begin = nullptr;
+    int_t* sizePtr = nullptr;
+    constexpr T* acquireEnd(int_t size = 1) {
+        T* end = this->end();
+        *sizePtr += size;
+        return end;
+    }
+    constexpr void pushBack(const T& item) {
+        *acquireEnd() = item;
+    }
+    constexpr T* begin() const { return m_begin; }
+    constexpr T* end() const { return begin() + size(); }
+    constexpr int_t size() const { return *sizePtr; }
+};
+
 // AST visitor
 template<typename Impl, typename RetT = void, typename... Args>
 struct ASTVisitor {
@@ -222,18 +239,15 @@ struct PrevDeclStripper : ASTVisitor<PrevDeclStripper> {
 
 struct UserTypeRecorder : ASTVisitor<UserTypeRecorder> {
     using Base = ASTVisitor<UserTypeRecorder>;
-    const UserType** begin;
-    const UserType** end;
-    constexpr UserTypeRecorder(const UserType** storage)
-        : begin(storage), end(storage) { }
-    constexpr UserTypeRecorder(const UserType** begin, int_t size)
-        : begin(begin), end(begin + size) { }
+    PseudoVector<const UserType*> buffer;
+    constexpr UserTypeRecorder(PseudoVector<const UserType*> buffer)
+        : buffer(buffer) { }
     constexpr void recordType(const Type* type) {
         if (!type->isUser)
             return;
         const auto* userType = asUserType(type);
-        if (std::find(begin, end, userType) == end)
-            *(end++) = userType;
+        if (std::find(buffer.begin(), buffer.end(), userType) == buffer.end())
+            buffer.pushBack(userType);
     }
     constexpr void visitExpr(const Expr* expr) {
         Base::visitExpr(expr);
@@ -285,22 +299,9 @@ union ASTNodeStorage {
 
     constexpr ASTNodeStorage() { }
 };
-template<typename T>
-struct PsudoVector {
-    T** endPtr = nullptr;
-    constexpr T* acquireEnd(int_t size = 1) {
-        T* end = *endPtr;
-        *endPtr += size;
-        return end;
-    }
-    constexpr void pushBack(const T& item) {
-        *acquireEnd() = item;
-    }
-    constexpr T* end() const { return *endPtr; }
-};
 struct ASTStorage {
-    PsudoVector<ASTNodeStorage> nodeStorage;
-    PsudoVector<char> messageStorage;
+    PseudoVector<ASTNodeStorage> nodeStorage;
+    PseudoVector<char> messageStorage;
     template<typename T>
     constexpr T* allocateStmt(const T& stmt) {
         return (T*)nodeStorage.acquireEnd()->setStmt(stmt);
