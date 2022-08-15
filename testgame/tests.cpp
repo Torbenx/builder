@@ -59,9 +59,8 @@ static constexpr void createShader(GraphicsDriver& prog) {
     auto varPos = prog.varying<Vec2>("v_texCoord");
 
     auto posAttr = vert.input<Vec2>("a_position");
-    auto zPos = vert.variable<float>("z");
-    vert, zPos = constant(1.0f);
-    vert, vert.position = compose(posAttr, zPos, constant(1.0f));
+    auto trans = vert.uniform<Mat4x4>("u_trans");
+    vert, vert.position = trans * compose(posAttr, constant(0.0f, 1.0f)) ;
     vert, varPos.in = posAttr;
 
     auto fragColor = frag.output<Vec4>("fragColor");
@@ -143,5 +142,7 @@ void runShadergenTest() {
     Effect3 e3;
     shadergen::effect::EffectHandle handles[] = { &e1, &e2, &e3 };
     shadergen::effect::generateSource(handles);
-    VDUMP(shadergen::effect::EffectHandle(&e1).descriptor->vert.source);
+    shadergen::effect::BuiltinPositionEffect* bpe = nullptr;
+    VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->vert.source);
+    VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->frag.source);
 }

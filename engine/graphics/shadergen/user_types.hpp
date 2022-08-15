@@ -15,7 +15,7 @@ struct UserType : Type {
     ArrayView<const MemberInfo> members;
     int_t leafFieldCount = 0;
     constexpr UserType(std::string_view name, ArrayView<const MemberInfo> members)
-        : Type(true, false, false, false), name(name), members(members) { }
+        : Type(true, false, false, false, false), name(name), members(members) { }
 };
 constexpr const UserType* asUserType(const Type* type) {
     VERIFY(ShaderGen, type->isUser);
@@ -43,8 +43,9 @@ struct FieldInfo {
 
 // makeUserType
 constexpr int_t getLeafFieldCount(const Type* type) {
-    if (type->isVector) {
-        return asVectorType(type)->vectorSize;
+    if (type->isMatrix) {
+        const auto* mType = asMatrixType(type);
+        return mType->vectorSize * mType->covectorSize;
     } else if (type->isUser) {
         return asUserType(type)->leafFieldCount;
     } else {
@@ -148,9 +149,13 @@ struct wrapped_user<T>::impl : E, wrapped_user<T> {
 };
 
 template<typename T>
-concept CanBeUserType = std::is_convertible_v<decltype(&T::SHADERGEN_TYPE), const UserType*>;
-template<typename T>
-using get_wrapper = std::conditional_t<typeFromCXX<T>->isScalar, wrapped_scalar, std::conditional_t<typeFromCXX<T>->isVector, wrapped_vector, wrapped_user<T>>>;
+using get_wrapper = std::conditional_t<
+    typeFromCXX<T>->isScalar,
+    wrapped_scalar,
+    std::conditional_t<
+        typeFromCXX<T>->isVector,
+        wrapped_vector,
+        std::conditional_t<typeFromCXX<T>->isMatrix, wrapped_matrix, wrapped_user<T>>>>;
 
 // opaque sampler types
 struct OpaqueBuiltinType {

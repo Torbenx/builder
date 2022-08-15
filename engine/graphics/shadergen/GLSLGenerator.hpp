@@ -34,10 +34,28 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform> {
         if (myPrecedence < scalarPrecedence || (e->isVectorLeft && myPrecedence == scalarPrecedence))
             e->scalar = wrapWithParenExpr(e->scalar);
     }
+    constexpr void transformMatrixMultiplicationExpr(MatrixMultiplicationExpr* e) {
+        Base::transformMatrixMultiplicationExpr(e);
+        int_t myPrecedence = operatorPrecedence(BinaryOperator::MULTIPLY);
+        if (myPrecedence <= resolveOperatorPrecedence(e->left))
+            e->left = wrapWithParenExpr(e->left);
+        if (myPrecedence < resolveOperatorPrecedence(e->right))
+            e->right = wrapWithParenExpr(e->right);
+    }
     constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
         Base::transformUnaryOperatorExpr(e);
         if (1 < resolveOperatorPrecedence(e->subExpr))
             e->subExpr = wrapWithParenExpr(e->subExpr);
+    }
+    constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
+        Base::transformMemberAccessExpr(e);
+        if (1 < resolveOperatorPrecedence(e->base))
+            e->base = wrapWithParenExpr(e->base);
+    }
+    constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
+        Base::transformVectorComponentExpr(e);
+        if (1 < resolveOperatorPrecedence(e->base))
+            e->base = wrapWithParenExpr(e->base);
     }
 
     constexpr const Function* binaryToFuntion(BinaryOperator op) {
@@ -142,12 +160,30 @@ struct GLSLGeneratorBase {
         char sizeChar = '0' + type->vectorSize;
         out() << typeName << std::string_view(&sizeChar, 1);
     }
+    constexpr void emitMatrixTypeName(const MatrixType* type) {
+        if (type->isVector) {
+            emitVectorTypeName(asVectorType(type));
+            return;
+        }
+        std::string_view typeName = "invalid_matrix_type";
+        if (type->scalarType == &BoolType)
+            typeName = "bmat";
+        if (type->scalarType == &IntType)
+            typeName = "imat";
+        if (type->scalarType == &FloatType)
+            typeName = "mat";
+        char sizeBuf[3];
+        sizeBuf[0] = '0' + type->vectorSize;
+        sizeBuf[1] = 'x';
+        sizeBuf[2] = '0' + type->covectorSize;
+        out() << typeName << std::string_view(sizeBuf, type->vectorSize == type->covectorSize ? 1 : 3);
+    }
     constexpr void emitUserTypeName(const UserType* type) {
         out() << type->name;
     }
     constexpr void emitTypeName(const Type* type) {
-        if (type->isVector)
-            emitVectorTypeName(asVectorType(type));
+        if (type->isMatrix)
+            emitMatrixTypeName(asMatrixType(type));
         else if (type->isUser)
             emitUserTypeName(asUserType(type));
         else
@@ -176,6 +212,9 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<GLSLStmtGenerator>, ASTVisitor<GLSL
     }
     constexpr void visitVectorByScalarOperatorExpr(const VectorByScalarOperatorExpr* e) {
         out() << (e->isVectorLeft ? e->vector : e->scalar) << " " << toString(e->op) << " " << (e->isVectorLeft ? e->scalar : e->vector);
+    }
+    constexpr void visitMatrixMultiplicationExpr(const MatrixMultiplicationExpr* e) {
+        out() << e->left << " * " << e->right;
     }
     constexpr void visitUnaryOperatorExpr(const UnaryOperatorExpr* e) {
         out() << toString(e->op) << e->subExpr;

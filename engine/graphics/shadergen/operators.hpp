@@ -160,6 +160,9 @@ namespace code {
     constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator>=(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_GE, left.wrappedExpr, right.wrappedExpr } }; }
     constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator>(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_G, left.wrappedExpr, right.wrappedExpr } }; }
     constexpr wrapped_vector::impl<ElementwiseOperatorExpr> operator!=(const wrapped_vector& left, const wrapped_vector& right) { return { { BinaryOperator::CMP_NE, left.wrappedExpr, right.wrappedExpr } }; }
+
+    constexpr wrapped_matrix::impl<ElementwiseOperatorExpr> operator+(const wrapped_matrix& left, const wrapped_matrix& right) { return { { BinaryOperator::PLUS, left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_matrix::impl<ElementwiseOperatorExpr> operator-(const wrapped_matrix& left, const wrapped_matrix& right) { return { { BinaryOperator::MINUS, left.wrappedExpr, right.wrappedExpr } }; }
 }
 
 // Vector by Scalar operators
@@ -183,11 +186,26 @@ namespace code {
     constexpr wrapped_vector::impl<VectorByScalarOperatorExpr> operator/(const wrapped_scalar& left, const wrapped_vector& right) { return { { BinaryOperator::DIVIDE, right.wrappedExpr, left.wrappedExpr, false } }; }
 }
 
+// Matrix multiplication operators
+struct MatrixMultiplicationExpr : Expr {
+    const Expr* left;
+    const Expr* right;
+    constexpr MatrixMultiplicationExpr(const Expr* left, const Expr* right)
+        : Expr(StmtKind::MatrixMultiplicationExpr), left(left), right(right) { }
+};
+namespace code {
+    constexpr wrapped_matrix::impl<MatrixMultiplicationExpr> operator*(const wrapped_matrix& left, const wrapped_matrix& right) { return { { left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<MatrixMultiplicationExpr> operator*(const wrapped_vector& left, const wrapped_matrix& right) { return { { left.wrappedExpr, right.wrappedExpr } }; }
+    constexpr wrapped_vector::impl<MatrixMultiplicationExpr> operator*(const wrapped_matrix& left, const wrapped_vector& right) { return { { left.wrappedExpr, right.wrappedExpr } }; }
+}
+
 constexpr int_t resolveOperatorPrecedence(const Stmt* e) {
     if (e->stmtKind == StmtKind::ElementwiseOperatorExpr)
         return operatorPrecedence(castStmt<ElementwiseOperatorExpr>(e)->op);
     if (e->stmtKind == StmtKind::VectorByScalarOperatorExpr)
         return operatorPrecedence(castStmt<VectorByScalarOperatorExpr>(e)->op);
+    if (e->stmtKind == StmtKind::MatrixMultiplicationExpr)
+        return operatorPrecedence(BinaryOperator::MULTIPLY);
     return 1;
 }
 

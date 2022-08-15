@@ -1,49 +1,92 @@
 #pragma once
 
-#include "statements.hpp"
 #include "math/Vec4.hpp"
+#include "statements.hpp"
 
 namespace shadergen {
 
 struct ScalarType;
 
-struct VectorType : Type {
+struct MatrixType : Type {
     const ScalarType* scalarType;
     int_t vectorSize;
+    int_t covectorSize;
     bool isArithmetic;
     bool isLogical;
 
+    constexpr const MatrixType* transposedType() const;
+
+    constexpr MatrixType(const ScalarType* scalarType, int_t vectorSize, int_t covectorSize, bool isArithmetic, bool isLogical, bool isScalar = false, bool isVector = false)
+        : Type(false, isScalar, isVector, true, false)
+        , scalarType(scalarType)
+        , vectorSize(vectorSize)
+        , covectorSize(covectorSize)
+        , isArithmetic(isArithmetic)
+        , isLogical(isLogical) { }
+};
+
+struct VectorType : MatrixType {
     constexpr VectorType(const ScalarType* scalarType, int_t vectorSize, bool isArithmetic, bool isLogical, bool isScalar = false)
-        : Type(false, isScalar, true, false), scalarType(scalarType), vectorSize(vectorSize), isArithmetic(isArithmetic), isLogical(isLogical) { }
+        : MatrixType(scalarType, vectorSize, 1, isArithmetic, isLogical, isScalar, true) { }
 };
 
 struct ScalarType : VectorType {
     VectorType vectorTypes[3] = {
         { this, 2, isArithmetic, isLogical },
         { this, 3, isArithmetic, isLogical },
-        { this, 4, isArithmetic, isLogical }
+        { this, 4, isArithmetic, isLogical },
+    };
+    MatrixType matrixTypes[3][3] = {
+        {
+            { this, 2, 2, isArithmetic, isLogical },
+            { this, 2, 3, isArithmetic, isLogical },
+            { this, 2, 4, isArithmetic, isLogical },
+        },
+        {
+            { this, 3, 2, isArithmetic, isLogical },
+            { this, 3, 3, isArithmetic, isLogical },
+            { this, 3, 4, isArithmetic, isLogical },
+        },
+        {
+            { this, 4, 2, isArithmetic, isLogical },
+            { this, 4, 3, isArithmetic, isLogical },
+            { this, 4, 4, isArithmetic, isLogical },
+        },
     };
     std::string_view name;
 
     constexpr const VectorType* vectorType(int_t size) const {
         if (size == 1)
             return this;
-        else
-            return &vectorTypes[size - 2];
+        return &vectorTypes[size - 2];
+    }
+    constexpr const MatrixType* matrixType(int_t size, int_t cosize) const {
+        if (cosize == 1)
+            return vectorType(size);
+        if (size == 1)
+            return vectorType(cosize);
+        return &matrixTypes[size - 2][cosize - 2];
     }
 
     constexpr ScalarType(std::string_view name, bool isArithmetic, bool isLogical)
         : VectorType(this, 1, isArithmetic, isLogical, true), name(name) { }
 };
 
+constexpr const MatrixType* MatrixType::transposedType() const {
+    return scalarType->matrixType(covectorSize, vectorSize);
+}
+
 constexpr const ScalarType* asScalarType(const Type* type) {
     VERIFY(ShaderGen, type->isScalar);
     return static_cast<const ScalarType*>(type);
 }
-
 constexpr const VectorType* asVectorType(const Type* type) {
     VERIFY(ShaderGen, type->isVector);
     return static_cast<const VectorType*>(type);
+}
+constexpr const MatrixType* asMatrixType(const Type* type) {
+    VERIFY(ShaderGen, type->isMatrix);
+    return static_cast<const MatrixType*>(type);
 }
 
 constexpr ScalarType BoolType { "bool", false, true };
@@ -62,6 +105,8 @@ template<>
 constexpr const Type* typeFromCXX<Vec3> = FloatType.vectorType(3);
 template<>
 constexpr const Type* typeFromCXX<Vec4> = FloatType.vectorType(4);
+template<>
+constexpr const Type* typeFromCXX<Mat4x4> = FloatType.matrixType(4, 4);
 
 struct wrapped_untyped {
     const Expr* wrappedExpr;
@@ -79,6 +124,23 @@ struct wrapped_scalar::impl : E, wrapped_scalar {
         return { this, right.wrappedExpr };
     }
     constexpr AssignmentStmt operator=(const wrapped_scalar& right) const {
+        return { this, right.wrappedExpr };
+    }
+};
+
+struct wrapped_matrix : wrapped_untyped {
+    template<typename E>
+    struct impl;
+};
+template<typename E>
+struct wrapped_matrix::impl : E, wrapped_matrix {
+    constexpr impl(const E& e)
+        : E(e), wrapped_matrix { (Expr*)this } { }
+
+    constexpr AssignmentStmt operator=(const wrapped_matrix::impl<E>& right) const {
+        return { this, right.wrappedExpr };
+    }
+    constexpr AssignmentStmt operator=(const wrapped_matrix& right) const {
         return { this, right.wrappedExpr };
     }
 };

@@ -173,13 +173,20 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         return {};
     }
     constexpr void checkSameType(const Type* left, const Type* right, std::string_view message) {
-        check(left == right) << message << ", got " << left << " and " << right << "";
+        check(left == right) << message << ", got " << left << " and " << right;
+    }
+    constexpr const MatrixType* checkMatrixExpr(const Expr* e) {
+        if (e->type->isMatrix)
+            return asMatrixType(e->type);
+
+        error() << "expected matrix type, got " << e->type;
+        return nullptr;
     }
     constexpr const VectorType* checkVectorExpr(const Expr* e) {
         if (e->type->isVector)
             return asVectorType(e->type);
 
-        error() << "expected vector type, got " << e->type << "";
+        error() << "expected vector type, got " << e->type;
         return nullptr;
     }
     constexpr const ScalarType* checkScalarExpr(const Expr* e) {
@@ -187,7 +194,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
             return asScalarType(e->type);
 
         auto err = error();
-        err << "expected scalar type, got " << e->type << "";
+        err << "expected scalar type, got " << e->type;
         err.setCausingSubExpr(e);
         return nullptr;
     }
@@ -229,16 +236,16 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         if (!type)
             return;
         if (isLogicalOp(e->op))
-            check(type->isLogical) << "logical operation requires boolean, got " << type << "";
+            check(type->isLogical) << "logical operation requires boolean, got " << type;
         else if (isArithmeticOp(e->op))
-            check(type->isArithmetic) << "arithmetic operation requires arithmetic type, got " << type << "";
+            check(type->isArithmetic) << "arithmetic operation requires arithmetic type, got " << type;
         e->type = type;
         e->valueKind = ValueKind::RVALUE;
     }
     constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {
         Base::transformElementwiseOperatorExpr(e);
-        const auto* lType = checkVectorExpr(e->left);
-        const auto* rType = checkVectorExpr(e->right);
+        const auto* lType = checkMatrixExpr(e->left);
+        const auto* rType = checkMatrixExpr(e->right);
         if (!lType || !rType)
             return;
         checkSameType(lType, rType, "operands must have the same type");
@@ -249,9 +256,9 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         } else {
             e->type = lType;
             if (isLogicalOp(e->op))
-                check(lType->isLogical) << "logical operation requires boolean, got " << lType << "";
+                check(lType->isLogical) << "logical operation requires boolean, got " << lType;
             else if (isArithmeticOp(e->op))
-                check(lType->isArithmetic) << "arithmetic operation requires arithmetic type, got " << lType << "";
+                check(lType->isArithmetic) << "arithmetic operation requires arithmetic type, got " << lType;
         }
         e->valueKind = ValueKind::RVALUE;
     }
@@ -263,8 +270,26 @@ struct CheckedASTTransform : ASTTransform<Impl> {
             return;
         check(isArithmeticOp(e->op)) << "only arithmetic operations are allowed for vector by scalar operations, got '" << toString(e->op) << "'";
         checkSameType(vType->scalarType, sType, "operands must have the same base type");
-        check(vType->isArithmetic) << "only arithmetic types allowed in vector by scalar operations, got " << vType << "";
+        check(sType->isArithmetic) << "only arithmetic types allowed in vector by scalar operations, got " << sType;
         e->type = vType;
+        e->valueKind = ValueKind::RVALUE;
+    }
+    constexpr void transformMatrixMultiplicationExpr(MatrixMultiplicationExpr* e) {
+        Base::transformMatrixMultiplicationExpr(e);
+        const auto* lType = checkMatrixExpr(e->left);
+        const auto* rType = checkMatrixExpr(e->right);
+        if (!lType || !rType)
+            return;
+        checkSameType(lType->scalarType, rType->scalarType, "operands must have the same base type");
+        check(!(lType->isVector && rType->isVector)) << "matrix multiplication with two vectors not allowed";
+        check(lType->isArithmetic) << "multiplication requires arithmetic type, got " << lType->scalarType;
+
+        int_t lSize = lType->vectorSize;
+        int_t lCosize = lType->covectorSize;
+        if (lType->isVector)
+            std::swap(lSize, lCosize);
+        check(lCosize == rType->vectorSize) << "matrix multiplication between matrices of incompatible shapes " << lType << " and " << rType;
+        e->type = lType->scalarType->matrixType(lSize, rType->covectorSize);
         e->valueKind = ValueKind::RVALUE;
     }
     constexpr void transformLiteralExpr(LiteralExpr* e) {
@@ -304,19 +329,19 @@ struct CheckedASTTransform : ASTTransform<Impl> {
             const FunctionParameter& parm = func->parameters[i++];
             if (!parm.isDynamic) {
                 if (arg->type != parm.u.fixed.type) {
-                    note() << "parameter " << i << " expects " << parm.u.fixed.type << " but got " << arg->type << "";
+                    note() << "parameter " << i << " expects " << parm.u.fixed.type << " but got " << arg->type;
                     isMatch = false;
                 }
                 return;
             }
             if (!arg->type->isVector) {
-                note() << "parameter " << i << " expects vector type but got " << arg->type << "";
+                note() << "parameter " << i << " expects vector type but got " << arg->type;
                 isMatch = false;
                 return;
             }
             const auto* vType = asVectorType(arg->type);
             if (vType->scalarType != parm.u.dynamic.scalarType) {
-                note() << "parameter " << i << " expects vector of base type " << parm.u.dynamic.scalarType << " but got base type " << vType->scalarType << "";
+                note() << "parameter " << i << " expects vector of base type " << parm.u.dynamic.scalarType << " but got base type " << vType->scalarType;
                 isMatch = false;
                 return;
             }

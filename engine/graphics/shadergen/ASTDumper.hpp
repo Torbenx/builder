@@ -50,6 +50,10 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         info("VectorByScalarOperatorExpr", fmt::format("'{}'", toString(e->op)));
         Base::visitVectorByScalarOperatorExpr(e);
     }
+    void visitMatrixMultiplicationExpr(const MatrixMultiplicationExpr* e) {
+        info("MatrixMultiplicationExpr");
+        Base::visitMatrixMultiplicationExpr(e);
+    }
     void visitUnaryOperatorExpr(const UnaryOperatorExpr* e) {
         info("UnaryOperatorExpr", fmt::format("'{}'", toString(e->op)));
         Base::visitUnaryOperatorExpr(e);

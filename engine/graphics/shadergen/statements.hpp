@@ -64,9 +64,10 @@ struct Type {
     bool isUser;
     bool isScalar;
     bool isVector;
+    bool isMatrix;
     bool isError;
-    constexpr Type(bool isUser, bool isScalar, bool isVector, bool isError)
-        : isUser(isUser), isScalar(isScalar), isVector(isVector), isError(isError) { }
+    constexpr Type(bool isUser, bool isScalar, bool isVector, bool isMatrix, bool isError)
+        : isUser(isUser), isScalar(isScalar), isVector(isVector), isMatrix(isMatrix), isError(isError) { }
 };
 
 template<typename T>
@@ -82,6 +83,7 @@ constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
     callback(MemberAccessExpr)           \
     callback(ElementwiseOperatorExpr)    \
     callback(VectorByScalarOperatorExpr) \
+    callback(MatrixMultiplicationExpr)   \
     callback(CompoundStmt)               \
     callback(BlockStmt)                  \
     callback(LiteralExpr)                \
@@ -253,7 +255,7 @@ struct ParenExpr : Expr {
 };
 
 // Errors
-constexpr Type ErrorType = Type(false, false, false, true);
+constexpr Type ErrorType = Type(false, false, false, false, true);
 struct ErrorNote : ASTNode {
     std::string_view message;
 };

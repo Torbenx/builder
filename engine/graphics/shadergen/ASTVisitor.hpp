@@ -12,8 +12,11 @@ constexpr void formatType(const Type* type, Stream& out) {
     if (type->isScalar) {
         out << asScalarType(type)->name;
     } else if (type->isVector) {
-        const auto* vType = shadergen::asVectorType(type);
+        const auto* vType = asVectorType(type);
         out << vType->scalarType->name << vType->vectorSize;
+    } else if (type->isMatrix) {
+        const auto* mType = asMatrixType(type);
+        out << mType->scalarType->name << mType->vectorSize << "x" << mType->covectorSize;
     } else if (type->isUser) {
         out << asUserType(type)->name;
     } else if (type->isError) {
@@ -89,6 +92,13 @@ struct ASTVisitor {
         helper h([&]() {
             impl()->dispatchVisit(e->vector, args...);
             impl()->dispatchVisit(e->scalar, args...);
+        });
+        return impl()->visitExpr(e, args...);
+    }
+    constexpr RetT visitMatrixMultiplicationExpr(const MatrixMultiplicationExpr *e, Args... args) {
+        helper h([&]() {
+            impl()->dispatchVisit(e->left, args...);
+            impl()->dispatchVisit(e->right, args...);
         });
         return impl()->visitExpr(e, args...);
     }
@@ -355,6 +365,11 @@ struct ASTTransform {
         impl()->transformExpr(e);
         e->vector = castStmt<Expr>(impl()->dispatchTransform(e->vector));
         e->scalar = castStmt<Expr>(impl()->dispatchTransform(e->scalar));
+    }
+    constexpr void transformMatrixMultiplicationExpr(MatrixMultiplicationExpr* e) {
+        impl()->transformExpr(e);
+        e->left = castStmt<Expr>(impl()->dispatchTransform(e->left));
+        e->right = castStmt<Expr>(impl()->dispatchTransform(e->right));
     }
     constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
         impl()->transformExpr(e);

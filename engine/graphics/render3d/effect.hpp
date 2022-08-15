@@ -472,23 +472,24 @@ struct BuiltinPositionEffect {
     using Self = BuiltinPositionEffect;
     struct MatrixUniforms {
         BEGIN_GEN_STRUCT(MatrixUniforms);
-        Vec4 GEN_FIELD(viewProjectionMatrix);
-        Vec4 GEN_FIELD(worldViewMatrix);
+        Mat4x4 GEN_FIELD(viewProjectionMatrix);
+        Mat4x4 GEN_FIELD(worldViewMatrix);
         END_GEN_STRUCT();
     };
     GraphicsPtr<MatrixUniforms> matrixUniforms;
     static constexpr void defineEffect(EffectDriver& prog) {
+        using namespace code;
         auto& vert = prog.vert;
         auto& frag = prog.frag;
         auto matrices = vert.uniform<&Self::matrixUniforms>("u_matrices");
 
         auto [screenPosVert, screenPosFrag] = prog.varying<Vec4>("v_screenPos");
-        //vert, screenPosVert = matrices.viewProjectionMatrix * modelPosition;
+        vert, screenPosVert = matrices.viewProjectionMatrix * modelPosition;
         vert, screenPosition = screenPosVert;
         frag, screenPosition = screenPosFrag;
 
         auto [worldPosVert, worldPosFrag]= prog.varying<Vec3>("v_worldPos");
-        //vert, worldPosVert = (matrices.worldViewMatrix * screenPosVarying).xyz();
+        vert, worldPosVert = (matrices.worldViewMatrix * screenPosVert).xyz();
         vert, worldPosition = worldPosVert;
         frag, worldPosition = worldPosFrag;
     }
