@@ -171,31 +171,43 @@ struct BlockDriver : CheckedASTTransform<BlockDriver, BasicASTStorage<1000, 1000
 };
 
 struct StageDriver : BlockDriver {
-    StageDecl* stageDecl = nullptr;
+    StageDecl* m_stageDecl = nullptr;
 
     constexpr StageDriver(Storage* storage)
-        : BlockDriver(storage) {
-        stageDecl = createEmptyStageDecl();
-        currentBlock = newBlock(&stageDecl->outputs);
-        stageDecl->entryPoint = currentBlock;
+        : BlockDriver(storage), m_stageDecl(createEmptyStageDecl()) {
+        createEntryPoint();
+    }
+    constexpr StageDriver(Storage* storage, StageDecl* stageDecl)
+        : BlockDriver(storage), m_stageDecl(stageDecl) {
+        if (stageDecl)
+            createEntryPoint();
+    }
+    constexpr void initialize(StageDecl* stageDecl) {
+        this->m_stageDecl = stageDecl;
+        createEntryPoint();
+    }
+    constexpr void createEntryPoint() {
+        currentBlock = newBlock(&stageDecl()->outputs);
+        stageDecl()->entryPoint = currentBlock;
         currentDeclContext = &currentBlock->declContext;
     }
+    constexpr StageDecl* stageDecl() const { return m_stageDecl; }
 
     template<typename T>
     constexpr auto uniform(std::string_view name) {
-        return declareVariable<T>(name, &stageDecl->uniforms);
+        return declareVariable<T>(name, &stageDecl()->uniforms);
     }
     template<typename T>
     constexpr auto input(std::string_view name) {
-        return declareVariable<T>(name, &stageDecl->inputs);
+        return declareVariable<T>(name, &stageDecl()->inputs);
     }
     template<typename T>
     constexpr auto output(std::string_view name) {
-        return declareVariable<T>(name, &stageDecl->outputs);
+        return declareVariable<T>(name, &stageDecl()->outputs);
     }
     template<typename T>
     constexpr auto builtin(std::string_view name) {
-        return declareVariable<T>(name, &stageDecl->builtins);
+        return declareVariable<T>(name, &stageDecl()->builtins);
     }
 };
 
@@ -213,6 +225,14 @@ struct FragmentStageDriver : StageDriver {
         : StageDriver(storage) { }
 };
 
+template<typename T>
+struct VaryingReturnType {
+    constexpr VaryingReturnType(std::string_view name, StageDriver& inStage, StageDriver& outStage)
+        : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
+    DriverVariable<T> in;
+    DriverVariable<T> out;
+};
+
 struct GraphicsDriver {
     using Storage = StageDriver::Storage;
     Storage storage;
@@ -225,17 +245,10 @@ struct GraphicsDriver {
     constexpr GraphicsDriver(Callback&& callback) {
         callback(*this);
         PrevDeclStripper stripper;
-        stripper.stripStage(vert.stageDecl);
-        stripper.stripStage(frag.stageDecl);
+        stripper.stripStage(vert.stageDecl());
+        stripper.stripStage(frag.stageDecl());
     }
 
-    template<typename T>
-    struct VaryingReturnType {
-        constexpr VaryingReturnType(std::string_view name, StageDriver& inStage, StageDriver& outStage)
-            : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
-        DriverVariable<T> in;
-        DriverVariable<T> out;
-    };
     template<typename T>
     constexpr VaryingReturnType<T> varying(std::string_view name) {
         return { name, vert, frag };

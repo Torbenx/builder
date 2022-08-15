@@ -104,105 +104,105 @@ struct wrapped_vector : wrapped_untyped {
     wrapped_scalar::impl<VectorComponentExpr> z { { wrappedExpr, { 2 } } };
     wrapped_scalar::impl<VectorComponentExpr> w { { wrappedExpr, { 3 } } };
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> xx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> yx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> zx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> wx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> ww();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> ww() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> xxx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xxy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xxz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xxw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xxw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> xyx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xyy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xyz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xyw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xyw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> xzx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xzy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xzz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xzw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xzw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> xwx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xwy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xwz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> xww();
+    constexpr wrapped_vector::impl<VectorComponentExpr> xwx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xwy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xwz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> xww() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> yxx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yxy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yxz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yxw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yxw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> yyx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yyy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yyz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yyw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yyw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> yzx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yzy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yzz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yzw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yzw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> ywx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> ywy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> ywz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> yww();
+    constexpr wrapped_vector::impl<VectorComponentExpr> ywx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> ywy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> ywz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> yww() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> zxx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zxy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zxz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zxw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zxw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> zyx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zyy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zyz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zyw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zyw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> zzx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zzy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zzz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zzw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zzw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> zwx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zwy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zwz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> zww();
+    constexpr wrapped_vector::impl<VectorComponentExpr> zwx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zwy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zwz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> zww() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> wxx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wxy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wxz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wxw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wxw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> wyx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wyy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wyz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wyw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wyw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> wzx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wzy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wzz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wzw();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wzw() const;
 
-    constexpr wrapped_vector::impl<VectorComponentExpr> wwx();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wwy();
-    constexpr wrapped_vector::impl<VectorComponentExpr> wwz();
-    constexpr wrapped_vector::impl<VectorComponentExpr> www();
+    constexpr wrapped_vector::impl<VectorComponentExpr> wwx() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wwy() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> wwz() const;
+    constexpr wrapped_vector::impl<VectorComponentExpr> www() const;
 };
 template<typename E>
 struct wrapped_vector::impl : E, wrapped_vector {
@@ -217,105 +217,105 @@ struct wrapped_vector::impl : E, wrapped_vector {
     }
 };
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xx() { return { { wrappedExpr, { 0, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xy() { return { { wrappedExpr, { 0, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xz() { return { { wrappedExpr, { 0, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xw() { return { { wrappedExpr, { 0, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xx() const { return { { wrappedExpr, { 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xy() const { return { { wrappedExpr, { 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xz() const { return { { wrappedExpr, { 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xw() const { return { { wrappedExpr, { 0, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yx() { return { { wrappedExpr, { 1, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yy() { return { { wrappedExpr, { 1, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yz() { return { { wrappedExpr, { 1, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yw() { return { { wrappedExpr, { 1, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yx() const { return { { wrappedExpr, { 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yy() const { return { { wrappedExpr, { 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yz() const { return { { wrappedExpr, { 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yw() const { return { { wrappedExpr, { 1, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zx() { return { { wrappedExpr, { 2, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zy() { return { { wrappedExpr, { 2, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zz() { return { { wrappedExpr, { 2, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zw() { return { { wrappedExpr, { 2, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zx() const { return { { wrappedExpr, { 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zy() const { return { { wrappedExpr, { 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zz() const { return { { wrappedExpr, { 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zw() const { return { { wrappedExpr, { 2, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wx() { return { { wrappedExpr, { 3, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wy() { return { { wrappedExpr, { 3, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wz() { return { { wrappedExpr, { 3, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ww() { return { { wrappedExpr, { 3, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wx() const { return { { wrappedExpr, { 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wy() const { return { { wrappedExpr, { 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wz() const { return { { wrappedExpr, { 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ww() const { return { { wrappedExpr, { 3, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxx() { return { { wrappedExpr, { 0, 0, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxy() { return { { wrappedExpr, { 0, 0, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxz() { return { { wrappedExpr, { 0, 0, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxw() { return { { wrappedExpr, { 0, 0, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxx() const { return { { wrappedExpr, { 0, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxy() const { return { { wrappedExpr, { 0, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxz() const { return { { wrappedExpr, { 0, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xxw() const { return { { wrappedExpr, { 0, 0, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyx() { return { { wrappedExpr, { 0, 1, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyy() { return { { wrappedExpr, { 0, 1, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyz() { return { { wrappedExpr, { 0, 1, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyw() { return { { wrappedExpr, { 0, 1, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyx() const { return { { wrappedExpr, { 0, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyy() const { return { { wrappedExpr, { 0, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyz() const { return { { wrappedExpr, { 0, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xyw() const { return { { wrappedExpr, { 0, 1, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzx() { return { { wrappedExpr, { 0, 2, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzy() { return { { wrappedExpr, { 0, 2, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzz() { return { { wrappedExpr, { 0, 2, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzw() { return { { wrappedExpr, { 0, 2, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzx() const { return { { wrappedExpr, { 0, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzy() const { return { { wrappedExpr, { 0, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzz() const { return { { wrappedExpr, { 0, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xzw() const { return { { wrappedExpr, { 0, 2, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwx() { return { { wrappedExpr, { 0, 3, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwy() { return { { wrappedExpr, { 0, 3, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwz() { return { { wrappedExpr, { 0, 3, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xww() { return { { wrappedExpr, { 0, 3, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwx() const { return { { wrappedExpr, { 0, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwy() const { return { { wrappedExpr, { 0, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xwz() const { return { { wrappedExpr, { 0, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::xww() const { return { { wrappedExpr, { 0, 3, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxx() { return { { wrappedExpr, { 1, 0, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxy() { return { { wrappedExpr, { 1, 0, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxz() { return { { wrappedExpr, { 1, 0, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxw() { return { { wrappedExpr, { 1, 0, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxx() const { return { { wrappedExpr, { 1, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxy() const { return { { wrappedExpr, { 1, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxz() const { return { { wrappedExpr, { 1, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yxw() const { return { { wrappedExpr, { 1, 0, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyx() { return { { wrappedExpr, { 1, 1, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyy() { return { { wrappedExpr, { 1, 1, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyz() { return { { wrappedExpr, { 1, 1, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyw() { return { { wrappedExpr, { 1, 1, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyx() const { return { { wrappedExpr, { 1, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyy() const { return { { wrappedExpr, { 1, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyz() const { return { { wrappedExpr, { 1, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yyw() const { return { { wrappedExpr, { 1, 1, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzx() { return { { wrappedExpr, { 1, 2, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzy() { return { { wrappedExpr, { 1, 2, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzz() { return { { wrappedExpr, { 1, 2, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzw() { return { { wrappedExpr, { 1, 2, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzx() const { return { { wrappedExpr, { 1, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzy() const { return { { wrappedExpr, { 1, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzz() const { return { { wrappedExpr, { 1, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yzw() const { return { { wrappedExpr, { 1, 2, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywx() { return { { wrappedExpr, { 1, 3, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywy() { return { { wrappedExpr, { 1, 3, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywz() { return { { wrappedExpr, { 1, 3, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yww() { return { { wrappedExpr, { 1, 3, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywx() const { return { { wrappedExpr, { 1, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywy() const { return { { wrappedExpr, { 1, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::ywz() const { return { { wrappedExpr, { 1, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::yww() const { return { { wrappedExpr, { 1, 3, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxx() { return { { wrappedExpr, { 2, 0, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxy() { return { { wrappedExpr, { 2, 0, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxz() { return { { wrappedExpr, { 2, 0, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxw() { return { { wrappedExpr, { 2, 0, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxx() const { return { { wrappedExpr, { 2, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxy() const { return { { wrappedExpr, { 2, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxz() const { return { { wrappedExpr, { 2, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zxw() const { return { { wrappedExpr, { 2, 0, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyx() { return { { wrappedExpr, { 2, 1, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyy() { return { { wrappedExpr, { 2, 1, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyz() { return { { wrappedExpr, { 2, 1, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyw() { return { { wrappedExpr, { 2, 1, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyx() const { return { { wrappedExpr, { 2, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyy() const { return { { wrappedExpr, { 2, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyz() const { return { { wrappedExpr, { 2, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zyw() const { return { { wrappedExpr, { 2, 1, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzx() { return { { wrappedExpr, { 2, 2, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzy() { return { { wrappedExpr, { 2, 2, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzz() { return { { wrappedExpr, { 2, 2, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzw() { return { { wrappedExpr, { 2, 2, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzx() const { return { { wrappedExpr, { 2, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzy() const { return { { wrappedExpr, { 2, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzz() const { return { { wrappedExpr, { 2, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zzw() const { return { { wrappedExpr, { 2, 2, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwx() { return { { wrappedExpr, { 2, 3, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwy() { return { { wrappedExpr, { 2, 3, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwz() { return { { wrappedExpr, { 2, 3, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zww() { return { { wrappedExpr, { 2, 3, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwx() const { return { { wrappedExpr, { 2, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwy() const { return { { wrappedExpr, { 2, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zwz() const { return { { wrappedExpr, { 2, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::zww() const { return { { wrappedExpr, { 2, 3, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxx() { return { { wrappedExpr, { 3, 0, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxy() { return { { wrappedExpr, { 3, 0, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxz() { return { { wrappedExpr, { 3, 0, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxw() { return { { wrappedExpr, { 3, 0, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxx() const { return { { wrappedExpr, { 3, 0, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxy() const { return { { wrappedExpr, { 3, 0, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxz() const { return { { wrappedExpr, { 3, 0, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wxw() const { return { { wrappedExpr, { 3, 0, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyx() { return { { wrappedExpr, { 3, 1, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyy() { return { { wrappedExpr, { 3, 1, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyz() { return { { wrappedExpr, { 3, 1, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyw() { return { { wrappedExpr, { 3, 1, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyx() const { return { { wrappedExpr, { 3, 1, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyy() const { return { { wrappedExpr, { 3, 1, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyz() const { return { { wrappedExpr, { 3, 1, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wyw() const { return { { wrappedExpr, { 3, 1, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzx() { return { { wrappedExpr, { 3, 2, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzy() { return { { wrappedExpr, { 3, 2, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzz() { return { { wrappedExpr, { 3, 2, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzw() { return { { wrappedExpr, { 3, 2, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzx() const { return { { wrappedExpr, { 3, 2, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzy() const { return { { wrappedExpr, { 3, 2, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzz() const { return { { wrappedExpr, { 3, 2, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wzw() const { return { { wrappedExpr, { 3, 2, 3 } } }; }
 
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwx() { return { { wrappedExpr, { 3, 3, 0 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwy() { return { { wrappedExpr, { 3, 3, 1 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwz() { return { { wrappedExpr, { 3, 3, 2 } } }; }
-constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::www() { return { { wrappedExpr, { 3, 3, 3 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwx() const { return { { wrappedExpr, { 3, 3, 0 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwy() const { return { { wrappedExpr, { 3, 3, 1 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::wwz() const { return { { wrappedExpr, { 3, 3, 2 } } }; }
+constexpr wrapped_vector::impl<VectorComponentExpr> wrapped_vector::www() const { return { { wrappedExpr, { 3, 3, 3 } } }; }
 
 // Literals
 union LiteralStorage {

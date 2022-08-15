@@ -25,6 +25,9 @@ struct Visitor {
         case NodeKind::Bounding:
             impl()->visitBoundingNode(seq.template firstIs<BoundingNode>());
             break;
+        case NodeKind::Subpass:
+            impl()->visitSubpassNode(seq.template firstIs<SubpassNode>());
+            break;
         case NodeKind::Object:
             impl()->visitObjectNode(seq.template firstIs<ObjectNode>());
             break;
@@ -46,6 +49,9 @@ struct Visitor {
         impl()->dispatchVisit(seq.subSequence());
     }
     void visitBoundingNode(typename NodeSequence<S>::template FirstIs<BoundingNode> seq) {
+        impl()->dispatchVisit(seq.subSequence());
+    }
+    void visitSubpassNode(typename NodeSequence<S>::template FirstIs<SubpassNode> seq) {
         impl()->dispatchVisit(seq.subSequence());
     }
     void visitObjectNode(typename NodeSequence<S>::template FirstIs<ObjectNode>) { }

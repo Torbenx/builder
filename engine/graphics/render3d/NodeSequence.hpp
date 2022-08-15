@@ -16,13 +16,13 @@ struct render3d {
 namespace render3d {
 
 struct SG;
-struct RT;
 
 #define IMPORT_NODES(S)                                        \
     using PortalNode = typename S::PortalNode;                 \
     using TransformNode = typename S::TransformNode;           \
     using WorldTransformNode = typename S::WorldTransformNode; \
     using BoundingNode = typename S::BoundingNode;             \
+    using SubpassNode = typename S::SubpassNode;               \
     using ObjectNode = typename S::ObjectNode;                 \
     using CompoundNode = typename S::CompoundNode;
 
@@ -32,6 +32,7 @@ enum class NodeKind {
     Transform,
     WorldTransform,
     Bounding,
+    Subpass,
     Object,
     Compound,
 };
@@ -202,6 +203,7 @@ struct NodeSequence {
         static_assert(isSizeOfValid<TransformNode>());
         static_assert(isSizeOfValid<WorldTransformNode>());
         static_assert(isSizeOfValid<BoundingNode>());
+        static_assert(isSizeOfValid<SubpassNode>());
         static_assert(isSizeOfValid<ObjectNode>());
         static_assert(isSizeOfValid<CompoundNode>());
     }
@@ -221,7 +223,16 @@ template<typename S>
 constexpr int_t NodeSequence<S>::sizeOf(NodeKind kind) {
     IMPORT_NODES(S)
     // must match the NodeKind enum
-    constexpr int_t byteSizes[] = { 0, sizeOf<PortalNode>(), sizeOf<TransformNode>(), sizeOf<WorldTransformNode>(), sizeOf<BoundingNode>(), sizeOf<ObjectNode>(), sizeOf<CompoundNode>() };
+    constexpr int_t byteSizes[] = {
+        0,
+        sizeOf<PortalNode>(),
+        sizeOf<TransformNode>(),
+        sizeOf<WorldTransformNode>(),
+        sizeOf<BoundingNode>(),
+        sizeOf<SubpassNode>(),
+        sizeOf<ObjectNode>(),
+        sizeOf<CompoundNode>(),
+    };
     return byteSizes[(int_t)kind];
 }
 
@@ -231,6 +242,15 @@ struct StaticNodeSequence : stx::Tuple<NodeTypes...> {
     operator NodeSequence<SG>() {
         return { (std::byte*)this, kinds, (uint32_t)sizeof(StaticNodeSequence) };
     }
+};
+
+template<typename S>
+struct GraphDirections {
+    struct Step {
+        NodeSequence<S> seq {};
+        bool forward = false;
+    };
+    ArrayView<const Step> steps;
 };
 
 }

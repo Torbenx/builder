@@ -80,6 +80,9 @@ namespace {
             static constexpr NodeKind NODE_KIND = NodeKind::Bounding;
             bool visible = false;
         };
+        struct SubpassNode : Sentinel {
+            static constexpr NodeKind NODE_KIND = NodeKind::Subpass;
+        };
         struct ObjectNode : Sentinel {
             static constexpr NodeKind NODE_KIND = NodeKind::Object;
         };
@@ -274,6 +277,10 @@ namespace {
                 dispatchVisit(sgSeq.subSequence());
             else
                 completeWithSentinels(sgSeq.subSequence());
+        }
+        void visitSubpassNode(NodeSequence<SG>::FirstIs<SG::SubpassNode> sgSeq) {
+            auto* rtNode = constructNode<RT::SubpassNode>({});
+            dispatchVisit(sgSeq.subSequence());
         }
         void visitObjectNode(NodeSequence<SG>::FirstIs<SG::ObjectNode> sgSeq) {
             auto* sgNode = sgSeq.first();

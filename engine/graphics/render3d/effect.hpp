@@ -3,10 +3,11 @@
 #include "containers/DirectedAcyclicGraph.hpp"
 #include "graphics/shadergen/BuildDriver.hpp"
 #include "graphics/shadergen/GLSLGenerator.hpp"
+#include "renderer.hpp"
 #include <unordered_map>
 
 template<typename T>
-struct GPtr { };
+struct GraphicsPtr { };
 
 template<typename T, int_t N>
 struct OversizedArray {
@@ -21,20 +22,14 @@ struct OversizedArray {
 
 namespace shadergen::effect {
 
+using namespace render3d;
+
 template<typename T, typename E>
 inline int_t offsetOfMemberPtr(T E::*ptr) {
     const E* e = nullptr;
     const T* t = &(e->*ptr);
     return (const std::byte*)t - (const std::byte*)e;
 }
-
-template<typename T>
-struct CXXTypeFromMemberPtr;
-template<typename T, typename E>
-struct CXXTypeFromMemberPtr<GPtr<T> E::*> {
-    using type = std::remove_extent_t<T>;
-};
-
 namespace {
     template<auto memberPtr>
     struct StaticOffsetHolder {
@@ -42,18 +37,33 @@ namespace {
     };
 };
 
+template<typename T>
+struct CXXTypeFromGraphicsPtr;
+template<typename T, typename E>
+struct CXXTypeFromGraphicsPtr<GraphicsPtr<T> E::*> {
+    using type = std::remove_extent_t<T>;
+};
+
 // Driver
+struct EffectStageDecl : StageDecl {
+    VarDeclContext subpassInputs;
+};
 struct EffectStageDriver : StageDriver {
     struct EffectVariableOffset {
         const VarDecl* decl = nullptr;
         const int_t* offsetPtr = nullptr;
     };
     OversizedArray<EffectVariableOffset, 300> offsets;
+    EffectStageDecl effectStageDecl;
 
     constexpr EffectStageDriver(Storage* storage)
-        : StageDriver(storage) { }
+        : StageDriver(storage, nullptr) {
+            initializeEmptyStageDecl(&effectStageDecl, &effectStageDecl.subpassInputs);
+            initialize(&effectStageDecl);
+        }
+    constexpr EffectStageDecl* stageDecl() const { return static_cast<EffectStageDecl*>(StageDriver::stageDecl()); }
 
-    constexpr const int_t* findOffsetInStruct(const VarDecl* decl) const {
+    constexpr const int_t* findOffsetFromVarDecl(const VarDecl* decl) const {
         for (int_t i = 0; i < offsets.size; i++) {
             if (offsets.data[i].decl == decl)
                 return offsets.data[i].offsetPtr;
@@ -61,9 +71,9 @@ struct EffectStageDriver : StageDriver {
         VERIFY_NOT_REACHED(ShaderGen);
         return nullptr;
     }
-    template<auto memberPtr>
-    constexpr DriverVariable<typename CXXTypeFromMemberPtr<decltype(memberPtr)>::type> declareEffectVariable(std::string_view name, VarDeclContext* declContext) {
-        return DriverVariable<typename CXXTypeFromMemberPtr<decltype(memberPtr)>::type>(
+    template<auto memberPtr, typename CXXType>
+    constexpr auto declareEffectVariable(std::string_view name, VarDeclContext* declContext) {
+        return DriverVariable<CXXType>(
             name,
             [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
@@ -73,16 +83,24 @@ struct EffectStageDriver : StageDriver {
             });
     }
     template<auto memberPtr>
+    constexpr auto declareGraphicsPtrEffectVariable(std::string_view name, VarDeclContext* declContext) {
+        return declareEffectVariable<memberPtr, typename CXXTypeFromGraphicsPtr<decltype(memberPtr)>::type>(name, declContext);
+    }
+    template<auto memberPtr>
     constexpr auto uniform(std::string_view name) {
-        return declareEffectVariable<memberPtr>(name, &stageDecl->uniforms);
+        return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->uniforms);
     }
     template<auto memberPtr>
     constexpr auto input(std::string_view name) {
-        return declareEffectVariable<memberPtr>(name, &stageDecl->inputs);
+        return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->inputs);
     }
     template<auto memberPtr>
     constexpr auto output(std::string_view name) {
-        return declareEffectVariable<memberPtr>(name, &stageDecl->outputs);
+        return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->outputs);
+    }
+    template<auto memberPtr>
+    constexpr auto subpassInput(std::string_view name) {
+        return declareEffectVariable<memberPtr, Vec4>(name, &stageDecl()->subpassInputs);
     }
 };
 
@@ -91,6 +109,11 @@ struct EffectDriver {
     Storage storage;
     EffectStageDriver vert { &storage };
     EffectStageDriver frag { &storage };
+
+    template<typename T>
+    constexpr VaryingReturnType<T> varying(std::string_view name) {
+        return { name, vert, frag };
+    }
 };
 
 // cross effect variables
@@ -227,6 +250,36 @@ struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
     }
 };
 
+constexpr CrossEffectVariable<Vec3> modelPosition { "modelPosition" };
+constexpr CrossEffectVariable<Vec4> screenPosition { "screenPosition" };
+constexpr CrossEffectVariable<Vec3> worldPosition { "worldPosition" };
+
+struct OpenglTransform : ASTTransform<OpenglTransform, BlockDriver::Storage> {
+    using Storage = BlockDriver::Storage;
+    using Base = ASTTransform<OpenglTransform, Storage>;
+    constexpr OpenglTransform() = default;
+    constexpr OpenglTransform(Storage* storage)
+        : Base(storage) { }
+    constexpr StageDecl* createOpenglStageDecl(const EffectStageDecl& in) {
+        StageDecl* out = storage->allocateStageDecl(in);
+        transformStageDeclContext(out);
+        Stmt* oldEntryPoint = out->entryPoint;
+
+        StageDriver driver { storage, out };
+        in.subpassInputs.decls.forEachEntry([&](VarDecl* oldDecl) {
+            using namespace code;
+            auto sampler = driver.uniform<Sampler2D>("needs_a_name");
+            driver.createVarDecl(oldDecl, driver.currentDeclContext);
+            get_wrapper<Vec4>::impl<VarRefExpr> newVar { { oldDecl } };
+            driver, newVar = texture(sampler, screenPosition.xy());
+        });
+
+        currentDeclContext = &driver.currentBlock->declContext;
+        driver.emitStmt(dispatchTransform(oldEntryPoint));
+        return out;
+    }
+};
+
 // constexpr descriptor
 struct ConstVariableDescriptor {
     const Type* type;
@@ -246,21 +299,24 @@ struct ConstEffectDescriptor {
 constexpr int_t fillConstVariableArray(ConstVariableDescriptor* end, const EffectStageDriver& stage, const VarDeclContext& declContext) {
     ConstVariableDescriptor* begin = end;
     declContext.decls.forEachEntry([&](const VarDecl* decl) {
-        *(end++) = { decl->type, stage.findOffsetInStruct(decl->prevDecl) };
+        *(end++) = { decl->type, stage.findOffsetFromVarDecl(decl->prevDecl) };
     });
     return end - begin;
 }
 constexpr void fillConstStageDescriptor(ConstStageDescriptor& out, const EffectStageDriver& in) {
-    out.uniforms.size = fillConstVariableArray(out.uniforms.data, in, in.stageDecl->uniforms);
+    out.uniforms.size = fillConstVariableArray(out.uniforms.data, in, in.stageDecl()->uniforms);
 
     CrossEffectVarUsageFinder usageFinder { out.ceUsages.data };
-    usageFinder.dispatchVisit(in.stageDecl->entryPoint);
+    usageFinder.dispatchVisit(in.stageDecl()->entryPoint);
     out.ceUsages.size = usageFinder.end - usageFinder.begin;
     BlockDriver::Storage storage;
-    GLSLStmtTransform transform { &storage };
-    StageDecl* transformed = transform.createStageDecl(*in.stageDecl);
+
+    OpenglTransform transform1 { &storage };
+    StageDecl* transformed1 = transform1.createOpenglStageDecl(*in.stageDecl());
+    GLSLStmtTransform transform2 { &storage };
+    StageDecl* transformed2 = transform2.createStageDecl(*transformed1);
     GLSLStmtGenerator generator { out.source.data };
-    generator.dispatchVisit(transformed->entryPoint);
+    generator.dispatchVisit(transformed2->entryPoint);
     out.source.size = generator.end - out.source.data;
 }
 using DefineFunc_t = void (*)(EffectDriver&);
@@ -268,12 +324,12 @@ constexpr ConstEffectDescriptor createConstEffectDescriptor(DefineFunc_t defineF
     EffectDriver effect;
     defineFunc(effect);
     ConstEffectDescriptor out;
-    out.attributes.size = fillConstVariableArray(out.attributes.data, effect.vert, effect.vert.stageDecl->inputs);
+    out.attributes.size = fillConstVariableArray(out.attributes.data, effect.vert, effect.vert.stageDecl()->inputs);
     fillConstStageDescriptor(out.vert, effect.vert);
     fillConstStageDescriptor(out.frag, effect.frag);
     UserTypeRecorder typeRecorder { out.userTypes.data };
-    typeRecorder.recordStage(effect.vert.stageDecl);
-    typeRecorder.recordStage(effect.frag.stageDecl);
+    typeRecorder.recordStage(effect.vert.stageDecl());
+    typeRecorder.recordStage(effect.frag.stageDecl());
     out.userTypes.size = typeRecorder.end - out.userTypes.data;
     return out;
 }
@@ -407,9 +463,36 @@ inline void generateSource(ArrayView<const EffectHandle> effectHandles) {
     handleStage(&EffectDescriptor::vert);
     handleStage(&EffectDescriptor::frag);
 }
-}
 
 DEFINE_SECTION(const shadergen::effect::EffectDescriptor, effects)
 #define DEFINE_EFFECT(effect_type) \
     template<>                     \
-    constinit IN_SECTION(effects) const shadergen::effect::EffectDescriptor shadergen::effect::descriptorStore<effect_type> = shadergen::effect::createEffectDescriptor<effect_type>();
+    constinit IN_SECTION(effects) const ::shadergen::effect::EffectDescriptor (::shadergen::effect::descriptorStore<effect_type>) = ::shadergen::effect::createEffectDescriptor<effect_type>();
+
+struct BuiltinPositionEffect {
+    using Self = BuiltinPositionEffect;
+    struct MatrixUniforms {
+        BEGIN_GEN_STRUCT(MatrixUniforms);
+        Vec4 GEN_FIELD(viewProjectionMatrix);
+        Vec4 GEN_FIELD(worldViewMatrix);
+        END_GEN_STRUCT();
+    };
+    GraphicsPtr<MatrixUniforms> matrixUniforms;
+    static constexpr void defineEffect(EffectDriver& prog) {
+        auto& vert = prog.vert;
+        auto& frag = prog.frag;
+        auto matrices = vert.uniform<&Self::matrixUniforms>("u_matrices");
+
+        auto [screenPosVert, screenPosFrag] = prog.varying<Vec4>("v_screenPos");
+        //vert, screenPosVert = matrices.viewProjectionMatrix * modelPosition;
+        vert, screenPosition = screenPosVert;
+        frag, screenPosition = screenPosFrag;
+
+        auto [worldPosVert, worldPosFrag]= prog.varying<Vec3>("v_worldPos");
+        //vert, worldPosVert = (matrices.worldViewMatrix * screenPosVarying).xyz();
+        vert, worldPosition = worldPosVert;
+        frag, worldPosition = worldPosFrag;
+    }
+};
+DEFINE_EFFECT(BuiltinPositionEffect);
+}

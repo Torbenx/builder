@@ -250,6 +250,9 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<GLSLStmtGenerator>, ASTVisitor<GLSL
     constexpr void visitBlockStmt(const BlockStmt* e) {
         out() << "{\n";
         indent += 1;
+        e->declContext.decls.forEachEntry([&](const VarDecl* decl) {
+            out() << Indentation() << decl << ";\n";
+        });
         out() << e->body;
         indent -= 1;
         out() << Indentation() << "}";
@@ -267,9 +270,7 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<GLSLStmtGenerator>, ASTVisitor<GLSL
         stage->outputs.decls.forEachEntry([&](const VarDecl* decl) {
             out() << "out " << decl << ";\n";
         });
-        out() << "void main() ";
-        dispatchVisit(stage->entryPoint);
-        out() << "\n";
+        out() << "void main() " << stage->entryPoint << "\n";
     }
 };
 
@@ -293,7 +294,7 @@ struct GLSLStageGenerator : GLSLStmtGenerator {
         : GLSLStmtGenerator(buffer) { }
 
     constexpr void visitStage(const StageDriver& stage) {
-        visitStageDecl(stage.stageDecl);
+        visitStageDecl(stage.stageDecl());
     }
 };
 

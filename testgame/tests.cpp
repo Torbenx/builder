@@ -59,7 +59,9 @@ static constexpr void createShader(GraphicsDriver& prog) {
     auto varPos = prog.varying<Vec2>("v_texCoord");
 
     auto posAttr = vert.input<Vec2>("a_position");
-    vert, vert.position = compose(posAttr, constant(0.0f, 1.0f));
+    auto zPos = vert.variable<float>("z");
+    vert, zPos = constant(1.0f);
+    vert, vert.position = compose(posAttr, zPos, constant(1.0f));
     vert, varPos.in = posAttr;
 
     auto fragColor = frag.output<Vec4>("fragColor");
@@ -80,31 +82,32 @@ static constexpr auto toGLSL(const GraphicsDriver& prog) {
 static constexpr auto transformAST(const GraphicsDriver& in) {
     return GraphicsDriver([&](GraphicsDriver& out) {
         GLSLStmtTransform transform { &out.storage };
-        out.vert.stageDecl = transform.createStageDecl(*in.vert.stageDecl);
-        out.frag.stageDecl = transform.createStageDecl(*in.frag.stageDecl);
+        out.vert.m_stageDecl = transform.createStageDecl(*in.vert.stageDecl());
+        out.frag.m_stageDecl = transform.createStageDecl(*in.frag.stageDecl());
     });
 }
 
 constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
 
 struct Effect1 {
-    GPtr<Vec3[]> attribute;
+    GraphicsPtr<Vec3[]> attribute;
     struct VertexUniform {
         BEGIN_GEN_STRUCT(VertexUniform)
         Vec3 GEN_FIELD(position);
         END_GEN_STRUCT()
     };
-    GPtr<VertexUniform> vertexUniform;
+    GraphicsPtr<VertexUniform> vertexUniform;
 
     static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
         using namespace shadergen::code;
         auto attr = prog.vert.uniform<&Effect1::vertexUniform>("a_attr");
-        prog.vert, attr.position += compose(constant(1.0f, 1.0f), myVar);
+        auto subpass = prog.vert.subpassInput<&Effect1::attribute>("i_subpass");
+        prog.vert, attr.position += compose(constant(1.0f), subpass.w, myVar);
     }
 };
 DEFINE_EFFECT(Effect1)
 struct Effect2 {
-    GPtr<float[]> attribute;
+    GraphicsPtr<float[]> attribute;
     static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
         using namespace shadergen::code;
         auto attr = prog.vert.uniform<&Effect2::attribute>("a_attr");
@@ -113,7 +116,7 @@ struct Effect2 {
 };
 DEFINE_EFFECT(Effect2)
 struct Effect3 {
-    GPtr<float[]> attribute;
+    GraphicsPtr<float[]> attribute;
     static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
         using namespace shadergen::code;
         auto attr = prog.vert.uniform<&Effect3::attribute>("a_attr");
@@ -129,8 +132,8 @@ void runShadergenTest() {
     // dumper.dump(tuple.root);
 
     static constexpr auto ast = GraphicsDriver(createShader);
-    dumper.dump(ast.vert.stageDecl->entryPoint);
-    dumper.dump(ast.frag.stageDecl->entryPoint);
+    dumper.dump(ast.vert.stageDecl()->entryPoint);
+    dumper.dump(ast.frag.stageDecl()->entryPoint);
     static constexpr auto ast2 = transformAST(ast);
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data());
@@ -140,4 +143,5 @@ void runShadergenTest() {
     Effect3 e3;
     shadergen::effect::EffectHandle handles[] = { &e1, &e2, &e3 };
     shadergen::effect::generateSource(handles);
+    VDUMP(shadergen::effect::EffectHandle(&e1).descriptor->vert.source);
 }

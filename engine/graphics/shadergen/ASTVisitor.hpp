@@ -367,8 +367,8 @@ struct ASTTransform {
     }
     constexpr void transformNote(ErrorNote* e) { }
 
-    constexpr void transformStageDeclContext(StageDecl* e) {
-        VERIFY(ShaderGen, e->builtins.parent == nullptr);
+    constexpr void transformStageDeclContext(StageDecl* e, VarDeclContext* parentContext = nullptr) {
+        e->builtins.parent = parentContext;
         e->uniforms.parent = &e->builtins;
         e->inputs.parent = &e->uniforms;
         e->outputs.parent = &e->inputs;
@@ -387,9 +387,12 @@ struct ASTTransform {
         impl()->transformStageDecl(out);
         return out;
     }
+    constexpr void initializeEmptyStageDecl(StageDecl* e, VarDeclContext* parentContext = nullptr) {
+        impl()->transformStageDeclContext(e, parentContext);
+    }
     constexpr StageDecl* createEmptyStageDecl() {
         StageDecl* out = storage->allocateStageDecl({});
-        impl()->transformStageDeclContext(out);
+        initializeEmptyStageDecl(out);
         return out;
     }
 

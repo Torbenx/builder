@@ -29,6 +29,9 @@ struct SG /* Scene Graph */ {
         static constexpr NodeKind NODE_KIND = NodeKind::Bounding;
         BoundingSphere bound;
     };
+    struct alignas(8) SubpassNode {
+        static constexpr NodeKind NODE_KIND = NodeKind::Subpass;
+    };
     struct alignas(8) ObjectNode {
         static constexpr NodeKind NODE_KIND = NodeKind::Object;
         const GraphicsObject* object;

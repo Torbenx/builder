@@ -102,7 +102,7 @@ constexpr BuiltinFunctionInstance textureCubeFunc { "texture", { FP::fixed(typeF
 constexpr BuiltinFunctionInstance texture2DShadow { "texture", { FP::fixed(typeFromCXX<code::Sampler2DShadow>), FP::fixed(FloatType.vectorType(2)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
 constexpr BuiltinFunctionInstance textureCubeShadow { "texture", { FP::fixed(typeFromCXX<code::SamplerCubeShadow>), FP::fixed(FloatType.vectorType(3)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
 namespace impls {
-    constexpr auto texture(const wrapped_user<code::Sampler2D>& sampler, wrapped_vector& coord) { return VectorCall<2> { { &texture2DFunc, { sampler.wrappedExpr, coord.wrappedExpr } } }; }
+    constexpr auto texture(const wrapped_user<code::Sampler2D>& sampler, const wrapped_vector& coord) { return VectorCall<2> { { &texture2DFunc, { sampler.wrappedExpr, coord.wrappedExpr } } }; }
 }
 
 constexpr BuiltinFunctionInstance floorFunc { "floor", { FP::dynamic(&FloatType) }, FP::dynamic(&FloatType) };
