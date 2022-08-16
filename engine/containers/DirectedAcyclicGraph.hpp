@@ -6,21 +6,23 @@
 #include "util/uninitialized.hpp"
 #include <vector>
 
-template<typename Node>
-class DirectedAcyclicGraph {
+class DirectedAcyclicGraphNodeHandle {
 private:
     using idx_t = uint32_t;
+    DirectedAcyclicGraphNodeHandle(size_t index)
+        : index(static_cast<idx_t>(index)) { }
+    idx_t index = 0;
+    template<typename Node>
+    friend class DirectedAcyclicGraph;
+};
 
+template<typename Node>
+class DirectedAcyclicGraph {
 public:
-    class NodeHandle {
-    private:
-        NodeHandle(size_t index)
-            : index(static_cast<idx_t>(index)) { }
-        idx_t index = 0;
-        friend DirectedAcyclicGraph;
-    };
+    using NodeHandle = DirectedAcyclicGraphNodeHandle;
 
 private:
+    using idx_t = NodeHandle::idx_t;
     struct NodeContainer {
         uninitialized<Node> node {};
         FlatSet<NodeHandle> parents {};

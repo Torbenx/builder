@@ -99,10 +99,10 @@ using VectorCall = wrapped_vector::impl<UnresolvedCall<N>>;
 
 constexpr BuiltinFunctionInstance texture2DFunc { "texture", { FP::fixed(typeFromCXX<code::Sampler2D>), FP::fixed(FloatType.vectorType(2)) }, FP::fixed(FloatType.vectorType(4)) };
 constexpr BuiltinFunctionInstance textureCubeFunc { "texture", { FP::fixed(typeFromCXX<code::SamplerCube>), FP::fixed(FloatType.vectorType(3)) }, FP::fixed(FloatType.vectorType(4)) };
-constexpr BuiltinFunctionInstance texture2DShadow { "texture", { FP::fixed(typeFromCXX<code::Sampler2DShadow>), FP::fixed(FloatType.vectorType(2)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
-constexpr BuiltinFunctionInstance textureCubeShadow { "texture", { FP::fixed(typeFromCXX<code::SamplerCubeShadow>), FP::fixed(FloatType.vectorType(3)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
+constexpr BuiltinFunctionInstance texture2DShadowFunc { "texture", { FP::fixed(typeFromCXX<code::Sampler2DShadow>), FP::fixed(FloatType.vectorType(2)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
+constexpr BuiltinFunctionInstance textureCubeShadowFunc { "texture", { FP::fixed(typeFromCXX<code::SamplerCubeShadow>), FP::fixed(FloatType.vectorType(3)), FP::fixed(&FloatType) }, FP::fixed(&FloatType) };
 namespace impls {
-    constexpr auto texture(const wrapped_user<code::Sampler2D>& sampler, const wrapped_vector& coord) { return VectorCall<2> { { &texture2DFunc, { sampler.wrappedExpr, coord.wrappedExpr } } }; }
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> texture(const wrapped_user<code::Sampler2D>& sampler, const wrapped_vector& coord) { return { { &texture2DFunc, { sampler.wrappedExpr, coord.wrappedExpr } } }; }
 }
 
 constexpr BuiltinFunctionInstance floorFunc { "floor", { FP::dynamic(&FloatType) }, FP::dynamic(&FloatType) };

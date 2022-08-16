@@ -3,7 +3,7 @@
 #include "graphics/shadergen/GLSLGenerator.hpp"
 #include "util/log.hpp"
 
-#include "graphics/render3d/effect.hpp"
+#include "graphics/render3d/EffectDescriptor.hpp"
 
 using namespace shadergen;
 using namespace shadergen::code;
@@ -137,12 +137,9 @@ void runShadergenTest() {
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data);
 
-    Effect1 e1;
-    Effect2 e2;
-    Effect3 e3;
-    shadergen::effect::EffectHandle handles[] = { &e1, &e2, &e3 };
+    const shadergen::effect::EffectDescriptor* handles[] = { &shadergen::effect::descriptorStore<Effect1>, &shadergen::effect::descriptorStore<Effect2>, &shadergen::effect::descriptorStore<Effect3> };
     shadergen::effect::generateSource(handles);
-    VDUMP(shadergen::effect::EffectHandle(&e1).descriptor->vert.source);
+    VDUMP(shadergen::effect::EffectHandle((Effect1*)nullptr).descriptor->vert.source);
     shadergen::effect::BuiltinPositionEffect* bpe = nullptr;
     VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->vert.source);
     VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->frag.source);

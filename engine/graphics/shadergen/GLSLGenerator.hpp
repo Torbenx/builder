@@ -112,6 +112,7 @@ struct GLSLGeneratorBase {
 
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
+    constexpr int_t pos() { return buffer.size(); }
     constexpr OutRet& out() { return *static_cast<Impl*>(this); }
     constexpr OutRet& operator<<(std::string_view str) {
         std::copy_n(str.data(), str.size(), buffer.acquireEnd(str.size()));
@@ -200,6 +201,14 @@ struct GLSLGeneratorBase {
     }
 };
 
+struct SourceReplacement {
+    int_t offset = -1;
+    int_t length = 0;
+    constexpr SourceReplacement() = default;
+    constexpr SourceReplacement(int_t length)
+        : length(length) { }
+};
+
 template<typename Impl>
 struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
     using Base = ASTVisitor<Impl>;
@@ -211,6 +220,12 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
 
     constexpr OutRet& operator<<(const Stmt* stmt) {
         this->dispatchVisit(stmt);
+        return out();
+    }
+    constexpr OutRet& operator<<(SourceReplacement& replacement) {
+        replacement.offset = this->pos();
+        for (int_t i = 0; i < replacement.length; i++)
+            out() << "X";
         return out();
     }
     constexpr OutRet& out() { return GLSLBase::out(); }
