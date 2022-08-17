@@ -60,7 +60,7 @@ static constexpr void createShader(GraphicsDriver& prog) {
 
     auto posAttr = vert.input<Vec2>("a_position");
     auto trans = vert.uniform<Mat4x4>("u_trans");
-    vert, vert.position = trans * compose(posAttr, constant(0.0f, 1.0f)) ;
+    vert, vert.position = trans * compose(posAttr, constant(0.0f, 1.0f));
     vert, varPos.in = posAttr;
 
     auto fragColor = frag.output<Vec4>("fragColor");
@@ -137,10 +137,17 @@ void runShadergenTest() {
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data);
 
-    const shadergen::effect::EffectDescriptor* handles[] = { &shadergen::effect::descriptorStore<Effect1>, &shadergen::effect::descriptorStore<Effect2>, &shadergen::effect::descriptorStore<Effect3> };
+    /*const shadergen::effect::EffectDescriptor* handles[] = { &shadergen::effect::descriptorStore<Effect1>, &shadergen::effect::descriptorStore<Effect2>, &shadergen::effect::descriptorStore<Effect3> };
     shadergen::effect::generateSource(handles);
     VDUMP(shadergen::effect::EffectHandle((Effect1*)nullptr).descriptor->vert.source);
     shadergen::effect::BuiltinPositionEffect* bpe = nullptr;
     VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->vert.source);
-    VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->frag.source);
+    VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->frag.source);*/
+    static constexpr shadergen::effect::ConstexprEffectDescriptor desc { Effect1::defineEffect };
+    shadergen::effect::EffectDescriptor::StageDescriptor stage;
+    stage.set<desc.vert>();
+    for (auto var : desc.vert.uniforms)
+        VDUMP(var.name());
+    for (auto var : desc.vert.subpassInputs)
+        VDUMP(var.name());
 }

@@ -285,12 +285,13 @@ struct ErrorExpr : Expr, ErrorNode {
 // Variables
 struct VarDeclContext;
 struct VarDecl : ASTNode {
-    std::string_view name;
-    const Type* type;
-    const VarDeclContext* declContext;
+    std::string_view name = {};
+    const Type* type = nullptr;
+    const VarDeclContext* declContext = nullptr;
     const VarDecl* prevDecl = nullptr;
     FixedBitset initMask = 0;
     FixedBitset usedMask = 0;
+    constexpr VarDecl() = default;
     constexpr VarDecl(std::string_view name, const Type* type, const VarDeclContext* declContext)
         : name(name), type(type), declContext(declContext) { }
 };

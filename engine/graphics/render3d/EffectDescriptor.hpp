@@ -150,12 +150,18 @@ struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
 
 struct ConstexprEffectDescriptor {
     struct VariableDescriptor {
-        const Type* type;
-        const int_t* offsetInStruct;
+        const Type* type = nullptr;
+        const char* nameBegin = nullptr;
+        int_t nameLength = 0;
+        const int_t* offsetInStruct = nullptr;
+        constexpr VariableDescriptor() = default;
+        constexpr VariableDescriptor(const Type* type, std::string_view name, const int_t* offset)
+            : type(type), nameBegin(name.begin()), nameLength(name.length()), offsetInStruct(offset) { }
+        constexpr std::string_view name() const { return { nameBegin, (size_t)nameLength }; }
     };
     static constexpr void extractVariables(PseudoVector<VariableDescriptor> out, const EffectStageDriver& stage, const VarDeclContext& declContext) {
         declContext.decls.forEachEntry([&](const VarDecl* decl) {
-            out.pushBack({ decl->type, stage.findOffsetFromVarDecl(decl->prevDecl) });
+            out.pushBack({ decl->type, decl->name, stage.findOffsetFromVarDecl(decl->prevDecl) });
         });
     }
     struct StageDescriptor {
@@ -201,6 +207,7 @@ struct ConstexprEffectDescriptor {
 struct EffectDescriptor {
     struct VariableDescriptor {
         const Type* type;
+        std::string_view name;
         int_t offsetInStruct;
     };
     struct VariableArray {
@@ -209,7 +216,7 @@ struct EffectDescriptor {
 
         template<ConstexprEffectDescriptor::VariableDescriptor... descriptors>
         struct StaticArrayHolder {
-            static inline const std::array<VariableDescriptor, sizeof...(descriptors)> array { { descriptors.type, *descriptors.offsetInStruct }... };
+            static inline const std::array<VariableDescriptor, sizeof...(descriptors)> array { { descriptors.type, descriptors.name(), *descriptors.offsetInStruct }... };
         };
         template<auto oversized, int_t... I>
         static constexpr VariableArray make_helper(stx::int_sequence<I...>) {
@@ -223,12 +230,16 @@ struct EffectDescriptor {
     struct StageDescriptor {
         ArrayView<const VariableDescriptor> uniforms;
         ArrayView<const CrossEffectVarUsage> ceUsages;
+        ArrayView<const VariableDescriptor> subpassInputs;
+        ArrayView<const OpenGL::SubpassInputReplacement> subpassReplacements;
         std::string_view source;
 
-        template<auto stage>
+        template<ConstexprEffectDescriptor::StageDescriptor stage>
         constexpr void set() {
             uniforms = VariableArray::make<stage.uniforms>();
             ceUsages = staticView<stage.ceUsages>();
+            subpassInputs = VariableArray::make<stage.subpassInputs>();
+            subpassReplacements = staticView<stage.subpassReplacements>();
             ArrayView<const char> sourceView = staticView<stage.source>();
             source = { sourceView.begin(), sourceView.end() };
         }
@@ -248,12 +259,14 @@ struct EffectDescriptor {
     }
 };
 
-#define DEFINE_EFFECT(effect_type) \
+/*#define DEFINE_EFFECT(effect_type) \
     template<>                     \
     constinit const ::shadergen::effect::EffectDescriptor(::shadergen::effect::descriptorStore<effect_type>) { ::std::type_identity<effect_type>() };
 #define DEFINE_BUILTIN_EFFECT(effect_type) \
     template<>                             \
-    constinit const ::shadergen::effect::EffectDescriptor(descriptorStore<effect_type>) { ::std::type_identity<effect_type>() };
+    constinit const ::shadergen::effect::EffectDescriptor(descriptorStore<effect_type>) { ::std::type_identity<effect_type>() };*/
+#define DEFINE_EFFECT(e)
+#define DEFINE_BUILTIN_EFFECT(e)
 
 struct BuiltinPositionEffect {
     using Self = BuiltinPositionEffect;
@@ -330,13 +343,20 @@ inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
         for (const auto& pair : varMap) {
             VERIFY(ShaderGen, dag.parents(pair.second.afterWrite).size() == 1);
         }
-        log("all notes:");
-        dag.forEachNode([&](NodeHandle node) {
-            log(" {}", dag[node].debugName);
-        });
-        log("ordered:");
-        bool b = dag.topologicalOrdering([&](NodeHandle node) {
-            log(" {}", dag[node].debugName);
+        struct Generator : GLSLGeneratorBase<Generator> {
+            using Base = GLSLGeneratorBase<Generator>;
+            Generator(PseudoVector<char> sourceBuffer)
+                : Base(sourceBuffer) { }
+        };
+        OversizedArray<char, 10000> buffer;
+        Generator generator { buffer };
+        for (const auto* effectDesc : descriptors) {
+            const auto& stageDesc = effectDesc->*stage;
+            for (auto uniform : stageDesc.uniforms)
+                generator.out() << "uniform " << uniform.type << " " << uniform.name << ";\n";
+        }
+        bool b = dag.topologicalOrdering([&](NodeHandle nodeHandle) {
+            auto& node = dag[nodeHandle];
         });
         VDUMP(b);
     };
