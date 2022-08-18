@@ -197,11 +197,18 @@ struct ASTVisitor {
         return impl()->dispatchVisit(e->subExpr, args...);
     }
     constexpr RetT visitErrorStmt(const ErrorStmt* e, Args... args) {
+        helper h([&]() {
+            impl()->visitErrorNode(e, args...);
+        });
         return impl()->dispatchVisit(e->subStmt, args...);
     }
     constexpr RetT visitErrorExpr(const ErrorExpr* e, Args... args) {
+        helper h([&]() {
+            impl()->visitErrorNode(e, args...);
+        });
         return impl()->dispatchVisit(e->subExpr, args...);
     }
+    constexpr void visitErrorNode(const ErrorNode* e, Args... args) { }
 
     constexpr RetT dispatchVisit(const Stmt* stmt, Args... args) {
         switch (stmt->stmtKind) {

@@ -4,6 +4,30 @@
 
 namespace shadergen {
 
+struct FixedStringView {
+    const char* buffer = nullptr;
+    int_t length = 0;
+    constexpr operator std::string_view() const { return { buffer, (size_t)length }; }
+};
+template<int_t N>
+struct FixedString {
+    char buffer[N] = {};
+    constexpr FixedString(const char (&str)[N + 1]) {
+        std::copy_n(str, N, buffer);
+    }
+    constexpr int_t length() const { return N; }
+    constexpr operator FixedStringView() const { return { buffer, length() }; }
+};
+template<int_t M>
+FixedString(const char (&str)[M]) -> FixedString<M - 1>;
+
+namespace code {
+    template<FixedString str>
+    constexpr FixedStringView operator"" _v() {
+        return str;
+    }
+}
+
 // Storage
 template<int_t N, int_t S>
 struct BasicASTStorage {
@@ -76,14 +100,14 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
     }
 
     template<typename T>
-    constexpr DriverVariable<T> declareVariable(std::string_view name, VarDeclContext* declContext) {
+    constexpr DriverVariable<T> declareVariable(FixedStringView name, VarDeclContext* declContext) {
         return DriverVariable<T>(
             name, [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
             });
     }
     template<typename T>
-    constexpr DriverVariable<T> variable(std::string_view name) {
+    constexpr DriverVariable<T> variable(FixedStringView name) {
         return declareVariable<T>(name, currentDeclContext);
     }
 
@@ -140,29 +164,27 @@ struct StageDriver : BlockDriver {
     constexpr StageDecl* stageDecl() const { return m_stageDecl; }
 
     template<typename T>
-    constexpr auto uniform(std::string_view name) {
+    constexpr auto uniform(FixedStringView name) {
         return declareVariable<T>(name, &stageDecl()->uniforms);
     }
     template<typename T>
-    constexpr auto input(std::string_view name) {
+    constexpr auto input(FixedStringView name) {
         return declareVariable<T>(name, &stageDecl()->inputs);
     }
     template<typename T>
-    constexpr auto output(std::string_view name) {
+    constexpr auto output(FixedStringView name) {
         return declareVariable<T>(name, &stageDecl()->outputs);
     }
     template<typename T>
-    constexpr auto builtin(std::string_view name) {
+    constexpr auto builtin(FixedStringView name) {
         return declareVariable<T>(name, &stageDecl()->builtins);
     }
 };
 
 struct VertexStageDriver : StageDriver {
-    DriverVariable<Vec4> position;
 
     constexpr VertexStageDriver(ASTStorage storage)
-        : StageDriver(storage)
-        , position { builtin<Vec4>("gl_Position") } { }
+        : StageDriver(storage) { }
 };
 
 struct FragmentStageDriver : StageDriver {
@@ -173,7 +195,7 @@ struct FragmentStageDriver : StageDriver {
 
 template<typename T>
 struct VaryingReturnType {
-    constexpr VaryingReturnType(std::string_view name, StageDriver& inStage, StageDriver& outStage)
+    constexpr VaryingReturnType(FixedStringView name, StageDriver& inStage, StageDriver& outStage)
         : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
     DriverVariable<T> in;
     DriverVariable<T> out;
@@ -196,7 +218,7 @@ struct GraphicsDriver {
     }
 
     template<typename T>
-    constexpr VaryingReturnType<T> varying(std::string_view name) {
+    constexpr VaryingReturnType<T> varying(FixedStringView name) {
         return { name, vert, frag };
     }
 };

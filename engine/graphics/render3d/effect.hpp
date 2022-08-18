@@ -110,11 +110,11 @@ struct EffectStageDriver : StageDriver {
             if (offsetEntry.decl == decl)
                 return offsetEntry.offsetPtr;
         }
-        VERIFY_NOT_REACHED(ShaderGen);
+        // VERIFY_NOT_REACHED(ShaderGen);
         return nullptr;
     }
     template<auto memberPtr, typename CXXType>
-    constexpr auto declareEffectVariable(std::string_view name, VarDeclContext* declContext) {
+    constexpr auto declareEffectVariable(FixedStringView name, VarDeclContext* declContext) {
         return DriverVariable<CXXType>(
             name,
             [&](const VarDecl* driverDecl) constexpr {
@@ -123,23 +123,35 @@ struct EffectStageDriver : StageDriver {
             });
     }
     template<auto memberPtr>
-    constexpr auto declareGraphicsPtrEffectVariable(std::string_view name, VarDeclContext* declContext) {
+    constexpr auto declareGraphicsPtrEffectVariable(FixedStringView name, VarDeclContext* declContext) {
         return declareEffectVariable<memberPtr, typename CXXTypeFromGraphicsPtr<decltype(memberPtr)>::type>(name, declContext);
     }
+    template<typename T>
+    constexpr auto uniform(FixedStringView name) {
+        return declareVariable<T>(name, &stageDecl()->uniforms);
+    }
+    template<typename T>
+    constexpr auto input(FixedStringView name) {
+        return declareVariable<T>(name, &stageDecl()->inputs);
+    }
+    template<typename T>
+    constexpr auto output(FixedStringView name) {
+        return declareVariable<T>(name, &stageDecl()->outputs);
+    }
     template<auto memberPtr>
-    constexpr auto uniform(std::string_view name) {
+    constexpr auto uniform(FixedStringView name) {
         return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->uniforms);
     }
     template<auto memberPtr>
-    constexpr auto input(std::string_view name) {
+    constexpr auto input(FixedStringView name) {
         return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->inputs);
     }
     template<auto memberPtr>
-    constexpr auto output(std::string_view name) {
+    constexpr auto output(FixedStringView name) {
         return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->outputs);
     }
     template<auto memberPtr>
-    constexpr auto subpassInput(std::string_view name) {
+    constexpr auto subpassInput(FixedStringView name) {
         return declareEffectVariable<memberPtr, Vec4>(name, &stageDecl()->subpassInputs);
     }
 };
@@ -151,7 +163,7 @@ struct EffectDriver {
     EffectStageDriver frag { storage };
 
     template<typename T>
-    constexpr VaryingReturnType<T> varying(std::string_view name) {
+    constexpr VaryingReturnType<T> varying(FixedStringView name) {
         return { name, vert, frag };
     }
 };
@@ -197,12 +209,5 @@ struct CrossEffectVariable : DriverVariable<T> {
         return { this, right.wrappedExpr };
     }
 };
-
-namespace code {
-    using namespace shadergen::code;
-    constexpr CrossEffectVariable<Vec3> modelPosition { "modelPosition" };
-    constexpr CrossEffectVariable<Vec4> screenPosition { "screenPosition" };
-    constexpr CrossEffectVariable<Vec3> worldPosition { "worldPosition" };
-}
 
 }

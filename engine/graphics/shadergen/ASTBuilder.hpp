@@ -4,6 +4,27 @@
 
 namespace shadergen {
 
+constexpr int_t formatInt(PseudoVector<char> storage, int_t in) {
+    int_t length = 0;
+    if (in == 0) {
+        *storage.acquireEnd() = '0';
+        return 1;
+    }
+    if (in < 0) {
+        *storage.acquireEnd() = '-';
+        length += 1;
+        in = -in;
+    }
+    while (in != 0) {
+        int_t mod = in % 10;
+        int_t div = in / 10;
+        *storage.acquireEnd() = '0' + mod;
+        length += 1;
+        in = div;
+    }
+    return length;
+}
+
 struct MessageBuilder {
     std::string_view* message = nullptr;
     PseudoVector<char> storage;
@@ -16,27 +37,18 @@ struct MessageBuilder {
         message = nullptr;
         storage = {};
     }
-    constexpr void grow(int_t size) {
-        *storage.sizePtr += size;
-        *message = { message->data(), message->size() + size };
-    }
     constexpr MessageBuilder& operator<<(std::string_view str) {
         if (!message)
             return *this;
-        std::copy_n(str.data(), str.size(), storage.end());
-        grow(str.size());
+        std::copy_n(str.data(), str.size(), storage.acquireEnd(str.size()));
+        *message = { message->data(), message->size() + str.size() };
         return *this;
     }
     constexpr MessageBuilder& operator<<(int_t in) {
         if (!message)
             return *this;
-        while (in != 0) {
-            int_t mod = in % 10;
-            int_t div = in / 10;
-            *storage.end() = '0' + mod;
-            grow(1);
-            in = div;
-        }
+        int_t size = formatInt(storage, in);
+        *message = { message->data(), message->size() + size };
         return *this;
     }
     constexpr MessageBuilder& operator<<(const Type* type) {

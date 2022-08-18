@@ -109,6 +109,12 @@ struct GLSLGeneratorBase {
     constexpr GLSLGeneratorBase() = default;
     constexpr GLSLGeneratorBase(PseudoVector<char> buffer)
         : buffer(buffer) { }
+    template<typename T>
+    static Impl fork(const GLSLGeneratorBase<T>& base) {
+        Impl impl { base.buffer };
+        impl.indent = base.indent;
+        return impl;
+    }
 
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
@@ -136,6 +142,10 @@ struct GLSLGeneratorBase {
     }
     constexpr OutRet& operator<<(bool b) {
         return *this << (b ? "true" : "false");
+    }
+    constexpr OutRet& operator<<(int_t i) {
+        formatInt(buffer, i);
+        return out();
     }
 
     constexpr void emitScalarTypeName(const ScalarType* type) {
@@ -342,11 +352,15 @@ struct GLSLTypeGenerator : GLSLGeneratorBase<GLSLTypeGenerator> {
     using GLSLGeneratorBase::GLSLGeneratorBase;
     using GLSLGeneratorBase::operator<<;
 
+    constexpr void emitMembers(const UserType* type) {
+        for (auto member : type->members)
+            out() << Indentation() << member.type << " " << member.name << ";\n";
+    }
+
     constexpr void visitType(const UserType* type) {
         out() << "struct " << type << " {\n";
         indent += 1;
-        for (auto member : type->members)
-            out() << Indentation() << member.type << " " << member.name << ";\n";
+        emitMembers(type);
         indent -= 1;
         out() << "};\n";
     }

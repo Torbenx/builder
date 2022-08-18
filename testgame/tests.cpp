@@ -24,18 +24,18 @@ struct A {
 
 static constexpr void createAST(GraphicsDriver& prog) {
     auto& ast = prog.vert;
-    auto scale = ast.uniform<float>("scale");
-    auto foo = ast.variable<float>("foo");
-    auto bar = ast.variable<Vec4>("bar");
-    auto baz = ast.variable<Vec4>("baz");
-    auto a = ast.variable<A>("a");
-    auto res = ast.variable<bool>("res");
+    auto scale = ast.uniform<float>("scale"_v);
+    auto foo = ast.variable<float>("foo"_v);
+    auto bar = ast.variable<Vec4>("bar"_v);
+    auto baz = ast.variable<Vec4>("baz"_v);
+    auto a = ast.variable<A>("a"_v);
+    auto res = ast.variable<bool>("res"_v);
 
     ast.block([&]() {
         ast, a.b1.i = constant(1);
         ast, a.b1.f = constant(2.5f);
         ast, a.f = constant(3.0f);
-        ast, foo = a.b1.f;
+        ast, foo = a.b1.i;
         ast, bar.xz() = compose(scale, constant(1.0f));
         ast, bar.yw() = compose(scale, constant(2.0f));
         ast, bar.x = floor(foo);
@@ -56,16 +56,16 @@ static constexpr void createShader(GraphicsDriver& prog) {
     auto& vert = prog.vert;
     auto& frag = prog.frag;
 
-    auto varPos = prog.varying<Vec2>("v_texCoord");
+    auto varPos = prog.varying<Vec2>("v_texCoord"_v);
 
-    auto posAttr = vert.input<Vec2>("a_position");
-    auto trans = vert.uniform<Mat4x4>("u_trans");
-    vert, vert.position = trans * compose(posAttr, constant(0.0f, 1.0f));
+    auto posAttr = vert.input<Vec2>("a_position"_v);
+    auto trans = vert.uniform<Mat4x4>("u_trans"_v);
+    // vert, vert.position = trans * compose(posAttr, constant(0.0f, 1.0f));
     vert, varPos.in = posAttr;
 
-    auto fragColor = frag.output<Vec4>("fragColor");
-    auto multiplier = frag.uniform<float>("u_multiplier");
-    auto tex = frag.uniform<Sampler2D>("u_texture");
+    auto fragColor = frag.output<Vec4>("fragColor"_v);
+    auto multiplier = frag.uniform<float>("u_multiplier"_v);
+    auto tex = frag.uniform<Sampler2D>("u_texture"_v);
     frag, fragColor = multiplier * texture(tex, varPos.out);
 }
 
@@ -88,47 +88,38 @@ static constexpr auto transformAST(const GraphicsDriver& in) {
 
 constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
 
-struct Effect1 {
-    GraphicsPtr<Vec3[]> attribute;
-    struct VertexUniform {
-        BEGIN_GEN_STRUCT(VertexUniform)
-        Vec3 GEN_FIELD(position);
-        END_GEN_STRUCT()
-    };
-    GraphicsPtr<VertexUniform> vertexUniform;
+struct PositionInput {
+    GraphicsPtr<Vec3[]> positionAttribute;
 
     static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
-        using namespace shadergen::code;
-        auto attr = prog.vert.uniform<&Effect1::vertexUniform>("a_attr");
-        auto subpass = prog.vert.subpassInput<&Effect1::attribute>("i_subpass");
-        prog.vert, attr.position += compose(constant(1.0f), subpass.w, myVar);
+        using namespace shadergen::effect::code;
+        prog.vert, modelPosition = prog.vert.input<&PositionInput::positionAttribute>("a_position"_v);
     }
 };
-DEFINE_EFFECT(Effect1)
-struct Effect2 {
-    GraphicsPtr<float[]> attribute;
+DEFINE_EFFECT(PositionInput)
+struct Reflection {
+    struct ParameterUniform {
+        BEGIN_GEN_STRUCT(ParameterUniform)
+        float GEN_FIELD(factor);
+        Vec3 GEN_FIELD(baseColor);
+        END_GEN_STRUCT()
+    };
+    GraphicsPtr<ParameterUniform> paramUniform;
+    int subpass;
     static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
-        using namespace shadergen::code;
-        auto attr = prog.vert.uniform<&Effect2::attribute>("a_attr");
-        prog.vert, myVar = attr;
+        using namespace shadergen::effect::code;
+        auto params = prog.frag.uniform<&Reflection::paramUniform>("u_params"_v);
+        auto subpassInput = prog.frag.subpassInput<&Reflection::subpass>("i_subpass"_v);
+        prog.frag, fragmentColor = compose(params.baseColor + subpassInput.xyz(), constant(1.0f));
     }
 };
-DEFINE_EFFECT(Effect2)
-struct Effect3 {
-    GraphicsPtr<float[]> attribute;
-    static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
-        using namespace shadergen::code;
-        auto attr = prog.vert.uniform<&Effect3::attribute>("a_attr");
-        prog.vert, myVar = myVar + attr;
-    }
-};
-DEFINE_EFFECT(Effect3)
+DEFINE_EFFECT(Reflection)
 
 void runShadergenTest() {
     ASTDumper dumper;
 
-    // static constexpr auto tuple = createTuple<createAST>();
-    // dumper.dump(tuple.root);
+    static constexpr auto ast1 = GraphicsDriver(createAST);
+    dumper.dump(ast1.vert.stageDecl()->entryPoint);
 
     static constexpr auto ast = GraphicsDriver(createShader);
     dumper.dump(ast.vert.stageDecl()->entryPoint);
@@ -137,17 +128,18 @@ void runShadergenTest() {
     static constexpr auto glsl2 = toGLSL(ast2);
     log("{}", glsl2.data);
 
-    /*const shadergen::effect::EffectDescriptor* handles[] = { &shadergen::effect::descriptorStore<Effect1>, &shadergen::effect::descriptorStore<Effect2>, &shadergen::effect::descriptorStore<Effect3> };
+    const shadergen::effect::EffectDescriptor* handles[] = {
+        &shadergen::effect::descriptorStore<shadergen::effect::BuiltinPositionEffect>,
+        &shadergen::effect::descriptorStore<shadergen::effect::BuiltinColorEffect>,
+        &shadergen::effect::descriptorStore<PositionInput>,
+        &shadergen::effect::descriptorStore<Reflection>,
+    };
     shadergen::effect::generateSource(handles);
-    VDUMP(shadergen::effect::EffectHandle((Effect1*)nullptr).descriptor->vert.source);
-    shadergen::effect::BuiltinPositionEffect* bpe = nullptr;
-    VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->vert.source);
-    VDUMP(shadergen::effect::EffectHandle(bpe).descriptor->frag.source);*/
-    static constexpr shadergen::effect::ConstexprEffectDescriptor desc { Effect1::defineEffect };
+    /*static constexpr shadergen::effect::ConstexprEffectDescriptor desc { Effect1::defineEffect };
     shadergen::effect::EffectDescriptor::StageDescriptor stage;
     stage.set<desc.vert>();
     for (auto var : desc.vert.uniforms)
         VDUMP(var.name());
     for (auto var : desc.vert.subpassInputs)
-        VDUMP(var.name());
+        VDUMP(var.name());*/
 }
