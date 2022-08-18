@@ -451,11 +451,15 @@ struct ASTTransform {
         e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
     }
     constexpr void transformErrorNode(ErrorNode* e) {
+        e->message = transformMessage(e->message);
         e->notes.consumeEntries([&](const ErrorNote* n) {
             storage.pushBackOnList(e->notes, impl()->createNote(*n));
         });
     }
-    constexpr void transformNote(ErrorNote* e) { }
+    constexpr void transformNote(ErrorNote* e) {
+        e->message = impl()->transformMessage(e->message);
+    }
+    constexpr std::string_view transformMessage(std::string_view in) { return in; }
 
     constexpr void transformStageDeclContext(StageDecl* e, VarDeclContext* parentContext = nullptr) {
         e->builtins.parent = parentContext;

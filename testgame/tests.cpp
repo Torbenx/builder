@@ -36,7 +36,7 @@ static constexpr void createAST(GraphicsDriver& prog) {
         ast, a.b1.i = constant(1);
         ast, a.b1.f = constant(2.5f);
         ast, a.f = constant(3.0f);
-        ast, foo = a.b1.f;
+        ast, foo = a.b1.i;
         ast, bar.xz() = compose(scale, constant(1.0f));
         ast, bar.yw() = compose(scale, constant(2.0f));
         ast, bar.x = floor(foo);

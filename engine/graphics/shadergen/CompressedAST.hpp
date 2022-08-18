@@ -26,6 +26,7 @@ struct NodeType {
 struct ResolvedNodes {
     NodeType nodes[10000];
     int_t nodeCount = 0;
+    int_t totalMessageLength = 0;
 };
 
 struct NodeResolver : ASTVisitor<NodeResolver> {
@@ -33,6 +34,9 @@ struct NodeResolver : ASTVisitor<NodeResolver> {
     ResolvedNodes nodes;
     constexpr void allocate(NodeType type) {
         nodes.nodes[nodes.nodeCount++] = type;
+    }
+    constexpr void allocateMessage(std::string_view msg) {
+        nodes.totalMessageLength += msg.length();
     }
     constexpr void visitStmt(const Stmt* stmt) {
         allocate(stmt->stmtKind);
@@ -61,8 +65,22 @@ struct NodeResolver : ASTVisitor<NodeResolver> {
         allocate(NodeKind::StageDecl);
         Base::visitStageDecl(stage);
     }
-    constexpr void visitNote(const ErrorNote* note) {
+    constexpr void visitErrorStmt(const ErrorStmt* e) {
+        visitStmt(e);
+        Base::visitErrorStmt(e);
+    }
+    constexpr void visitErrorStmt(const ErrorExpr* e) {
+        visitExpr(e);
+        Base::visitErrorExpr(e);
+    }
+    constexpr void visitErrorNode(const ErrorNode* e) {
+        allocateMessage(e->message);
+        Base::visitErrorNode(e);
+    }
+    constexpr void visitNote(const ErrorNote* n) {
         allocate(NodeKind::ErrorNote);
+        allocate(NodeKind::ListEntry);
+        allocateMessage(n->message);
     }
     static constexpr ResolvedNodes resolve(const StageDecl* stage) {
         NodeResolver resolver;
@@ -97,8 +115,16 @@ struct CompressedASTStorage {
     }
 };
 struct Compressor : ASTTransform<Compressor, CompressedASTStorage> {
-    constexpr Compressor(CompressedASTStorage alloc)
-        : ASTTransform<Compressor, CompressedASTStorage>(alloc) { }
+    char* messageBuffer = nullptr;
+    constexpr Compressor(CompressedASTStorage alloc, char* messageBuffer)
+        : ASTTransform<Compressor, CompressedASTStorage>(alloc), messageBuffer(messageBuffer) { }
+
+    constexpr std::string_view transformMessage(std::string_view in) {
+        char* msgBegin = messageBuffer;
+        std::copy(in.begin(), in.end(), msgBegin);
+        messageBuffer += in.length();
+        return { msgBegin, in.length() };
+    }
 };
 
 template<typename T, int_t i>
@@ -110,13 +136,14 @@ struct storage_t {
     constexpr ASTNode* node() { return &u.node; }
 };
 
-template<typename... Types>
+template<int_t messageBufferSize, typename... Types>
 struct CompressedStage : Types... {
+    std::array<char, messageBufferSize> messageBuffer = {};
     StageDecl* stageDecl = nullptr;
     constexpr CompressedStage(const StageDecl* in) {
         ASTNode* nodes[] = { Types::node()... };
         CompressedASTStorage alloc { nodes };
-        Compressor comp { alloc };
+        Compressor comp { alloc, messageBuffer.data() };
         this->stageDecl = comp.createStageDecl(*in);
     }
 };
@@ -160,7 +187,7 @@ template<StageDeclPtr stageDecl>
 struct CompressedStageHolder {
     template<ResolvedNodes nodes, int_t... I>
     static constexpr auto generateCompressedStage_helper(stx::int_sequence<I...>) {
-        return CompressedStage<storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(stageDecl.decl);
+        return CompressedStage<nodes.totalMessageLength, storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(stageDecl.decl);
     }
     static constexpr auto generateCompressedStage() {
         constexpr auto nodes = NodeResolver::resolve(stageDecl.decl);
