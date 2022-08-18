@@ -1,9 +1,10 @@
+
+#include "graphics/shadergen/CompressedAST.hpp"
+#include "graphics/render3d/EffectDescriptor.hpp"
 #include "graphics/shadergen/ASTDumper.hpp"
 #include "graphics/shadergen/BuildDriver.hpp"
 #include "graphics/shadergen/GLSLGenerator.hpp"
 #include "util/log.hpp"
-
-#include "graphics/render3d/EffectDescriptor.hpp"
 
 using namespace shadergen;
 using namespace shadergen::code;
@@ -35,7 +36,7 @@ static constexpr void createAST(GraphicsDriver& prog) {
         ast, a.b1.i = constant(1);
         ast, a.b1.f = constant(2.5f);
         ast, a.f = constant(3.0f);
-        ast, foo = a.b1.i;
+        ast, foo = a.b1.f;
         ast, bar.xz() = compose(scale, constant(1.0f));
         ast, bar.yw() = compose(scale, constant(2.0f));
         ast, bar.x = floor(foo);
@@ -119,7 +120,10 @@ void runShadergenTest() {
     ASTDumper dumper;
 
     static constexpr auto ast1 = GraphicsDriver(createAST);
+    static constexpr const StageDecl* ast1Compressed = compressStage<ast1.vert.stageDecl()>();
     dumper.dump(ast1.vert.stageDecl()->entryPoint);
+    log("-----------------------------------");
+    dumper.dump(ast1Compressed->entryPoint);
 
     static constexpr auto ast = GraphicsDriver(createShader);
     dumper.dump(ast.vert.stageDecl()->entryPoint);

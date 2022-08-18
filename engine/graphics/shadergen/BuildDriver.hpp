@@ -213,8 +213,8 @@ struct GraphicsDriver {
     constexpr GraphicsDriver(Callback&& callback) {
         callback(*this);
         PrevDeclStripper stripper;
-        stripper.stripStage(vert.stageDecl());
-        stripper.stripStage(frag.stageDecl());
+        stripper.visitStageDecl(vert.stageDecl());
+        stripper.visitStageDecl(frag.stageDecl());
     }
 
     template<typename T>

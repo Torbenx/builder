@@ -218,8 +218,8 @@ struct ConstexprEffectDescriptor {
         vert.set(effect.vert);
         frag.set(effect.frag);
         UserTypeRecorder typeRecorder { userTypes };
-        typeRecorder.recordStage(effect.vert.stageDecl());
-        typeRecorder.recordStage(effect.frag.stageDecl());
+        typeRecorder.visitStageDecl(effect.vert.stageDecl());
+        typeRecorder.visitStageDecl(effect.frag.stageDecl());
     }
 };
 

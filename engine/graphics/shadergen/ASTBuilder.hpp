@@ -73,12 +73,6 @@ struct ErrorBuilder : MessageBuilder {
         MessageBuilder::setEmpty();
         error = nullptr;
     }
-    constexpr ErrorBuilder& setCausingSubExpr(const Expr* expr) {
-        if (!error)
-            return *this;
-        error->causingSubExpr = expr;
-        return *this;
-    }
 };
 
 struct AccessMaskUtils {
@@ -207,7 +201,6 @@ struct CheckedASTTransform : ASTTransform<Impl> {
 
         auto err = error();
         err << "expected scalar type, got " << e->type;
-        err.setCausingSubExpr(e);
         return nullptr;
     }
 

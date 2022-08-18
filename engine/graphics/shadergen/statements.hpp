@@ -261,13 +261,11 @@ struct ErrorNote : ASTNode {
 };
 struct ErrorNode {
     std::string_view message;
-    const Expr* causingSubExpr = nullptr;
     ASTList<ErrorNote> notes;
 
     constexpr bool hasError() { return !message.empty(); }
     constexpr void clear() {
         message = {};
-        causingSubExpr = nullptr;
         notes.clear();
     }
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AST.hpp"
+#include "ASTVisitor.hpp"
 
 namespace shadergen::compressed {
 
@@ -10,6 +10,8 @@ enum class NodeKind {
     Stmt,
     ListEntry,
     VarDecl,
+    StageDecl,
+    ErrorNote,
 };
 struct NodeType {
     NodeKind nodeKind = NodeKind::Unknown;
@@ -22,11 +24,12 @@ struct NodeType {
 };
 
 struct ResolvedNodes {
-    NodeType nodes[100];
+    NodeType nodes[10000];
     int_t nodeCount = 0;
 };
 
 struct NodeResolver : ASTVisitor<NodeResolver> {
+    using Base = ASTVisitor<NodeResolver>;
     ResolvedNodes nodes;
     constexpr void allocate(NodeType type) {
         nodes.nodes[nodes.nodeCount++] = type;
@@ -36,48 +39,69 @@ struct NodeResolver : ASTVisitor<NodeResolver> {
     }
     constexpr void visitCompoundStmt(const CompoundStmt* stmt) {
         visitStmt(stmt);
-        // nodes.nodeCount += stmt->entryCount;
         stmt->forEachEntry([&](const Stmt* stmt) {
             dispatchVisit(stmt);
             allocate(NodeKind::ListEntry);
         });
     }
-    constexpr void visitVarDeclStmt(const VarDeclStmt* stmt) {
-        visitStmt(stmt);
-        allocate(NodeKind::VarDecl);
-        allocate(NodeKind::ListEntry);
+    constexpr void visitDeclContext(const VarDeclContext* declContext) {
+        declContext->decls.forEachEntry([&](const VarDecl*) {
+            allocate(NodeKind::VarDecl);
+            allocate(NodeKind::ListEntry);
+        });
+    }
+    constexpr void visitCallExpr(const CallExpr* call) {
+        visitExpr(call);
+        call->arguments.forEachEntry([&](const Expr* arg) {
+            dispatchVisit(arg);
+            allocate(NodeKind::ListEntry);
+        });
+    }
+    constexpr void visitStageDecl(const StageDecl* stage) {
+        allocate(NodeKind::StageDecl);
+        Base::visitStageDecl(stage);
+    }
+    constexpr void visitNote(const ErrorNote* note) {
+        allocate(NodeKind::ErrorNote);
+    }
+    static constexpr ResolvedNodes resolve(const StageDecl* stage) {
+        NodeResolver resolver;
+        resolver.visitStageDecl(stage);
+        return resolver.nodes;
     }
 };
 
-constexpr ResolvedNodes resolveNodes(const Stmt* root) {
-    NodeResolver res;
-    res.dispatchVisit(root);
-    return res.nodes;
-}
-
-// fill tuple
-struct CompressedASTStorageAllocator {
-    ASTNode** storage;
-    int_t offset = 0;
+// compressed storage
+struct CompressedASTStorage {
+    ASTNode** storage = nullptr;
+    constexpr ASTNode* acquireEnd() {
+        return *(storage++);
+    }
     template<typename T>
     constexpr T* allocateStmt(const T& in) {
-        return std::construct_at(static_cast<T*>(storage[offset++]), in);
+        return std::construct_at(static_cast<T*>(acquireEnd()), in);
     }
     constexpr VarDecl* allocateVarDecl(const VarDecl& in) {
-        return std::construct_at(static_cast<VarDecl*>(storage[offset++]), in);
+        return std::construct_at(static_cast<VarDecl*>(acquireEnd()), in);
     }
     template<typename T>
     constexpr void pushBackOnList(ASTList<T>& list, T* in) {
-        auto* entry = std::construct_at(static_cast<ASTListEntry*>(storage[offset++]), ASTListEntry { in });
+        auto* entry = std::construct_at(static_cast<ASTListEntry*>(acquireEnd()), ASTListEntry { in });
         list.pushBack(entry);
     }
+    constexpr StageDecl* allocateStageDecl(const StageDecl& in) {
+        return std::construct_at(static_cast<StageDecl*>(acquireEnd()), in);
+    }
+    constexpr ErrorNote* allocateNote(const ErrorNote& in) {
+        return std::construct_at(static_cast<ErrorNote*>(acquireEnd()), in);
+    }
 };
-struct Compressor : ASTTransform<Compressor, CompressedASTStorageAllocator> {
-    constexpr Compressor(CompressedASTStorageAllocator& alloc)
-        : ASTTransform<Compressor, CompressedASTStorageAllocator>(&alloc) { }
+struct Compressor : ASTTransform<Compressor, CompressedASTStorage> {
+    constexpr Compressor(CompressedASTStorage alloc)
+        : ASTTransform<Compressor, CompressedASTStorage>(alloc) { }
 };
 
-template<typename T, size_t i>
+template<typename T, int_t i>
 struct storage_t {
     union U {
         T node;
@@ -87,30 +111,35 @@ struct storage_t {
 };
 
 template<typename... Types>
-struct FilledTuple : Types... {
-    Stmt* root = nullptr;
-    constexpr FilledTuple(const Stmt* root) {
+struct CompressedStage : Types... {
+    StageDecl* stageDecl = nullptr;
+    constexpr CompressedStage(const StageDecl* in) {
         ASTNode* nodes[] = { Types::node()... };
-        CompressedASTStorageAllocator alloc { nodes };
+        CompressedASTStorage alloc { nodes };
         Compressor comp { alloc };
-        this->root = comp.dispatchTransform(root);
+        this->stageDecl = comp.createStageDecl(*in);
     }
 };
 
-// create tuple
+// node type lookup
 template<NodeType type>
 struct NodeTypeLookup;
-
 template<>
 struct NodeTypeLookup<NodeKind::ListEntry> {
     using type = ASTListEntry;
 };
-
 template<>
 struct NodeTypeLookup<NodeKind::VarDecl> {
     using type = VarDecl;
 };
-
+template<>
+struct NodeTypeLookup<NodeKind::StageDecl> {
+    using type = StageDecl;
+};
+template<>
+struct NodeTypeLookup<NodeKind::ErrorNote> {
+    using type = ErrorNote;
+};
 #define STMT_KIND(S)                     \
     template<>                           \
     struct NodeTypeLookup<StmtKind::S> { \
@@ -119,26 +148,34 @@ struct NodeTypeLookup<NodeKind::VarDecl> {
 ENUMERATE_STMT_KINDS(STMT_KIND)
 #undef STMT_KIND
 
-template<auto callback>
-struct ASTHolder {
-    static constexpr auto ast = BuildDriver(callback);
+// compress stage
+// clang doesn't support pointers to subojects as direct template parameters???
+struct StageDeclPtr {
+    const StageDecl* decl = nullptr;
+    constexpr StageDeclPtr() = default;
+    constexpr StageDeclPtr(const StageDecl* decl)
+        : decl(decl) { }
+};
+template<StageDeclPtr stageDecl>
+struct CompressedStageHolder {
+    template<ResolvedNodes nodes, int_t... I>
+    static constexpr auto generateCompressedStage_helper(stx::int_sequence<I...>) {
+        return CompressedStage<storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(stageDecl.decl);
+    }
+    static constexpr auto generateCompressedStage() {
+        constexpr auto nodes = NodeResolver::resolve(stageDecl.decl);
+        return generateCompressedStage_helper<nodes>(stx::make_int_sequence<nodes.nodeCount>());
+    }
+    static constexpr auto compressedStage = generateCompressedStage();
 };
 
-template<ResolvedNodes nodes, size_t... I>
-constexpr auto createTuple3(const Stmt* root, std::index_sequence<I...>) {
-    return FilledTuple<storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(root);
 }
 
-template<typename Holder>
-constexpr auto createTuple2() {
-    constexpr auto nodes = resolveNodes(Holder::ast.builder.currentBlock);
-    return createTuple3<nodes>(Holder::ast.builder.currentBlock, std::make_index_sequence<nodes.nodeCount>());
-}
+namespace shadergen {
 
-template<auto callback>
-constexpr auto createTuple() {
-    constexpr auto nodes = resolveNodes(BuildDriver(callback).builder.currentBlock);
-    return createTuple3<nodes>(BuildDriver(callback).builder.currentBlock, std::make_index_sequence<nodes.nodeCount>());
+template<compressed::StageDeclPtr stageDecl>
+constexpr const StageDecl* compressStage() {
+    return compressed::CompressedStageHolder<stageDecl>::compressedStage.stageDecl;
 }
 
 }

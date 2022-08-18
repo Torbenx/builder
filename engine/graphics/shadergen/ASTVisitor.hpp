@@ -112,7 +112,7 @@ struct ASTVisitor {
         });
         return impl()->visitExpr(e, args...);
     }
-    constexpr RetT visitMatrixMultiplicationExpr(const MatrixMultiplicationExpr *e, Args... args) {
+    constexpr RetT visitMatrixMultiplicationExpr(const MatrixMultiplicationExpr* e, Args... args) {
         helper h([&]() {
             impl()->dispatchVisit(e->left, args...);
             impl()->dispatchVisit(e->right, args...);
@@ -143,8 +143,10 @@ struct ASTVisitor {
         });
         return impl()->visitStmt(e, args...);
     }
+    constexpr void visitDeclContext(const VarDeclContext* declContext, Args... args) { }
     constexpr RetT visitBlockStmt(const BlockStmt* e, Args... args) {
         helper h([&]() {
+            impl()->visitDeclContext(&e->declContext, args...);
             impl()->dispatchVisit(e->body, args...);
         });
         return impl()->visitStmt(e, args...);
@@ -208,7 +210,12 @@ struct ASTVisitor {
         });
         return impl()->dispatchVisit(e->subExpr, args...);
     }
-    constexpr void visitErrorNode(const ErrorNode* e, Args... args) { }
+    constexpr void visitErrorNode(const ErrorNode* e, Args... args) {
+        e->notes.forEachEntry([&](const ErrorNote* n) {
+            impl()->visitNote(n, args...);
+        });
+    }
+    constexpr void visitNote(const ErrorNote* n, Args... args) { }
 
     constexpr RetT dispatchVisit(const Stmt* stmt, Args... args) {
         switch (stmt->stmtKind) {
@@ -222,25 +229,22 @@ struct ASTVisitor {
             VERIFY_NOT_REACHED(ShaderGen);
         }
     }
+
+    constexpr void visitStageDecl(const StageDecl* e) {
+        impl()->visitDeclContext(&e->builtins);
+        impl()->visitDeclContext(&e->uniforms);
+        impl()->visitDeclContext(&e->inputs);
+        impl()->visitDeclContext(&e->outputs);
+        impl()->dispatchVisit(e->entryPoint);
+    }
 };
 
 struct PrevDeclStripper : ASTVisitor<PrevDeclStripper> {
     using Base = ASTVisitor<PrevDeclStripper>;
-    constexpr void stripDeclContext(const VarDeclContext* declContext) {
+    constexpr void visitDeclContext(const VarDeclContext* declContext) {
         declContext->decls.forEachEntry([](VarDecl* decl) {
             decl->prevDecl = nullptr;
         });
-    }
-    constexpr void visitBlockStmt(const BlockStmt* block) {
-        Base::visitBlockStmt(block);
-        stripDeclContext(&block->declContext);
-    }
-    constexpr void stripStage(const StageDecl* stageDecl) {
-        stripDeclContext(&stageDecl->builtins);
-        stripDeclContext(&stageDecl->uniforms);
-        stripDeclContext(&stageDecl->inputs);
-        stripDeclContext(&stageDecl->outputs);
-        dispatchVisit(stageDecl->entryPoint);
     }
 };
 
@@ -260,17 +264,10 @@ struct UserTypeRecorder : ASTVisitor<UserTypeRecorder> {
         Base::visitExpr(expr);
         recordType(expr->type);
     }
-    constexpr void recordDeclContext(const VarDeclContext* context) {
+    constexpr void visitDeclContext(const VarDeclContext* context) {
         context->decls.forEachEntry([&](VarDecl* decl) {
             recordType(decl->type);
         });
-    }
-    constexpr void recordStage(const StageDecl* stageDecl) {
-        recordDeclContext(&stageDecl->builtins);
-        recordDeclContext(&stageDecl->uniforms);
-        recordDeclContext(&stageDecl->inputs);
-        recordDeclContext(&stageDecl->outputs);
-        dispatchVisit(stageDecl->entryPoint);
     }
 };
 
@@ -329,15 +326,15 @@ struct ASTStorage {
     }
 };
 
-template<typename Impl>
+template<typename Impl, typename Storage = ASTStorage>
 struct ASTTransform {
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
     VarDeclContext* currentDeclContext = nullptr;
-    ASTStorage storage = {};
+    Storage storage = {};
 
     constexpr ASTTransform() = default;
-    constexpr ASTTransform(ASTStorage storage)
+    constexpr ASTTransform(Storage storage)
         : storage(storage) { }
 
     constexpr void transformStmt(Stmt* e) { }
@@ -451,10 +448,12 @@ struct ASTTransform {
     }
     constexpr void transformErrorExpr(ErrorExpr* e) {
         impl()->transformExpr(e);
+        e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
+    }
+    constexpr void transformErrorNode(ErrorNode* e) {
         e->notes.consumeEntries([&](const ErrorNote* n) {
             storage.pushBackOnList(e->notes, impl()->createNote(*n));
         });
-        e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
     }
     constexpr void transformNote(ErrorNote* e) { }
 
@@ -489,7 +488,7 @@ struct ASTTransform {
 
 #define STMT_KIND(S)                         \
     constexpr Stmt* create##S(const S& in) { \
-        S* out = storage.allocateStmt(in);  \
+        S* out = storage.allocateStmt(in);   \
         impl()->transform##S(out);           \
         return out;                          \
     }
