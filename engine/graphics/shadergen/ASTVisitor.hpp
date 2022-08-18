@@ -66,8 +66,8 @@ struct PseudoVector {
         *sizePtr += size;
         return end;
     }
-    constexpr void pushBack(const T& item) {
-        *acquireEnd() = item;
+    constexpr T& pushBack(const T& item) {
+        return *acquireEnd() = item;
     }
     constexpr T* begin() const { return m_begin; }
     constexpr T* end() const { return begin() + size(); }
@@ -231,10 +231,7 @@ struct ASTVisitor {
     }
 
     constexpr void visitStageDecl(const StageDecl* e) {
-        impl()->visitDeclContext(&e->builtins);
-        impl()->visitDeclContext(&e->uniforms);
-        impl()->visitDeclContext(&e->inputs);
-        impl()->visitDeclContext(&e->outputs);
+        impl()->visitDeclContext(&e->globals);
         impl()->dispatchVisit(e->entryPoint);
     }
 };
@@ -461,32 +458,14 @@ struct ASTTransform {
     }
     constexpr std::string_view transformMessage(std::string_view in) { return in; }
 
-    constexpr void transformStageDeclContext(StageDecl* e, VarDeclContext* parentContext = nullptr) {
-        e->builtins.parent = parentContext;
-        e->uniforms.parent = &e->builtins;
-        e->inputs.parent = &e->uniforms;
-        e->outputs.parent = &e->inputs;
-        impl()->transformDeclContext(&e->builtins);
-        impl()->transformDeclContext(&e->uniforms);
-        impl()->transformDeclContext(&e->inputs);
-        impl()->transformDeclContext(&e->outputs);
-    }
     constexpr void transformStageDecl(StageDecl* e) {
-        impl()->transformStageDeclContext(e);
-        currentDeclContext = &e->outputs;
+        impl()->transformDeclContext(&e->globals);
+        currentDeclContext = &e->globals;
         e->entryPoint = impl()->dispatchTransform(e->entryPoint);
     }
     constexpr StageDecl* createStageDecl(const StageDecl& in) {
         StageDecl* out = storage.allocateStageDecl(in);
         impl()->transformStageDecl(out);
-        return out;
-    }
-    constexpr void initializeEmptyStageDecl(StageDecl* e, VarDeclContext* parentContext = nullptr) {
-        impl()->transformStageDeclContext(e, parentContext);
-    }
-    constexpr StageDecl* createEmptyStageDecl() {
-        StageDecl* out = storage.allocateStageDecl({});
-        initializeEmptyStageDecl(out);
         return out;
     }
 
@@ -516,6 +495,9 @@ struct ASTTransform {
         VarDecl* out = storage.allocateVarDecl(*in);
         out->declContext = declContext;
         out->prevDecl = in;
+        out->modifiers.consumeEntries([&](const VarDeclModifier* mod) {
+            storage.pushBackOnList(out->modifiers, mod);
+        });
         storage.pushBackOnList(declContext->decls, out);
         return out;
     }

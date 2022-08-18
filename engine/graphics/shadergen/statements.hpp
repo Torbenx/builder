@@ -175,11 +175,16 @@ struct ASTList {
         return entryCount == 0;
     }
     constexpr T* front() const {
-        if (isLinked) {
+        if (isLinked)
             return (T*)linked.first->node;
-        } else {
+        else
             return array.begin[0];
-        }
+    }
+    constexpr T* back() const {
+        if (isLinked)
+            return (T*)linked.last->node;
+        else
+            return array.begin[entryCount - 1];
     }
     constexpr void initArray(T** begin, int_t cap) {
         isLinked = false;
@@ -282,11 +287,21 @@ struct ErrorExpr : Expr, ErrorNode {
 
 // Variables
 struct VarDeclContext;
+struct VarDeclModifier : ASTNode {
+    std::string_view name;
+    constexpr VarDeclModifier() = default;
+    constexpr VarDeclModifier(std::string_view name)
+        : name(name) { }
+};
+static constexpr VarDeclModifier uniformIndicator { "uniform" };
+static constexpr VarDeclModifier inputIndicator { "input" };
+static constexpr VarDeclModifier outputIndicator { "output" };
 struct VarDecl : ASTNode {
     std::string_view name = {};
     const Type* type = nullptr;
     const VarDeclContext* declContext = nullptr;
     const VarDecl* prevDecl = nullptr;
+    ASTList<const VarDeclModifier> modifiers;
     FixedBitset initMask = 0;
     FixedBitset usedMask = 0;
     constexpr VarDecl() = default;
@@ -335,10 +350,7 @@ struct IfStmt : Stmt {
 
 // Shader Stages
 struct StageDecl : ASTNode {
-    VarDeclContext builtins;
-    VarDeclContext uniforms;
-    VarDeclContext inputs;
-    VarDeclContext outputs;
+    VarDeclContext globals;
     Stmt* entryPoint = nullptr;
 };
 

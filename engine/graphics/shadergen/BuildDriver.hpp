@@ -41,13 +41,15 @@ struct BasicASTStorage {
     constexpr operator ASTStorage() { return { { nodeStorage, &nodeCount }, { messageStorage, &messageSize } }; }
 };
 
-template<typename T>
+template<typename T, int_t N = 0>
 struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
     using Base = typename get_wrapper<T>::template impl<VarRefExpr>;
     VarDecl driverDecl;
+    std::array<const VarDeclModifier*, N> modifierStorage;
     template<typename Callback>
-    constexpr DriverVariable(std::string_view name, Callback&& callback, const VarDeclContext* declContext = nullptr)
-        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, declContext) {
+    constexpr DriverVariable(std::string_view name, std::array<const VarDeclModifier*, N> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
+        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, declContext), modifierStorage(mods) {
+        driverDecl.modifiers.setArray(modifierStorage.data(), N);
         callback(&driverDecl);
     }
     DriverVariable(const DriverVariable&) = delete;
@@ -99,15 +101,15 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
         return block;
     }
 
-    template<typename T>
-    constexpr DriverVariable<T> declareVariable(FixedStringView name, VarDeclContext* declContext) {
-        return DriverVariable<T>(
-            name, [&](const VarDecl* driverDecl) constexpr {
+    template<typename T, int_t N = 0>
+    constexpr auto declareVariable(FixedStringView name, VarDeclContext* declContext, std::array<const VarDeclModifier*, N> mods = {}) {
+        return DriverVariable<T, N>(
+            name, mods, [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
             });
     }
     template<typename T>
-    constexpr DriverVariable<T> variable(FixedStringView name) {
+    constexpr auto variable(FixedStringView name) {
         return declareVariable<T>(name, currentDeclContext);
     }
 
@@ -144,69 +146,48 @@ struct StageDriver : BlockDriver {
     StageDecl* m_stageDecl = nullptr;
 
     constexpr StageDriver(ASTStorage storage)
-        : BlockDriver(storage), m_stageDecl(createEmptyStageDecl()) {
-        createEntryPoint();
-    }
-    constexpr StageDriver(ASTStorage storage, StageDecl* stageDecl)
-        : BlockDriver(storage), m_stageDecl(stageDecl) {
-        if (stageDecl)
-            createEntryPoint();
-    }
-    constexpr void initialize(StageDecl* stageDecl) {
-        this->m_stageDecl = stageDecl;
-        createEntryPoint();
-    }
-    constexpr void createEntryPoint() {
-        currentBlock = newBlock(&stageDecl()->outputs);
+        : BlockDriver(storage), m_stageDecl(storage.allocateStageDecl({})) {
+        currentBlock = newBlock(&stageDecl()->globals);
         stageDecl()->entryPoint = currentBlock;
         currentDeclContext = &currentBlock->declContext;
     }
     constexpr StageDecl* stageDecl() const { return m_stageDecl; }
+    template<typename T, int_t N = 0>
+    constexpr auto declareGlobal(FixedStringView name, std::array<const VarDeclModifier*, N> mods = {}) {
+        return declareVariable<T, N>(name, &stageDecl()->globals, mods);
+    }
 
     template<typename T>
     constexpr auto uniform(FixedStringView name) {
-        return declareVariable<T>(name, &stageDecl()->uniforms);
+        return declareGlobal<T, 1>(name, { &uniformIndicator });
     }
     template<typename T>
     constexpr auto input(FixedStringView name) {
-        return declareVariable<T>(name, &stageDecl()->inputs);
+        return declareGlobal<T, 1>(name, { &inputIndicator });
     }
     template<typename T>
     constexpr auto output(FixedStringView name) {
-        return declareVariable<T>(name, &stageDecl()->outputs);
+        return declareGlobal<T, 1>(name, { &outputIndicator });
     }
     template<typename T>
     constexpr auto builtin(FixedStringView name) {
-        return declareVariable<T>(name, &stageDecl()->builtins);
+        return declareGlobal<T, 1>(name);
     }
-};
-
-struct VertexStageDriver : StageDriver {
-
-    constexpr VertexStageDriver(ASTStorage storage)
-        : StageDriver(storage) { }
-};
-
-struct FragmentStageDriver : StageDriver {
-
-    constexpr FragmentStageDriver(ASTStorage storage)
-        : StageDriver(storage) { }
 };
 
 template<typename T>
 struct VaryingReturnType {
+    DriverVariable<T, 1> in;
+    DriverVariable<T, 1> out;
     constexpr VaryingReturnType(FixedStringView name, StageDriver& inStage, StageDriver& outStage)
         : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
-    DriverVariable<T> in;
-    DriverVariable<T> out;
 };
 
 struct GraphicsDriver {
-
     using Storage = BasicASTStorage<1000, 10000>;
     Storage storage;
-    VertexStageDriver vert { storage };
-    FragmentStageDriver frag { storage };
+    StageDriver vert { storage };
+    StageDriver frag { storage };
 
     constexpr GraphicsDriver() = default;
     template<typename Callback>

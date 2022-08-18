@@ -45,8 +45,8 @@ struct OversizedArray {
         m_size += size;
         return end;
     }
-    constexpr void pushBack(T item) {
-        *acquireEnd() = item;
+    constexpr T& pushBack(T item) {
+        return *acquireEnd() = item;
     }
     constexpr operator PseudoVector<T>() { return { data, &m_size }; }
     constexpr operator ArrayView<T>() { return { data, size() }; }
@@ -87,23 +87,25 @@ struct CXXTypeFromGraphicsPtr<GraphicsPtr<T> E::*> {
 };
 
 // Driver
-struct EffectStageDecl : StageDecl {
-    VarDeclContext subpassInputs;
-};
 struct EffectStageDriver : StageDriver {
     struct EffectVariableOffset {
         const VarDecl* decl = nullptr;
         const int_t* offsetPtr = nullptr;
     };
     OversizedArray<EffectVariableOffset, 300> offsets;
-    EffectStageDecl effectStageDecl;
+
+    int_t subpassCounter = 0;
+    struct SubpassIndexModifier : VarDeclModifier {
+        int_t subpassIndex = -1;
+        constexpr SubpassIndexModifier() = default;
+        constexpr SubpassIndexModifier(int_t subpassIndex)
+            : VarDeclModifier("subpass_indexed"), subpassIndex(subpassIndex) { }
+    };
+    OversizedArray<SubpassIndexModifier, 100> subpassIndexMods;
+    static constexpr VarDeclModifier subpassIndicator { "subpass" };
 
     constexpr EffectStageDriver(ASTStorage storage)
-        : StageDriver(storage, nullptr) {
-        initializeEmptyStageDecl(&effectStageDecl, &effectStageDecl.subpassInputs);
-        initialize(&effectStageDecl);
-    }
-    constexpr EffectStageDecl* stageDecl() const { return static_cast<EffectStageDecl*>(StageDriver::stageDecl()); }
+        : StageDriver(storage) { }
 
     constexpr const int_t* findOffsetFromVarDecl(const VarDecl* decl) const {
         for (auto offsetEntry : offsets) {
@@ -113,46 +115,47 @@ struct EffectStageDriver : StageDriver {
         // VERIFY_NOT_REACHED(ShaderGen);
         return nullptr;
     }
-    template<auto memberPtr, typename CXXType>
-    constexpr auto declareEffectVariable(FixedStringView name, VarDeclContext* declContext) {
-        return DriverVariable<CXXType>(
-            name,
+    template<auto memberPtr, typename CXXType, int_t N>
+    constexpr auto declareEffectVariable(FixedStringView name, std::array<const VarDeclModifier*, N> mods) {
+        return DriverVariable<CXXType, N>(
+            name, mods,
             [&](const VarDecl* driverDecl) constexpr {
-                createVarDecl(driverDecl, declContext);
+                createVarDecl(driverDecl, &stageDecl()->globals);
                 offsets.pushBack({ driverDecl, &StaticOffsetHolder<memberPtr>::offset });
             });
     }
     template<auto memberPtr>
-    constexpr auto declareGraphicsPtrEffectVariable(FixedStringView name, VarDeclContext* declContext) {
-        return declareEffectVariable<memberPtr, typename CXXTypeFromGraphicsPtr<decltype(memberPtr)>::type>(name, declContext);
+    constexpr auto declareGraphicsPtrEffectVariable(FixedStringView name, const VarDeclModifier* modifier) {
+        return declareEffectVariable<memberPtr, typename CXXTypeFromGraphicsPtr<decltype(memberPtr)>::type, 1>(name, { modifier });
     }
     template<typename T>
     constexpr auto uniform(FixedStringView name) {
-        return declareVariable<T>(name, &stageDecl()->uniforms);
+        return declareGlobal<T, 1>(name, { &uniformIndicator });
     }
     template<typename T>
     constexpr auto input(FixedStringView name) {
-        return declareVariable<T>(name, &stageDecl()->inputs);
+        return declareGlobal<T, 1>(name, { &inputIndicator });
     }
     template<typename T>
     constexpr auto output(FixedStringView name) {
-        return declareVariable<T>(name, &stageDecl()->outputs);
+        return declareGlobal<T, 1>(name, { &outputIndicator });
     }
     template<auto memberPtr>
     constexpr auto uniform(FixedStringView name) {
-        return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->uniforms);
+        return declareGraphicsPtrEffectVariable<memberPtr>(name, &uniformIndicator);
     }
     template<auto memberPtr>
     constexpr auto input(FixedStringView name) {
-        return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->inputs);
+        return declareGraphicsPtrEffectVariable<memberPtr>(name, &inputIndicator);
     }
     template<auto memberPtr>
     constexpr auto output(FixedStringView name) {
-        return declareGraphicsPtrEffectVariable<memberPtr>(name, &stageDecl()->outputs);
+        return declareGraphicsPtrEffectVariable<memberPtr>(name, &outputIndicator);
     }
     template<auto memberPtr>
     constexpr auto subpassInput(FixedStringView name) {
-        return declareEffectVariable<memberPtr, Vec4>(name, &stageDecl()->subpassInputs);
+        const SubpassIndexModifier& indexMod = subpassIndexMods.pushBack({ subpassCounter++ });
+        return declareEffectVariable<memberPtr, Vec4, 2>(name, { &subpassIndicator, &indexMod });
     }
 };
 
@@ -178,12 +181,13 @@ enum class CumulativeUpdateOp {
     MIN,
     MAX,
 };
+static constexpr VarDeclModifier crossEffectIndicator { "cross_effect" };
 template<typename T>
-struct CrossEffectVariable : DriverVariable<T> {
-    using Base = DriverVariable<T>;
+struct CrossEffectVariable : DriverVariable<T, 1> {
+    using Base = DriverVariable<T, 1>;
     CumulativeUpdateOp cumOp;
     constexpr CrossEffectVariable(std::string_view name, CumulativeUpdateOp cumOp = CumulativeUpdateOp::NONE)
-        : DriverVariable<T>(name, [](const VarDecl*) constexpr {}, &globalPseudoVarDeclContext), cumOp(cumOp) { }
+        : DriverVariable<T, 1>(name, { &crossEffectIndicator }, [](const VarDecl*) constexpr {}, &globalPseudoVarDeclContext), cumOp(cumOp) { }
     constexpr void update(const get_wrapper<T>& value) {
         using namespace shadergen::code;
         switch (cumOp) {

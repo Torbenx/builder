@@ -85,8 +85,22 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         Base::visitCompoundStmt(e);
     }
     void visitBlockStmt(const BlockStmt* e) {
-        info("BlockStmt", fmt::format("({} decls)", e->declContext.decls.entryCount));
+        info("BlockStmt");
         Base::visitBlockStmt(e);
+    }
+    void visitDeclContext(const VarDeclContext* c) {
+        beginChild();
+        info("VarDeclContext", fmt::format("({} decls)", c->decls.entryCount));
+        c->decls.forEachEntry([&](const VarDecl* decl) {
+            beginChild();
+            info("VarDecl");
+            decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) {
+                info("VarDeclModifier", fmt::format("'{}'", mod->name));
+            });
+            info("VarDecl", fmt::format("\"{}\"", decl->name), fmt::format("[{}]", *decl->type));
+            endChild();
+        });
+        endChild();
     }
     void visitMemberAccessExpr(const MemberAccessExpr* e) {
         info("MemberAccessExpr", fmt::format("'.{}'", e->member().name));
@@ -153,6 +167,12 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         visitNotes(e->notes);
         dispatchVisit(e->subExpr);
     }
+    void visitStageDecl(const StageDecl* e) {
+        info("StageDecl");
+        beginChild();
+        Base::visitStageDecl(e);
+        endChild();
+    }
 
     void beginChild() {
         if (!nodeType.empty()) {
@@ -171,7 +191,11 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
     }
 
     void dump(const Stmt* e) {
-        this->dispatchVisit(e);
+        dispatchVisit(e);
+        print();
+    }
+    void dump(const StageDecl* stage) {
+        visitStageDecl(stage);
         print();
     }
 };

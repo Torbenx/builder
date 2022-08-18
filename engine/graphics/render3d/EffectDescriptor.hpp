@@ -7,16 +7,8 @@ namespace shadergen::effect {
 namespace OpenGL {
     struct Transform : ASTTransform<Transform> {
         using Base = ASTTransform<Transform>;
-        const EffectStageDecl* stageDecl = nullptr;
-        constexpr Transform(ASTStorage storage, const EffectStageDecl* stageDecl)
-            : Base(storage), stageDecl(stageDecl) { }
-        constexpr void transformVarRefExpr(VarRefExpr* e) {
-            stageDecl->subpassInputs.decls.forEachEntry([&](const VarDecl* subpassDecl) {
-                if (subpassDecl == e->decl)
-                    e->decl->declContext = &globalPseudoVarDeclContext;
-            });
-            Base::transformVarRefExpr(e);
-        }
+        constexpr Transform(ASTStorage storage)
+            : Base(storage) { }
     };
     struct SubpassInputReplacement : SourceReplacement {
         int_t subpassIndex;
@@ -28,25 +20,15 @@ namespace OpenGL {
     struct StmtGenerator : GLSLStmtGenerator<StmtGenerator> {
         using Base = GLSLStmtGenerator<StmtGenerator>;
 
-        const EffectStageDecl* stageDecl;
         PseudoVector<SubpassInputReplacement> subpassReplacements;
 
-        constexpr StmtGenerator(PseudoVector<char> sourceBuffer, const EffectStageDecl* stageDecl, PseudoVector<SubpassInputReplacement> subpassReplacements)
-            : Base(sourceBuffer), stageDecl(stageDecl), subpassReplacements(subpassReplacements) { }
+        constexpr StmtGenerator(PseudoVector<char> sourceBuffer, PseudoVector<SubpassInputReplacement> subpassReplacements)
+            : Base(sourceBuffer), subpassReplacements(subpassReplacements) { }
 
         constexpr void emitVarName(const VarDecl* decl) {
-            int_t counter = 0;
-            bool found = false;
-            stageDecl->subpassInputs.decls.forEachEntry([&](const VarDecl* oldDecl) {
-                if (found)
-                    return;
-                if (oldDecl == decl)
-                    found = true;
-                else
-                    counter++;
-            });
-            if (found) {
-                SubpassInputReplacement rep { counter };
+            if (decl->modifiers.entryCount == 2 && decl->modifiers.front() == &EffectStageDriver::subpassIndicator) {
+                const auto* indexMod = static_cast<const EffectStageDriver::SubpassIndexModifier*>(decl->modifiers.back());
+                SubpassInputReplacement rep { indexMod->subpassIndex };
                 out() << "subpassInput_" << rep;
                 subpassReplacements.pushBack(rep);
                 return;
@@ -163,36 +145,44 @@ struct ErrorFinder : ASTVisitor<ErrorFinder> {
 };
 
 struct ConstexprEffectDescriptor {
-    struct VariableDescriptor {
+    struct BasicVariableDescriptor {
         const Type* type = nullptr;
         const char* nameBegin = nullptr;
         int_t nameLength = 0;
-        const int_t* offsetInStruct = nullptr;
-        constexpr VariableDescriptor() = default;
-        constexpr VariableDescriptor(const Type* type, std::string_view name, const int_t* offset)
-            : type(type), nameBegin(name.begin()), nameLength(name.length()), offsetInStruct(offset) { }
+        bool uniform = false;
+        bool input = false;
+        bool output = false;
+        constexpr BasicVariableDescriptor() = default;
+        constexpr BasicVariableDescriptor(const Type* type, std::string_view name)
+            : type(type), nameBegin(name.begin()), nameLength(name.length()) { }
         constexpr std::string_view name() const { return { nameBegin, (size_t)nameLength }; }
+    };
+    struct VariableDescriptor {
+        BasicVariableDescriptor basic = {};
+        const int_t* offsetInStruct = nullptr;
     };
     static constexpr void extractVariables(PseudoVector<VariableDescriptor> out, const EffectStageDriver& stage, const VarDeclContext& declContext) {
         declContext.decls.forEachEntry([&](const VarDecl* decl) {
-            out.pushBack({ decl->type, decl->name, stage.findOffsetFromVarDecl(decl->prevDecl) });
+            auto& desc = out.pushBack({ { decl->type, decl->name }, stage.findOffsetFromVarDecl(decl->prevDecl) });
+            decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) {
+                if (mod == &uniformIndicator)
+                    desc.basic.uniform = true;
+                if (mod == &inputIndicator)
+                    desc.basic.input = true;
+                if (mod == &outputIndicator)
+                    desc.basic.output = true;
+            });
         });
     }
     struct StageDescriptor {
-        OversizedArray<VariableDescriptor, 100> uniforms;
-        OversizedArray<VariableDescriptor, 100> inputs;
-        OversizedArray<VariableDescriptor, 100> outputs;
+        OversizedArray<VariableDescriptor, 100> globals;
         OversizedArray<CrossEffectVarUsage, 100> ceUsages;
-        OversizedArray<VariableDescriptor, 100> subpassInputs;
         OversizedArray<OpenGL::SubpassInputReplacement, 100> subpassReplacements;
         OversizedArray<char, 10000> source;
         OversizedArray<char, 10000> errorMessages;
 
         constexpr void set(const EffectStageDriver& stage) {
-            extractVariables(uniforms, stage, stage.stageDecl()->uniforms);
-            extractVariables(inputs, stage, stage.stageDecl()->inputs);
-            extractVariables(outputs, stage, stage.stageDecl()->outputs);
-            extractVariables(subpassInputs, stage, stage.stageDecl()->subpassInputs);
+            extractVariables(globals, stage, stage.stageDecl()->globals);
 
             CrossEffectVarUsageFinder usageFinder { ceUsages };
             usageFinder.dispatchVisit(stage.stageDecl()->entryPoint);
@@ -200,9 +190,9 @@ struct ConstexprEffectDescriptor {
             errorFinder.dispatchVisit(stage.stageDecl()->entryPoint);
 
             BasicASTStorage<1000, 10000> storage;
-            OpenGL::Transform transform1 { storage, stage.stageDecl() };
+            OpenGL::Transform transform1 { storage };
             GLSLStmtTransform transform2 { storage };
-            OpenGL::StmtGenerator generator { source, stage.stageDecl(), subpassReplacements };
+            OpenGL::StmtGenerator generator { source, subpassReplacements };
             StageDecl* transformed = transform2.createStageDecl(*transform1.createStageDecl(*stage.stageDecl()));
             generator.dispatchVisit(transformed->entryPoint);
         }
@@ -224,9 +214,9 @@ struct ConstexprEffectDescriptor {
 };
 
 struct EffectDescriptor {
+    using BasicVariableDescriptor = ConstexprEffectDescriptor::BasicVariableDescriptor;
     struct VariableDescriptor {
-        const Type* type = nullptr;
-        std::string_view name = {};
+        BasicVariableDescriptor basic = {};
         int_t offsetInStruct = -1;
     };
     struct VariableArray {
@@ -235,7 +225,7 @@ struct EffectDescriptor {
 
         template<ConstexprEffectDescriptor::VariableDescriptor... descriptors>
         struct StaticArrayHolder {
-            static inline const VariableDescriptor array[sizeof...(descriptors)] = { { descriptors.type, descriptors.name(), descriptors.offsetInStruct ? *descriptors.offsetInStruct : -1 }... };
+            static inline const VariableDescriptor array[sizeof...(descriptors)] = { { descriptors.basic, descriptors.offsetInStruct ? *descriptors.offsetInStruct : -1 }... };
         };
         template<typename T>
         struct ArraySize;
@@ -284,22 +274,16 @@ struct EffectDescriptor {
         constexpr iterator end() const { return { messages.end() }; }
     };
     struct StageDescriptor {
-        ArrayView<const VariableDescriptor> uniforms;
-        ArrayView<const VariableDescriptor> inputs;
-        ArrayView<const VariableDescriptor> outputs;
+        ArrayView<const VariableDescriptor> globals;
         ArrayView<const CrossEffectVarUsage> ceUsages;
-        ArrayView<const VariableDescriptor> subpassInputs;
         ArrayView<const OpenGL::SubpassInputReplacement> subpassReplacements;
         std::string_view source;
         ErrorView errors;
 
         template<ConstexprEffectDescriptor::StageDescriptor stage>
         constexpr void set() {
-            uniforms = VariableArray::make<stage.uniforms>();
-            inputs = VariableArray::make<stage.inputs>();
-            outputs = VariableArray::make<stage.outputs>();
+            globals = VariableArray::make<stage.globals>();
             ceUsages = staticView<stage.ceUsages>();
-            subpassInputs = VariableArray::make<stage.subpassInputs>();
             subpassReplacements = staticView<stage.subpassReplacements>();
             ArrayView<const char> sourceView = staticView<stage.source>();
             source = { sourceView.begin(), sourceView.end() };
@@ -467,7 +451,7 @@ inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
         auto stage = &EffectDescriptor::vert;
         OversizedArray<char, 10000> buffer;
         SourceGenerator generator { buffer };
-        int_t attributeCounter = 0;
+        /*int_t attributeCounter = 0;
         for (const auto* effectDesc : descriptors) {
             const auto& stageDesc = effectDesc->*stage;
             for (auto uniform : stageDesc.uniforms)
@@ -476,7 +460,7 @@ inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
                 generator.out() << "layout(location=" << attributeCounter++ << ") in " << input.type << " " << input.name << ";\n";
             for (auto output : stageDesc.outputs)
                 generator.out() << "out " << output.type << " " << output.name << ";\n";
-        }
+        }*/
         generateSourceBody(descriptors, stage, generator);
         VDUMP(buffer.data);
     }
@@ -484,8 +468,7 @@ inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
         auto stage = &EffectDescriptor::frag;
         OversizedArray<char, 10000> buffer;
         SourceGenerator generator { buffer };
-        int_t attributeCounter = 0;
-        for (const auto* effectDesc : descriptors) {
+        /*for (const auto* effectDesc : descriptors) {
             const auto& stageDesc = effectDesc->*stage;
             for (auto uniform : stageDesc.uniforms)
                 generator.emitUniformBlock(uniformCounter++, asUserType(uniform.type), uniform.name);
@@ -493,7 +476,7 @@ inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
                 generator.out() << "in " << input.type << " " << input.name << ";\n";
             for (auto output : stageDesc.outputs)
                 generator.out() << "layout(location=0) out " << output.type << " " << output.name << ";\n";
-        }
+        }*/
         generateSourceBody(descriptors, stage, generator);
         VDUMP(buffer.data);
     }

@@ -321,12 +321,24 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
         if (e->whenFalse)
             out() << " else " << e->whenFalse;
     }
+    constexpr void emitDecls(const VarDeclContext* declContext) {
+        declContext->decls.forEachEntry([&](const VarDecl* decl) {
+            out() << Indentation();
+            decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) {
+                if (mod == &uniformIndicator)
+                    out() << "uniform ";
+                if (mod == &inputIndicator)
+                    out() << "in ";
+                if (mod == &outputIndicator)
+                    out() << "out ";
+            });
+            out() << decl << ";\n";
+        });
+    }
     constexpr void visitBlockStmt(const BlockStmt* e) {
         out() << "{\n";
         this->indent += 1;
-        e->declContext.decls.forEachEntry([&](const VarDecl* decl) {
-            out() << Indentation() << decl << ";\n";
-        });
+        emitDecls(&e->declContext);
         out() << e->body;
         this->indent -= 1;
         out() << Indentation() << "}";
@@ -335,15 +347,7 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
         out() << "(" << e->subExpr << ")";
     }
     constexpr void visitStageDecl(const StageDecl* stage) {
-        stage->uniforms.decls.forEachEntry([&](const VarDecl* decl) {
-            out() << "uniform " << decl << ";\n";
-        });
-        stage->inputs.decls.forEachEntry([&](const VarDecl* decl) {
-            out() << "in " << decl << ";\n";
-        });
-        stage->outputs.decls.forEachEntry([&](const VarDecl* decl) {
-            out() << "out " << decl << ";\n";
-        });
+        emitDecls(&stage->globals);
         out() << "void main() " << stage->entryPoint << "\n";
     }
 };

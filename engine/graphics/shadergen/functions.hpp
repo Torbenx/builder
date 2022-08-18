@@ -74,16 +74,14 @@ struct CallExpr : Expr {
 };
 template<int_t N>
 struct UnresolvedCall : CallExpr {
-    const Expr* argumentStorage[N];
+    std::array<const Expr*, N> argumentStorage;
     constexpr UnresolvedCall(const Function* function, std::array<const Expr*, N> args)
-        : CallExpr(function) {
-        std::copy_n(args.data(), N, argumentStorage);
-        arguments.setArray(argumentStorage, N);
+        : CallExpr(function), argumentStorage(args) {
+        arguments.setArray(argumentStorage.data(), N);
     }
     constexpr UnresolvedCall(const UnresolvedCall& other)
-        : CallExpr(other.function) {
-        std::copy_n(other.argumentStorage, N, argumentStorage);
-        arguments.setArray(argumentStorage, N);
+        : CallExpr(other.function), argumentStorage(other.argumentStorage) {
+        arguments.setArray(argumentStorage.data(), N);
     }
 };
 

@@ -120,10 +120,10 @@ void runShadergenTest() {
     ASTDumper dumper;
 
     static constexpr auto ast1 = GraphicsDriver(createAST);
-    static constexpr const StageDecl* ast1Compressed = compressStage<ast1.vert.stageDecl()>();
-    dumper.dump(ast1.vert.stageDecl()->entryPoint);
+    //static constexpr const StageDecl* ast1Compressed = compressStage<ast1.vert.stageDecl()>();
+    dumper.dump(ast1.vert.stageDecl());
     log("-----------------------------------");
-    dumper.dump(ast1Compressed->entryPoint);
+    //dumper.dump(ast1Compressed->entryPoint);
 
     static constexpr auto ast = GraphicsDriver(createShader);
     dumper.dump(ast.vert.stageDecl()->entryPoint);
