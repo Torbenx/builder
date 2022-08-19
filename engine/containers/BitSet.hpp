@@ -27,7 +27,7 @@ template<typename T>
 class BitSetBase {
 public:
     BitSetBase() { }
-    BitSetBase(BitSetBase&& other) { *this = other; }
+    BitSetBase(BitSetBase&& other) { *this = std::move(other); }
     BitSetBase(const BitSetBase& other) { *this = other; }
 
     BitSetBase& operator=(BitSetBase&& other) {

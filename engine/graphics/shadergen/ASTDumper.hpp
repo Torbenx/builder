@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ASTVisitor.hpp"
+#include <ranges>
 
 namespace shadergen {
 
@@ -9,27 +10,21 @@ private:
     using Base = ASTVisitor<ASTDumper>;
     friend class ASTVisitor<ASTDumper>;
     int_t nextIndent = 0;
-    int_t indent = 0;
-    std::string nodeType;
-    std::vector<std::string> infos;
+    struct Line {
+        int_t indent;
+        BitSet indentMarks;
+        std::string nodeType;
+        std::vector<std::string> infos;
+        bool isLastOfParent = false;
+    };
+    Line currentLine;
+    std::vector<Line> lines;
 
     template<typename... Args>
     void info(std::string type, Args&&... args) {
-        if (nodeType.empty())
-            nodeType = type;
-        (infos.emplace_back(std::forward<Args>(args)), ...);
-    }
-
-    void print() {
-        std::string out(indent * 2, ' ');
-        out += nodeType;
-        for (auto info : infos) {
-            out += ' ';
-            out += info;
-        }
-        log("{}", out);
-        nodeType = "";
-        infos.clear();
+        if (currentLine.nodeType.empty())
+            currentLine.nodeType = type;
+        (currentLine.infos.emplace_back(std::forward<Args>(args)), ...);
     }
 
     void visitStmt(const Stmt* e) {
@@ -91,18 +86,18 @@ private:
         Base::visitBlockStmt(e);
     }
     void visitDeclContext(const VarDeclContext* c) {
-        beginChild();
+        beginNode();
         info("VarDeclContext", fmt::format("({} decls)", c->decls.entryCount));
         c->decls.forEachEntry([&](const VarDecl* decl) {
-            beginChild();
+            beginNode();
             info("VarDecl");
             decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) {
                 info("VarDeclModifier", fmt::format("'{}'", mod->name));
             });
             info("VarDecl", fmt::format("\"{}\"", decl->name), fmt::format("[{}]", *decl->type));
-            endChild();
+            endNode();
         });
-        endChild();
+        endNode();
     }
     void visitMemberAccessExpr(const MemberAccessExpr* e) {
         info("MemberAccessExpr", fmt::format("'.{}'", e->member().name));
@@ -139,7 +134,6 @@ private:
         info("UpdateStmt", fmt::format("'{}='", toString(e->op)));
         Base::visitUpdateStmt(e);
     }
-
     void visitParenExpr(const ParenExpr* e) {
         info("ParenExpr");
         visitExpr(e);
@@ -150,9 +144,9 @@ private:
     }
     void visitNotes(const ASTList<ErrorNote>& notes) {
         notes.forEachEntry([&](const ErrorNote* note) {
-            beginChild();
+            beginNode();
             info("Note:", note->message);
-            endChild();
+            endNode();
         });
     }
     void visitErrorStmt(const ErrorStmt* e) {
@@ -170,27 +164,55 @@ private:
         dispatchVisit(e->subExpr);
     }
     void visitStageDecl(const StageDecl* e) {
-        beginChild();
+        beginNode();
         info("StageDecl");
         visitDeclContext(&e->globals);
         dispatchVisit(e->entryPoint);
-        endChild();
+        endNode();
     }
 
-    void beginChild() {
-        if (!nodeType.empty()) {
-            print();
+    void nextLine() {
+        if (currentLine.nodeType.empty())
+            return;
+        const auto& lastLine = lines.emplace_back(std::move(currentLine));
+        currentLine.indentMarks = lastLine.indentMarks;
+    }
+    void print() {
+        for (const auto& line : lines) {
+            std::string out;
+            for (int_t i = 0; i < line.indent - 1; i++)
+                out += line.indentMarks.get(i) ? "  " : "| ";
+            if (line.indent > 0)
+                out += line.isLastOfParent ? "'-" : "|-";
+            out += line.nodeType;
+            for (auto info : line.infos) {
+                out += ' ';
+                out += info;
+            }
+            log("{}", out);
         }
-        indent = nextIndent;
+        lines.clear();
+    }
+    void beginNode() {
+        nextLine();
+        currentLine.indent = nextIndent;
         nextIndent += 1;
     }
-    void endChild() {
+    void endNode() {
         nextIndent -= 1;
+        nextLine();
+        for (auto it = lines.rbegin(); it != lines.rend(); it++) {
+            if (it->indent == nextIndent + 1) {
+                it->isLastOfParent = true;
+                break;
+            }
+            it->indentMarks.setBit(nextIndent);
+        }
     }
     void dispatchVisit(const Stmt* e) {
-        beginChild();
+        beginNode();
         Base::dispatchVisit(e);
-        endChild();
+        endNode();
     }
 
 public:

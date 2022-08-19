@@ -133,20 +133,19 @@ struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
 };
 
 struct ConstexprEffectDescriptor {
-    struct BasicVariableDescriptor {
+    struct VariableDescriptorBase {
         const Type* type = nullptr;
         const char* nameBegin = nullptr;
         int_t nameLength = 0;
         bool uniform = false;
         bool input = false;
         bool output = false;
-        constexpr BasicVariableDescriptor() = default;
-        constexpr BasicVariableDescriptor(const Type* type, std::string_view name)
+        constexpr VariableDescriptorBase() = default;
+        constexpr VariableDescriptorBase(const Type* type, std::string_view name)
             : type(type), nameBegin(name.begin()), nameLength(name.length()) { }
         constexpr std::string_view name() const { return { nameBegin, (size_t)nameLength }; }
     };
-    struct VariableDescriptor {
-        BasicVariableDescriptor basic = {};
+    struct VariableDescriptor : VariableDescriptorBase {
         const int_t* offsetInStruct = nullptr;
     };
     static constexpr void extractVariables(PseudoVector<VariableDescriptor> out, const EffectStageDriver& stage, const VarDeclContext& declContext) {
@@ -154,11 +153,11 @@ struct ConstexprEffectDescriptor {
             auto& desc = out.pushBack({ { decl->type, decl->name }, stage.findOffsetFromVarDecl(decl->prevDecl) });
             decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) {
                 if (mod == &uniformIndicator)
-                    desc.basic.uniform = true;
+                    desc.uniform = true;
                 if (mod == &inputIndicator)
-                    desc.basic.input = true;
+                    desc.input = true;
                 if (mod == &outputIndicator)
-                    desc.basic.output = true;
+                    desc.output = true;
             });
         });
     }
@@ -196,9 +195,8 @@ struct ConstexprEffectDescriptor {
 };
 
 struct EffectDescriptor {
-    using BasicVariableDescriptor = ConstexprEffectDescriptor::BasicVariableDescriptor;
-    struct VariableDescriptor {
-        BasicVariableDescriptor basic = {};
+    using VariableDescriptorBase = ConstexprEffectDescriptor::VariableDescriptorBase;
+    struct VariableDescriptor : VariableDescriptorBase {
         int_t offsetInStruct = -1;
     };
     struct VariableArray {
@@ -207,7 +205,7 @@ struct EffectDescriptor {
 
         template<ConstexprEffectDescriptor::VariableDescriptor... descriptors>
         struct StaticArrayHolder {
-            static inline const VariableDescriptor array[sizeof...(descriptors)] = { { descriptors.basic, descriptors.offsetInStruct ? *descriptors.offsetInStruct : -1 }... };
+            static inline const VariableDescriptor array[sizeof...(descriptors)] = { { static_cast<const VariableDescriptorBase&>(descriptors), descriptors.offsetInStruct ? *descriptors.offsetInStruct : -1 }... };
         };
         template<typename T>
         struct ArraySize;
@@ -245,19 +243,20 @@ struct EffectDescriptor {
             source = { sourceView.begin(), sourceView.end() };
         }
     };
+    std::string_view name;
     ArrayView<const UserType* const> userTypes;
     StageDescriptor vert;
     StageDescriptor frag;
     const StageDecl* vertAST = nullptr;
     const StageDecl* fragAST = nullptr;
 
+    template<typename E>
     struct ConstexprResult {
         BasicASTStorage<1000, 10000> storage;
         const StageDecl* vert = nullptr;
         const StageDecl* frag = nullptr;
         ConstexprEffectDescriptor descriptor;
 
-        template<typename E>
         constexpr ConstexprResult(std::type_identity<E>) {
             EffectDriver driver { storage };
             vert = driver.vert.stageDecl();
@@ -273,11 +272,12 @@ struct EffectDescriptor {
         }
     };
     template<typename E>
-    static constexpr ConstexprResult constexprResults = { std::type_identity<E>() };
+    static constexpr ConstexprResult<E> constexprResults = { std::type_identity<E>() };
 
     template<typename E>
-    constexpr EffectDescriptor(std::type_identity<E>) {
-        constexpr const ConstexprResult& result = constexprResults<E>;
+    constexpr EffectDescriptor(std::type_identity<E>, std::string_view effectName)
+        : name(effectName) {
+        constexpr const ConstexprResult<E>& result = constexprResults<E>;
         constexpr const ConstexprEffectDescriptor& effect = result.descriptor;
         userTypes = staticView<effect.userTypes>();
         vert.set<effect.vert>();
@@ -288,21 +288,17 @@ struct EffectDescriptor {
 
     void dumpAST() const {
         ASTDumper dumper;
-        log("----------- vertex -----------");
+        log("----------- {} vertex -----------", name);
         dumper.dump(vertAST);
-        log("---------- fragment ----------");
+        log("---------- {} fragment ----------", name);
         dumper.dump(fragAST);
     }
 };
 
 #define DEFINE_EFFECT(effect_type) \
     template<>                     \
-    constinit const ::shadergen::effect::EffectDescriptor(::shadergen::effect::descriptorStore<effect_type>) { ::std::type_identity<effect_type>() };
-#define DEFINE_BUILTIN_EFFECT(effect_type) \
-    template<>                             \
-    constinit const ::shadergen::effect::EffectDescriptor(descriptorStore<effect_type>) { ::std::type_identity<effect_type>() };
+    constinit const ::shadergen::effect::EffectDescriptor(::shadergen::effect::descriptorStore<effect_type>) { ::std::type_identity<effect_type>(), #effect_type };
 //#define DEFINE_EFFECT(e)
-//#define DEFINE_BUILTIN_EFFECT(e)
 
 namespace code {
     using namespace shadergen::code;
@@ -336,7 +332,6 @@ struct BuiltinPositionEffect {
         frag, worldPosition = worldPosFrag;
     }
 };
-DEFINE_BUILTIN_EFFECT(BuiltinPositionEffect);
 
 namespace code {
     constexpr CrossEffectVariable<Vec4> fragmentColor { "fragmentColor" };
@@ -349,7 +344,13 @@ struct BuiltinColorEffect {
         frag, fragColorOuput = fragmentColor;
     }
 };
-DEFINE_BUILTIN_EFFECT(BuiltinColorEffect);
+
+}
+
+DEFINE_EFFECT(shadergen::effect::BuiltinPositionEffect);
+DEFINE_EFFECT(shadergen::effect::BuiltinColorEffect);
+
+namespace shadergen::effect {
 
 struct SourceGenerator : GLSLGeneratorBase<SourceGenerator> {
     using Base = GLSLGeneratorBase<SourceGenerator>;
@@ -421,25 +422,41 @@ inline void generateSourceBody(ArrayView<const EffectDescriptor*> descriptors, E
     });
     generator.out() << "}";
 }
-
-inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
-    for (const auto* desc : descriptors)
-        desc->dumpAST();
+struct EffectBindingInfomation {
+    struct Binding {
+        int_t glHandle = -1;
+        int_t offsetInStruct = -1;
+    };
+    std::vector<Binding> uniforms;
+    std::vector<Binding> attributes;
+};
+inline std::vector<EffectBindingInfomation> generateSource(ArrayView<const EffectDescriptor*> descriptors) {
+    //for (const auto* desc : descriptors)
+    //    desc->dumpAST();
+    std::vector<EffectBindingInfomation> outInfos { (size_t)descriptors.size() };
     int_t uniformCounter = 0;
     {
         auto stage = &EffectDescriptor::vert;
         OversizedArray<char, 10000> buffer;
         SourceGenerator generator { buffer };
-        /*int_t attributeCounter = 0;
-        for (const auto* effectDesc : descriptors) {
-            const auto& stageDesc = effectDesc->*stage;
-            for (auto uniform : stageDesc.uniforms)
-                generator.emitUniformBlock(uniformCounter++, asUserType(uniform.type), uniform.name);
-            for (auto input : stageDesc.inputs)
-                generator.out() << "layout(location=" << attributeCounter++ << ") in " << input.type << " " << input.name << ";\n";
-            for (auto output : stageDesc.outputs)
-                generator.out() << "out " << output.type << " " << output.name << ";\n";
-        }*/
+        int_t attributeCounter = 0;
+        for (int_t i = 0; i < descriptors.size(); i++) {
+            const auto& stageDesc = descriptors[i]->*stage;
+            auto& bindings = outInfos[i];
+            for (auto global : stageDesc.globals) {
+                if (global.uniform) {
+                    bindings.uniforms.push_back({ uniformCounter, global.offsetInStruct });
+                    generator.emitUniformBlock(uniformCounter++, asUserType(global.type), global.name());
+                } else if (global.input) {
+                    bindings.attributes.push_back({ attributeCounter, global.offsetInStruct });
+                    generator.out() << "layout(location=" << attributeCounter++ << ") in " << global.type << " " << global.name() << ";\n";
+                } else if (global.output) {
+                    generator.out() << "out " << global.type << " " << global.name() << ";\n";
+                } else {
+                    generator.out() << global.type << " " << global.name() << ";\n";
+                }
+            }
+        }
         generateSourceBody(descriptors, stage, generator);
         VDUMP(buffer.data);
     }
@@ -447,17 +464,25 @@ inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
         auto stage = &EffectDescriptor::frag;
         OversizedArray<char, 10000> buffer;
         SourceGenerator generator { buffer };
-        /*for (const auto* effectDesc : descriptors) {
-            const auto& stageDesc = effectDesc->*stage;
-            for (auto uniform : stageDesc.uniforms)
-                generator.emitUniformBlock(uniformCounter++, asUserType(uniform.type), uniform.name);
-            for (auto input : stageDesc.inputs)
-                generator.out() << "in " << input.type << " " << input.name << ";\n";
-            for (auto output : stageDesc.outputs)
-                generator.out() << "layout(location=0) out " << output.type << " " << output.name << ";\n";
-        }*/
+        for (int_t i = 0; i < descriptors.size(); i++) {
+            const auto& stageDesc = descriptors[i]->*stage;
+            auto& bindings = outInfos[i];
+            for (auto global : stageDesc.globals) {
+                if (global.uniform) {
+                    bindings.uniforms.push_back({ uniformCounter, global.offsetInStruct });
+                    generator.emitUniformBlock(uniformCounter++, asUserType(global.type), global.name());
+                } else if (global.input) {
+                    generator.out() << "in " << global.type << " " << global.name() << ";\n";
+                } else if (global.output) {
+                    generator.out() << "out " << global.type << " " << global.name() << ";\n";
+                } else {
+                    generator.out() << global.type << " " << global.name() << ";\n";
+                }
+            }
+        }
         generateSourceBody(descriptors, stage, generator);
         VDUMP(buffer.data);
     }
+    return outInfos;
 }
 }

@@ -196,18 +196,17 @@ struct ASTVisitor {
     }
 
     constexpr RetT visitParenExpr(const ParenExpr* e, Args... args) {
+        impl()->visitExpr(e, args...);
         return impl()->dispatchVisit(e->subExpr, args...);
     }
     constexpr RetT visitErrorStmt(const ErrorStmt* e, Args... args) {
-        helper h([&]() {
-            impl()->visitErrorNode(e, args...);
-        });
+        impl()->visitStmt(e, args...);
+        impl()->visitErrorNode(e, args...);
         return impl()->dispatchVisit(e->subStmt, args...);
     }
     constexpr RetT visitErrorExpr(const ErrorExpr* e, Args... args) {
-        helper h([&]() {
-            impl()->visitErrorNode(e, args...);
-        });
+        impl()->visitExpr(e, args...);
+        impl()->visitErrorNode(e, args...);
         return impl()->dispatchVisit(e->subExpr, args...);
     }
     constexpr void visitErrorNode(const ErrorNode* e, Args... args) {
@@ -449,10 +448,12 @@ struct ASTTransform {
     }
     constexpr void transformErrorStmt(ErrorStmt* e) {
         impl()->transformStmt(e);
+        impl()->transformErrorNode(e);
         e->subStmt = impl()->dispatchTransform(e->subStmt);
     }
     constexpr void transformErrorExpr(ErrorExpr* e) {
         impl()->transformExpr(e);
+        impl()->transformErrorNode(e);
         e->subExpr = castStmt<Expr>(impl()->dispatchTransform(e->subExpr));
     }
     constexpr void transformErrorNode(ErrorNode* e) {

@@ -147,6 +147,10 @@ struct GLSLGeneratorBase {
         formatInt(buffer, i);
         return out();
     }
+    constexpr OutRet& operator<<(float f) {
+        formatFloat(buffer, f);
+        return out();
+    }
 
     constexpr void emitScalarTypeName(const ScalarType* type) {
         std::string_view typeName = "invalid_scalar_type";
@@ -265,16 +269,14 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
         const auto* type = asVectorType(e->type);
         out() << type << "(";
         if (type->scalarType == &FloatType) {
-            out() << "0.0";
+            out() << e->literal.floats[0];
             for (int_t i = 1; i < type->vectorSize; i++)
-                out() << ", "
-                      << "0.0";
+                out() << ", " << e->literal.floats[i];
         }
         if (type->scalarType == &IntType) {
-            out() << "0";
+            out() << (int_t)e->literal.ints[0];
             for (int_t i = 1; i < type->vectorSize; i++)
-                out() << ", "
-                      << "0";
+                out() << ", " << (int_t)e->literal.ints[i];
         }
         if (type->scalarType == &BoolType) {
             out() << e->literal.bools[0];

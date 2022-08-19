@@ -24,6 +24,31 @@ constexpr int_t formatInt(PseudoVector<char> storage, int_t in) {
     }
     return length;
 }
+constexpr int_t formatFloat(PseudoVector<char> storage, float in) {
+    int_t length = 0;
+    if (in < 0.0f) {
+        *storage.acquireEnd() = '-';
+        length += 1;
+        in = -in;
+    }
+    int_t fullPart = (int_t)in;
+    length += formatInt(storage, fullPart);
+
+    *storage.acquireEnd() = '.';
+    length += 1;
+
+    float fracPart = in - fullPart;
+    for (int_t counter = 0; counter < 10; counter++) {
+        float mult = fracPart * 10.0f;
+        int_t full = (int_t)mult;
+        *storage.acquireEnd() = '0' + full;
+        length += 1;
+        fracPart = mult - full;
+        if (fracPart == 0.0f)
+            break;
+    }
+    return length;
+}
 
 struct MessageBuilder {
     std::string_view* message = nullptr;
@@ -56,6 +81,26 @@ struct MessageBuilder {
         formatType(type, *this);
         *this << "'";
         return *this;
+    }
+    constexpr MessageBuilder& operator<<(FunctionParameter param) {
+        if (param.isDynamic) {
+            formatType(param.u.dynamic.scalarType, *this);
+            *this << "#";
+        } else {
+            formatType(param.u.fixed.type, *this);
+        }
+        return *this;
+    }
+    constexpr MessageBuilder& operator<<(const FunctionInstance* inst) {
+        *this << "'" << inst->returnType << " " << inst->name << "(";
+        bool first = true;
+        for (auto param : inst->parameters) {
+            if (!first)
+                *this << ", ";
+            first = false;
+            *this << param;
+        }
+        return *this << ")'";
     }
     constexpr MessageBuilder& operator<<(const VarDecl* decl) {
         return *this << "\"" << decl->name << "\"";
@@ -319,7 +364,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         auto note = [&]() -> MessageBuilder {
             auto n = addNote(err);
             err = {};
-            n << "instance not viable: ";
+            n << "instance " << func << " not viable: ";
             return n;
         };
         if (arguments.entryCount != func->parameters.size()) {

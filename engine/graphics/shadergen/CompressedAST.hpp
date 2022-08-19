@@ -67,14 +67,6 @@ struct NodeResolver : ASTVisitor<NodeResolver> {
         allocate(NodeKind::StageDecl);
         Base::visitStageDecl(stage);
     }
-    constexpr void visitErrorStmt(const ErrorStmt* e) {
-        visitStmt(e);
-        Base::visitErrorStmt(e);
-    }
-    constexpr void visitErrorStmt(const ErrorExpr* e) {
-        visitExpr(e);
-        Base::visitErrorExpr(e);
-    }
     constexpr void visitErrorNode(const ErrorNode* e) {
         allocateMessage(e->message);
         Base::visitErrorNode(e);
@@ -148,7 +140,11 @@ struct CompressedStage : Types... {
         ASTNode* nodes[] = { Types::node()... };
         CompressedASTStorage alloc { nodes };
         Compressor comp { alloc, messageBuffer.data() };
-        this->stageDecl = comp.createStageDecl(*in);
+        stageDecl = comp.createStageDecl(*in);
+        PrevDeclStripper stripper1;
+        stripper1.visitStageDecl(stageDecl);
+        TemporaryModifierStripper stripper2;
+        stripper2.visitStageDecl(stageDecl);
     }
 };
 

@@ -39,7 +39,7 @@ static constexpr void createAST(GraphicsDriver& prog) {
         ast, foo = a.b1.i;
         ast, bar.xz() = compose(scale, constant(1.0f));
         ast, bar.yw() = compose(scale, constant(2.0f));
-        ast, bar.x = floor(foo);
+        ast, bar.x = floor(a.b1.i);
         ast, baz = compose(foo, bar.xy(), foo);
         ast, res = all(!(foo * foo * bar < bar + baz) || constant(true, false, false, true));
         ast.branch(
@@ -51,23 +51,6 @@ static constexpr void createAST(GraphicsDriver& prog) {
                 ast, foo -= constant(1.3f);
             });
     });
-}
-
-static constexpr void createShader(GraphicsDriver& prog) {
-    auto& vert = prog.vert;
-    auto& frag = prog.frag;
-
-    auto varPos = prog.varying<Vec2>("v_texCoord"_v);
-
-    auto posAttr = vert.input<Vec2>("a_position"_v);
-    auto trans = vert.uniform<Mat4x4>("u_trans"_v);
-    // vert, vert.position = trans * compose(posAttr, constant(0.0f, 1.0f));
-    vert, varPos.in = posAttr;
-
-    auto fragColor = frag.output<Vec4>("fragColor"_v);
-    auto multiplier = frag.uniform<float>("u_multiplier"_v);
-    auto tex = frag.uniform<Sampler2D>("u_texture"_v);
-    frag, fragColor = multiplier * texture(tex, varPos.out);
 }
 
 static constexpr auto toGLSL(const GraphicsDriver& prog) {
@@ -120,21 +103,17 @@ DEFINE_EFFECT(Reflection)
 void runShadergenTest() {
     ASTDumper dumper;
 
-    static constexpr auto ast1 = GraphicsDriver(createAST);
-    static constexpr const StageDecl* ast1Compressed = compressStage<ast1.vert.stageDecl()>();
-    dumper.dump(ast1.vert.stageDecl());
+    static constexpr auto ast = GraphicsDriver(createAST);
+    static constexpr const StageDecl* astCompressed = compressStage<ast.vert.stageDecl()>();
+    dumper.dump(ast.vert.stageDecl());
     log("-----------------------------------");
-    dumper.dump(ast1Compressed);
-    const auto& compressed = compressed::CompressedStageHolder<ast1.vert.stageDecl()>::compressedStage;
+    dumper.dump(astCompressed);
+    const auto& compressed = compressed::CompressedStageHolder<ast.vert.stageDecl()>::compressedStage;
     VDUMP(sizeof(compressed));
-    VDUMP(sizeof(ast1));
-
-    static constexpr auto ast = GraphicsDriver(createShader);
-    dumper.dump(ast.vert.stageDecl()->entryPoint);
-    dumper.dump(ast.frag.stageDecl()->entryPoint);
-    static constexpr auto ast2 = transformAST(ast);
-    static constexpr auto glsl2 = toGLSL(ast2);
-    log("{}", glsl2.data);
+    VDUMP(sizeof(ast));
+    static constexpr auto astTransformed = transformAST(ast);
+    static constexpr auto glsl = toGLSL(astTransformed);
+    log("{}", glsl.data);
 
     const shadergen::effect::EffectDescriptor* handles[] = {
         &shadergen::effect::descriptorStore<shadergen::effect::BuiltinPositionEffect>,
