@@ -137,7 +137,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     constexpr CheckedASTTransform(ASTStorage storage)
         : Base(storage) { }
 
-    struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
+    /*struct CheckInitialized : AccessMaskVisitor<CheckInitialized> {
         CheckedASTTransform& ast;
         constexpr CheckInitialized(CheckedASTTransform& ast)
             : ast(ast) { }
@@ -153,7 +153,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         constexpr void visitVarRefExpr(const VarRefExpr* e, FixedBitset mask) {
             e->decl->initMask |= mask;
         }
-    };
+    };*/
 
     ErrorNode currentError;
     constexpr ErrorBuilder buildError(ErrorNode& error) {
@@ -445,9 +445,9 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         check(rType->isScalar || rType->vectorSize == lType->vectorSize) << "the right operand must either be a scalar or a vector of same size as the left operand";
     }
     constexpr void checkCompleteBlock(BlockStmt* block) {
-        block->declContext.decls.forEachEntry([&](const VarDecl* decl) {
+        /*block->declContext.decls.forEachEntry([&](const VarDecl* decl) {
             check(decl->usedMask != 0) << "variable " << decl << " not used";
-        });
+        });*/
     }
     constexpr void transformBlockStmt(BlockStmt* block) {
         Base::transformBlockStmt(block);

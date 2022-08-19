@@ -99,7 +99,7 @@ struct EffectStageDriver : StageDriver {
         int_t subpassIndex = -1;
         constexpr SubpassIndexModifier() = default;
         constexpr SubpassIndexModifier(int_t subpassIndex)
-            : VarDeclModifier("subpass_indexed"), subpassIndex(subpassIndex) { }
+            : VarDeclModifier("subpass_indexed", true), subpassIndex(subpassIndex) { }
     };
     OversizedArray<SubpassIndexModifier, 100> subpassIndexMods;
     static constexpr VarDeclModifier subpassIndicator { "subpass" };
@@ -160,10 +160,10 @@ struct EffectStageDriver : StageDriver {
 };
 
 struct EffectDriver {
-    using Storage = GraphicsDriver::Storage;
-    Storage storage;
-    EffectStageDriver vert { storage };
-    EffectStageDriver frag { storage };
+    EffectStageDriver vert;
+    EffectStageDriver frag;
+    constexpr EffectDriver(ASTStorage storage)
+        : vert(storage), frag(storage) { }
 
     template<typename T>
     constexpr VaryingReturnType<T> varying(FixedStringView name) {

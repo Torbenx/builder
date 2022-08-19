@@ -49,8 +49,10 @@ struct NodeResolver : ASTVisitor<NodeResolver> {
         });
     }
     constexpr void visitDeclContext(const VarDeclContext* declContext) {
-        declContext->decls.forEachEntry([&](const VarDecl*) {
+        declContext->decls.forEachEntry([&](const VarDecl* decl) {
             allocate(NodeKind::VarDecl);
+            for (int_t i = 0; i < decl->modifiers.entryCount; i++)
+                allocate(NodeKind::ListEntry);
             allocate(NodeKind::ListEntry);
         });
     }
@@ -140,6 +142,8 @@ template<int_t messageBufferSize, typename... Types>
 struct CompressedStage : Types... {
     std::array<char, messageBufferSize> messageBuffer = {};
     StageDecl* stageDecl = nullptr;
+    static constexpr int_t nodeCount = sizeof...(Types);
+    static constexpr std::array<int_t, sizeof...(Types)> nodeSizes = { sizeof(Types)... };
     constexpr CompressedStage(const StageDecl* in) {
         ASTNode* nodes[] = { Types::node()... };
         CompressedASTStorage alloc { nodes };

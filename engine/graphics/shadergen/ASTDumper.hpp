@@ -4,8 +4,10 @@
 
 namespace shadergen {
 
-struct ASTDumper : ASTVisitor<ASTDumper> {
+class ASTDumper : private ASTVisitor<ASTDumper> {
+private:
     using Base = ASTVisitor<ASTDumper>;
+    friend class ASTVisitor<ASTDumper>;
     int_t nextIndent = 0;
     int_t indent = 0;
     std::string nodeType;
@@ -168,9 +170,10 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         dispatchVisit(e->subExpr);
     }
     void visitStageDecl(const StageDecl* e) {
-        info("StageDecl");
         beginChild();
-        Base::visitStageDecl(e);
+        info("StageDecl");
+        visitDeclContext(&e->globals);
+        dispatchVisit(e->entryPoint);
         endChild();
     }
 
@@ -190,6 +193,7 @@ struct ASTDumper : ASTVisitor<ASTDumper> {
         endChild();
     }
 
+public:
     void dump(const Stmt* e) {
         dispatchVisit(e);
         print();

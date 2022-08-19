@@ -1,8 +1,8 @@
 
-#include "graphics/shadergen/CompressedAST.hpp"
 #include "graphics/render3d/EffectDescriptor.hpp"
 #include "graphics/shadergen/ASTDumper.hpp"
 #include "graphics/shadergen/BuildDriver.hpp"
+#include "graphics/shadergen/CompressedAST.hpp"
 #include "graphics/shadergen/GLSLGenerator.hpp"
 #include "util/log.hpp"
 
@@ -98,6 +98,7 @@ struct PositionInput {
     }
 };
 DEFINE_EFFECT(PositionInput)
+
 struct Reflection {
     struct ParameterUniform {
         BEGIN_GEN_STRUCT(ParameterUniform)
@@ -106,7 +107,7 @@ struct Reflection {
         END_GEN_STRUCT()
     };
     GraphicsPtr<ParameterUniform> paramUniform;
-    int subpass;
+    GraphicsPtr<Vec4> subpass;
     static constexpr void defineEffect(shadergen::effect::EffectDriver& prog) {
         using namespace shadergen::effect::code;
         auto params = prog.frag.uniform<&Reflection::paramUniform>("u_params"_v);
@@ -120,10 +121,13 @@ void runShadergenTest() {
     ASTDumper dumper;
 
     static constexpr auto ast1 = GraphicsDriver(createAST);
-    //static constexpr const StageDecl* ast1Compressed = compressStage<ast1.vert.stageDecl()>();
+    static constexpr const StageDecl* ast1Compressed = compressStage<ast1.vert.stageDecl()>();
     dumper.dump(ast1.vert.stageDecl());
     log("-----------------------------------");
-    //dumper.dump(ast1Compressed->entryPoint);
+    dumper.dump(ast1Compressed);
+    const auto& compressed = compressed::CompressedStageHolder<ast1.vert.stageDecl()>::compressedStage;
+    VDUMP(sizeof(compressed));
+    VDUMP(sizeof(ast1));
 
     static constexpr auto ast = GraphicsDriver(createShader);
     dumper.dump(ast.vert.stageDecl()->entryPoint);

@@ -237,10 +237,18 @@ struct ASTVisitor {
 };
 
 struct PrevDeclStripper : ASTVisitor<PrevDeclStripper> {
-    using Base = ASTVisitor<PrevDeclStripper>;
     constexpr void visitDeclContext(const VarDeclContext* declContext) {
         declContext->decls.forEachEntry([](VarDecl* decl) {
             decl->prevDecl = nullptr;
+        });
+    }
+};
+struct TemporaryModifierStripper : ASTVisitor<TemporaryModifierStripper> {
+    constexpr void visitDeclContext(const VarDeclContext* declContext) {
+        declContext->decls.forEachEntry([](VarDecl* decl) {
+            decl->modifiers.selectEntries([](const VarDeclModifier* mod) {
+                return !mod->temporary;
+            });
         });
     }
 };

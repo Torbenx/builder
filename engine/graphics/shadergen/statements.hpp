@@ -138,7 +138,6 @@ struct ASTListEntry : ASTNode {
 };
 template<typename T>
 struct ASTList {
-    bool isLinked = true;
     struct Array {
         T** begin;
         int_t capacity;
@@ -151,7 +150,8 @@ struct ASTList {
         Linked linked {};
         Array array;
     };
-    int_t entryCount = 0;
+    int32_t entryCount = 0;
+    bool isLinked : 1 = true;
 
     constexpr void pushBack(ASTListEntry* newEntry) {
         if (linked.last)
@@ -227,6 +227,33 @@ struct ASTList {
             }
         }
     }
+    template<typename Callback>
+    constexpr void selectEntries(Callback&& callback) {
+        if (isLinked) {
+            ASTListEntry** prevNextPtr = &linked.first;
+            while (ASTListEntry* current = *prevNextPtr) {
+                if (callback((T*)current->node)) {
+                    // keep it
+                    prevNextPtr = &current->next;
+                } else {
+                    // lose it
+                    *prevNextPtr = current->next;
+                    current->next = nullptr;
+                    current->node = nullptr;
+                    entryCount -= 1;
+                }
+            }
+        } else {
+            for (int_t i = 0; i < entryCount; i++) {
+                if (callback(array.begin[i]))
+                    continue; // keep it
+                // lose it
+                std::copy(&array.begin[i + 1], &array.begin[entryCount], &array.begin[i]);
+                i -= 1;
+                entryCount -= 1;
+            }
+        }
+    }
 };
 
 // Expression
@@ -247,8 +274,8 @@ constexpr std::string_view toShortSting(ValueKind valueKind) {
 }
 
 struct Expr : Stmt {
-    const Type* type = nullptr;
     ValueKind valueKind = ValueKind::UNKNOWN;
+    const Type* type = nullptr;
     constexpr Expr(StmtKind kind)
         : Stmt(kind) { }
 };
@@ -289,9 +316,10 @@ struct ErrorExpr : Expr, ErrorNode {
 struct VarDeclContext;
 struct VarDeclModifier : ASTNode {
     std::string_view name;
+    bool temporary = false;
     constexpr VarDeclModifier() = default;
-    constexpr VarDeclModifier(std::string_view name)
-        : name(name) { }
+    constexpr VarDeclModifier(std::string_view name, bool temporary = false)
+        : name(name), temporary(temporary) { }
 };
 static constexpr VarDeclModifier uniformIndicator { "uniform" };
 static constexpr VarDeclModifier inputIndicator { "input" };
@@ -302,8 +330,8 @@ struct VarDecl : ASTNode {
     const VarDeclContext* declContext = nullptr;
     const VarDecl* prevDecl = nullptr;
     ASTList<const VarDeclModifier> modifiers;
-    FixedBitset initMask = 0;
-    FixedBitset usedMask = 0;
+    //FixedBitset initMask = 0;
+    //FixedBitset usedMask = 0;
     constexpr VarDecl() = default;
     constexpr VarDecl(std::string_view name, const Type* type, const VarDeclContext* declContext)
         : name(name), type(type), declContext(declContext) { }

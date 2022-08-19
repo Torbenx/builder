@@ -1,6 +1,8 @@
 #pragma once
 
 #include "effect.hpp"
+#include "graphics/shadergen/CompressedAST.hpp"
+#include "graphics/shadergen/ASTDumper.hpp"
 
 namespace shadergen::effect {
 
@@ -130,20 +132,6 @@ struct CrossEffectVarUsageFinder : ASTVisitor<CrossEffectVarUsageFinder> {
     }
 };
 
-struct ErrorFinder : ASTVisitor<ErrorFinder> {
-    using Base = ASTVisitor<ErrorFinder>;
-    PseudoVector<char> errorMessages;
-    constexpr ErrorFinder(PseudoVector<char> errorMessages)
-        : errorMessages(errorMessages) { }
-    constexpr void outputMsg(std::string_view msg) {
-        std::copy_n(msg.begin(), msg.size(), errorMessages.acquireEnd(msg.size()));
-        errorMessages.pushBack('\0');
-    }
-    constexpr void visitErrorNode(const ErrorNode* err) {
-        outputMsg(err->message);
-    }
-};
-
 struct ConstexprEffectDescriptor {
     struct BasicVariableDescriptor {
         const Type* type = nullptr;
@@ -179,15 +167,12 @@ struct ConstexprEffectDescriptor {
         OversizedArray<CrossEffectVarUsage, 100> ceUsages;
         OversizedArray<OpenGL::SubpassInputReplacement, 100> subpassReplacements;
         OversizedArray<char, 10000> source;
-        OversizedArray<char, 10000> errorMessages;
 
         constexpr void set(const EffectStageDriver& stage) {
             extractVariables(globals, stage, stage.stageDecl()->globals);
 
             CrossEffectVarUsageFinder usageFinder { ceUsages };
             usageFinder.dispatchVisit(stage.stageDecl()->entryPoint);
-            ErrorFinder errorFinder { errorMessages };
-            errorFinder.dispatchVisit(stage.stageDecl()->entryPoint);
 
             BasicASTStorage<1000, 10000> storage;
             OpenGL::Transform transform1 { storage };
@@ -201,10 +186,7 @@ struct ConstexprEffectDescriptor {
     StageDescriptor vert;
     StageDescriptor frag;
 
-    using DefineFunc_t = void (*)(EffectDriver&);
-    constexpr ConstexprEffectDescriptor(DefineFunc_t defineFunc) {
-        EffectDriver effect;
-        defineFunc(effect);
+    constexpr void set(const EffectDriver& effect) {
         vert.set(effect.vert);
         frag.set(effect.frag);
         UserTypeRecorder typeRecorder { userTypes };
@@ -248,37 +230,11 @@ struct EffectDescriptor {
             return make_helper<oversized>(stx::make_int_sequence<oversized.size()>());
         }
     };
-    struct ErrorView {
-        ArrayView<const char> messages;
-        struct iterator {
-            const char* position = nullptr;
-            constexpr bool operator!=(const iterator& it) const {
-                return position != it.position;
-            }
-            constexpr iterator& operator++() {
-                int_t len = std::string_view(position).length();
-                position += len + 1;
-                return *this;
-            }
-            constexpr iterator operator++(int) {
-                int_t len = std::string_view(position).length();
-                auto copy = *this;
-                position += len + 1;
-                return copy;
-            }
-            constexpr std::string_view operator*() const {
-                return { position };
-            }
-        };
-        constexpr iterator begin() const { return { messages.begin() }; }
-        constexpr iterator end() const { return { messages.end() }; }
-    };
     struct StageDescriptor {
         ArrayView<const VariableDescriptor> globals;
         ArrayView<const CrossEffectVarUsage> ceUsages;
         ArrayView<const OpenGL::SubpassInputReplacement> subpassReplacements;
         std::string_view source;
-        ErrorView errors;
 
         template<ConstexprEffectDescriptor::StageDescriptor stage>
         constexpr void set() {
@@ -287,32 +243,55 @@ struct EffectDescriptor {
             subpassReplacements = staticView<stage.subpassReplacements>();
             ArrayView<const char> sourceView = staticView<stage.source>();
             source = { sourceView.begin(), sourceView.end() };
-            errors = { staticView<stage.errorMessages>() };
-        }
-
-        void dumpErrors() const {
-            if (errors.messages.size() == 0)
-                return;
-            log("Errors:");
-            for (auto err : errors)
-                log("    {}", err);
         }
     };
     ArrayView<const UserType* const> userTypes;
     StageDescriptor vert;
     StageDescriptor frag;
+    const StageDecl* vertAST = nullptr;
+    const StageDecl* fragAST = nullptr;
+
+    struct ConstexprResult {
+        BasicASTStorage<1000, 10000> storage;
+        const StageDecl* vert = nullptr;
+        const StageDecl* frag = nullptr;
+        ConstexprEffectDescriptor descriptor;
+
+        template<typename E>
+        constexpr ConstexprResult(std::type_identity<E>) {
+            EffectDriver driver { storage };
+            vert = driver.vert.stageDecl();
+            frag = driver.frag.stageDecl();
+            E::defineEffect(driver);
+            descriptor.set(driver);
+            PrevDeclStripper stripper1;
+            stripper1.visitStageDecl(vert);
+            stripper1.visitStageDecl(frag);
+            TemporaryModifierStripper stripper2;
+            stripper2.visitStageDecl(vert);
+            stripper2.visitStageDecl(frag);
+        }
+    };
+    template<typename E>
+    static constexpr ConstexprResult constexprResults = { std::type_identity<E>() };
 
     template<typename E>
     constexpr EffectDescriptor(std::type_identity<E>) {
-        constexpr ConstexprEffectDescriptor effect { E::defineEffect };
+        constexpr const ConstexprResult& result = constexprResults<E>;
+        constexpr const ConstexprEffectDescriptor& effect = result.descriptor;
         userTypes = staticView<effect.userTypes>();
         vert.set<effect.vert>();
         frag.set<effect.frag>();
+        vertAST = compressStage<result.vert>();
+        fragAST = compressStage<result.frag>();
     }
 
-    void dumpErrors() const {
-        vert.dumpErrors();
-        frag.dumpErrors();
+    void dumpAST() const {
+        ASTDumper dumper;
+        log("----------- vertex -----------");
+        dumper.dump(vertAST);
+        log("---------- fragment ----------");
+        dumper.dump(fragAST);
     }
 };
 
@@ -445,7 +424,7 @@ inline void generateSourceBody(ArrayView<const EffectDescriptor*> descriptors, E
 
 inline void generateSource(ArrayView<const EffectDescriptor*> descriptors) {
     for (const auto* desc : descriptors)
-        desc->dumpErrors();
+        desc->dumpAST();
     int_t uniformCounter = 0;
     {
         auto stage = &EffectDescriptor::vert;
