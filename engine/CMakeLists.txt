@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-
-   set(platform_source
+    set(platform_source
         "windows/glwrapper.cpp"
         "windows/engine.cpp"
         "windows/fullscreen.cpp"
@@ -13,12 +12,12 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         "resource/asset_istream.cpp"
     )
     set(platform_libs Gdi32 Opengl32 D3D11 D2D1 Dwrite)
-    if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+
+    if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         set_source_files_properties("windows/glwrapper.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-cast-function-type;-Wno-unknown-warning-option")
     endif()
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-
     set(platform_source
         "android/engine.cpp"
         "android/assetbuf.cpp"
@@ -38,17 +37,20 @@ else()
 endif()
 
 set(vulkan_source)
+
 if(${Vulkan_FOUND})
     set(vulkan_source
         "VK/VKmain.cpp"
         "VK/vk_mem_alloc.cpp"
     )
-    if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+
+    if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         set_source_files_properties("VK/vk_mem_alloc.cpp" PROPERTIES COMPILE_OPTIONS "-Wno-all;-Wno-extra;-Wno-suggest-override")
     endif()
 endif()
 
 set(linkage STATIC)
+
 if(ENGINE_LINK_DYNAMIC)
     set(linkage SHARED)
 endif()
@@ -66,7 +68,8 @@ add_library(engine ${linkage}
     "resource/JpegDecoder.cpp"
     "util/time.cpp"
     "util/Shaders.cpp"
-    #"util/draw_util.cpp"
+
+    # "util/draw_util.cpp"
     "input/Pointer.cpp"
     "input/Look3d.cpp"
     "ui/TestComponent.cpp"
@@ -97,11 +100,19 @@ add_library(engine ${linkage}
     ${vulkan_source}
 )
 
-#set_target_properties(engine PROPERTIES UNITY_BUILD ON)
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+# set_target_properties(engine PROPERTIES UNITY_BUILD ON)
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(engine PRIVATE "/W3;/wd4244;/wd4267")
 else()
     target_compile_options(engine PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
 endif()
 
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)
+
+add_executable(engine_test
+    "platform/Window.cpp"
+    "platform/windows/Window.cpp"
+    "platform/windows/main.cpp"
+)
+target_compile_options(engine_test PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
+target_link_libraries(engine_test PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

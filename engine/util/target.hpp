@@ -29,7 +29,12 @@
 
 #define COMPILER_INTERFACE_GNU
 
-#define ASSUME(expr) { if (!(expr)) { __builtin_unreachable(); } }
+#define ASSUME(expr)                 \
+    {                                \
+        if (!(expr)) {               \
+            __builtin_unreachable(); \
+        }                            \
+    }
 
 #define ALIGN_AS(al) __attribute__((aligned(al)))
 
@@ -40,6 +45,10 @@
     constexpr type* __end_##name = &__stop_##name;
 
 #define IN_SECTION(name) __attribute__((section(#name)))
+
+#define MAKE_WEAK_SYMBOL(name)
+#define WEAK_SYMBOL_IMPL(name) __attribute__((weak)) name
+#define WEAK_SYMBOL_DECL(name) __attribute__((weak)) name
 
 #elif defined(_MSC_VER)
 
@@ -65,6 +74,9 @@
     constexpr type* __begin_##name = &__before_begin_##name + 1; \
     constexpr type* __end_##name = &__after_end_##name;
 // clang-format on
+
+#define MAKE_WEAK_SYMBOL(name) __pragma(comment(linker, "/alternatename:" #name "=" #name "__weak"))^
+#define WEAK_SYMBOL_IMPL(name) name##weak
 
 #else
 

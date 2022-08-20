@@ -15,7 +15,6 @@
 #include <string>
 #include <thread>
 #include <util/LogTimer.hpp>
-#include <util/draw_util.hpp>
 #include <util/fullscreen.hpp>
 #include <util/log.hpp>
 #include <util/target.hpp>
