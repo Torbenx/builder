@@ -240,7 +240,7 @@ struct EffectDescriptor {
             ceUsages = staticView<stage.ceUsages>();
             subpassReplacements = staticView<stage.subpassReplacements>();
             ArrayView<const char> sourceView = staticView<stage.source>();
-            source = { sourceView.begin(), sourceView.end() };
+            source = { sourceView.begin(), (size_t)sourceView.size() };
         }
     };
     std::string_view name;

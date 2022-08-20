@@ -72,7 +72,7 @@ void android_runThread(){
         int fd;
         int events;
         void *pollData;
-        int ident = ALooper_pollOnce(-1, &fd, &events, &pollData);
+        int ident = ALooper_pollOnce(0, &fd, &events, &pollData);
         switch(ident){
             case ENGINE_IDENT_CMD:{
                 cmd_t cmd;

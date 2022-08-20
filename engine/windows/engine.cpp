@@ -68,6 +68,17 @@ void initializeGL(const HDC& hdc) {
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 }
 
+void engine_draw() {
+    if (rendererState != RENDERER_STATE_INVISIBLE) {
+
+        renderer->drawFrame();
+
+        HDC hdc = GetDC(engine_hwnd);
+        SwapBuffers(hdc);
+        ReleaseDC(engine_hwnd, hdc);
+    }
+}
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_CREATE: {
@@ -78,17 +89,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         PIXELFORMATDESCRIPTOR pfd = {
             sizeof(PIXELFORMATDESCRIPTOR),
             1,
-            PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, //Flags
-            PFD_TYPE_RGBA, //The kind of framebuffer. RGBA or palette.
-            32, //Colordepth of the framebuffer.
+            PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, // Flags
+            PFD_TYPE_RGBA, // The kind of framebuffer. RGBA or palette.
+            32, // Colordepth of the framebuffer.
             0, 0, 0, 0, 0, 0,
             0,
             0,
             0,
             0, 0, 0, 0,
-            16, //Number of bits for the depthbuffer
-            0, //Number of bits for the stencilbuffer
-            0, //Number of Aux buffers in the framebuffer.
+            16, // Number of bits for the depthbuffer
+            0, // Number of bits for the stencilbuffer
+            0, // Number of Aux buffers in the framebuffer.
             PFD_MAIN_PLANE,
             0,
             0, 0, 0
@@ -138,10 +149,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     }
     case WM_ACTIVATE: {
-        log<Tag::Windows>("WM_ACTIVATE: {:#x}", wParam);
+        log<Tag::Windows>("WM_ACTIVATE: {:#b}", wParam);
         bool activate = LOWORD(wParam);
         bool minimized = HIWORD(wParam);
-        if (activate && !minimized) {
+        VERIFY(Windows, !(activate && minimized));
+        if (activate) {
             if (rendererState == RENDERER_STATE_INVISIBLE) {
                 rendererState = RENDERER_STATE_BACKGROUND;
                 renderer->visible();
@@ -154,27 +166,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 rendererState = RENDERER_STATE_BACKGROUND;
                 renderer->background();
             }
-            bool visible = false;
             engine_goBackground();
-            if (((!visible) || minimized) && rendererState == RENDERER_STATE_BACKGROUND) {
+            if (minimized && rendererState == RENDERER_STATE_BACKGROUND) {
                 rendererState = RENDERER_STATE_INVISIBLE;
                 renderer->invisible();
             }
         }
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
-    case WM_PAINT:
-        if (rendererState != RENDERER_STATE_INVISIBLE) {
-
-            renderer->drawFrame();
-
-            HDC hdc = GetDC(hwnd);
-            SwapBuffers(hdc);
-            ReleaseDC(hwnd, hdc);
-            return 0;
-        } else {
-            return DefWindowProc(hwnd, msg, wParam, lParam);
-        }
     case WM_INPUT:
         if (rendererState == RENDERER_STATE_FOREGROUND) {
             UINT size;
@@ -230,7 +229,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 break;
             }
             case RIM_TYPEKEYBOARD: {
-                //log("key: {:#x}, flags: {}{}{}, raw->data.keyboard.VKey, raw->data.keyboard.Flags & 1, (raw->data.keyboard.Flags & 2) >> 1, (raw->data.keyboard.Flags & 4) >> 2);
+                // log("key: {:#x}, flags: {}{}{}, raw->data.keyboard.VKey, raw->data.keyboard.Flags & 1, (raw->data.keyboard.Flags & 2) >> 1, (raw->data.keyboard.Flags & 4) >> 2);
                 renderer->rawKey(raw->data.keyboard.VKey, !(raw->data.keyboard.Flags & RI_KEY_BREAK));
                 break;
             }
@@ -332,7 +331,7 @@ int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]]
     engine_hwnd = CreateWindowEx(
         WS_EX_CLIENTEDGE,
         g_szClassName,
-        "", //window title
+        "", // window title
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, width, height,
         NULL, NULL, hInstance, NULL);
@@ -346,9 +345,12 @@ int engine_main(CreateFunctions functions, HINSTANCE hInstance, [[maybe_unused]]
     UpdateWindow(engine_hwnd);
 
     MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0) > 0) {
-        DispatchMessage(&msg);
-    }
+    do {
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            DispatchMessage(&msg);
+        else
+            engine_draw();
+    } while (msg.message != WM_QUIT);
 
     return msg.wParam;
 }

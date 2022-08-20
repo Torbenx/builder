@@ -132,10 +132,10 @@ struct storage_t {
 
 template<int_t messageBufferSize, typename... Types>
 struct CompressedStage : Types... {
-    std::array<char, messageBufferSize> messageBuffer = {};
+    stx::Array<char, messageBufferSize> messageBuffer = {};
     StageDecl* stageDecl = nullptr;
     static constexpr int_t nodeCount = sizeof...(Types);
-    static constexpr std::array<int_t, sizeof...(Types)> nodeSizes = { sizeof(Types)... };
+    static constexpr stx::Array<int_t, sizeof...(Types)> nodeSizes = { sizeof(Types)... };
     constexpr CompressedStage(const StageDecl* in) {
         ASTNode* nodes[] = { Types::node()... };
         CompressedASTStorage alloc { nodes };

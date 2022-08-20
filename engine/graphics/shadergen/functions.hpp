@@ -1,5 +1,6 @@
 #pragma once
 
+#include "containers/Array.hpp"
 #include "user_types.hpp"
 
 namespace shadergen {
@@ -54,7 +55,7 @@ struct FunctionGroup : Function {
 template<int_t N>
 struct BuiltinFunctionGroup : FunctionGroup {
     const FunctionInstance* insts[N];
-    constexpr BuiltinFunctionGroup(std::string_view name, std::array<const FunctionInstance*, N> instances)
+    constexpr BuiltinFunctionGroup(std::string_view name, stx::Array<const FunctionInstance*, N> instances)
         : FunctionGroup(name, insts) {
         std::copy_n(instances.data(), N, insts);
     }
@@ -74,8 +75,8 @@ struct CallExpr : Expr {
 };
 template<int_t N>
 struct UnresolvedCall : CallExpr {
-    std::array<const Expr*, N> argumentStorage;
-    constexpr UnresolvedCall(const Function* function, std::array<const Expr*, N> args)
+    stx::Array<const Expr*, N> argumentStorage;
+    constexpr UnresolvedCall(const Function* function, stx::Array<const Expr*, N> args)
         : CallExpr(function), argumentStorage(args) {
         arguments.setArray(argumentStorage.data(), N);
     }

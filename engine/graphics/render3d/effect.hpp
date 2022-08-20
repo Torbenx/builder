@@ -116,7 +116,7 @@ struct EffectStageDriver : StageDriver {
         return nullptr;
     }
     template<auto memberPtr, typename CXXType, int_t N>
-    constexpr auto declareEffectVariable(FixedStringView name, std::array<const VarDeclModifier*, N> mods) {
+    constexpr auto declareEffectVariable(FixedStringView name, stx::Array<const VarDeclModifier*, N> mods) {
         return DriverVariable<CXXType, N>(
             name, mods,
             [&](const VarDecl* driverDecl) constexpr {

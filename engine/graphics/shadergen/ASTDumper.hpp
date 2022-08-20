@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ASTVisitor.hpp"
-#include <ranges>
 
 namespace shadergen {
 

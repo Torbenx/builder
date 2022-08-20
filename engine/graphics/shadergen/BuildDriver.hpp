@@ -45,9 +45,9 @@ template<typename T, int_t N = 0>
 struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
     using Base = typename get_wrapper<T>::template impl<VarRefExpr>;
     VarDecl driverDecl;
-    std::array<const VarDeclModifier*, N> modifierStorage;
+    stx::Array<const VarDeclModifier*, N> modifierStorage;
     template<typename Callback>
-    constexpr DriverVariable(std::string_view name, std::array<const VarDeclModifier*, N> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
+    constexpr DriverVariable(std::string_view name, stx::Array<const VarDeclModifier*, N> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
         : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, declContext), modifierStorage(mods) {
         driverDecl.modifiers.setArray(modifierStorage.data(), N);
         callback(&driverDecl);
@@ -102,7 +102,7 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
     }
 
     template<typename T, int_t N = 0>
-    constexpr auto declareVariable(FixedStringView name, VarDeclContext* declContext, std::array<const VarDeclModifier*, N> mods = {}) {
+    constexpr auto declareVariable(FixedStringView name, VarDeclContext* declContext, stx::Array<const VarDeclModifier*, N> mods = {}) {
         return DriverVariable<T, N>(
             name, mods, [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
@@ -153,7 +153,7 @@ struct StageDriver : BlockDriver {
     }
     constexpr StageDecl* stageDecl() const { return m_stageDecl; }
     template<typename T, int_t N = 0>
-    constexpr auto declareGlobal(FixedStringView name, std::array<const VarDeclModifier*, N> mods = {}) {
+    constexpr auto declareGlobal(FixedStringView name, stx::Array<const VarDeclModifier*, N> mods = {}) {
         return declareVariable<T, N>(name, &stageDecl()->globals, mods);
     }
 
