@@ -111,8 +111,10 @@ target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LI
 
 add_executable(engine_test
     "platform/Window.cpp"
-    "platform/windows/Window.cpp"
+    "platform/windows/WindowImpl.cpp"
     "platform/windows/main.cpp"
+    "platform/windows/glcore.cpp"
+    "platform/windows/errors.cpp"
 )
 target_compile_options(engine_test PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
 target_link_libraries(engine_test PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

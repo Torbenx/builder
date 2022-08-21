@@ -40,7 +40,7 @@ void log_print(const std::string& tag, const std::string& msg) {
 }
 
 namespace plt {
-void pumpEvents() {
+void processEvents() {
     MSG msg;
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
         DispatchMessage(&msg);

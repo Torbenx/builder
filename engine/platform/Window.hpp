@@ -17,8 +17,8 @@ namespace plt {
 
 
 enum class WindowState {
-    Uninitialized = 0,
-    Destroyed = 1,
+    Destroyed = 0,
+    Uninitialized = 1,
     Invisible = 2,
     Background = 3,
     Foreground = 4,
@@ -41,20 +41,17 @@ constexpr std::string_view windowStateToString(WindowState state) {
 }
 
 class Window;
-
-struct GraphicsCallbacks {
-    virtual void onSurfaceCreated(Window*) { }
-    virtual void onSurfaceChanged(Window*) { }
-    virtual void onSurfaceLost(Window*) { }
-};
-struct StateCallbacks {
+struct WindowStateCallback {
+    virtual void onAttach(Window*) { }
     virtual void onInitialize(Window*) { }
     virtual void onVisible(Window*) { }
     virtual void onForeground(Window*) { }
     virtual void onBackground(Window*) { }
     virtual void onInvisible(Window*) { }
     virtual void onDestroy(Window*) { }
-    virtual void onStageChanged(Window* window, WindowState newState, WindowState oldState) {
+    virtual void onDetach(Window*) { }
+    virtual void onStageChange(Window* window, WindowState oldState, WindowState newState) {
+        log("state change: {} -> {}", windowStateToString(oldState), windowStateToString(newState));
         if (newState == WindowState::Invisible && oldState == WindowState::Uninitialized)
             return onInitialize(window);
         if (newState == WindowState::Background && oldState == WindowState::Invisible)
@@ -77,15 +74,22 @@ public:
 
     void setTitle(std::string_view title);
     std::string_view title() const;
+
+    void setStateCallback(WindowStateCallback* callback);
+    WindowStateCallback* stateCallback() const;
+
+    void setDimensions(int_t width, int_t height);
     int_t width() const;
     int_t height() const;
-    void setDimensions(int_t width, int_t height);
-    WindowState state() const;
+
     void initialize();
     void destroy();
+    WindowState state() const;
     bool initialized() const { return state() >= WindowState::Invisible; }
     bool visible() const { return state() > WindowState::Invisible; }
     bool foreground() const { return state() >= WindowState::Foreground; }
+    bool destoryed() const { return state() == WindowState::Destroyed; }
+
     Window(const Window&) = delete;
     ~Window();
 
@@ -93,7 +97,7 @@ protected:
     Window() { }
 };
 
-void pumpEvents();
+void processEvents();
 
 }
 

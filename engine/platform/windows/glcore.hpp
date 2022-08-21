@@ -6,12 +6,6 @@
 
 #include "core.hpp"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void glwrapper_init();
-
 #define ENUMERATE_GL_FUNCTIONS                                                             \
                                                                                            \
     GL_FUNCTION(PFNWGLCREATECONTEXTATTRIBSARBPROC, wglCreateContextAttribsARB)             \
@@ -198,8 +192,12 @@ void glwrapper_init();
     GL_FUNCTION(PFNGLBINDIMAGETEXTUREPROC, glBindImageTexture)                             \
     GL_FUNCTION(PFNGLDISPATCHCOMPUTEPROC, glDispatchCompute)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GL_FUNCTION(type, name) extern type name;
-ENUMERATE_GL_FUNCTIONS;
+ENUMERATE_GL_FUNCTIONS
 #undef GL_FUNCTION
 
 #ifdef __cplusplus
