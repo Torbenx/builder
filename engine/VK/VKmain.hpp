@@ -10,12 +10,12 @@ struct VK {
 };
 }
 
-#define VULKAN_VERIFY(input)                                                                                                \
-    {                                                                                                                       \
-        vk::Result _result = input;                                                                                         \
-        if (_result != vk::Result::eSuccess) {                                                                              \
+#define VULKAN_VERIFY(input)                                                                                            \
+    {                                                                                                                   \
+        vk::Result _result = input;                                                                                     \
+        if (_result != vk::Result::eSuccess) {                                                                          \
             log<Tag::VK>("VULKAN_VERIFY failed: {}:{}: {}(): " #input " -> {}", __FILE__, __LINE__, __func__, _result); \
-        }                                                                                                                   \
+        }                                                                                                               \
     }
 
 namespace VulkanState {

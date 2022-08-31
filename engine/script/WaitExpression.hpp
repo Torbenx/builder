@@ -2,6 +2,91 @@
 
 #include <tuple>
 
+namespace script {
+
+using mask_t = uint64_t;
+
+struct BinaryState {
+};
+
+enum class Op {
+    And,
+    Or,
+};
+
+template<Op _op, typename Left, typename Right>
+struct BinaryTreeNode {
+    static constexpr Op op() { return _op; }
+    static constexpr int_t leafCount() { return Left::leafCount() + Right::leafCount(); }
+    template<int_t i>
+    constexpr auto& leaf() const {
+        constexpr int_t leftLeafs = Left::leafCount();
+        if constexpr (i < leftLeafs)
+            return left.leaf<i>();
+        else
+            return right.leaf<i - leftLeafs>();
+    }
+    Left left;
+    Right right;
+};
+
+struct BinaryTreeLeaf {
+    static constexpr int_t leafCount() { return 1; }
+    constexpr BinaryState* leaf(int_t i) const {
+        return &ref;
+    }
+    BinaryState& ref;
+};
+
+template<typename Node>
+struct binary_tree_node {
+    static constexpr bool value = false;
+};
+template<Op op, typename Left, typename Right>
+struct binary_tree_node<BinaryTreeNode<op, Left, Right>> {
+    static constexpr bool value = true;
+};
+template<>
+struct binary_tree_node<BinaryTreeLeaf> {
+    static constexpr bool value = true;
+};
+template<typename T>
+constexpr bool binary_tree_node_v = binary_tree_node<T>::value;
+
+template<typename Left, typename Right>
+constexpr BinaryTreeNode<Op::And, Left, Right> operator&&(const Left& left, const Right& right) requires binary_tree_node_v<Left> && binary_tree_node_v<Right> {
+    return { left, right };
+}
+template<typename Left, typename Right>
+constexpr BinaryTreeNode<Op::Or, Left, Right> operator||(const Left& left, const Right& right) requires binary_tree_node_v<Left> && binary_tree_node_v<Right> {
+    return { left, right };
+}
+
+template<typename Node>
+struct Awaitable {
+    struct WaitItem {
+        BinaryState* ptr = nullptr;
+        mask_t mask = 0;
+    };
+
+    WaitItem items[Node::leafCount()];
+
+    template<int_t... I>
+    Awaitable(const Node& node, stx::int_sequence<I...>)
+        : items { { node.leaf<I>(), 0 } } { }
+
+    bool await_ready() { return false; }
+    void await_suspend(std::coroutine_handle<>) { }
+    void await_resume() { }
+};
+
+template<typename Node>
+auto operator co_await(const Node& node) requires binary_tree_node_v<Node> {
+    return Awaitable(node, stx::make_int_sequence<Node::leafCount()>());
+}
+
+}
+
 struct LogicSet {
     int_t indices[64] = {};
     int_t offsets[65] = {};

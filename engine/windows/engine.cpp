@@ -47,16 +47,34 @@ void gl_debug_callback(
         log<Tag::GL>("[{}] glDebug: {}", severity, message);
 }
 
-void initializeGL(const HDC& hdc) {
+void initializeGL(HWND hwnd) {
+    HDC hdc = GetDC(hwnd);
+
+    PIXELFORMATDESCRIPTOR pfd = {
+        sizeof(PIXELFORMATDESCRIPTOR),
+        1,
+        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, // Flags
+        PFD_TYPE_RGBA, // The kind of framebuffer. RGBA or palette.
+        32, // Colordepth of the framebuffer.
+        0, 0, 0, 0, 0, 0,
+        0,
+        0,
+        0,
+        0, 0, 0, 0,
+        16, // Number of bits for the depthbuffer
+        0, // Number of bits for the stencilbuffer
+        0, // Number of Aux buffers in the framebuffer.
+        PFD_MAIN_PLANE,
+        0,
+        0, 0, 0
+    };
+    SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
+
     HGLRC hglrc_initial = wglCreateContext(hdc);
     wglMakeCurrent(hdc, hglrc_initial);
     glwrapper_init();
-
-    /*if (wglSwapIntervalEXT(0)) {
-        log<Tag::GL>("disabled vsync");
-    }*/
-
     wglDeleteContext(hglrc_initial);
+
     int context_attribs[] = {
         WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
         0
@@ -66,6 +84,12 @@ void initializeGL(const HDC& hdc) {
     glDebugMessageCallbackARB((GLDEBUGPROCARB)gl_debug_callback, nullptr);
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+
+    /*if (wglSwapIntervalEXT(0)) {
+        log<Tag::GL>("disabled vsync");
+    }*/
+
+    ReleaseDC(hwnd, hdc);
 }
 
 void engine_draw() {
@@ -84,46 +108,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_CREATE: {
         log<Tag::Windows>("WM_CREATE");
 
-        HDC hdc = GetDC(hwnd);
-
-        PIXELFORMATDESCRIPTOR pfd = {
-            sizeof(PIXELFORMATDESCRIPTOR),
-            1,
-            PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, // Flags
-            PFD_TYPE_RGBA, // The kind of framebuffer. RGBA or palette.
-            32, // Colordepth of the framebuffer.
-            0, 0, 0, 0, 0, 0,
-            0,
-            0,
-            0,
-            0, 0, 0, 0,
-            16, // Number of bits for the depthbuffer
-            0, // Number of bits for the stencilbuffer
-            0, // Number of Aux buffers in the framebuffer.
-            PFD_MAIN_PLANE,
-            0,
-            0, 0, 0
-        };
-
-        SetPixelFormat(hdc, ChoosePixelFormat(hdc, &pfd), &pfd);
-
-        initializeGL(hdc);
-
-        ReleaseDC(hwnd, hdc);
-
-        /*VulkanState::initialize(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-
-        auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
-                           .setHinstance(engine_hinstance)
-                           .setHwnd(engine_hwnd);
-        vk::SurfaceKHR surface;
-        VULKAN_VERIFY(VulkanState::instance.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface));
-        VulkanState::initializeSurface(surface);*/
+        initializeGL(hwnd);
 
         ID3D11DeviceContext* dxContext;
         D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &dxDevice, NULL, &dxContext);
         hDxDevice = wglDXOpenDeviceNV(dxDevice);
         init_text();
+
+        /*VulkanState::initialize(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+
+        auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
+                               .setHinstance(engine_hinstance)
+                               .setHwnd(engine_hwnd);
+        vk::SurfaceKHR surface;
+        VULKAN_VERIFY(VulkanState::instance.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface));
+        VulkanState::initializeSurface(surface);*/
 
         renderer = createFunctions.createRenderer_OpenGL();
         return 0;
@@ -132,8 +131,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         log<Tag::Windows>("WM_SIZE");
 
         /*auto surfaceInfo = vk::Win32SurfaceCreateInfoKHR()
-                           .setHinstance(engine_hinstance)
-                           .setHwnd(engine_hwnd);
+                               .setHinstance(engine_hinstance)
+                               .setHwnd(engine_hwnd);
         vk::SurfaceKHR surface;
         VULKAN_VERIFY(VulkanState::instance.createWin32SurfaceKHR(&surfaceInfo, nullptr, &surface));
         VulkanState::updateSurface(surface);*/

@@ -33,37 +33,33 @@ void gl_debug_callback(
         log<Tag::GL>("[{}] glDebug: {}", severity, message);
 }
 
-void choosePixelFormat(HDC dc) {
-    PIXELFORMATDESCRIPTOR pfd = {
-        sizeof(PIXELFORMATDESCRIPTOR),
-        1,
-        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, // Flags
-        PFD_TYPE_RGBA, // The kind of framebuffer. RGBA or palette.
-        32, // Colordepth of the framebuffer.
-        0, 0, 0, 0, 0, 0,
-        0,
-        0,
-        0,
-        0, 0, 0, 0,
-        16, // Number of bits for the depthbuffer
-        0, // Number of bits for the stencilbuffer
-        0, // Number of Aux buffers in the framebuffer.
-        PFD_MAIN_PLANE,
-        0,
-        0, 0, 0
-    };
-
-    int format = ChoosePixelFormat(dc, &pfd);
-    WIN_VERIFY(format != 0);
-    bool ret = SetPixelFormat(dc, format, &pfd);
-    WIN_VERIFY(ret);
-}
-
 struct GLWindowSurface : WindowSurfaceCallback {
     WindowImpl* window = nullptr;
     HGLRC renderingContext = nullptr;
     void initialize(HDC dc) {
-        choosePixelFormat(dc);
+        PIXELFORMATDESCRIPTOR pfd = {
+            sizeof(PIXELFORMATDESCRIPTOR),
+            1,
+            PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, // Flags
+            PFD_TYPE_RGBA, // The kind of framebuffer. RGBA or palette.
+            32, // Colordepth of the framebuffer.
+            0, 0, 0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0, 0, 0, 0,
+            16, // Number of bits for the depthbuffer
+            0, // Number of bits for the stencilbuffer
+            0, // Number of Aux buffers in the framebuffer.
+            PFD_MAIN_PLANE,
+            0,
+            0, 0, 0
+        };
+        int format = ChoosePixelFormat(dc, &pfd);
+        WIN_VERIFY(format != 0);
+        bool ret = SetPixelFormat(dc, format, &pfd);
+        WIN_VERIFY(ret);
+        
         initializeGLFunctions(dc);
         int context_attribs[] = {
             WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB, 0
