@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/lp/SparseVector.hpp"
+#include "Inverse.hpp"
 #include <vector>
 
 namespace sparse {

@@ -77,6 +77,7 @@
 
 #define MAKE_WEAK_SYMBOL(name) __pragma(comment(linker, "/alternatename:" #name "=" #name "__weak"))^
 #define WEAK_SYMBOL_IMPL(name) name##weak
+#define WEAK_SYMBOL_DECL(name) name
 
 #else
 
@@ -87,7 +88,7 @@
 #define DEFINE_LINK_COUNTER(name) DEFINE_SECTION(char, name)
 #define LINK_COUNTER_IMPL(name)                                   \
     static inline char IN_SECTION(name) __link_counter_dummy = 0; \
-    static inline int_t link_counter() { return &__link_counter_dummy - __begin_##name; }
+    static inline int_t linkCounter() { return &__link_counter_dummy - __begin_##name; }
 #define LINK_COUNTER_MAX(name) (__end_##name - __begin_##name)
 
 namespace platform {

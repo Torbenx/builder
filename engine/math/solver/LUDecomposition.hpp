@@ -240,7 +240,7 @@ private:
 
             lambda(row, pivotCol, diagOffset + 1, invDiag);
 
-            // u[i,j] -= u[i,row]*u[column,i]/u[column,row] ; i > column, j > row
+            // u[i,j] -= u[i,row]*u[column,j]/u[column,row] ; i > column, j > row
             for (size_type i = row + 1; i < columnCount; i++) {
                 auto& col = u.columns[i];
                 size_type offset = columnOffsets[i];
