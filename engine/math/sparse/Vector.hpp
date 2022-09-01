@@ -31,21 +31,24 @@ protected:
     Entry* entries = nullptr;
     int_t numEntries = 0;
 
-    void clearFields() {
+    constexpr void clearFields() {
         entries = nullptr;
         numEntries = 0;
     }
 
 public:
-    VectorView() { }
-    VectorView(const Entry* entries, int_t size)
+    constexpr VectorView() { }
+    constexpr VectorView(const Entry* entries, int_t size)
         : entries(const_cast<Entry*>(entries)), numEntries(size) { }
 
-    const Entry& operator[](int_t i) const {
+    constexpr const Entry& operator[](int_t i) const {
         return entries[i];
     }
 
-    int_t size() const { return numEntries; }
+    constexpr int_t size() const { return numEntries; }
+    constexpr VectorView subView(int_t count) const {
+        return { data() + count, size() - count };
+    }
 
     void debug() const {
         if (!entries) {
@@ -62,21 +65,12 @@ public:
             log<Tag::Sparse>("END INVALID: idx={}, val={}", endEntry.index, endEntry.value);
     }
 
-    const Entry* begin() const { return entries; }
-    const Entry* end() const { return entries + size(); }
+    constexpr const Entry* begin() const { return entries; }
+    constexpr const Entry* end() const { return entries + size(); }
 
     Vector copy(int_t extraSize = 0) const;
 
-    int_t lowerBound(uint32_t index) const {
-        /*Entry e0 = (*this)[0];
-        Entry e1 = (*this)[1];
-        Entry e2 = (*this)[2];
-        Entry e3 = (*this)[3];
-        int_t r = e3.index >= index ? 3 : 4;
-        r = e2.index >= index ? 2 : r;
-        r = e1.index >= index ? 1 : r;
-        r = e0.index >= index ? 0 : r;
-        return r;*/
+    constexpr int_t lowerBound(uint32_t index) const {
         int_t i;
         for (i = 0;; i++) {
             if ((*this)[i].index >= index)
@@ -84,12 +78,13 @@ public:
         }
         return i;
     }
-    float findValue(uint32_t index) const {
+    constexpr float findValue(uint32_t index) const {
         Entry e = (*this)[lowerBound(index)];
         return e.index == index ? e.value : 0.0f;
     }
 
-    const Entry* data() const { return entries; }
+    constexpr const Entry* data() const { return entries; }
+    constexpr const Entry& back() const { return (*this)[size() - 1]; }
 };
 
 class Vector : public VectorView {
@@ -121,6 +116,7 @@ public:
     }
     Vector& operator=(const Vector&) = delete;
 
+    using VectorView::operator[];
     Entry& operator[](int_t i) {
         return entries[i];
     }
@@ -186,6 +182,17 @@ public:
     }
 };
 
+template<int_t N>
+class StaticVector : public VectorView {
+public:
+    Entry storage[N + 1] = {};
+    constexpr StaticVector(const Entry (&arr)[N])
+        : VectorView(storage, N) {
+        std::copy_n(arr, N, storage);
+        storage[N] = END_ENTRY;
+    }
+};
+
 inline Vector VectorView::copy(int_t extraSize) const {
     Vector r = Vector(size() + extraSize);
     std::copy(data(), data() + size() + 1, r.data());
@@ -193,17 +200,17 @@ inline Vector VectorView::copy(int_t extraSize) const {
     return r;
 }
 
-Vector allocate(int_t size) {
+inline Vector allocate(int_t size) {
     return Vector(size);
 }
 
-Vector allocateEmpty(int_t extraSize = 0) {
+inline Vector allocateEmpty(int_t extraSize = 0) {
     Vector r = allocate(extraSize);
     r.resizeTo(0);
     return r;
 }
 
-int_t addImpl(Entry* out, const Entry* v1, const Entry* v2, float factor) {
+inline int_t addImpl(Entry* out, const Entry* v1, const Entry* v2, float factor) {
     int_t offset1 = 0;
     int_t offset2 = 0;
     int_t offset3 = 0;
@@ -234,21 +241,21 @@ int_t addImpl(Entry* out, const Entry* v1, const Entry* v2, float factor) {
     return offset3;
 }
 
-Vector add(VectorView v1, VectorView v2, float factor = 1.0f, int_t extraSize = 0) {
+inline Vector add(VectorView v1, VectorView v2, float factor = 1.0f, int_t extraSize = 0) {
     Vector out = allocate(v1.size() + v2.size() + extraSize);
     int_t size = addImpl(out.data(), v1.data(), v2.data(), factor);
     out.setSize(size);
     return out;
 }
 
-void addTo(float* dense, VectorView v, float factor = 1.0f) {
+inline void addTo(float* dense, VectorView v, float factor = 1.0f) {
     for (int_t i = 0; i < v.size(); i++) {
         Entry e = v[i];
         dense[e.index] += factor * e.value;
     }
 }
 
-float dot(VectorView v1, VectorView v2) {
+inline float dot(VectorView v1, VectorView v2) {
     int_t offset1 = 0;
     int_t offset2 = 0;
     uint32_t min;
@@ -267,6 +274,13 @@ float dot(VectorView v1, VectorView v2) {
         if (i1 == i2)
             out += e1.value * e2.value;
     } while (min != MAX_INDEX);
+    return out;
+}
+
+inline float dot(VectorView sparse, const float* dense) {
+    float out = 0.0f;
+    for (Entry e : sparse)
+        out += e.value * dense[e.index];
     return out;
 }
 
@@ -291,8 +305,11 @@ Vector elementwiseKernelOutOfPlace(VectorView v, Kernel&& kernel, int_t extraSiz
     return r;
 }
 
-void scalarMultiplyInplace(Vector& v, float f) {
+inline void scalarMultiplyInplace(Vector& v, float f) {
     elementwiseKernelInPlace(v, [f](float val) { return val * f; });
+}
+inline Vector scalarMultiplyOutOfPlace(VectorView v, float f) {
+    return elementwiseKernelOutOfPlace(v, [f](float val) { return val * f; });
 }
 
 template<typename Transform, typename Finalize>
@@ -327,13 +344,13 @@ struct Matrix {
         }
     }
 
-    Vector multiply(VectorView v, int_t extraSize = 0) {
-        /*Vector ret = allocateEmpty(extraSize);
+    Vector multiply(VectorView v, int_t extraSize = 0) const {
+        Vector ret = allocateEmpty(extraSize);
         for (Entry e : v)
-            ret = add(ret, (*this)[e.index], e.value, extraSize);
-        return ret;*/
+            ret = add(ret, columns[e.index], e.value, extraSize);
+        return ret;
 
-        if (v.size() == 0)
+        /*if (v.size() == 0)
             return allocateEmpty(extraSize);
 
         std::array<Entry, 10> scratch1;
@@ -348,7 +365,7 @@ struct Matrix {
             std::swap(in, out);
         }
         Entry e = v[v.size() - 1];
-        return add({ in, size }, (*this)[e.index], e.value, extraSize);
+        return add({ in, size }, (*this)[e.index], e.value, extraSize);*/
     }
 
     void appendColumn(Vector column) {
@@ -356,9 +373,8 @@ struct Matrix {
     }
 
     int_t size() const { return columns.size(); }
-    Vector& operator[](int_t i) {
-        return columns[i];
-    }
+    Vector& operator[](int_t i) { return columns[i]; }
+    const Vector& operator[](int_t i) const { return columns[i]; }
 
     void debug() {
         log<Tag::Sparse>("sparse::Matrix {{ {} }}", size());
@@ -367,6 +383,32 @@ struct Matrix {
             (*this)[i].debug();
         }
     }
+
+    void setEmpty(int_t size) {
+        columns.resize(size);
+        for (Vector& col : columns)
+            col = allocateEmpty();
+    }
+
+    void clear() {
+        columns.clear();
+    }
 };
+
+inline Matrix multiply(const Matrix& l, const Matrix& r) {
+    Matrix out;
+    out.columns.reserve(r.size());
+    for (const Vector& col : r.columns)
+        out.appendColumn(l.multiply(col));
+    return out;
+}
+inline Matrix add(const Matrix& l, const Matrix& r, float factor = 1.0f) {
+    Matrix out;
+    VERIFY(Sparse, l.size() == r.size());
+    out.columns.reserve(l.size());
+    for (int_t i = 0; i < l.size(); i++)
+        out.appendColumn(add(l[i], r[i], factor));
+    return out;
+}
 
 }

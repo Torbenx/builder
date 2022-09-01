@@ -116,6 +116,8 @@ add_executable(engine_test
     "platform/windows/glcore.cpp"
     "platform/windows/errors.cpp"
     "ui2/Layout.cpp"
+    "ui2/test.cpp"
+    "GL/Shader.cpp"
 )
 target_compile_options(engine_test PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
 target_link_libraries(engine_test PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

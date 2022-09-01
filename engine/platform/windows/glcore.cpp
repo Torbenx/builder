@@ -30,7 +30,7 @@ void gl_debug_callback(
     [[maybe_unused]] const void* userParam) {
 
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
-        log<Tag::GL>("[{}] glDebug: {}", severity, message);
+        log<Tag::Default>("[{}] glDebug: {}", severity, message);
 }
 
 struct GLWindowSurface : WindowSurfaceCallback {

@@ -2,7 +2,7 @@
 
 #include "Style.hpp"
 #include "containers/IdAllocator.hpp"
-#include "math/sparse/Vector.hpp"
+#include "math/sparse/LUDecomposition.hpp"
 #include "util/types.hpp"
 #include <vector>
 

@@ -33,25 +33,25 @@ struct TypedSize {
     Axis axis : 8 = Axis::Default;
     static constexpr float NO_VALUE_MAGIC = NAN;
     static constexpr TypedSize noValue() { return { NO_VALUE_MAGIC }; }
-    bool operator==(const TypedSize& other) const {
+    constexpr bool operator==(const TypedSize& other) const {
         return value == other.value && unit == other.unit && axis == other.axis;
     }
-    bool hasNoValue() const { return *this == noValue(); }
-    bool hasValue() const { return *this != noValue(); }
+    constexpr bool hasNoValue() const { return *this == noValue(); }
+    constexpr bool hasValue() const { return *this != noValue(); }
 };
-TypedSize operator-(const TypedSize& in) {
+constexpr TypedSize operator-(const TypedSize& in) {
     return { -in.value, in.unit, in.axis };
 }
 struct Rect {
     TypedSize left, right, bottom, top;
 };
-Rect operator-(const Rect& in) {
+constexpr Rect operator-(const Rect& in) {
     return { -in.left, -in.right, -in.bottom, -in.top };
 }
-TypedSize applyLocalValue(const TypedSize& base, const TypedSize& localValue) {
+constexpr TypedSize applyLocalValue(const TypedSize& base, const TypedSize& localValue) {
     return localValue.hasValue() ? localValue : base;
 }
-Rect applyLocalValue(const Rect& base, const Rect& localValue) {
+constexpr Rect applyLocalValue(const Rect& base, const Rect& localValue) {
     return {
         applyLocalValue(base.left, localValue.left),
         applyLocalValue(base.right, localValue.right),

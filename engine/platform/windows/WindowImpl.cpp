@@ -55,7 +55,7 @@ void WindowImpl::destroyImpl() {
     m_height = 0;
 }
 void WindowImpl::destructor() {
-    if (state() == WindowState::Destroyed)
+    if (state() == WindowState::Destroyed || state() == WindowState::Uninitialized)
         VERIFY(Windows, !hwnd());
     else
         destroy();

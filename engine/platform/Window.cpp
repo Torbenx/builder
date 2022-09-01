@@ -15,14 +15,19 @@ struct MyCallback : plt::WindowStateCallback {
     }
 };
 
+namespace ui {
+void test();
+}
+
 MAKE_WEAK_SYMBOL(onInitialWindowConstructed)
 void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> window) {
     MyCallback callback;
     window->setStateCallback(&callback);
     // window->setDimensions(200, 200);
     // window->setTitle("Hello World!");
+    ui::test();
 
-    gl::initialize();
+    /*gl::initialize();
     gl::attachWindow(window.get());
     window->initialize();
     while (!window->destoryed()) {
@@ -31,5 +36,5 @@ void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> w
         glClearColor(1, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
         SwapBuffers(static_cast<plt::windows::WindowImpl*>(window.get())->deviceContext());
-    }
+    }*/
 }
