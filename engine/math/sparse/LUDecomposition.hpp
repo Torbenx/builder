@@ -57,22 +57,26 @@ private:
 struct LUDecomposition {
     Matrix l, u;
     Permutation p;
+    std::vector<uint32_t> rowIndices;
+    int_t m_rank = 0;
 
     int_t size() const { return u.columns.size(); }
+    int_t rank() const { return m_rank; }
 
     void inverseTranspose(const float* in, float* out) const {
-        for (int_t i = 0; i < size(); i++)
-            out[p[i]] = in[i];
-        for (int_t i = 0; i < size(); i++) {
+        for (int_t i = 0; i < rank(); i++)
+            out[rowIndices[i]] = in[p.inverse(i)];
+        for (int_t i = 0; i < rank(); i++) {
+            uint32_t rowIndex = rowIndices[i];
             float dot = 0.0f;
             for (int_t j = 0; j < u[i].size() - 1; j++) {
                 Entry e = u[i][j];
                 dot += e.value * out[e.index];
             }
-            out[i] = (out[i] - dot) / u[i].back().value;
+            out[rowIndex] = (out[rowIndex] - dot) / u[i].back().value;
         }
-        for (int_t i = size() - 1; i >= 0; i--)
-            out[i] -= dot(l[i], out);
+        for (int_t i = rank() - 1; i >= 0; i--)
+            out[rowIndices[i]] -= dot(l[i], out);
     }
 
     void decompose(int_t maxIndex) {
@@ -91,6 +95,7 @@ struct LUDecomposition {
             }
             if (pivotColumn == size())
                 continue;
+            rowIndices.push_back(rowIndex);
 
             if (pivotColumn != outputColumn) {
                 VERIFY(Sparse, pivotColumn > outputColumn);
@@ -124,7 +129,9 @@ struct LUDecomposition {
             u[outputColumn].resizeTo(diagOffset + 1);
             outputColumn += 1;
         }
-        VERIFY(Sparse, l.size() == size());
+        m_rank = outputColumn;
+        VERIFY(Sparse, l.size() == rank());
+        VERIFY(Sparse, (int_t)rowIndices.size() == rank());
     }
 };
 

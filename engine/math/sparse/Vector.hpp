@@ -116,6 +116,11 @@ public:
     }
     Vector& operator=(const Vector&) = delete;
 
+    using VectorView::begin;
+    constexpr Entry* begin() { return entries; };
+    using VectorView::end;
+    constexpr Entry* end() { return entries + size(); }
+
     using VectorView::operator[];
     Entry& operator[](int_t i) {
         return entries[i];
@@ -392,6 +397,14 @@ struct Matrix {
 
     void clear() {
         columns.clear();
+    }
+
+    Matrix copy() const {
+        Matrix out;
+        out.columns.reserve(size());
+        for (VectorView v : columns)
+            out.appendColumn(v.copy());
+        return out;
     }
 };
 
