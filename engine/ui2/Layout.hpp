@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Style.hpp"
+#include "TypedSize.hpp"
 #include "containers/IdAllocator.hpp"
 #include "math/sparse/Vector.hpp"
 #include "util/types.hpp"
@@ -11,18 +12,47 @@ namespace ui {
 struct Variable {
     uint32_t id = 0;
 };
-struct Box {
+struct RangeVar {
     uint32_t baseId = 0;
-    Variable left() const { return { baseId }; }
-    Variable right() const { return { baseId + 1 }; }
-    Variable bottom() const { return { baseId + 2 }; }
-    Variable top() const { return { baseId + 3 }; }
+    constexpr Variable low() const { return { baseId }; }
+    constexpr Variable high() const { return { baseId + 1 }; }
+};
+struct RectVar {
+    uint32_t baseId = 0;
+    constexpr RangeVar x() const { return { baseId }; }
+    constexpr RangeVar y() const { return { baseId + 2 }; }
+    constexpr RangeVar axis(Axis axis) const { return axis == Axis::X ? x() : y(); }
+    constexpr Variable left() const { return x().low(); }
+    constexpr Variable right() const { return x().high(); }
+    constexpr Variable bottom() const { return y().low(); }
+    constexpr Variable top() const { return y().high(); }
 };
 struct Equation {
     uint32_t id = 0;
 };
-struct BoxEqn {
-    Equation left, right, bottom, top;
+struct RangeEqn {
+    Equation m_low, m_high;
+    constexpr Equation& low() { return m_low; }
+    constexpr const Equation& low() const { return m_low; }
+    constexpr Equation& high() { return m_high; }
+    constexpr const Equation& high() const { return m_high; }
+};
+struct RectEqn {
+    RangeEqn m_x, m_y;
+    constexpr RangeEqn& x() { return m_x; }
+    constexpr const RangeEqn& x() const { return m_x; }
+    constexpr RangeEqn& y() { return m_y; }
+    constexpr const RangeEqn& y() const { return m_y; }
+    constexpr RangeEqn& axis(Axis axis) { return axis == Axis::X ? x() : y(); }
+    constexpr const RangeEqn& axis(Axis axis) const { return axis == Axis::X ? x() : y(); }
+    constexpr Equation& left() { return x().low(); }
+    constexpr const Equation& left() const { return x().low(); }
+    constexpr Equation& right() { return x().high(); }
+    constexpr const Equation& right() const { return x().high(); }
+    constexpr Equation& bottom() { return y().low(); }
+    constexpr const Equation& bottom() const { return y().low(); }
+    constexpr Equation& top() { return y().high(); }
+    constexpr const Equation& top() const { return y().high(); }
 };
 
 struct TextureView {
@@ -42,24 +72,29 @@ public:
     ~Layout();
 
     Variable newVar();
-    Box newBox();
+    RangeVar newRange();
+    RectVar newRect();
     Equation align(Variable leftBottom, Variable rightTop, TypedSize inhom = {});
-    BoxEqn align(Box inner, Box outer, Rect inhom = {});
+    RangeEqn align(RangeVar inner, RangeVar outer, Range inhom = {});
+    RectEqn align(RectVar inner, RectVar outer, Rect inhom = {});
     void updateInhom(Equation, TypedSize inhom = {});
-    void updateInhom(BoxEqn, Rect inhom = {});
+    void updateInhom(RangeEqn, Range inhom = {});
+    void updateInhom(RectEqn, Rect inhom = {});
     void removeEqn(Equation);
-    void removeEqn(BoxEqn);
+    void removeEqn(RangeEqn);
+    void removeEqn(RectEqn);
     void deleteVariable(Variable);
-    void deleteBox(Box);
+    void deleteVariable(RangeVar);
+    void deleteVariable(RectVar);
 
     ScreenMetrics metrics() const { return m_metrics; }
     void doLayout(ScreenMetrics newMetrics);
-    Box screen() const { return screenBox; }
-    void debug(Box box) const {
+    RectVar screen() const { return screenBox; }
+    void debug(RectVar box) const {
         log("Box: {}, {} - {}, {}", varValues[box.left().id], varValues[box.bottom().id], varValues[box.right().id], varValues[box.top().id]);
     }
 
-    void requestTexture(Box, TextureCallback*);
+    void requestTexture(RectVar, TextureCallback*);
     void cancelTexture(TextureCallback*);
 
 private:
@@ -70,8 +105,8 @@ private:
     std::vector<float> varValues;
     sparse::Matrix matrix;
     ScreenMetrics m_metrics;
-    Box screenBox;
-    BoxEqn screenEqn;
+    RectVar screenBox;
+    RectEqn screenEqn;
 
     uint32_t allocateVariableIds(int_t count);
     void resolveTypedSizes();
@@ -92,18 +127,18 @@ struct LayoutBoxStyle : StyleItem<LayoutBoxStyle, LayoutBoxStyle> {
 struct LayoutBox : UiElement {
     LayoutBoxStyle localValues { .padding = Rect::noValues() };
     LayoutBoxStyle baseStyle;
-    Box outerBox, innerBox;
-    BoxEqn paddingEqn;
+    RectVar outerBox, innerBox;
+    RectEqn paddingEqn;
     LayoutBox(Layout& lay)
         : UiElement(lay)
-        , outerBox(layout().newBox())
-        , innerBox(layout().newBox()) {
+        , outerBox(layout().newRect())
+        , innerBox(layout().newRect()) {
         paddingEqn = layout().align(innerBox, outerBox);
     }
     ~LayoutBox() {
         layout().removeEqn(paddingEqn);
-        layout().deleteBox(outerBox);
-        layout().deleteBox(innerBox);
+        layout().deleteVariable(outerBox);
+        layout().deleteVariable(innerBox);
     }
     void updatePaddings() { layout().updateInhom(paddingEqn, applyLocalValue(baseStyle.padding, localValues.padding)); }
     void setStyle(const LayoutBoxStyle& style) {

@@ -16,10 +16,12 @@ struct UiTest : plt::WindowStateCallback {
 
     ui::Layout layout;
     ui::LayoutBox box1;
-    ui::BoxEqn box1Eqn;
+    ui::RectEqn box1Eqn;
 
     UiTest()
-        : box1(layout) { }
+        : box1(layout) {
+        box1Eqn = layout.align(box1.outerBox, layout.screen());
+    }
 
     void onInitialize(plt::Window*) override {
         ShaderBuilder builder;
@@ -30,12 +32,12 @@ struct UiTest : plt::WindowStateCallback {
     }
 
     void onVisible(plt::Window* window) override {
-        box1Eqn = layout.align(box1.outerBox, layout.screen());
-        auto paddingX = ui::Size::pixels(20).inX();
-        auto paddingY = ui::Size::pixels(100).inY();
-        box1.localValues.padding.top = paddingY;
-        box1.localValues.padding.bottom = paddingY;
-        box1.setStyle(ui::LayoutBoxStyle { .padding = { .left = paddingX, .right = paddingX } });
+        using namespace ui::literals;
+        auto paddingX = (20_px).inX();
+        auto paddingY = (100_px).inY();
+        box1.localValues.padding.bottom() = paddingY;
+        box1.localValues.padding.top() = paddingY;
+        box1.setStyle(ui::LayoutBoxStyle { .padding = ui::Rect { ui::Range { paddingX }, {} } });
         layout.doLayout({ { (uint32_t)window->width(), 96.0f }, { (uint32_t)window->height(), 96.0f } });
         layout.debug(layout.screen());
         layout.debug(box1.outerBox);
@@ -66,8 +68,6 @@ void test() {
     lu.decompose(4);
     lu.l.debug();
     lu.u.debug();
-    // sparse::Matrix check = sparse::add(sparse::multiply(lu.l, lu.u), lu.u);
-    // check.debug();
     float result[4] = {};
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);
