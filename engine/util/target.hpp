@@ -87,7 +87,7 @@
 
 #define DEFINE_LINK_COUNTER(name) DEFINE_SECTION(char, name)
 #define LINK_COUNTER_IMPL(name)                                   \
-    static inline char IN_SECTION(name) __link_counter_dummy = 0; \
+    static inlinec constinit const char IN_SECTION(name) __link_counter_dummy = 0; \
     static inline int_t linkCounter() { return &__link_counter_dummy - __begin_##name; }
 #define LINK_COUNTER_MAX(name) (__end_##name - __begin_##name)
 

@@ -32,13 +32,10 @@ struct UiTest : plt::WindowStateCallback {
     }
 
     void onVisible(plt::Window* window) override {
-        using namespace ui::literals;
-        auto paddingX = (20_px).inX();
-        auto paddingY = (100_px).inY();
-        box1.localValues.padding.bottom() = paddingY;
-        box1.localValues.padding.top() = paddingY;
-        box1.setStyle(ui::LayoutBoxStyle { .padding = ui::Rect { ui::Range { paddingX }, {} } });
-        layout.doLayout({ { (uint32_t)window->width(), 96.0f }, { (uint32_t)window->height(), 96.0f } });
+        using namespace ui::code;
+        box1.localValues.padding.y() = 100_px;
+        box1.setStyle(ui::LayoutBoxStyle { .padding = { { 20_pt }, {} } });
+        layout.doLayout(window->width(), window->height(), 0.5f);
         layout.debug(layout.screen());
         layout.debug(box1.outerBox);
         layout.debug(box1.innerBox);

@@ -116,6 +116,7 @@ add_executable(engine_test
     "platform/windows/glcore.cpp"
     "platform/windows/errors.cpp"
     "ui2/Layout.cpp"
+    "ui2/Size.cpp"
     "ui2/test.cpp"
     "GL/Shader.cpp"
 )

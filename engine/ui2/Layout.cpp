@@ -7,10 +7,10 @@ namespace ui {
 Layout::Layout() {
     using namespace ui::literals;
     screenBox = newRect();
-    screenEqn.left() = makeEquation({ { screenBox.left().id, 1.0f } }, (0.0_frac).inX());
-    screenEqn.right() = makeEquation({ { screenBox.right().id, 1.0f } }, (1.0_frac).inX());
-    screenEqn.bottom() = makeEquation({ { screenBox.bottom().id, 1.0f } }, (0.0_frac).inY());
-    screenEqn.top() = makeEquation({ { screenBox.top().id, 1.0f } }, (1.0_frac).inY());
+    screenEqn.left() = makeEquation({ { screenBox.left().id, 1.0f } });
+    screenEqn.right() = makeEquation({ { screenBox.right().id, 1.0f } });
+    screenEqn.bottom() = makeEquation({ { screenBox.bottom().id, 1.0f } });
+    screenEqn.top() = makeEquation({ { screenBox.top().id, 1.0f } });
 }
 
 Layout::~Layout() {
@@ -29,7 +29,7 @@ Variable Layout::newVar() { return { allocateVariableIds(1) }; }
 RangeVar Layout::newRange() { return { allocateVariableIds(2) }; }
 RectVar Layout::newRect() { return { allocateVariableIds(4) }; }
 
-Equation Layout::makeEquation(std::initializer_list<sparse::Entry> terms, TypedSize inhom) {
+Equation Layout::makeEquation(std::initializer_list<sparse::Entry> terms, Size inhom) {
     Equation eq = { eqnIdAlloc.allocateId() };
     if (inhomTyped.size() <= eq.id)
         inhomTyped.resize(eq.id + 1);
@@ -49,7 +49,7 @@ Equation Layout::makeEquation(std::initializer_list<sparse::Entry> terms, TypedS
     return eq;
 }
 
-Equation Layout::align(Variable leftBottom, Variable rightTop, TypedSize inhom) {
+Equation Layout::align(Variable leftBottom, Variable rightTop, Size inhom) {
     return makeEquation({ { leftBottom.id, -1.0f }, { rightTop.id, 1.0f } }, inhom);
 }
 RangeEqn Layout::align(RangeVar inner, RangeVar outer, Range inhom) {
@@ -65,7 +65,7 @@ RectEqn Layout::align(RectVar inner, RectVar outer, Rect inhom) {
     };
 }
 
-void Layout::updateInhom(Equation eq, TypedSize inhom) {
+void Layout::updateInhom(Equation eq, Size inhom) {
     inhomTyped[eq.id] = inhom;
 }
 void Layout::updateInhom(RangeEqn eq, Range inhom) {
@@ -99,17 +99,14 @@ void Layout::deleteVariable(RectVar) {
     VERIFY_NOT_REACHED(Ui);
 }
 
-void Layout::resolveTypedSizes() {
-    int_t inhomSize = inhomTyped.size();
-    for (int_t i = 0; i < inhomSize; i++)
-        inhomValues[i] = metrics().pixels(inhomTyped[i]);
-}
+void Layout::doLayout(int_t width, int_t height, float ptScale) {
+    using namespace literals;
+    VDUMP(width);
+    VDUMP(height);
 
-void Layout::doLayout(ScreenMetrics newMetrics) {
-    m_metrics = newMetrics;
-    VDUMP(metrics().width());
-    VDUMP(metrics().height());
-    resolveTypedSizes();
+    updateInhom(screenEqn, { { 0_px, width * 1_px }, { 0_px, height * 1_px } });
+    Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale);
+
     sparse::LUDecomposition lu;
     lu.u = matrix.copy();
     int_t varCount = nextVarId;

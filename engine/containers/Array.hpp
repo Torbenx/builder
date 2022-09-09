@@ -1,5 +1,7 @@
 #pragma once
 
+#include "util/types.hpp"
+
 namespace stx {
 
 template<typename T, int_t N>
