@@ -100,7 +100,6 @@ void Layout::deleteVariable(RectVar) {
 }
 
 void Layout::doLayout(int_t width, int_t height, float ptScale) {
-    using namespace literals;
     VDUMP(width);
     VDUMP(height);
 

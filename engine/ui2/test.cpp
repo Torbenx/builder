@@ -33,8 +33,9 @@ struct UiTest : plt::WindowStateCallback {
 
     void onVisible(plt::Window* window) override {
         using namespace ui::code;
-        box1.localValues.padding.y() = 100_px;
-        box1.setStyle(ui::LayoutBoxStyle { .padding = { { 20_pt }, {} } });
+        box1.padding.y() = 100_px;
+        box1.padding.x() = 20_pt;
+        box1.updatePaddings();
         layout.doLayout(window->width(), window->height(), 0.5f);
         layout.debug(layout.screen());
         layout.debug(box1.outerBox);
@@ -56,6 +57,12 @@ struct UiTest : plt::WindowStateCallback {
 namespace ui {
 
 void test() {
+
+    auto style = StyleRef<BigStyle>::allocate();
+    StyleRef<TextBoxStyle>& textBoxStyle = get<NormalTextBox>(style);
+    get<TextSize>(textBoxStyle) = ref<TextSize>();
+    get<TextSize>(style) = 10_pt;
+    VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
 
     sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());

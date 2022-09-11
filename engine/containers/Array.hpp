@@ -1,6 +1,7 @@
 #pragma once
 
 #include "util/types.hpp"
+#include "ArrayView.hpp"
 
 namespace stx {
 
@@ -25,6 +26,8 @@ struct Array {
     constexpr const T& front() const { return data()[0]; }
     constexpr T& back() { return data()[size() - 1]; }
     constexpr const T& back() const { return data()[size() - 1]; }
+    constexpr operator ArrayView<T>() { return elements; }
+    constexpr operator ArrayView<const T>() const { return elements; }
 };
 template<typename T>
 struct Array<T, 0> {
@@ -40,6 +43,8 @@ struct Array<T, 0> {
     constexpr const T* end() const { return nullptr; }
     constexpr int_t size() const { return 0; }
     constexpr bool empty() const { return true; }
+    constexpr operator ArrayView<T>() { return {}; }
+    constexpr operator ArrayView<const T>() const { return {}; }
 };
 
 }

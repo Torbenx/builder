@@ -11,7 +11,6 @@
 #include <resource/JpegDecoder.hpp>
 #include <resource/ObjParser.hpp>
 #include <resource/asset_istream.hpp>
-#include <script/events.hpp>
 #include <string>
 #include <thread>
 #include <util/LogTimer.hpp>
@@ -19,6 +18,7 @@
 #include <util/log.hpp>
 #include <util/target.hpp>
 #include <util/time.hpp>
+#include <memory/SubAllocatedBlock.hpp>
 
 #ifdef PLATFORM_WINDOWS
 #include <windows/fullscreen.hpp>
@@ -488,8 +488,6 @@ void TestRenderer<G>::pointer(PointerEvent event) {
     trackPointerEvent(event);
 }
 
-#include <3d/BindingSolver.hpp>
-
 template<Gapi G>
 void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     look.move(dx, dy);
@@ -521,7 +519,7 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
     // inv.inverse.debug();
     // inv.inverseTranspose.debug();*/
 
-    BindingSolver solver;
+    /*BindingSolver solver;
     for (int_t i = 0; i < 1600; i++) {
         solver.addUsage(std::array<uint32_t, 4> {
             solver.addResource(),
@@ -529,7 +527,7 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
             solver.addResource(),
             solver.addResource() });
     }
-    /*uint32_t r0 = solver.addResource();
+    uint32_t r0 = solver.addResource();
     uint32_t r1 = solver.addResource();
     uint32_t r2 = solver.addResource();
     uint32_t r3 = solver.addResource();
@@ -552,11 +550,11 @@ void TestRenderer<G>::rawPointer(int_t dx, int_t dy) {
         r1,
         r3,
         solver.addResource(),
-        solver.addResource() });*/
+        solver.addResource() });
     {
         LogTimer timer;
         while (solver.iterate()) { }
-    }
+    }*/
     // solver.debug();
     // solver.A.debug();
     /*VDUMP(solver.iterations);

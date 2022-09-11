@@ -122,6 +122,7 @@ inline namespace code {
         constexpr Size operator-(const Size& in) { return Size::fromStorage(-in.storage); }
         constexpr Size operator*(float l, const Size& r) { return Size::fromStorage(l * r.storage); }
         constexpr Size operator*(const Size& l, float r) { return Size::fromStorage(l.storage * r); }
+        constexpr Size operator/(const Size& l, float r) { return Size::fromStorage(l.storage / r); }
     }
 
     inline namespace literals {
@@ -140,9 +141,9 @@ struct Range {
     constexpr Range(const Size& low, const Size& high)
         : m_low(low), m_high(high) { }
     constexpr Size& low() { return m_low; }
-    constexpr const Size low() const { return m_low; }
+    constexpr const Size& low() const { return m_low; }
     constexpr Size& high() { return m_high; }
-    constexpr const Size high() const { return m_high; }
+    constexpr const Size& high() const { return m_high; }
 };
 constexpr Range operator-(const Range& in) {
     return { -in.low(), -in.high() };
@@ -158,19 +159,19 @@ struct Rect {
     constexpr Rect(const Range& x, const Range& y)
         : m_x(x), m_y(y) { }
     constexpr Range& x() { return m_x; }
-    constexpr const Range x() const { return m_x; }
+    constexpr const Range& x() const { return m_x; }
     constexpr Range& y() { return m_y; }
-    constexpr const Range y() const { return m_y; }
+    constexpr const Range& y() const { return m_y; }
     constexpr Range& axis(Axis axis) { return axis == Axis::X ? x() : y(); }
-    constexpr const Range axis(Axis axis) const { return axis == Axis::X ? x() : y(); }
+    constexpr const Range& axis(Axis axis) const { return axis == Axis::X ? x() : y(); }
     constexpr Size& left() { return x().low(); }
-    constexpr const Size left() const { return x().low(); }
+    constexpr const Size& left() const { return x().low(); }
     constexpr Size& right() { return x().high(); }
-    constexpr const Size right() const { return x().high(); }
+    constexpr const Size& right() const { return x().high(); }
     constexpr Size& bottom() { return y().low(); }
-    constexpr const Size bottom() const { return y().low(); }
+    constexpr const Size& bottom() const { return y().low(); }
     constexpr Size& top() { return y().high(); }
-    constexpr const Size top() const { return y().high(); }
+    constexpr const Size& top() const { return y().high(); }
 };
 constexpr Rect operator-(const Rect& in) {
     return { -in.x(), -in.y() };

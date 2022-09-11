@@ -115,16 +115,12 @@ struct UiElement {
     UiElement(Layout& lay)
         : m_layout(lay) { }
     Layout& layout() { return m_layout; }
-    virtual void setStyle(StyleView) { }
+    virtual void setStyle(BigStyle) { }
     virtual ~UiElement() { }
 };
 
-struct LayoutBoxStyle : StyleKey<LayoutBoxStyle, LayoutBoxStyle> {
-    Rect padding;
-};
 struct LayoutBox : UiElement {
-    LayoutBoxStyle localValues;
-    LayoutBoxStyle baseStyle;
+    Rect padding;
     RectVar outerBox, innerBox;
     RectEqn paddingEqn;
     LayoutBox(Layout& lay)
@@ -138,12 +134,8 @@ struct LayoutBox : UiElement {
         layout().deleteVariable(outerBox);
         layout().deleteVariable(innerBox);
     }
-    void updatePaddings() { layout().updateInhom(paddingEqn, baseStyle.padding); }
-    void setStyle(const LayoutBoxStyle& style) {
-        baseStyle = style;
-        updatePaddings();
-    }
-    void setStyle(StyleView style) override { setStyle(style.get<LayoutBoxStyle>()); }
+    void updatePaddings() { layout().updateInhom(paddingEqn, padding); }
+    void setStyle(BigStyle) override { }
 };
 
 }
