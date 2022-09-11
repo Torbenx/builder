@@ -14,10 +14,10 @@ namespace {
 }
 
 void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, float payloadAddF) {
-    __m256 shift = _mm256_set1_ps(shiftF);
-    __m256i unitMask = _mm256_set1_epi32(unitU32);
-    __m256i payloadMask = _mm256_set1_epi32(payloadU32);
-    __m256i flagsMask = _mm256_set1_epi32(Size::flagsMask);
+    __m256 shift = _mm256_set1_ps(expShift);
+    __m256i payloadMask = _mm256_set1_epi32(payloadUintMask);
+    __m256i unitMask = _mm256_set1_epi32(unitUintMask);
+    __m256i flagsMask = _mm256_set1_epi32(tagMask);
     __m256 ptScaleAndShift = ptScale * shift;
     __m256 payloadAdd = _mm256_set1_ps(payloadAddF);
 

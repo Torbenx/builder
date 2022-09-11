@@ -43,10 +43,12 @@ struct MakeSelfReference {
 template<typename T>
 struct Ref;
 
+template<typename T>
+struct RefLeaf;
+
 struct RefPtrBase {
     uintptr_t data = 0;
     bool isRef() const { return data & 1; }
-    bool isValue() const { return !isRef(); }
     void set(void* value) {
         data = (uintptr_t)value;
     }
@@ -61,22 +63,16 @@ struct RefPtrBase {
     }
 };
 template<typename T>
-struct Ref<T*> : RefPtrBase {
-    Ref() { }
-    Ref(const MakeSelfReference& selfRef) { set(selfRef(this)); }
+struct RefLeaf<T*> : RefPtrBase {
     T* value() const { return (T*)RefPtrBase::value(); }
-    T* resolve(const Resolver&) const;
 };
 
 template<>
-struct Ref<Size> {
+struct RefLeaf<Size> {
     Size data;
-    static_assert(Size::payloadU32 == (uint32_t)1 << 30);
-    Ref() { }
-    Ref(const MakeSelfReference& selfRef) { set(selfRef(this)); }
-    Ref(Size value) { set(value); }
+    static constexpr uint32_t payloadMask = Size::payloadUintMask;
+    static_assert(payloadMask == (uint32_t)1 << 30);
     bool isRef() const { return data.payloadBit(); }
-    bool isValue() const { return !isRef(); }
     void set(Size size) {
         VERIFY(Ui, !size.payloadBit());
         data = size;
@@ -85,27 +81,74 @@ struct Ref<Size> {
         return data.withoutPayload();
     }
     void set(RefInfo info) {
-        data = Size::fromUint(info.compact() | Size::payloadU32);
+        data = Size::fromUint(info.compact() | payloadMask);
     }
     RefInfo ref() const {
-        return RefInfo::fromCompact(data.uint() & ~Size::payloadU32);
+        return RefInfo::fromCompact(data.uint() & ~payloadMask);
     }
-    Size resolve(const Resolver&) const;
+};
+
+template<>
+struct RefLeaf<float> {
+    static constexpr uint32_t flagBit = (uint32_t)1 << TagFloat<1>::tagPos;
+    static_assert(flagBit == (uint32_t)1 << 30);
+    TagFloat<1> data;
+    bool isRef() const { return data.tag(); }
+    void set(float value) { data = { value, 0 }; }
+    void set(RefInfo info) { data = TagFloat<1>::fromUint(info.compact() | flagBit); }
+    float value() const { return data.value(); }
+    RefInfo ref() const { return RefInfo::fromCompact(data.uint() & ~flagBit); }
 };
 
 template<typename T>
-requires(sizeof(T) == 1) struct Ref<T> {
+struct SmallRefStorage32;
+template<typename T>
+requires(sizeof(T) == 1) struct SmallRefStorage32<T> {
+    static uint32_t pack(T value) { return std::bit_cast<uint8_t>(value); };
+    static T unpack(uint32_t storage) { return std::bit_cast<T>((uint8_t)storage); }
+};
+template<typename T>
+requires(sizeof(T) == 2) struct SmallRefStorage32<T> {
+    static uint32_t pack(T value) { return std::bit_cast<uint16_t>(value); };
+    static T unpack(uint32_t storage) { return std::bit_cast<T>((uint16_t)storage); }
+};
+template<typename T>
+requires(sizeof(T) == 3) struct SmallRefStorage32<T> {
+    struct Storage {
+        T value;
+        char padding = 0;
+    };
+    static uint32_t pack(T value) { return std::bit_cast<uint32_t>(Storage { value }); };
+    static T unpack(uint32_t storage) { return std::bit_cast<Storage>(storage).value; }
+};
+template<typename T>
+requires(sizeof(T) == 4 && (std::is_integral_v<T> || std::is_enum_v<T>)) struct SmallRefStorage32<T> {
+    struct Storage {
+        T value : 31;
+    };
+    static uint32_t pack(T value) { return std::bit_cast<uint32_t>(Storage { value }); }
+    static T unpack(uint32_t storage) { return std::bit_cast<Storage>(storage).value; }
+};
+
+template<typename T>
+requires requires { typename SmallRefStorage32<T>; }
+struct RefLeaf<T> {
     static constexpr uint32_t flagBit = (uint32_t)1 << 31;
     uint32_t data = 0;
-    Ref() { }
-    Ref(const MakeSelfReference& selfRef) { set(selfRef(this)); }
-    Ref(T value) { set(value); }
     bool isRef() const { return data & flagBit; }
-    bool isValue() const { return !isRef(); }
-    void set(T value) { data = std::bit_cast<uint8_t>(value); }
+    void set(T value) { data = SmallRefStorage32<T>::pack(value) & ~flagBit; }
     void set(RefInfo info) { data = info.compact() | flagBit; }
-    T value() const { return std::bit_cast<T>((uint8_t)data); }
+    T value() const { return SmallRefStorage32<T>::unpack(data); }
     RefInfo ref() const { return RefInfo::fromCompact(data & ~flagBit); }
+};
+
+template<typename T>
+requires requires { typename RefLeaf<T>; }
+struct Ref<T> : RefLeaf<T> {
+    Ref() { }
+    Ref(const MakeSelfReference& selfRef) { this->set(selfRef(this)); }
+    Ref(T value) { this->set(value); }
+    bool isValue() const { return !this->isRef(); }
     T resolve(const Resolver&) const;
 };
 

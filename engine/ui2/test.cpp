@@ -1,7 +1,7 @@
 #include "GL/Shader.hpp"
 #include "Layout.hpp"
-#include "StyleKey.hpp"
 #include "SmallStyle.hpp"
+#include "StyleKey.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
@@ -9,6 +9,7 @@
 #include "platform/windows/glcore.hpp"
 #include <memory>
 #include <sstream>
+
 
 namespace {
 
@@ -61,6 +62,17 @@ namespace ui {
 struct Padding : StyleKey<Padding, Rect> { };
 struct TextSize : StyleKey<TextSize, Size> { };
 struct BoldText : StyleKey<BoldText, bool> { };
+struct Factor : StyleKey<Factor, float> { };
+struct Count : StyleKey<Count, int> { };
+enum class Mode {
+    Forward,
+    Backward,
+};
+struct ReadMode : StyleKey<ReadMode, Mode> { };
+struct Foo {
+    char buf[3] = { 1, 2, 3 };
+};
+struct FooKey : StyleKey<FooKey, Foo> { };
 using TextBoxStyle = SmallStyle<Padding, TextSize, BoldText>;
 struct NormalTextBox : StyleKey<NormalTextBox, TextBoxStyle> { };
 
@@ -69,9 +81,18 @@ void test() {
     auto style = Ref<BigStyle>::allocate();
     Ref<TextBoxStyle>& textBoxStyle = style.get<NormalTextBox>();
     textBoxStyle.get<TextSize>() = ref<TextSize>();
-    style.get<TextSize>() = 10_pt;
+    style.get<TextSize>() = 10_px;
+    VDUMP(style.get<TextSize>().value().value());
     style.get<BoldText>() = true;
-    //VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
+    VDUMP(style.get<BoldText>().value());
+    style.get<Factor>() = 3.0f;
+    VDUMP(style.get<Factor>().value());
+    style.get<Count>() = 5;
+    VDUMP(style.get<Count>().value());
+    style.get<ReadMode>() = Mode::Backward;
+    VDUMP(style.get<ReadMode>().value() == Mode::Backward);
+    style.get<FooKey>() = Foo {};
+    // VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
 
     sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
