@@ -13,19 +13,27 @@ namespace {
     }
 }
 
-void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale) {
+void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, float payloadAddF) {
     __m256 shift = _mm256_set1_ps(shiftF);
-    __m256i mask = _mm256_set1_epi32(unitU32);
+    __m256i unitMask = _mm256_set1_epi32(unitU32);
+    __m256i payloadMask = _mm256_set1_epi32(payloadU32);
+    __m256i flagsMask = _mm256_set1_epi32(Size::flagsMask);
     __m256 ptScaleAndShift = ptScale * shift;
+    __m256 payloadAdd = _mm256_set1_ps(payloadAddF);
 
     int_t i = 0;
     int_t sizeFloor = (size_t)size & ~(size_t)7;
     for (; i < sizeFloor; i += 8) {
         __m256i packed = _mm256_loadu_si256((const __m256i*)(in + i));
-        __m256 packedCleared = _mm256_castsi256_ps(_mm256_andnot_si256(mask, packed));
-        __m256i sel = _mm256_cmpeq_epi32(_mm256_and_si256(packed, mask), _mm256_setzero_si256());
-        __m256 mul = _mm256_blendv_ps(ptScaleAndShift, shift, _mm256_castsi256_ps(sel));
-        __m256 value = packedCleared * mul;
+        __m256 packedCleared = _mm256_castsi256_ps(_mm256_andnot_si256(flagsMask, packed));
+
+        __m256i unitSel = _mm256_cmpeq_epi32(_mm256_and_si256(packed, unitMask), _mm256_setzero_si256());
+        __m256 mul = _mm256_blendv_ps(ptScaleAndShift, shift, _mm256_castsi256_ps(unitSel));
+
+        __m256i payloadSel = _mm256_cmpeq_epi32(_mm256_and_si256(packed, payloadMask), _mm256_setzero_si256());
+        __m256 add = _mm256_blendv_ps(payloadAdd, _mm256_setzero_ps(), _mm256_castsi256_ps(payloadSel));
+
+        __m256 value = packedCleared * mul + add;
         _mm256_storeu_ps(out + i, value);
     }
     asPixelsBase(in + i, out + i, size - i, ptScale);

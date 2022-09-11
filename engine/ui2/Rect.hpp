@@ -10,6 +10,7 @@ enum class Axis {
     X = Default,
     Y,
 };
+
 struct Range {
     Size m_low, m_high;
     constexpr Range() { }

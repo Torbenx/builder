@@ -104,7 +104,7 @@ void Layout::doLayout(int_t width, int_t height, float ptScale) {
     VDUMP(height);
 
     updateInhom(screenEqn, { { 0_px, width * 1_px }, { 0_px, height * 1_px } });
-    Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale);
+    Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale, 1.0f);
 
     sparse::LUDecomposition lu;
     lu.u = matrix.copy();
