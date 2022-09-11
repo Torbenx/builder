@@ -1,5 +1,7 @@
 #include "GL/Shader.hpp"
 #include "Layout.hpp"
+#include "StyleKey.hpp"
+#include "SmallStyle.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
@@ -56,13 +58,20 @@ struct UiTest : plt::WindowStateCallback {
 
 namespace ui {
 
+struct Padding : StyleKey<Padding, Rect> { };
+struct TextSize : StyleKey<TextSize, Size> { };
+struct BoldText : StyleKey<BoldText, bool> { };
+using TextBoxStyle = SmallStyle<Padding, TextSize, BoldText>;
+struct NormalTextBox : StyleKey<NormalTextBox, TextBoxStyle> { };
+
 void test() {
 
-    auto style = StyleRef<BigStyle>::allocate();
-    StyleRef<TextBoxStyle>& textBoxStyle = get<NormalTextBox>(style);
-    get<TextSize>(textBoxStyle) = ref<TextSize>();
-    get<TextSize>(style) = 10_pt;
-    VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
+    auto style = Ref<BigStyle>::allocate();
+    Ref<TextBoxStyle>& textBoxStyle = style.get<NormalTextBox>();
+    textBoxStyle.get<TextSize>() = ref<TextSize>();
+    style.get<TextSize>() = 10_pt;
+    style.get<BoldText>() = true;
+    //VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
 
     sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());

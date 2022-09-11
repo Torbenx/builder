@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Style.hpp"
-#include "Size.hpp"
+#include "Rect.hpp"
+#include "BigStyle.hpp"
 #include "containers/IdAllocator.hpp"
 #include "math/sparse/Vector.hpp"
 #include "util/types.hpp"

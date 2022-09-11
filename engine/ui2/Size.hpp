@@ -13,11 +13,6 @@ struct Ui {
 
 namespace ui {
 
-enum class Axis {
-    Default = 0,
-    X = Default,
-    Y,
-};
 enum class SizeUnit {
     Pixels,
     Points,
@@ -131,50 +126,6 @@ inline namespace code {
         constexpr Size operator"" _px(long double value) { return { (float)value, SizeUnit::Pixels }; }
         constexpr Size operator"" _pt(long double value) { return { (float)value, SizeUnit::Points }; }
     }
-}
-
-struct Range {
-    Size m_low, m_high;
-    constexpr Range() { }
-    constexpr Range(const Size& value)
-        : Range(value, value) { }
-    constexpr Range(const Size& low, const Size& high)
-        : m_low(low), m_high(high) { }
-    constexpr Size& low() { return m_low; }
-    constexpr const Size& low() const { return m_low; }
-    constexpr Size& high() { return m_high; }
-    constexpr const Size& high() const { return m_high; }
-};
-constexpr Range operator-(const Range& in) {
-    return { -in.low(), -in.high() };
-}
-
-struct Rect {
-    Range m_x, m_y;
-    constexpr Rect() { }
-    constexpr Rect(const Size& value)
-        : Rect(Range(value)) { }
-    constexpr Rect(const Range& range)
-        : Rect(range, range) { }
-    constexpr Rect(const Range& x, const Range& y)
-        : m_x(x), m_y(y) { }
-    constexpr Range& x() { return m_x; }
-    constexpr const Range& x() const { return m_x; }
-    constexpr Range& y() { return m_y; }
-    constexpr const Range& y() const { return m_y; }
-    constexpr Range& axis(Axis axis) { return axis == Axis::X ? x() : y(); }
-    constexpr const Range& axis(Axis axis) const { return axis == Axis::X ? x() : y(); }
-    constexpr Size& left() { return x().low(); }
-    constexpr const Size& left() const { return x().low(); }
-    constexpr Size& right() { return x().high(); }
-    constexpr const Size& right() const { return x().high(); }
-    constexpr Size& bottom() { return y().low(); }
-    constexpr const Size& bottom() const { return y().low(); }
-    constexpr Size& top() { return y().high(); }
-    constexpr const Size& top() const { return y().high(); }
-};
-constexpr Rect operator-(const Rect& in) {
-    return { -in.x(), -in.y() };
 }
 
 }

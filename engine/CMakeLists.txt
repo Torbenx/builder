@@ -118,6 +118,7 @@ add_executable(engine_test
     "ui2/Layout.cpp"
     "ui2/Size.cpp"
     "ui2/test.cpp"
+    "ui2/BigStyle.cpp"
     "GL/Shader.cpp"
 )
 target_compile_options(engine_test PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
