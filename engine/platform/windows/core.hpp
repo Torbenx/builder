@@ -42,6 +42,6 @@ inline void win_verify(bool cond, const char* condStr, const char* file, int lin
         log<Tag::Windows>("VERIFY failed {}:{}: {}(): {}, {}({}) '{}'", file, line, func, condStr, errorName(lastError), lastError, errorString(lastError));
     }
 }
-#define WIN_VERIFY(cond) win_verify(cond, #cond, __FILE__, __LINE__, __func__)
+#define WIN_VERIFY(cond) plt::windows::win_verify(cond, #cond, __FILE__, __LINE__, __func__)
 
 }

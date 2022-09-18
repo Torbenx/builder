@@ -1,11 +1,13 @@
 #pragma once
 
-#include "Rect.hpp"
 #include "BigStyle.hpp"
+#include "Rect.hpp"
 #include "containers/IdAllocator.hpp"
 #include "math/sparse/Vector.hpp"
 #include "util/types.hpp"
+#include <memory>
 #include <vector>
+
 
 namespace ui {
 
@@ -56,14 +58,69 @@ struct RectEqn {
 };
 
 struct TextureView {
+    struct LineView {
+        uint32_t* data = nullptr;
+        constexpr uint32_t& operator[](int_t i) const { return data[i]; }
+    };
     uint32_t* data = nullptr;
     int_t stride = 0;
-    int_t width = 0;
-    int_t height = 0;
+    constexpr LineView operator[](int_t j) const { return { data + j * stride }; }
+    constexpr TextureView shift(const IntVec& shift) const {
+        return { data + shift.y() * stride + shift.x(), stride };
+    }
 };
-struct TextureCallback {
-    virtual void onTextureChange(TextureView) = 0;
+constexpr TextureView operator+(const TextureView& view, const IntVec& shift) {
+    return view.shift(shift);
+}
+constexpr TextureView operator+(const IntVec& shift, const TextureView& view) {
+    return view.shift(shift);
+}
+constexpr TextureView operator-(const TextureView& view, const IntVec& shift) {
+    return view.shift(-shift);
+}
+struct Texture {
+    uint32_t* data = nullptr;
+    IntVec dimensions;
+    constexpr Texture() = default;
+    constexpr Texture(IntVec dimensions)
+        : dimensions(dimensions) {
+        std::allocator<uint32_t> alloc;
+        data = alloc.allocate(dimensions.x() * dimensions.y());
+    }
+    constexpr Texture(Texture&& other)
+        : data(other.data), dimensions(other.dimensions) {
+        other.data = nullptr;
+        other.dimensions = {};
+    }
+    constexpr Texture& operator=(Texture&& other) {
+        maybeDeallocate();
+        data = other.data;
+        dimensions = other.dimensions;
+        other.data = nullptr;
+        other.dimensions = {};
+        return *this;
+    }
+    constexpr ~Texture() {
+        maybeDeallocate();
+    }
+    constexpr operator TextureView() const {
+        return { data, dimensions.x() };
+    }
+    constexpr TextureView view() const { return *this; }
+private:
+    void maybeDeallocate() {
+        if (data) {
+            std::allocator<uint32_t> alloc;
+            alloc.deallocate(data, dimensions.x() * dimensions.y());
+        }
+    }
 };
+
+struct RendererBase {
+    uint32_t id = 0;
+};
+template<typename T>
+concept Renderer = std::derived_from<T, RendererBase> && requires(T& render, TextureView view, IntVec dimensions) { render.updateTexture(view, dimensions); };
 
 class Layout {
 public:
@@ -87,17 +144,39 @@ public:
     void deleteVariable(RangeVar);
     void deleteVariable(RectVar);
 
-    void doLayout(int_t width, int_t height, float ptScale);
+    void doLayout(IntVec windowSize, float ptScale);
+    void doDraw();
+    IntRect intRect(RectVar var) const { return intRect(var, varValues.data()); }
 
     RectVar screen() const { return screenBox; }
     void debug(RectVar box) const {
         log("Box: {}, {} - {}, {}", varValues[box.left().id], varValues[box.bottom().id], varValues[box.right().id], varValues[box.top().id]);
     }
 
-    void requestTexture(RectVar, TextureCallback*);
-    void cancelTexture(TextureCallback*);
+    template<Renderer T>
+    void draw(T& renderer, RectVar rect) {
+        RendererHandle handle;
+        handle.base = (RendererBase*)&renderer;
+        handle.updatePtr = [](RendererBase* base, TextureView view, IntVec dimensions) {
+            static_cast<T*>(base)->updateTexture(view, dimensions);
+        };
+        draw(handle, rect);
+    }
+    void cancelDraw(RendererBase&);
 
 private:
+    struct RendererHandle {
+        RendererBase* base = nullptr;
+        void (*updatePtr)(RendererBase*, TextureView, IntVec) = nullptr;
+        RendererBase* operator->() const { return base; }
+        void update(TextureView view, IntVec dimensions) const { updatePtr(base, view, dimensions); }
+    };
+    struct Render {
+        RendererHandle handle;
+        RectVar rect;
+        IntVec allocPosition = {};
+    };
+
     IdAllocator<uint32_t> eqnIdAlloc;
     uint32_t nextVarId = 4;
     std::vector<Size> inhomTyped;
@@ -106,9 +185,27 @@ private:
     sparse::Matrix matrix;
     RectVar screenBox;
     RectEqn screenEqn;
+    std::vector<Render> renders { 1 };
 
     uint32_t allocateVariableIds(int_t count);
     Equation makeEquation(std::initializer_list<sparse::Entry>, Size inhom = {});
+    void draw(RendererHandle, RectVar);
+    static IntRect intRect(RectVar var, const float* varValues) {
+        return {
+            IntRange { (int)varValues[var.left().id], (int)varValues[var.right().id] },
+            IntRange { (int)varValues[var.bottom().id], (int)varValues[var.top().id] }
+        };
+    }
+
+    Texture atlas;
+    const int atlasPadding = 16;
+    int nextAtlasAllocationHeight = 0;
+    IntVec allocateTexture(IntVec dimensions);
+    void deallocateTexture(IntRect region);
+
+    // FIXME: should not be public
+public:
+    Texture framebuffer;
 };
 struct UiElement {
     Layout& m_layout;

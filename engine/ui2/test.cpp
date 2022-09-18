@@ -1,4 +1,3 @@
-#include "GL/Shader.hpp"
 #include "Layout.hpp"
 #include "SmallStyle.hpp"
 #include "StyleKey.hpp"
@@ -6,16 +5,14 @@
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
 #include "platform/windows/WindowImpl.hpp"
+#include "platform/windows/core.hpp"
 #include "platform/windows/glcore.hpp"
 #include <memory>
 #include <sstream>
 
-
 namespace {
 
 struct UiTest : plt::WindowStateCallback {
-    Shader shader;
-    Shader::LocationHandle posAttrib;
 
     ui::Layout layout;
     ui::LayoutBox box1;
@@ -27,31 +24,68 @@ struct UiTest : plt::WindowStateCallback {
     }
 
     void onInitialize(plt::Window*) override {
-        ShaderBuilder builder;
-        posAttrib = builder.addAttrib("vec4", "a_position");
-        builder.vMain << "gl_Position = a_position;\n";
-        builder.fMain << Shader::FRAGMENT_COLOR << " = vec4(1.0, 1.0, 1.0, 1.0);\n";
-        shader.initialize(builder);
     }
 
+    struct TestRenderer : ui::RendererBase {
+        void updateTexture(ui::TextureView view, ui::IntVec dim) {
+            VDUMP((void*)view.data);
+            VDUMP(dim.x());
+            VDUMP(dim.y());
+            for (int_t j = 0; j < dim.y(); j++) {
+                for (int_t i = 0; i < dim.x(); i++) {
+                    view.data[i + j * view.stride] = 0xff0000ff;
+                }
+            }
+        }
+    };
     void onVisible(plt::Window* window) override {
         using namespace ui::code;
         box1.padding.y() = 100_px;
         box1.padding.x() = 20_pt;
         box1.updatePaddings();
-        layout.doLayout(window->width(), window->height(), 0.5f);
+
+        TestRenderer renderer;
+        layout.draw(renderer, box1.innerBox);
+
+        layout.doLayout({ (int)window->width(), (int)window->height() }, 0.5f);
         layout.debug(layout.screen());
         layout.debug(box1.outerBox);
         layout.debug(box1.innerBox);
+
+        
+        /*PAINTSTRUCT paintInfo;
+        HDC paint = BeginPaint(impl->hwnd(), &paintInfo);
+        WIN_VERIFY(paint != nullptr);
+
+        
+        //TextOut(paint, 0, 0, "Hello, Windows!", 15);
+
+        bool ret = EndPaint(impl->hwnd(), &paintInfo);
+        WIN_VERIFY(ret);*/
     }
 
-    void draw() {
-        glClearColor(0, 0, 0, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        shader.use();
-        shader.attribPointer(posAttrib, VertexBuffer::wrap<Vec2>({ { -0.5f, -0.5f }, { 0.5f, -0.5f }, { 0.5f, 0.5f }, { -0.5f, 0.5f } }));
-        glDrawArrays(GL_QUADS, 0, 4);
+    void draw(plt::Window* window) {
+        layout.doDraw();
+        auto* impl = (plt::windows::WindowImpl*)window;
+        BITMAPINFO bitmapInfo {
+            .bmiHeader = {
+                .biSize = sizeof(BITMAPINFOHEADER),
+                .biWidth = (int)window->width(),
+                .biHeight = (int)window->height(),
+                .biPlanes = 1,
+                .biBitCount = 32,
+                .biCompression = BI_RGB,
+                .biSizeImage = 0,
+                .biXPelsPerMeter = 0,
+                .biYPelsPerMeter = 0,
+                .biClrUsed = 0,
+                .biClrImportant = 0,
+            },
+            .bmiColors = {},
+        };
+        auto dc = impl->deviceContext();
+        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, window->width(), window->height(), 0, 0, 0, window->height(), layout.framebuffer.data, &bitmapInfo, DIB_RGB_COLORS);
+        WIN_VERIFY(linesProcessed != 0);
     }
 };
 
@@ -110,13 +144,12 @@ void test() {
     UiTest callback;
     window->setStateCallback(&callback);
     window->setTitle("UiTest");
-    gl::initialize();
-    gl::attachWindow(window.get());
+    //gl::initialize();
+    //gl::attachWindow(window.get());
     window->initialize();
     while (!window->destoryed()) {
         plt::processEvents();
-        callback.draw();
-        SwapBuffers(((plt::windows::WindowImpl*)window.get())->deviceContext());
+        callback.draw(window.get());
     }
 }
 

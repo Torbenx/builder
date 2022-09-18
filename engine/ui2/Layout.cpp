@@ -99,18 +99,100 @@ void Layout::deleteVariable(RectVar) {
     VERIFY_NOT_REACHED(Ui);
 }
 
-void Layout::doLayout(int_t width, int_t height, float ptScale) {
-    VDUMP(width);
-    VDUMP(height);
+void Layout::doLayout(IntVec windowSize, float ptScale) {
+    VDUMP(windowSize.x());
+    VDUMP(windowSize.y());
+    framebuffer = Texture(windowSize);
 
-    updateInhom(screenEqn, { { 0_px, width * 1_px }, { 0_px, height * 1_px } });
+    updateInhom(screenEqn, { { 0_px, windowSize.x() * 1_px }, { 0_px, windowSize.y() * 1_px } });
     Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale, 1.0f);
 
     sparse::LUDecomposition lu;
     lu.u = matrix.copy();
     int_t varCount = nextVarId;
     lu.decompose(varCount);
-    lu.inverseTranspose(inhomValues.data(), varValues.data());
+    std::vector<float> newVarValues(varCount);
+    lu.inverseTranspose(inhomValues.data(), newVarValues.data());
+
+    std::vector<int_t> textureUpdates;
+    for (int_t i = 1; i < (int_t)renders.size(); i++) {
+        auto& render = renders[i];
+        IntRect oldRect = intRect(render.rect, varValues.data());
+        IntRect newRect = intRect(render.rect, newVarValues.data());
+        if (newRect.dimensions() == oldRect.dimensions())
+            continue;
+        if (render.allocPosition != IntVec {}) {
+            deallocateTexture({ BottomLeft(render.allocPosition), Dimensions(oldRect.dimensions()) });
+            render.allocPosition = {};
+        }
+        textureUpdates.push_back(i);
+    }
+
+    varValues = std::move(newVarValues);
+
+    for (int_t updateId : textureUpdates) {
+        auto& render = renders[updateId];
+        IntRect rect = intRect(render.rect);
+        render.allocPosition = allocateTexture(rect.dimensions());
+        render.handle.update(atlas.view() + render.allocPosition, rect.dimensions());
+    }
+}
+
+void Layout::doDraw() {
+    uint32_t background_color = 0xff'ff'ff'ff;
+    for (int_t j = 0; j < framebuffer.dimensions.y(); j++) {
+        for (int_t i = 0; i < framebuffer.dimensions.x(); i++) {
+            framebuffer.view()[j][i] = background_color >> 8;
+        }
+    }
+    for (int_t k = 1; k < (int_t)renders.size(); k++) {
+        auto& render = renders[k];
+        IntRect rect = intRect(render.rect);
+        for (int_t j = 0; j < rect.height(); j++) {
+            for (int_t i = 0; i < rect.width(); i++) {
+                (framebuffer.view() + rect.bottomLeft())[j][i] = (atlas.view() + render.allocPosition)[j][i] >> 8;
+            }
+        }
+    }
+}
+
+void Layout::draw(RendererHandle handle, RectVar rect) {
+    if (handle->id == 0) {
+        handle->id = renders.size();
+        renders.push_back({ handle, rect });
+    } else {
+        renders[handle->id].rect = rect;
+    }
+}
+
+void Layout::cancelDraw(RendererBase& ref) {
+    RendererBase* base = &ref;
+    VERIFY(Ui, base->id != 0);
+
+    Render back = renders.back();
+    renders.pop_back();
+    back.handle->id = base->id;
+    base->id = 0;
+
+    renders[back.handle->id] = back;
+}
+
+IntVec Layout::allocateTexture(IntVec dimensions) {
+    const int atlasWidth = 16384;
+    VERIFY(Ui, dimensions.x() <= atlasWidth);
+    IntVec allocPos { atlasPadding, nextAtlasAllocationHeight + atlasPadding };
+    nextAtlasAllocationHeight += atlasPadding + dimensions.y();
+    int_t neededHeight = nextAtlasAllocationHeight + atlasPadding;
+    if (neededHeight >= atlas.dimensions.y()) {
+        Texture newAtlas { { atlasWidth, (int)neededHeight } };
+        std::copy_n(atlas.data, atlas.dimensions.x() * atlas.dimensions.y(), newAtlas.data);
+        atlas = std::move(newAtlas);
+    }
+    return allocPos;
+}
+
+void Layout::deallocateTexture(IntRect) {
+    VERIFY_NOT_REACHED(Ui);
 }
 
 }
