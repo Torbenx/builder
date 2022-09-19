@@ -108,7 +108,7 @@ struct Texture {
     }
     constexpr TextureView view() const { return *this; }
 private:
-    void maybeDeallocate() {
+    constexpr void maybeDeallocate() {
         if (data) {
             std::allocator<uint32_t> alloc;
             alloc.deallocate(data, dimensions.x() * dimensions.y());
@@ -144,7 +144,8 @@ public:
     void deleteVariable(RangeVar);
     void deleteVariable(RectVar);
 
-    void doLayout(IntVec windowSize, float ptScale);
+    void resize(IntVec windowSize, float ptScale);
+    void update();
     void doDraw();
     IntRect intRect(RectVar var) const { return intRect(var, varValues.data()); }
 
@@ -202,6 +203,10 @@ private:
     int nextAtlasAllocationHeight = 0;
     IntVec allocateTexture(IntVec dimensions);
     void deallocateTexture(IntRect region);
+
+    std::vector<uint32_t> outputBlockMap;
+    int_t outputLayers = 1;
+    std::vector<IntVec> outputOffsets;
 
     // FIXME: should not be public
 public:

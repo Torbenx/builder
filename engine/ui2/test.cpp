@@ -33,7 +33,12 @@ struct UiTest : plt::WindowStateCallback {
             VDUMP(dim.y());
             for (int_t j = 0; j < dim.y(); j++) {
                 for (int_t i = 0; i < dim.x(); i++) {
-                    view.data[i + j * view.stride] = 0xff0000ff;
+                    float fracX = i / (float)(dim.x() - 1);
+                    float fracY = j / (float)(dim.y() - 1);
+                    uint32_t c1 = fracX * 255;
+                    uint32_t c2 = (1.0f - fracX) * 255;
+                    uint32_t c3 = fracY * fracY * 255;
+                    view[j][i] = 0x00'00'00'00 | (c3 << 24) | (c1 << 16) | c2;
                 }
             }
         }
@@ -47,21 +52,10 @@ struct UiTest : plt::WindowStateCallback {
         TestRenderer renderer;
         layout.draw(renderer, box1.innerBox);
 
-        layout.doLayout({ (int)window->width(), (int)window->height() }, 0.5f);
+        layout.resize({ (int)window->width(), (int)window->height() }, 0.5f);
         layout.debug(layout.screen());
         layout.debug(box1.outerBox);
         layout.debug(box1.innerBox);
-
-        
-        /*PAINTSTRUCT paintInfo;
-        HDC paint = BeginPaint(impl->hwnd(), &paintInfo);
-        WIN_VERIFY(paint != nullptr);
-
-        
-        //TextOut(paint, 0, 0, "Hello, Windows!", 15);
-
-        bool ret = EndPaint(impl->hwnd(), &paintInfo);
-        WIN_VERIFY(ret);*/
     }
 
     void draw(plt::Window* window) {

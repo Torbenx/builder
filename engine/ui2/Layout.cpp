@@ -99,7 +99,7 @@ void Layout::deleteVariable(RectVar) {
     VERIFY_NOT_REACHED(Ui);
 }
 
-void Layout::doLayout(IntVec windowSize, float ptScale) {
+void Layout::resize(IntVec windowSize, float ptScale) {
     VDUMP(windowSize.x());
     VDUMP(windowSize.y());
     framebuffer = Texture(windowSize);
@@ -107,6 +107,14 @@ void Layout::doLayout(IntVec windowSize, float ptScale) {
     updateInhom(screenEqn, { { 0_px, windowSize.x() * 1_px }, { 0_px, windowSize.y() * 1_px } });
     Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale, 1.0f);
 
+    IntVec windowBlocks = (windowSize + 15) / 16;
+    outputBlockMap.clear();
+    outputBlockMap.resize(windowBlocks.x() * windowBlocks.y());
+
+    update();
+}
+
+void Layout::update() {
     sparse::LUDecomposition lu;
     lu.u = matrix.copy();
     int_t varCount = nextVarId;
@@ -136,6 +144,49 @@ void Layout::doLayout(IntVec windowSize, float ptScale) {
         render.allocPosition = allocateTexture(rect.dimensions());
         render.handle.update(atlas.view() + render.allocPosition, rect.dimensions());
     }
+
+    outputOffsets.clear();
+    static constexpr uint32_t INVALID_BLOCK_ID = -1;
+    for (uint32_t& u : outputBlockMap)
+        u = INVALID_BLOCK_ID;
+    IntVec blockDimensions = (framebuffer.dimensions + 15) / 16;
+    for (int_t k = 1; k < (int_t)renders.size(); k++) {
+        auto& render = renders[k];
+        auto rect = intRect(render.rect);
+        IntRect blockRect {
+            BottomLeft(rect.bottomLeft() / 16),
+            TopRight(rect.topRight() / 16)
+        };
+        // log("blockRect: ({}, {}) - ({}, {})", blockRect.left(), blockRect.bottom(), blockRect.right(), blockRect.top());
+        for (int j = 0; j < blockRect.height(); j++) {
+            for (int i = 0; i < blockRect.width(); i++) {
+                IntVec block = blockRect.bottomLeft() + IntVec { i, j };
+                if (!IntRect(blockDimensions).contains(block))
+                    continue;
+                uint32_t& blockId = outputBlockMap[block.y() * blockDimensions.x() + block.x()];
+                // log("block: ({}, {}), id = {:#x}", block.x(), block.y(), blockId);
+                if (blockId == INVALID_BLOCK_ID) {
+                    blockId = outputOffsets.size() / (outputLayers + 1);
+                    VERIFY(Ui, outputOffsets.size() % (outputLayers + 1) == 0);
+                    outputOffsets.push_back(block * 16);
+                    outputOffsets.resize(outputOffsets.size() + outputLayers);
+                }
+                uint32_t blockIndex = blockId * (outputLayers + 1);
+                int_t layer = 0;
+                for (; layer < outputLayers; layer++) {
+                    if (outputOffsets[blockIndex + 1 + layer] == IntVec {})
+                        break;
+                    log("layer {} used: ({}, {})", layer, outputOffsets[blockIndex + 1 + layer].x(), outputOffsets[blockIndex + 1 + layer].y());
+                }
+                if (layer == outputLayers) {
+                    VERIFY_NOT_REACHED(Ui);
+                    continue;
+                }
+                outputOffsets[blockIndex + 1 + layer] = render.allocPosition - rect.bottomLeft() + block * 16;
+            }
+        }
+    }
+    VDUMP(outputOffsets.size());
 }
 
 void Layout::doDraw() {
@@ -145,12 +196,26 @@ void Layout::doDraw() {
             framebuffer.view()[j][i] = background_color >> 8;
         }
     }
-    for (int_t k = 1; k < (int_t)renders.size(); k++) {
-        auto& render = renders[k];
-        IntRect rect = intRect(render.rect);
-        for (int_t j = 0; j < rect.height(); j++) {
-            for (int_t i = 0; i < rect.width(); i++) {
-                (framebuffer.view() + rect.bottomLeft())[j][i] = (atlas.view() + render.allocPosition)[j][i] >> 8;
+    auto multiply = [](uint32_t in, uint32_t alpha) {
+        return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
+    };
+    int_t blockCount = outputOffsets.size() / (outputLayers + 1);
+    for (int_t k = 0; k < blockCount; k++) {
+        IntVec* block = outputOffsets.data() + k * (outputLayers + 1);
+        IntVec screenPos = block[0];
+        for (int_t j = 0; j < 16; j++) {
+            for (int_t i = 0; i < 16; i++) {
+                uint32_t color = (framebuffer.view() + screenPos)[j][i];
+                for (int_t layer = 0; layer < outputLayers; layer++) {
+                    IntVec layerPos = block[layer + 1];
+                    if (layerPos == IntVec {})
+                        break;
+                    uint32_t in = (atlas.view() + layerPos)[j][i];
+                    uint32_t alpha = in >> 24;
+                    color = multiply(in >> 8, alpha) + multiply(color, 255 - alpha);
+                    //color = in >> 8;
+                }
+                (framebuffer.view() + screenPos)[j][i] = color;
             }
         }
     }

@@ -33,6 +33,15 @@ constexpr IntVec operator-(const IntVec& l, const IntVec& r) {
 constexpr IntVec operator-(const IntVec& in) {
     return { -in.x(), -in.y() };
 }
+constexpr IntVec operator*(const IntVec& l, int r) {
+    return { l.x() * r, l.y() * r };
+}
+constexpr IntVec operator*(int l, const IntVec& r) {
+    return { l * r.x(), l * r.y() };
+}
+constexpr IntVec operator/(const IntVec& l, int r) {
+    return { l.x() / r, l.y() / r };
+}
 
 #define INT_VEC_ALIAS(name)               \
     struct name : IntVec {                \
@@ -84,13 +93,13 @@ struct IntRect {
         : m_x { tl.x(), br.x() }, m_y { br.y(), tl.y() } { }
 
     constexpr IntRect(BottomLeft bl, Dimensions dim)
-        : IntRect(bl, TopRight(bl + dim)) { }
+        : IntRect(bl, TopRight(bl + (dim - 1))) { }
     constexpr IntRect(TopRight tr, Dimensions dim)
-        : IntRect(tr, BottomLeft(tr - dim)) { }
+        : IntRect(tr, BottomLeft(tr - (dim - 1))) { }
     constexpr IntRect(BottomRight br, Dimensions dim)
-        : IntRect(br, TopLeft(br + IntVec { -dim.x(), dim.y() })) { }
+        : IntRect(br, TopLeft(br + IntVec { -(dim.x() - 1), (dim.y() - 1) })) { }
     constexpr IntRect(TopLeft tl, Dimensions dim)
-        : IntRect(tl, BottomRight(tl + IntVec { dim.x(), -dim.y() })) { }
+        : IntRect(tl, BottomRight(tl + IntVec { (dim.x() - 1), -(dim.y() - 1) })) { }
     constexpr IntRect(Dimensions dim)
         : IntRect(BottomLeft {}, dim) { }
 
@@ -115,7 +124,10 @@ struct IntRect {
     constexpr IntVec topLeft() const { return { left(), top() }; }
     constexpr IntVec topRight() const { return { right(), top() }; }
     constexpr IntVec dimensions() const { return { width(), height() }; }
-    bool operator==(const IntRect&) const = default;
+    constexpr bool contains(const IntVec& v) const {
+        return v.x() >= left() && v.x() <= right() && v.y() >= bottom() && v.y() <= top();
+    }
+    constexpr bool operator==(const IntRect&) const = default;
 };
 
 struct Range {
