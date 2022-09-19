@@ -4,7 +4,8 @@
 
 namespace ui {
 
-Layout::Layout() {
+Layout::Layout(AtlasAllocator* atlasAlloc)
+    : atlas(atlasAlloc) {
     using namespace ui::literals;
     screenBox = newRect();
     screenEqn.left() = makeEquation({ { screenBox.left().id, 1.0f } });
@@ -102,7 +103,7 @@ void Layout::deleteVariable(RectVar) {
 void Layout::resize(IntVec windowSize, float ptScale) {
     VDUMP(windowSize.x());
     VDUMP(windowSize.y());
-    framebuffer = Texture(windowSize);
+    screenDimensions = windowSize;
 
     updateInhom(screenEqn, { { 0_px, windowSize.x() * 1_px }, { 0_px, windowSize.y() * 1_px } });
     Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale, 1.0f);
@@ -149,7 +150,7 @@ void Layout::update() {
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
     for (uint32_t& u : outputBlockMap)
         u = INVALID_BLOCK_ID;
-    IntVec blockDimensions = (framebuffer.dimensions + 15) / 16;
+    IntVec blockDimensions = (screenDimensions + 15) / 16;
     for (int_t k = 1; k < (int_t)renders.size(); k++) {
         auto& render = renders[k];
         auto rect = intRect(render.rect);
@@ -189,38 +190,6 @@ void Layout::update() {
     VDUMP(outputOffsets.size());
 }
 
-void Layout::doDraw() {
-    uint32_t background_color = 0xff'ff'ff'ff;
-    for (int_t j = 0; j < framebuffer.dimensions.y(); j++) {
-        for (int_t i = 0; i < framebuffer.dimensions.x(); i++) {
-            framebuffer.view()[j][i] = background_color >> 8;
-        }
-    }
-    auto multiply = [](uint32_t in, uint32_t alpha) {
-        return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
-    };
-    int_t blockCount = outputOffsets.size() / (outputLayers + 1);
-    for (int_t k = 0; k < blockCount; k++) {
-        IntVec* block = outputOffsets.data() + k * (outputLayers + 1);
-        IntVec screenPos = block[0];
-        for (int_t j = 0; j < 16; j++) {
-            for (int_t i = 0; i < 16; i++) {
-                uint32_t color = (framebuffer.view() + screenPos)[j][i];
-                for (int_t layer = 0; layer < outputLayers; layer++) {
-                    IntVec layerPos = block[layer + 1];
-                    if (layerPos == IntVec {})
-                        break;
-                    uint32_t in = (atlas.view() + layerPos)[j][i];
-                    uint32_t alpha = in >> 24;
-                    color = multiply(in >> 8, alpha) + multiply(color, 255 - alpha);
-                    //color = in >> 8;
-                }
-                (framebuffer.view() + screenPos)[j][i] = color;
-            }
-        }
-    }
-}
-
 void Layout::draw(RendererHandle handle, RectVar rect) {
     if (handle->id == 0) {
         handle->id = renders.size();
@@ -243,13 +212,13 @@ void Layout::cancelDraw(RendererBase& ref) {
 }
 
 IntVec Layout::allocateTexture(IntVec dimensions) {
-    const int atlasWidth = 16384;
-    VERIFY(Ui, dimensions.x() <= atlasWidth);
+    VERIFY(Ui, dimensions.x() <= atlas.dimensions.x());
     IntVec allocPos { atlasPadding, nextAtlasAllocationHeight + atlasPadding };
     nextAtlasAllocationHeight += atlasPadding + dimensions.y();
     int_t neededHeight = nextAtlasAllocationHeight + atlasPadding;
     if (neededHeight >= atlas.dimensions.y()) {
-        Texture newAtlas { { atlasWidth, (int)neededHeight } };
+        AtlasHelper newAtlas = atlas.allocateNext();
+        VERIFY(Ui, newAtlas.dimensions.x() == atlas.dimensions.x());
         std::copy_n(atlas.data, atlas.dimensions.x() * atlas.dimensions.y(), newAtlas.data);
         atlas = std::move(newAtlas);
     }

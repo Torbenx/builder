@@ -12,14 +12,33 @@
 
 namespace {
 
+struct BasicAtlasAllocator : ui::AtlasAllocator {
+    ui::TextureHandle allocateAtlas(ui::IntVec size) override {
+        if (size.x() == 0)
+            size.x() = 16384;
+        if (size.y() == 0)
+            size.y() = 2048;
+        else
+            size.y() = size.y() * 2;
+        uint32_t* data = std::allocator<uint32_t>().allocate(size.x() * size.y());
+        return { data, size };
+    }
+    void deallocateAtlas(ui::TextureHandle texture) override {
+        std::allocator<uint32_t>().deallocate(texture.data, texture.dimensions.x() * texture.dimensions.y());
+    }
+};
+
 struct UiTest : plt::WindowStateCallback {
 
+    BasicAtlasAllocator atlasAlloc;
     ui::Layout layout;
     ui::LayoutBox box1;
     ui::RectEqn box1Eqn;
+    std::unique_ptr<uint32_t[]> framebuffer;
+    ui::IntVec frameSize;
 
     UiTest()
-        : box1(layout) {
+        : layout(&atlasAlloc), box1(layout) {
         box1Eqn = layout.align(box1.outerBox, layout.screen());
     }
 
@@ -38,34 +57,69 @@ struct UiTest : plt::WindowStateCallback {
                     uint32_t c1 = fracX * 255;
                     uint32_t c2 = (1.0f - fracX) * 255;
                     uint32_t c3 = fracY * fracY * 255;
-                    view[j][i] = 0x00'00'00'00 | (c3 << 24) | (c1 << 16) | c2;
+                    view[j][i] = 0xff'00'00'00 | (c3 << 24) | (c1 << 16) | c2;
                 }
             }
         }
     };
     void onVisible(plt::Window* window) override {
         using namespace ui::code;
-        box1.padding.y() = 100_px;
-        box1.padding.x() = 20_pt;
+        box1.padding.y() = 10_px;
+        box1.padding.x() = 10_px;
         box1.updatePaddings();
 
         TestRenderer renderer;
         layout.draw(renderer, box1.innerBox);
 
-        layout.resize({ (int)window->width(), (int)window->height() }, 0.5f);
+        ui::IntVec windowSize { (int)window->width(), (int)window->height() };
+        layout.resize(windowSize, 0.5f);
         layout.debug(layout.screen());
         layout.debug(box1.outerBox);
         layout.debug(box1.innerBox);
+
+        ui::IntVec windowBlockSize = (windowSize + 15) / 16;
+        frameSize = windowBlockSize * 16;
+        framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
     }
 
     void draw(plt::Window* window) {
-        layout.doDraw();
+        ui::TextureView frameView { framebuffer.get(), (window->width() + 15) / 16 * 16 };
+        uint32_t background_color = 0xff'ff'ff'ff;
+        for (int_t j = 0; j < window->height(); j++) {
+            for (int_t i = 0; i < window->width(); i++) {
+                frameView[j][i] = background_color >> 8;
+            }
+        }
+        auto multiply = [](uint32_t in, uint32_t alpha) {
+            return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
+        };
+        int_t blockCount = layout.outputOffsets.size() / (layout.outputLayers + 1);
+        for (int_t k = 0; k < blockCount; k++) {
+            ui::IntVec* block = layout.outputOffsets.data() + k * (layout.outputLayers + 1);
+            ui::IntVec screenPos = block[0];
+            for (int_t j = 0; j < 16; j++) {
+                for (int_t i = 0; i < 16; i++) {
+                    uint32_t color = (frameView + screenPos)[j][i];
+                    for (int_t layer = 0; layer < layout.outputLayers; layer++) {
+                        ui::IntVec layerPos = block[layer + 1];
+                        if (layerPos == ui::IntVec {})
+                            break;
+                        uint32_t in = (layout.atlasView() + layerPos)[j][i];
+                        uint32_t alpha = in >> 24;
+                        color = multiply(in >> 8, alpha) + multiply(color, 255 - alpha);
+                        // color = in >> 8;
+                    }
+                    (frameView + screenPos)[j][i] = color;
+                }
+            }
+        }
+
         auto* impl = (plt::windows::WindowImpl*)window;
         BITMAPINFO bitmapInfo {
             .bmiHeader = {
                 .biSize = sizeof(BITMAPINFOHEADER),
-                .biWidth = (int)window->width(),
-                .biHeight = (int)window->height(),
+                .biWidth = frameSize.x(),
+                .biHeight = frameSize.y(),
                 .biPlanes = 1,
                 .biBitCount = 32,
                 .biCompression = BI_RGB,
@@ -78,7 +132,7 @@ struct UiTest : plt::WindowStateCallback {
             .bmiColors = {},
         };
         auto dc = impl->deviceContext();
-        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, window->width(), window->height(), 0, 0, 0, window->height(), layout.framebuffer.data, &bitmapInfo, DIB_RGB_COLORS);
+        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, window->width(), window->height(), 0, 0, 0, window->height(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
     }
 };
@@ -138,8 +192,8 @@ void test() {
     UiTest callback;
     window->setStateCallback(&callback);
     window->setTitle("UiTest");
-    //gl::initialize();
-    //gl::attachWindow(window.get());
+    // gl::initialize();
+    // gl::attachWindow(window.get());
     window->initialize();
     while (!window->destoryed()) {
         plt::processEvents();

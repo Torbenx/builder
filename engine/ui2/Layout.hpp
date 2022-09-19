@@ -8,7 +8,6 @@
 #include <memory>
 #include <vector>
 
-
 namespace ui {
 
 struct Variable {
@@ -78,42 +77,16 @@ constexpr TextureView operator+(const IntVec& shift, const TextureView& view) {
 constexpr TextureView operator-(const TextureView& view, const IntVec& shift) {
     return view.shift(-shift);
 }
-struct Texture {
+
+struct TextureHandle {
     uint32_t* data = nullptr;
     IntVec dimensions;
-    constexpr Texture() = default;
-    constexpr Texture(IntVec dimensions)
-        : dimensions(dimensions) {
-        std::allocator<uint32_t> alloc;
-        data = alloc.allocate(dimensions.x() * dimensions.y());
-    }
-    constexpr Texture(Texture&& other)
-        : data(other.data), dimensions(other.dimensions) {
-        other.data = nullptr;
-        other.dimensions = {};
-    }
-    constexpr Texture& operator=(Texture&& other) {
-        maybeDeallocate();
-        data = other.data;
-        dimensions = other.dimensions;
-        other.data = nullptr;
-        other.dimensions = {};
-        return *this;
-    }
-    constexpr ~Texture() {
-        maybeDeallocate();
-    }
-    constexpr operator TextureView() const {
-        return { data, dimensions.x() };
-    }
-    constexpr TextureView view() const { return *this; }
-private:
-    constexpr void maybeDeallocate() {
-        if (data) {
-            std::allocator<uint32_t> alloc;
-            alloc.deallocate(data, dimensions.x() * dimensions.y());
-        }
-    }
+    constexpr TextureView view() const { return { data, dimensions.x() }; }
+    constexpr explicit operator bool() const { return data != nullptr; }
+};
+struct AtlasAllocator {
+    virtual TextureHandle allocateAtlas(IntVec prevSize) = 0;
+    virtual void deallocateAtlas(TextureHandle texture) = 0;
 };
 
 struct RendererBase {
@@ -124,7 +97,7 @@ concept Renderer = std::derived_from<T, RendererBase> && requires(T& render, Tex
 
 class Layout {
 public:
-    Layout();
+    Layout(AtlasAllocator* atlasAlloc);
     Layout(const Layout&) = delete;
     ~Layout();
 
@@ -186,6 +159,7 @@ private:
     sparse::Matrix matrix;
     RectVar screenBox;
     RectEqn screenEqn;
+    IntVec screenDimensions;
     std::vector<Render> renders { 1 };
 
     uint32_t allocateVariableIds(int_t count);
@@ -198,19 +172,49 @@ private:
         };
     }
 
-    Texture atlas;
+    struct AtlasHelper : TextureHandle {
+        AtlasAllocator* allocator = nullptr;
+        AtlasHelper(AtlasAllocator* allocator)
+            : allocator(allocator) { }
+        AtlasHelper(AtlasAllocator* allocator, IntVec prevSize)
+            : AtlasHelper(allocator) {
+            (TextureHandle&)* this = allocator->allocateAtlas(prevSize);
+        }
+        AtlasHelper(AtlasHelper&& other)
+            : TextureHandle(other), allocator(other.allocator) {
+            (TextureHandle&)other = {};
+        }
+        ~AtlasHelper() {
+            maybeDeallocate();
+        }
+        AtlasHelper& operator=(AtlasHelper&& other) {
+            maybeDeallocate();
+            allocator = other.allocator;
+            (TextureHandle&)* this = other;
+            (TextureHandle&)other = {};
+            return *this;
+        }
+
+        void maybeDeallocate() {
+            if (*this)
+                allocator->deallocateAtlas(*this);
+        }
+        AtlasHelper allocateNext() const {
+            return { allocator, dimensions };
+        }
+    };
+    AtlasHelper atlas;
     const int atlasPadding = 16;
     int nextAtlasAllocationHeight = 0;
     IntVec allocateTexture(IntVec dimensions);
     void deallocateTexture(IntRect region);
 
     std::vector<uint32_t> outputBlockMap;
+
+public:
     int_t outputLayers = 1;
     std::vector<IntVec> outputOffsets;
-
-    // FIXME: should not be public
-public:
-    Texture framebuffer;
+    TextureView atlasView() const { return atlas.view(); }
 };
 struct UiElement {
     Layout& m_layout;
