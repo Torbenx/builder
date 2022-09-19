@@ -4,7 +4,7 @@
 
 namespace ui {
 
-Layout::Layout(AtlasAllocator* atlasAlloc)
+Instance::Instance(AtlasAllocator* atlasAlloc)
     : atlas(atlasAlloc) {
     using namespace ui::literals;
     screenBox = newRect();
@@ -14,23 +14,23 @@ Layout::Layout(AtlasAllocator* atlasAlloc)
     screenEqn.top() = makeEquation({ { screenBox.top().id, 1.0f } });
 }
 
-Layout::~Layout() {
+Instance::~Instance() {
     removeEqn(screenEqn);
     deleteVariable(screenBox);
 }
 
-uint32_t Layout::allocateVariableIds(int_t count) {
+uint32_t Instance::allocateVariableIds(int_t count) {
     uint32_t id = nextVarId;
     nextVarId += count;
     varValues.resize(nextVarId);
     return id;
 }
 
-Variable Layout::newVar() { return { allocateVariableIds(1) }; }
-RangeVar Layout::newRange() { return { allocateVariableIds(2) }; }
-RectVar Layout::newRect() { return { allocateVariableIds(4) }; }
+VarHandle Instance::newVar() { return { allocateVariableIds(1) }; }
+RangeVarHandle Instance::newRange() { return { allocateVariableIds(2) }; }
+RectVarHandle Instance::newRect() { return { allocateVariableIds(4) }; }
 
-Equation Layout::makeEquation(std::initializer_list<sparse::Entry> terms, Size inhom) {
+Equation Instance::makeEquation(std::initializer_list<sparse::Entry> terms, Size inhom) {
     Equation eq = { eqnIdAlloc.allocateId() };
     if (inhomTyped.size() <= eq.id)
         inhomTyped.resize(eq.id + 1);
@@ -50,57 +50,57 @@ Equation Layout::makeEquation(std::initializer_list<sparse::Entry> terms, Size i
     return eq;
 }
 
-Equation Layout::align(Variable leftBottom, Variable rightTop, Size inhom) {
+Equation Instance::align(VarHandle leftBottom, VarHandle rightTop, Size inhom) {
     return makeEquation({ { leftBottom.id, -1.0f }, { rightTop.id, 1.0f } }, inhom);
 }
-RangeEqn Layout::align(RangeVar inner, RangeVar outer, Range inhom) {
+RangeEqn Instance::align(RangeVarHandle inner, RangeVarHandle outer, Range inhom) {
     return {
         align(outer.low(), inner.low(), inhom.low()),
         align(inner.high(), outer.high(), inhom.low())
     };
 }
-RectEqn Layout::align(RectVar inner, RectVar outer, Rect inhom) {
+RectEqn Instance::align(RectVarHandle inner, RectVarHandle outer, Rect inhom) {
     return {
         align(inner.x(), outer.x(), inhom.x()),
         align(inner.y(), outer.y(), inhom.y()),
     };
 }
 
-void Layout::updateInhom(Equation eq, Size inhom) {
+void Instance::updateInhom(Equation eq, Size inhom) {
     inhomTyped[eq.id] = inhom;
 }
-void Layout::updateInhom(RangeEqn eq, Range inhom) {
+void Instance::updateInhom(RangeEqn eq, Range inhom) {
     updateInhom(eq.low(), inhom.low());
     updateInhom(eq.high(), inhom.high());
 }
-void Layout::updateInhom(RectEqn eq, Rect inhom) {
+void Instance::updateInhom(RectEqn eq, Rect inhom) {
     updateInhom(eq.x(), inhom.x());
     updateInhom(eq.y(), inhom.y());
 }
 
-void Layout::removeEqn(Equation eqn) {
+void Instance::removeEqn(Equation eqn) {
     matrix[eqn.id].resizeTo(0);
     eqnIdAlloc.freeId(eqn.id);
 }
-void Layout::removeEqn(RangeEqn eqn) {
+void Instance::removeEqn(RangeEqn eqn) {
     removeEqn(eqn.low());
     removeEqn(eqn.high());
 }
-void Layout::removeEqn(RectEqn eqn) {
+void Instance::removeEqn(RectEqn eqn) {
     removeEqn(eqn.x());
     removeEqn(eqn.y());
 }
-void Layout::deleteVariable(Variable) {
+void Instance::deleteVariable(VarHandle) {
     VERIFY_NOT_REACHED(Ui);
 }
-void Layout::deleteVariable(RangeVar) {
+void Instance::deleteVariable(RangeVarHandle) {
     VERIFY_NOT_REACHED(Ui);
 }
-void Layout::deleteVariable(RectVar) {
+void Instance::deleteVariable(RectVarHandle) {
     VERIFY_NOT_REACHED(Ui);
 }
 
-void Layout::resize(IntVec windowSize, float ptScale) {
+void Instance::resize(IntVec windowSize, float ptScale) {
     VDUMP(windowSize.x());
     VDUMP(windowSize.y());
     screenDimensions = windowSize;
@@ -115,7 +115,7 @@ void Layout::resize(IntVec windowSize, float ptScale) {
     update();
 }
 
-void Layout::update() {
+void Instance::update() {
     sparse::LUDecomposition lu;
     lu.u = matrix.copy();
     int_t varCount = nextVarId;
@@ -190,7 +190,7 @@ void Layout::update() {
     VDUMP(outputOffsets.size());
 }
 
-void Layout::draw(RendererHandle handle, RectVar rect) {
+void Instance::draw(RendererHandle handle, RectVarHandle rect) {
     if (handle->id == 0) {
         handle->id = renders.size();
         renders.push_back({ handle, rect });
@@ -199,7 +199,7 @@ void Layout::draw(RendererHandle handle, RectVar rect) {
     }
 }
 
-void Layout::cancelDraw(RendererBase& ref) {
+void Instance::cancelDraw(RendererBase& ref) {
     RendererBase* base = &ref;
     VERIFY(Ui, base->id != 0);
 
@@ -211,7 +211,7 @@ void Layout::cancelDraw(RendererBase& ref) {
     renders[back.handle->id] = back;
 }
 
-IntVec Layout::allocateTexture(IntVec dimensions) {
+IntVec Instance::allocateTexture(IntVec dimensions) {
     VERIFY(Ui, dimensions.x() <= atlas.dimensions.x());
     IntVec allocPos { atlasPadding, nextAtlasAllocationHeight + atlasPadding };
     nextAtlasAllocationHeight += atlasPadding + dimensions.y();
@@ -225,7 +225,7 @@ IntVec Layout::allocateTexture(IntVec dimensions) {
     return allocPos;
 }
 
-void Layout::deallocateTexture(IntRect) {
+void Instance::deallocateTexture(IntRect) {
     VERIFY_NOT_REACHED(Ui);
 }
 

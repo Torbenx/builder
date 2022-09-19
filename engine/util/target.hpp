@@ -75,8 +75,8 @@
     constexpr type* __end_##name = &__after_end_##name;
 // clang-format on
 
-#define MAKE_WEAK_SYMBOL(name) __pragma(comment(linker, "/alternatename:" #name "=" #name "__weak"))^
-#define WEAK_SYMBOL_IMPL(name) name##weak
+#define MAKE_WEAK_SYMBOL(name) __pragma(comment(linker, "/alternatename:" #name "=" #name "__weak"))
+#define WEAK_SYMBOL_IMPL(name) name##__weak
 #define WEAK_SYMBOL_DECL(name) name
 
 #else

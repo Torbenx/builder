@@ -6,7 +6,7 @@
 
 
 MAKE_WEAK_SYMBOL(onNoInitialWindow)
-void WEAK_SYMBOL_IMPL(onNoInitialWindow)() {
+extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)() {
     onInitialWindowConstructed(plt::Window::construct());
 }
 
@@ -20,7 +20,7 @@ void test();
 }
 
 MAKE_WEAK_SYMBOL(onInitialWindowConstructed)
-void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> window) {
+extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> window) {
     MyCallback callback;
     window->setStateCallback(&callback);
     // window->setDimensions(200, 200);

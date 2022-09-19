@@ -31,11 +31,13 @@ struct RefInfo {
 };
 
 struct MakeSelfReference {
-    const std::byte* baseAddress = nullptr;
+    mutable const std::byte* baseAddress = nullptr;
     uint32_t styleKey = 0;
-    MakeSelfReference(const void* baseAddress, int_t styleKey)
-        : baseAddress((const std::byte*)baseAddress), styleKey(styleKey) { }
+    MakeSelfReference(int_t styleKey)
+        : styleKey(styleKey) { }
     RefInfo operator()(const void* thiz) const {
+        if (!baseAddress)
+            baseAddress = (const std::byte*)thiz;
         return { .styleKey = styleKey, .byteOffset = (uint32_t)((const std::byte*)thiz - baseAddress) };
     }
 };

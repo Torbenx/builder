@@ -4,6 +4,7 @@
 #include "util/types.hpp"
 #include <array>
 #include <vector>
+#include <algorithm>
 
 
 namespace Tag {

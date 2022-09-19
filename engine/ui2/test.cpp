@@ -30,16 +30,13 @@ struct BasicAtlasAllocator : ui::AtlasAllocator {
 
 struct UiTest : plt::WindowStateCallback {
 
-    BasicAtlasAllocator atlasAlloc;
-    ui::Layout layout;
     ui::LayoutBox box1;
     ui::RectEqn box1Eqn;
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
 
-    UiTest()
-        : layout(&atlasAlloc), box1(layout) {
-        box1Eqn = layout.align(box1.outerBox, layout.screen());
+    UiTest() {
+        box1Eqn = ui::instance()->align(box1.outerBox, ui::instance()->screen());
     }
 
     void onInitialize(plt::Window*) override {
@@ -69,20 +66,20 @@ struct UiTest : plt::WindowStateCallback {
         box1.updatePaddings();
 
         TestRenderer renderer;
-        layout.draw(renderer, box1.innerBox);
+        ui::instance()->draw(renderer, box1.innerBox);
 
         ui::IntVec windowSize { (int)window->width(), (int)window->height() };
-        layout.resize(windowSize, 0.5f);
-        layout.debug(layout.screen());
-        layout.debug(box1.outerBox);
-        layout.debug(box1.innerBox);
+        ui::instance()->resize(windowSize, 0.5f);
+        ui::instance()->debug(ui::instance()->screen());
+        ui::instance()->debug(box1.outerBox);
+        ui::instance()->debug(box1.innerBox);
 
         ui::IntVec windowBlockSize = (windowSize + 15) / 16;
         frameSize = windowBlockSize * 16;
         framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
     }
 
-    void draw(plt::Window* window) {
+    void draw(plt::Window* window, ui::Instance& layout) {
         ui::TextureView frameView { framebuffer.get(), (window->width() + 15) / 16 * 16 };
         uint32_t background_color = 0xff'ff'ff'ff;
         for (int_t j = 0; j < window->height(); j++) {
@@ -160,7 +157,7 @@ struct NormalTextBox : StyleKey<NormalTextBox, TextBoxStyle> { };
 
 void test() {
 
-    auto style = Ref<BigStyle>::allocate();
+    /*auto style = Ref<BigStyle>::allocate();
     Ref<TextBoxStyle>& textBoxStyle = style.get<NormalTextBox>();
     textBoxStyle.get<TextSize>() = ref<TextSize>();
     style.get<TextSize>() = 10_px;
@@ -173,7 +170,7 @@ void test() {
     VDUMP(style.get<Count>().value());
     style.get<ReadMode>() = Mode::Backward;
     VDUMP(style.get<ReadMode>().value() == Mode::Backward);
-    style.get<FooKey>() = Foo {};
+    style.get<FooKey>() = Foo {};*/
     // VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
 
     sparse::LUDecomposition lu;
@@ -189,6 +186,9 @@ void test() {
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);
 
     std::unique_ptr<plt::Window> window = plt::Window::construct();
+    BasicAtlasAllocator atlasAlloc;
+    ui::Instance instance(&atlasAlloc);
+    ui::setInstance(&instance);
     UiTest callback;
     window->setStateCallback(&callback);
     window->setTitle("UiTest");
@@ -197,7 +197,7 @@ void test() {
     window->initialize();
     while (!window->destoryed()) {
         plt::processEvents();
-        callback.draw(window.get());
+        callback.draw(window.get(), instance);
     }
 }
 

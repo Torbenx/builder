@@ -4,7 +4,7 @@
 namespace ui {
 
 Ref<BigStyle> Ref<BigStyle>::allocate() {
-    int_t keyCount = __end_ui_style_keys - __begin_ui_style_keys;
+    int_t keyCount = 0;//__end_ui_style_keys - __begin_ui_style_keys;
     log<Tag::Ui>("found {} style keys", keyCount);
     void** data = new void*[keyCount]();
     for (int_t i = 0; i < keyCount; i++) {

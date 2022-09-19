@@ -109,7 +109,12 @@ endif()
 
 target_link_libraries(engine PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)
 
-add_executable(engine_test
+
+set(win32_executable)
+if(MSVC)
+    set(win32_executable WIN32)
+endif()
+add_executable(engine_test ${win32_executable}
     "platform/Window.cpp"
     "platform/windows/WindowImpl.cpp"
     "platform/windows/main.cpp"
@@ -119,7 +124,10 @@ add_executable(engine_test
     "ui2/Size.cpp"
     "ui2/test.cpp"
     "ui2/BigStyle.cpp"
-    "GL/Shader.cpp"
 )
-target_compile_options(engine_test PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    target_compile_options(engine_test PRIVATE "/W3;/wd4244;/wd4267")
+else()
+    target_compile_options(engine_test PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
+endif()
 target_link_libraries(engine_test PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

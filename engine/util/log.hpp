@@ -59,5 +59,5 @@ constexpr void expect(const T& lhs, const T& rhs, const char* lhsStr, const char
 #define VERIFY(tag, cond) verify<Tag::tag>(cond, #cond, __FILE__, __LINE__, __func__)
 #define EXPECT(tag, lhs, rhs) expect<Tag::tag>(lhs, rhs, #lhs, #rhs, __FILE__, __LINE__, __func__)
 #define VERIFY_NOT_REACHED(tag) verify<Tag::tag>(false, "should not be reached", __FILE__, __LINE__, __func__)
-#define VDUMP(var, ...) log("{}(): " #var " = {" __VA_ARGS__ "}", __func__, var)
+#define VDUMP(var, ...) log("{}():{}: " #var " = {" __VA_ARGS__ "}", __func__, __LINE__, var)
 #define ADUMP(array, index, ...) log("{}(): " #array "[" #index " = {}] = {" __VA_ARGS__ "}", __func__, index, array[index])

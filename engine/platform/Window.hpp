@@ -101,5 +101,5 @@ void processEvents();
 
 }
 
-void WEAK_SYMBOL_DECL(onNoInitialWindow)();
-void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> window);
+extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)();
+extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> window);

@@ -18,7 +18,7 @@ namespace ui {
 template<typename Key, typename T>
 struct StyleKey {
     using Type = T;
-    static constinit inline IN_SECTION(ui_style_keys) const StyleKeyRecord keyRecord = {
+    static constexpr IN_SECTION(ui_style_keys) StyleKeyRecord keyRecord = {
         .styleRefBytes = sizeof(Ref<Type>),
         .typeBytes = sizeof(Type),
     };
@@ -26,7 +26,7 @@ struct StyleKey {
         static_assert(std::is_base_of_v<StyleKey, Key>);
         return &keyRecord - __begin_ui_style_keys;
     }
-    static const inline Ref<Type> selfRef = Ref<Type>(MakeSelfReference(&selfRef, styleKey()));
+    static const inline Ref<Type> selfRef = Ref<Type>(MakeSelfReference(styleKey()));
 };
 template<typename Key>
 const auto& ref() { return Key::selfRef; }

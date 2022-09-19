@@ -18,7 +18,7 @@ void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, f
     __m256i payloadMask = _mm256_set1_epi32(payloadUintMask);
     __m256i unitMask = _mm256_set1_epi32(unitUintMask);
     __m256i flagsMask = _mm256_set1_epi32(tagMask);
-    __m256 ptScaleAndShift = ptScale * shift;
+    __m256 ptScaleAndShift = _mm256_mul_ps(shift, _mm256_set1_ps(ptScale));
     __m256 payloadAdd = _mm256_set1_ps(payloadAddF);
 
     int_t i = 0;
@@ -33,7 +33,7 @@ void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, f
         __m256i payloadSel = _mm256_cmpeq_epi32(_mm256_and_si256(packed, payloadMask), _mm256_setzero_si256());
         __m256 add = _mm256_blendv_ps(payloadAdd, _mm256_setzero_ps(), _mm256_castsi256_ps(payloadSel));
 
-        __m256 value = packedCleared * mul + add;
+        __m256 value = _mm256_fmadd_ps(packedCleared, mul, add);
         _mm256_storeu_ps(out + i, value);
     }
     asPixelsBase(in + i, out + i, size - i, ptScale);
