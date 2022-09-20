@@ -182,6 +182,24 @@ public:
                 return e1.index < e2.index;
             });
     }
+    void sortAndDedup() {
+        sort();
+        int_t wOffset = 0;
+        int_t rOffset = 1;
+        while (rOffset < size()) {
+            Entry& w = (*this)[wOffset];
+            Entry r = (*this)[rOffset];
+            if (r.index == w.index) {
+                w.value += r.value;
+                rOffset += 1;
+            } else {
+                (*this)[wOffset + 1] = r;
+                wOffset += 1;
+                rOffset += 1;
+            }
+        };
+        resizeTo(wOffset + 1);
+    }
 
     ~Vector() {
         release();

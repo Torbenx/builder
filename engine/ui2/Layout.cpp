@@ -6,16 +6,21 @@ namespace ui {
 
 Instance::Instance(AtlasAllocator* atlasAlloc)
     : atlas(atlasAlloc) {
-    using namespace ui::literals;
     screenBox = newRect();
-    screenEqn.left() = makeEquation({ { screenBox.left().id, 1.0f } });
-    screenEqn.right() = makeEquation({ { screenBox.right().id, 1.0f } });
-    screenEqn.bottom() = makeEquation({ { screenBox.bottom().id, 1.0f } });
-    screenEqn.top() = makeEquation({ { screenBox.top().id, 1.0f } });
+    auto fix = [&](VarHandle var) -> EquationHandle {
+        EquationHandle eq = newEquation();
+        setEquation(eq, { { var.id, 1.0f } });
+        return eq;
+    };
+    screenEquations[0] = fix(screenBox.left());
+    screenEquations[1] = fix(screenBox.right());
+    screenEquations[2] = fix(screenBox.bottom());
+    screenEquations[3] = fix(screenBox.top());
 }
 
 Instance::~Instance() {
-    removeEqn(screenEqn);
+    for (int_t i = 0; i < 4; i++)
+        removeEqn(screenEquations[i]);
     deleteVariable(screenBox);
 }
 
@@ -30,27 +35,26 @@ VarHandle Instance::newVar() { return { allocateVariableIds(1) }; }
 RangeVarHandle Instance::newRange() { return { allocateVariableIds(2) }; }
 RectVarHandle Instance::newRect() { return { allocateVariableIds(4) }; }
 
-Equation Instance::makeEquation(std::initializer_list<sparse::Entry> terms, Size inhom) {
-    Equation eq = { eqnIdAlloc.allocateId() };
+EquationHandle Instance::newEquation() {
+    EquationHandle eq = { eqnIdAlloc.allocateId() };
     if (inhomTyped.size() <= eq.id)
         inhomTyped.resize(eq.id + 1);
     if (inhomValues.size() <= eq.id)
         inhomValues.resize(eq.id + 1);
     if (eq.id == matrix.size())
         matrix.appendColumn({});
-
-    sparse::Vector vec = sparse::allocate(terms.size());
-    std::copy(terms.begin(), terms.end(), vec.begin());
-    vec.resizeTo(terms.size());
-    vec.sort();
-    matrix[eq.id] = std::move(vec);
-
-    updateInhom(eq, inhom);
-
     return eq;
 }
 
-Equation Instance::align(VarHandle leftBottom, VarHandle rightTop, Size inhom) {
+void Instance::setEquation(EquationHandle eq, ArrayView<const sparse::Entry> terms) {
+    sparse::Vector vec = sparse::allocate(terms.size());
+    std::copy(terms.begin(), terms.end(), vec.begin());
+    vec.setSize(terms.size());
+    vec.sortAndDedup();
+    matrix[eq.id] = std::move(vec);
+}
+
+/*Equation Instance::align(VarHandle leftBottom, VarHandle rightTop, Size inhom) {
     return makeEquation({ { leftBottom.id, -1.0f }, { rightTop.id, 1.0f } }, inhom);
 }
 RangeEqn Instance::align(RangeVarHandle inner, RangeVarHandle outer, Range inhom) {
@@ -64,31 +68,15 @@ RectEqn Instance::align(RectVarHandle inner, RectVarHandle outer, Rect inhom) {
         align(inner.x(), outer.x(), inhom.x()),
         align(inner.y(), outer.y(), inhom.y()),
     };
-}
+}*/
 
-void Instance::updateInhom(Equation eq, Size inhom) {
+void Instance::updateInhom(EquationHandle eq, Size inhom) {
     inhomTyped[eq.id] = inhom;
 }
-void Instance::updateInhom(RangeEqn eq, Range inhom) {
-    updateInhom(eq.low(), inhom.low());
-    updateInhom(eq.high(), inhom.high());
-}
-void Instance::updateInhom(RectEqn eq, Rect inhom) {
-    updateInhom(eq.x(), inhom.x());
-    updateInhom(eq.y(), inhom.y());
-}
 
-void Instance::removeEqn(Equation eqn) {
+void Instance::removeEqn(EquationHandle eqn) {
     matrix[eqn.id].resizeTo(0);
     eqnIdAlloc.freeId(eqn.id);
-}
-void Instance::removeEqn(RangeEqn eqn) {
-    removeEqn(eqn.low());
-    removeEqn(eqn.high());
-}
-void Instance::removeEqn(RectEqn eqn) {
-    removeEqn(eqn.x());
-    removeEqn(eqn.y());
 }
 void Instance::deleteVariable(VarHandle) {
     VERIFY_NOT_REACHED(Ui);
@@ -100,13 +88,30 @@ void Instance::deleteVariable(RectVarHandle) {
     VERIFY_NOT_REACHED(Ui);
 }
 
+void Instance::dumpVarValues() {
+    for (int_t i = 0; i < (int_t)varValues.size(); i++) {
+        log<Tag::Ui>("{} -> {}", i, varValues[i]);
+    }
+}
+void Instance::dumpShiftValues() {
+    for (int_t i = 0; i < (int_t)inhomValues.size(); i++) {
+        log<Tag::Ui>("{} -> {}", i, inhomValues[i]);
+    }
+}
+void Instance::dumpShiftSizes() {
+    for (int_t i = 0; i < (int_t)inhomTyped.size(); i++) {
+        log<Tag::Ui>("{} -> {}{}{}", i, inhomTyped[i].value(), inhomTyped[i].unitBit() ? "pt" : "px", inhomTyped[i].payloadBit() ? " +1px" : "");
+    }
+}
+
 void Instance::resize(IntVec windowSize, float ptScale) {
     VDUMP(windowSize.x());
     VDUMP(windowSize.y());
     screenDimensions = windowSize;
+    this->ptScale = ptScale;
 
-    updateInhom(screenEqn, { { 0_px, windowSize.x() * 1_px }, { 0_px, windowSize.y() * 1_px } });
-    Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale, 1.0f);
+    updateInhom(screenEquations[1], windowSize.x() * 1_px);
+    updateInhom(screenEquations[3], windowSize.y() * 1_px);
 
     IntVec windowBlocks = (windowSize + 15) / 16;
     outputBlockMap.clear();
@@ -120,6 +125,9 @@ void Instance::update() {
     lu.u = matrix.copy();
     int_t varCount = nextVarId;
     lu.decompose(varCount);
+
+    Size::asPixels(inhomTyped.data(), inhomValues.data(), inhomTyped.size(), ptScale, 1.0f);
+
     std::vector<float> newVarValues(varCount);
     lu.inverseTranspose(inhomValues.data(), newVarValues.data());
 

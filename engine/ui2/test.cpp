@@ -28,7 +28,7 @@ struct BasicAtlasAllocator : ui::AtlasAllocator {
     }
 };
 
-struct UiTest : plt::WindowStateCallback {
+/*struct UiTest : plt::WindowStateCallback {
 
     ui::LayoutBox box1;
     ui::RectEqn box1Eqn;
@@ -132,7 +132,7 @@ struct UiTest : plt::WindowStateCallback {
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, window->width(), window->height(), 0, 0, 0, window->height(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
     }
-};
+};*/
 
 }
 
@@ -173,7 +173,7 @@ void test() {
     style.get<FooKey>() = Foo {};*/
     // VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
 
-    sparse::LUDecomposition lu;
+    /*sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
     lu.u.appendColumn(sparse::StaticVector({ { 0, 0.5f }, { 1, 1.0f } }).copy());
     lu.u.appendColumn(sparse::allocateEmpty());
@@ -183,13 +183,22 @@ void test() {
     lu.u.debug();
     float result[4] = {};
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
-    log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);
+    log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
 
-    std::unique_ptr<plt::Window> window = plt::Window::construct();
+    //std::unique_ptr<plt::Window> window = plt::Window::construct();
     BasicAtlasAllocator atlasAlloc;
-    ui::Instance instance(&atlasAlloc);
-    ui::setInstance(&instance);
-    UiTest callback;
+    Instance instance(&atlasAlloc);
+    setInstance(&instance);
+    using namespace code;
+    Var a, b;
+    Equation eq1 = a || b;
+    Equation eq2 = a || shift(5_px);
+    instance.dumpShiftSizes();
+    instance.resize({ 1000, 1000 }, 1.0f);
+    instance.dumpShiftValues();
+    VDUMP(a.value());
+    VDUMP(b.value());
+    /*UiTest callback;
     window->setStateCallback(&callback);
     window->setTitle("UiTest");
     // gl::initialize();
@@ -198,7 +207,7 @@ void test() {
     while (!window->destoryed()) {
         plt::processEvents();
         callback.draw(window.get(), instance);
-    }
+    }*/
 }
 
 }

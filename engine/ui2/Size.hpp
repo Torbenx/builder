@@ -45,7 +45,6 @@ struct TagFloat {
     constexpr TagFloat() { }
     constexpr TagFloat(float value, uint8_t tag) {
         VERIFY(Ui, tag < tagMax);
-        VERIFY(Ui, value == 0.0f || std::abs(value) >= normalizedMin); // we can store subnormals but cant multiply them
         storage = std::bit_cast<float>(std::bit_cast<uint32_t>(value / expShift) | ((uint32_t)tag << tagPos));
     }
     static constexpr TagFloat fromStorage(float storage) { return TagFloat { storage }; }
@@ -57,20 +56,36 @@ struct TagFloat {
     constexpr TagFloat orTag(uint8_t tag) const { return fromUint(uint() | ((tag << tagPos) & tagMask)); }
     constexpr TagFloat andTag(uint8_t tag) const { return fromUint(uint() & ((tag << tagPos) | ~tagMask)); }
 
+    constexpr TagFloat& operator*=(float f) {
+        storage *= f;
+        return *this;
+    }
+    constexpr TagFloat& operator/=(float f) {
+        storage /= f;
+        return *this;
+    }
+
 private:
     TagFloat(float storage)
         : storage(storage) { }
 };
 
-inline namespace code {
-    template<int N>
-    constexpr TagFloat<N> operator-(const TagFloat<N>& f) { return TagFloat<N>::fromStorage(-f.storage); }
-    template<int N>
-    constexpr TagFloat<N> operator*(float l, const TagFloat<N>& r) { return TagFloat<N>::fromStorage(l * r.storage); }
-    template<int N>
-    constexpr TagFloat<N> operator*(const TagFloat<N>& l, float r) { return TagFloat<N>::fromStorage(l.storage * r); }
-    template<int N>
-    constexpr TagFloat<N> operator/(const TagFloat<N>& l, float r) { return TagFloat<N>::fromStorage(l.storage / r); }
+template<int N>
+constexpr TagFloat<N> operator-(const TagFloat<N>& f) { return TagFloat<N>::fromStorage(-f.storage); }
+template<int N>
+constexpr TagFloat<N> operator*(float l, const TagFloat<N>& r) {
+    VERIFY(Ui, std::abs(r.value()) >= TagFloat<N>::normalizedMin || r.tag() == 0); // we can multiply subnormals or 0.0 only with tag = 0
+    return TagFloat<N>::fromStorage(l * r.storage);
+}
+template<int N>
+constexpr TagFloat<N> operator*(const TagFloat<N>& l, float r) {
+    VERIFY(Ui, std::abs(l.value()) >= TagFloat<N>::normalizedMin || l.tag() == 0);
+    return TagFloat<N>::fromStorage(l.storage * r);
+}
+template<int N>
+constexpr TagFloat<N> operator/(const TagFloat<N>& l, float r) {
+    VERIFY(Ui, std::abs(l.value()) >= TagFloat<N>::normalizedMin || l.tag() == 0);
+    return TagFloat<N>::fromStorage(l.storage / r);
 }
 
 enum class SizeUnit {
@@ -94,7 +109,10 @@ struct Size : TagFloat<2> {
     constexpr SizeUnit unit() const { return unitBit() ? SizeUnit::Points : SizeUnit::Pixels; }
     constexpr Size withPayload() const { return orTag(payloadTagMask); }
     constexpr Size withoutPayload() const { return andTag(~payloadTagMask); }
-    constexpr float asPixels(float ptScale) const { return value() * (inPt() ? ptScale : 0.0f); }
+    constexpr Size withPayloadIf(bool b) const { return orTag(b ? payloadTagMask : 0); }
+    constexpr float asPixels(float ptScale) const { return value() * (inPt() ? ptScale : 1.0f); }
+    using TagFloat<2>::operator*=;
+    using TagFloat<2>::operator/=;
 
     static constexpr void asPixels(const Size* in, float* out, int_t size, float ptScale, float payloadAddF) {
         if (std::is_constant_evaluated()) {
@@ -109,20 +127,22 @@ private:
     static void asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, float payloadAddF);
 };
 
-inline namespace code {
-    inline namespace operators {
-        constexpr Size operator-(const Size& in) { return -(const TagFloat<2>&)in; }
-        constexpr Size operator*(float l, const Size& r) { return l * (const TagFloat<2>&)r; }
-        constexpr Size operator*(const Size& l, float r) { return (const TagFloat<2>&)l * r; }
-        constexpr Size operator/(const Size& l, float r) { return (const TagFloat<2>&)l / r; }
-    }
+constexpr Size operator-(const Size& in) { return -(const TagFloat<2>&)in; }
+constexpr Size operator*(float l, const Size& r) { return l * (const TagFloat<2>&)r; }
+constexpr Size operator*(const Size& l, float r) { return (const TagFloat<2>&)l * r; }
+constexpr Size operator/(const Size& l, float r) { return (const TagFloat<2>&)l / r; }
 
-    inline namespace literals {
-        constexpr Size operator"" _px(unsigned long long value) { return { (float)value, SizeUnit::Pixels }; }
-        constexpr Size operator"" _pt(unsigned long long value) { return { (float)value, SizeUnit::Points }; }
-        constexpr Size operator"" _px(long double value) { return { (float)value, SizeUnit::Pixels }; }
-        constexpr Size operator"" _pt(long double value) { return { (float)value, SizeUnit::Points }; }
-    }
+constexpr Size operator"" _px(unsigned long long value) { return { (float)value, SizeUnit::Pixels }; }
+constexpr Size operator"" _pt(unsigned long long value) {
+    if (value == 0)
+        return 0_px;
+    return { (float)value, SizeUnit::Points };
+}
+constexpr Size operator"" _px(long double value) { return { (float)value, SizeUnit::Pixels }; }
+constexpr Size operator"" _pt(long double value) {
+    if (value == 0.0)
+        return 0_px;
+    return { (float)value, SizeUnit::Points };
 }
 
 }

@@ -7,9 +7,9 @@ namespace ui {
 #if defined(ARCHITECTURE_X86_64)
 
 namespace {
-    void asPixelsBase(const Size* in, float* out, int_t size, float ptScale) {
+    void asPixelsBase(const Size* in, float* out, int_t size, float ptScale, float payloadAdd) {
         for (int_t i = 0; i < size; i++)
-            out[i] = in[i].asPixels(ptScale);
+            out[i] = in[i].asPixels(ptScale) + (in[i].payloadBit() ? payloadAdd : 0.0f);
     }
 }
 
@@ -36,7 +36,7 @@ void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, f
         __m256 value = _mm256_fmadd_ps(packedCleared, mul, add);
         _mm256_storeu_ps(out + i, value);
     }
-    asPixelsBase(in + i, out + i, size - i, ptScale);
+    asPixelsBase(in + i, out + i, size - i, ptScale, payloadAddF);
 }
 
 #else

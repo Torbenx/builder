@@ -97,7 +97,7 @@ namespace detail {
     extern size_t pageSize;
 }
 
-static consteval size_t cachelineSize() { return 64; }
+consteval size_t cachelineSize() { return 64; }
 inline size_t pageSize() { return detail::pageSize; }
 inline int_t logPageSize() { return std::countr_zero(pageSize()); }
 inline bool isPageAligned(uintptr_t addr) { return (addr & (pageSize() - 1)) == 0; }
