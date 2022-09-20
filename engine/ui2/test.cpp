@@ -193,11 +193,18 @@ void test() {
     Var a, b;
     Equation eq1 = a || b;
     Equation eq2 = a || shift(5_px);
-    instance.dumpShiftSizes();
+
+    RectVar outer;
+    RectVar inner;
+    RectEqn ioEqn = expandBy(inner, 20_pt) == outer;
+    ioEqn.updateShift(30_pt);
+    RectEqn matchScreenEq = instance.screen() == outer;
+
     instance.resize({ 1000, 1000 }, 1.0f);
-    instance.dumpShiftValues();
     VDUMP(a.value());
     VDUMP(b.value());
+    instance.debug(outer);
+    instance.debug(inner);
     /*UiTest callback;
     window->setStateCallback(&callback);
     window->setTitle("UiTest");

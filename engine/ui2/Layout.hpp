@@ -184,6 +184,65 @@ struct RectVarHandle {
     constexpr const VarHandle top() const { return y().high(); }
     constexpr explicit operator bool() const { return baseId != 0; }
 };
+struct ShiftedRangeVar {
+    RangeVarHandle var;
+    Range shift;
+    bool negated = false;
+};
+struct StaticRangeEquation {
+    // plus - minus = shift
+    RangeVarHandle plus, minus;
+    Range shift = {};
+};
+struct ShiftedRectVar {
+    RectVarHandle var;
+    Rect shift;
+    bool negated = false;
+};
+struct StaticRectEquation {
+    // plus - minus = shift
+    RectVarHandle plus, minus;
+    Rect shift = {};
+    constexpr StaticRangeEquation x() const {
+        return { plus.x(), minus.x(), shift.x() };
+    }
+    constexpr StaticRangeEquation y() const {
+        return { plus.y(), minus.y(), shift.y() };
+    }
+};
+namespace code {
+    constexpr ShiftedRangeVar expandBy(const RangeVarHandle& var, const Range& shift) {
+        return { var, shift, false };
+    }
+    constexpr ShiftedRangeVar shrinkBy(const RangeVarHandle& var, const Range& shift) {
+        return { var, shift, true };
+    }
+    constexpr StaticRangeEquation operator==(const RangeVarHandle& left, const RangeVarHandle& right) {
+        return { left, right };
+    }
+    constexpr StaticRangeEquation operator==(const ShiftedRangeVar& left, const RangeVarHandle& right) {
+        return { left.negated ? left.var : right, left.negated ? right : left.var, left.shift };
+    }
+    constexpr StaticRangeEquation operator==(const RangeVarHandle& left, const ShiftedRangeVar& right) {
+        return right == left;
+    }
+
+    constexpr ShiftedRectVar expandBy(const RectVarHandle& var, const Rect& shift) {
+        return { var, shift, false };
+    }
+    constexpr ShiftedRectVar shrinkBy(const RectVarHandle& var, const Rect& shift) {
+        return { var, shift, true };
+    }
+    constexpr StaticRectEquation operator==(const RectVarHandle& left, const RectVarHandle& right) {
+        return { left, right };
+    }
+    constexpr StaticRectEquation operator==(const ShiftedRectVar& left, const RectVarHandle& right) {
+        return { left.negated ? left.var : right, left.negated ? right : left.var, left.shift };
+    }
+    constexpr StaticRectEquation operator==(const RectVarHandle& left, const ShiftedRectVar& right) {
+        return right == left;
+    }
+}
 
 struct EquationHandle {
     uint32_t id = 0;
@@ -380,17 +439,23 @@ struct Equation : EquationHandle {
         (EquationHandle&)other = {};
     }
     template<int_t N>
-    Equation(const StaticEquation<N>& eq) 
-        : EquationHandle(instance()->newEquation()) {
-        shiftFactor = eq.shiftFactor;
-        instance()->setEquation(*this, eq.equalsShift.terms);
-        updateShift(eq.shift);
+    Equation(const StaticEquation<N>& eq) {
+        *this = eq;
     }
     Equation& operator=(Equation&& other) {
         if (*this)
             instance()->removeEqn(*this);
         (EquationHandle&)* this = other;
         (EquationHandle&)other = {};
+        return *this;
+    }
+    template<int_t N>
+    Equation& operator=(const StaticEquation<N>& eq) {
+        if (!*this)
+            (EquationHandle&)*this = instance()->newEquation();
+        shiftFactor = eq.shiftFactor;
+        instance()->setEquation(*this, eq.equalsShift.terms);
+        updateShift(eq.shift);
         return *this;
     }
     ~Equation() {
@@ -401,7 +466,28 @@ struct Equation : EquationHandle {
 };
 
 struct RangeEqn {
+    static constexpr auto makeLowEq(const StaticRangeEquation& eq) {
+        return code::operator==(eq.plus.low(), code::operator-(eq.minus.low(), code::shift(eq.shift.low())));
+    }
+    static constexpr auto makeHighEq(const StaticRangeEquation& eq) {
+        return code::operator==(eq.plus.high(), code::operator+(eq.minus.high(), code::shift(eq.shift.high())));
+    }
     Equation m_low, m_high;
+    constexpr RangeEqn() = default;
+    RangeEqn(RangeEqn&&) = default;
+    RangeEqn(const StaticRangeEquation& eq)
+        : m_low(makeLowEq(eq))
+        , m_high(makeHighEq(eq)) { }
+    RangeEqn& operator=(RangeEqn&&) = default;
+    RangeEqn& operator=(const StaticRangeEquation& eq) {
+        low() = makeLowEq(eq);
+        high() = makeHighEq(eq);
+        return *this;
+    }
+    void updateShift(const Range& shift) const {
+        low().updateShift(shift.low());
+        high().updateShift(shift.high());
+    }
     constexpr Equation& low() { return m_low; }
     constexpr const Equation& low() const { return m_low; }
     constexpr Equation& high() { return m_high; }
@@ -409,6 +495,20 @@ struct RangeEqn {
 };
 struct RectEqn {
     RangeEqn m_x, m_y;
+    constexpr RectEqn() = default;
+    RectEqn(RectEqn&&) = default;
+    RectEqn(const StaticRectEquation& eq)
+        : m_x(eq.x()), m_y(eq.y()) { }
+    RectEqn& operator=(RectEqn&&) = default;
+    RectEqn& operator=(const StaticRectEquation& eq) {
+        x() = eq.x();
+        y() = eq.y();
+        return *this;
+    }
+    void updateShift(const Rect& shift) const {
+        x().updateShift(shift.x());
+        y().updateShift(shift.y());
+    }
     constexpr RangeEqn& x() { return m_x; }
     constexpr const RangeEqn& x() const { return m_x; }
     constexpr RangeEqn& y() { return m_y; }
