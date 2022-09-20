@@ -1,14 +1,17 @@
-#include "Layout.hpp"
+#include "Instance.hpp"
 #include "SmallStyle.hpp"
 #include "StyleKey.hpp"
+#include "equation_code.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
 #include "platform/windows/WindowImpl.hpp"
 #include "platform/windows/core.hpp"
 #include "platform/windows/glcore.hpp"
+#include "handles.hpp"
 #include <memory>
 #include <sstream>
+
 
 namespace {
 
@@ -185,7 +188,7 @@ void test() {
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
 
-    //std::unique_ptr<plt::Window> window = plt::Window::construct();
+    // std::unique_ptr<plt::Window> window = plt::Window::construct();
     BasicAtlasAllocator atlasAlloc;
     Instance instance(&atlasAlloc);
     setInstance(&instance);

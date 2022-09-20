@@ -120,7 +120,7 @@ add_executable(engine_test ${win32_executable}
     "platform/windows/main.cpp"
     "platform/windows/glcore.cpp"
     "platform/windows/errors.cpp"
-    "ui2/Layout.cpp"
+    "ui2/Instance.cpp"
     "ui2/Size.cpp"
     "ui2/test.cpp"
     "ui2/BigStyle.cpp"

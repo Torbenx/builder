@@ -1,4 +1,4 @@
-#include "Layout.hpp"
+#include "Instance.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
 
@@ -206,7 +206,6 @@ void Instance::draw(RendererHandle handle, RectVarHandle rect) {
         renders[handle->id].rect = rect;
     }
 }
-
 void Instance::cancelDraw(RendererBase& ref) {
     RendererBase* base = &ref;
     VERIFY(Ui, base->id != 0);
@@ -217,6 +216,9 @@ void Instance::cancelDraw(RendererBase& ref) {
     base->id = 0;
 
     renders[back.handle->id] = back;
+}
+void draw(RendererHandle handle, RectVarHandle rect) {
+    instance()->draw(handle, rect);
 }
 
 IntVec Instance::allocateTexture(IntVec dimensions) {
@@ -232,9 +234,27 @@ IntVec Instance::allocateTexture(IntVec dimensions) {
     }
     return allocPos;
 }
-
 void Instance::deallocateTexture(IntRect) {
     VERIFY_NOT_REACHED(Ui);
 }
+
+float Instance::valueOf(VarHandle var) const { return varValues[var.id]; }
+float VarHandle::value() const { return instance()->valueOf(*this); }
+
+void EquationHandle::updateShift(Size shift) const {
+    instance()->updateInhom(*this, (shiftFactor.value() * shift).withPayloadIf(shiftFactor.tag()));
+}
+void EquationHandle::updateEquation(ArrayView<const sparse::Entry> terms) const {
+    instance()->setEquation(*this, terms);
+}
+EquationHandle EquationHandle::allocate() { return instance()->newEquation(); }
+void EquationHandle::deallocate(EquationHandle handle) { instance()->removeEqn(handle); }
+
+VarHandle VarHandle::allocate() { return instance()->newVar(); }
+void VarHandle::deallocate(VarHandle handle) { instance()->deleteVariable(handle); }
+RangeVarHandle RangeVarHandle::allocate() { return instance()->newRange(); }
+void RangeVarHandle::deallocate(RangeVarHandle handle) { instance()->deleteVariable(handle); }
+RectVarHandle RectVarHandle::allocate() { return instance()->newRect(); }
+void RectVarHandle::deallocate(RectVarHandle handle) { instance()->deleteVariable(handle); }
 
 }
