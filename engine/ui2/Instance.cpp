@@ -54,22 +54,6 @@ void Instance::setEquation(EquationHandle eq, ArrayView<const sparse::Entry> ter
     matrix[eq.id] = std::move(vec);
 }
 
-/*Equation Instance::align(VarHandle leftBottom, VarHandle rightTop, Size inhom) {
-    return makeEquation({ { leftBottom.id, -1.0f }, { rightTop.id, 1.0f } }, inhom);
-}
-RangeEqn Instance::align(RangeVarHandle inner, RangeVarHandle outer, Range inhom) {
-    return {
-        align(outer.low(), inner.low(), inhom.low()),
-        align(inner.high(), outer.high(), inhom.low())
-    };
-}
-RectEqn Instance::align(RectVarHandle inner, RectVarHandle outer, Rect inhom) {
-    return {
-        align(inner.x(), outer.x(), inhom.x()),
-        align(inner.y(), outer.y(), inhom.y()),
-    };
-}*/
-
 void Instance::updateInhom(EquationHandle eq, Size inhom) {
     inhomTyped[eq.id] = inhom;
 }
@@ -219,6 +203,9 @@ void Instance::cancelDraw(RendererBase& ref) {
 }
 void draw(RendererHandle handle, RectVarHandle rect) {
     instance()->draw(handle, rect);
+}
+void cancelDraw(RendererBase& base) {
+    instance()->cancelDraw(base);
 }
 
 IntVec Instance::allocateTexture(IntVec dimensions) {

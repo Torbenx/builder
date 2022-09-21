@@ -123,7 +123,7 @@ add_executable(engine_test ${win32_executable}
     "ui2/Instance.cpp"
     "ui2/Size.cpp"
     "ui2/test.cpp"
-    "ui2/BigStyle.cpp"
+    "ui2/BigStyleTable.cpp"
 )
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(engine_test PRIVATE "/W3;/wd4244;/wd4267")

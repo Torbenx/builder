@@ -1,9 +1,9 @@
-#include "BigStyle.hpp"
+#include "BigStyleTable.hpp"
 #include "StyleKey.hpp"
 
 namespace ui {
 
-Ref<BigStyle> Ref<BigStyle>::allocate() {
+Ref<BigStyleTable> Ref<BigStyleTable>::allocate() {
     int_t keyCount = 0;//__end_ui_style_keys - __begin_ui_style_keys;
     log<Tag::Ui>("found {} style keys", keyCount);
     void** data = new void*[keyCount]();

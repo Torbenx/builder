@@ -1,6 +1,11 @@
 #pragma once
 
 #include "Rect.hpp"
+#include "containers/ArrayView.hpp"
+
+namespace sparse {
+struct Entry;
+}
 
 namespace ui {
 
@@ -23,6 +28,7 @@ struct RangeVarHandle {
     constexpr const VarHandle low() const { return { baseId }; }
     constexpr const VarHandle high() const { return { baseId + 1 }; }
     constexpr explicit operator bool() const { return baseId != 0; }
+    constexpr StaticSum<2> extend() const;
 };
 struct RectVarHandle {
     uint32_t baseId = 0;
@@ -36,6 +42,8 @@ struct RectVarHandle {
     constexpr const VarHandle bottom() const { return y().low(); }
     constexpr const VarHandle top() const { return y().high(); }
     constexpr explicit operator bool() const { return baseId != 0; }
+    constexpr StaticSum<2> width() const;
+    constexpr StaticSum<2> height() const;
 };
 
 struct EquationHandle {

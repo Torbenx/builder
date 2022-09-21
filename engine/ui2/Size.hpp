@@ -70,23 +70,27 @@ private:
         : storage(storage) { }
 };
 
+}
+
 template<int N>
-constexpr TagFloat<N> operator-(const TagFloat<N>& f) { return TagFloat<N>::fromStorage(-f.storage); }
+constexpr ui::TagFloat<N> operator-(const ui::TagFloat<N>& f) { return ui::TagFloat<N>::fromStorage(-f.storage); }
 template<int N>
-constexpr TagFloat<N> operator*(float l, const TagFloat<N>& r) {
-    VERIFY(Ui, std::abs(r.value()) >= TagFloat<N>::normalizedMin || r.tag() == 0); // we can multiply subnormals or 0.0 only with tag = 0
-    return TagFloat<N>::fromStorage(l * r.storage);
+constexpr ui::TagFloat<N> operator*(float l, const ui::TagFloat<N>& r) {
+    VERIFY(Ui, std::abs(r.value()) >= ui::TagFloat<N>::normalizedMin || r.tag() == 0); // we can multiply subnormals or 0.0 only with tag = 0
+    return ui::TagFloat<N>::fromStorage(l * r.storage);
 }
 template<int N>
-constexpr TagFloat<N> operator*(const TagFloat<N>& l, float r) {
-    VERIFY(Ui, std::abs(l.value()) >= TagFloat<N>::normalizedMin || l.tag() == 0);
-    return TagFloat<N>::fromStorage(l.storage * r);
+constexpr ui::TagFloat<N> operator*(const ui::TagFloat<N>& l, float r) {
+    VERIFY(Ui, std::abs(l.value()) >= ui::TagFloat<N>::normalizedMin || l.tag() == 0);
+    return ui::TagFloat<N>::fromStorage(l.storage * r);
 }
 template<int N>
-constexpr TagFloat<N> operator/(const TagFloat<N>& l, float r) {
-    VERIFY(Ui, std::abs(l.value()) >= TagFloat<N>::normalizedMin || l.tag() == 0);
-    return TagFloat<N>::fromStorage(l.storage / r);
+constexpr ui::TagFloat<N> operator/(const ui::TagFloat<N>& l, float r) {
+    VERIFY(Ui, std::abs(l.value()) >= ui::TagFloat<N>::normalizedMin || l.tag() == 0);
+    return ui::TagFloat<N>::fromStorage(l.storage / r);
 }
+
+namespace ui {
 
 enum class SizeUnit {
     Pixels,
@@ -127,22 +131,22 @@ private:
     static void asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, float payloadAddF);
 };
 
-constexpr Size operator-(const Size& in) { return -(const TagFloat<2>&)in; }
-constexpr Size operator*(float l, const Size& r) { return l * (const TagFloat<2>&)r; }
-constexpr Size operator*(const Size& l, float r) { return (const TagFloat<2>&)l * r; }
-constexpr Size operator/(const Size& l, float r) { return (const TagFloat<2>&)l / r; }
+}
 
-constexpr Size operator"" _px(unsigned long long value) { return { (float)value, SizeUnit::Pixels }; }
-constexpr Size operator"" _pt(unsigned long long value) {
+constexpr ui::Size operator-(const ui::Size& in) { return -(const ui::TagFloat<2>&)in; }
+constexpr ui::Size operator*(float l, const ui::Size& r) { return l * (const ui::TagFloat<2>&)r; }
+constexpr ui::Size operator*(const ui::Size& l, float r) { return (const ui::TagFloat<2>&)l * r; }
+constexpr ui::Size operator/(const ui::Size& l, float r) { return (const ui::TagFloat<2>&)l / r; }
+
+constexpr ui::Size operator"" _px(unsigned long long value) { return { (float)value, ui::SizeUnit::Pixels }; }
+constexpr ui::Size operator"" _pt(unsigned long long value) {
     if (value == 0)
         return 0_px;
-    return { (float)value, SizeUnit::Points };
+    return { (float)value, ui::SizeUnit::Points };
 }
-constexpr Size operator"" _px(long double value) { return { (float)value, SizeUnit::Pixels }; }
-constexpr Size operator"" _pt(long double value) {
+constexpr ui::Size operator"" _px(long double value) { return { (float)value, ui::SizeUnit::Pixels }; }
+constexpr ui::Size operator"" _pt(long double value) {
     if (value == 0.0)
         return 0_px;
-    return { (float)value, SizeUnit::Points };
-}
-
+    return { (float)value, ui::SizeUnit::Points };
 }

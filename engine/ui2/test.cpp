@@ -1,6 +1,5 @@
+#include "common.hpp"
 #include "Instance.hpp"
-#include "SmallStyle.hpp"
-#include "StyleKey.hpp"
 #include "equation_code.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
@@ -8,10 +7,8 @@
 #include "platform/windows/WindowImpl.hpp"
 #include "platform/windows/core.hpp"
 #include "platform/windows/glcore.hpp"
-#include "handles.hpp"
 #include <memory>
 #include <sstream>
-
 
 namespace {
 
@@ -31,15 +28,35 @@ struct BasicAtlasAllocator : ui::AtlasAllocator {
     }
 };
 
-/*struct UiTest : plt::WindowStateCallback {
+struct LayoutBox {
+    ui::RectVar outerBox;
+    ui::RectVar innerBox;
+    ui::Rect padding;
+    ui::RectEqn paddingEqn;
+    LayoutBox() {
+        using namespace ui::code;
+        paddingEqn = extendBy(innerBox, padding) == outerBox;
+    }
+    void updatePaddings() {
+        paddingEqn.updateShift(padding);
+    }
+};
 
-    ui::LayoutBox box1;
+struct UiTest : plt::WindowStateCallback {
+
+    LayoutBox box1;
     ui::RectEqn box1Eqn;
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
 
     UiTest() {
-        box1Eqn = ui::instance()->align(box1.outerBox, ui::instance()->screen());
+        using namespace ui::code;
+        //box1Eqn = box1.outerBox == ui::instance()->screen();
+        ui::RectVarHandle screen = ui::instance()->screen();
+        box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
+        box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == screen.bottom() + screen.top();
+        box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
+        box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();
     }
 
     void onInitialize(plt::Window*) override {
@@ -63,13 +80,12 @@ struct BasicAtlasAllocator : ui::AtlasAllocator {
         }
     };
     void onVisible(plt::Window* window) override {
-        using namespace ui::code;
         box1.padding.y() = 10_px;
         box1.padding.x() = 10_px;
         box1.updatePaddings();
 
         TestRenderer renderer;
-        ui::instance()->draw(renderer, box1.innerBox);
+        ui::draw(renderer, box1.innerBox);
 
         ui::IntVec windowSize { (int)window->width(), (int)window->height() };
         ui::instance()->resize(windowSize, 0.5f);
@@ -135,47 +151,13 @@ struct BasicAtlasAllocator : ui::AtlasAllocator {
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, window->width(), window->height(), 0, 0, 0, window->height(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
     }
-};*/
+};
 
 }
 
 namespace ui {
 
-struct Padding : StyleKey<Padding, Rect> { };
-struct TextSize : StyleKey<TextSize, Size> { };
-struct BoldText : StyleKey<BoldText, bool> { };
-struct Factor : StyleKey<Factor, float> { };
-struct Count : StyleKey<Count, int> { };
-enum class Mode {
-    Forward,
-    Backward,
-};
-struct ReadMode : StyleKey<ReadMode, Mode> { };
-struct Foo {
-    char buf[3] = { 1, 2, 3 };
-};
-struct FooKey : StyleKey<FooKey, Foo> { };
-using TextBoxStyle = SmallStyle<Padding, TextSize, BoldText>;
-struct NormalTextBox : StyleKey<NormalTextBox, TextBoxStyle> { };
-
 void test() {
-
-    /*auto style = Ref<BigStyle>::allocate();
-    Ref<TextBoxStyle>& textBoxStyle = style.get<NormalTextBox>();
-    textBoxStyle.get<TextSize>() = ref<TextSize>();
-    style.get<TextSize>() = 10_px;
-    VDUMP(style.get<TextSize>().value().value());
-    style.get<BoldText>() = true;
-    VDUMP(style.get<BoldText>().value());
-    style.get<Factor>() = 3.0f;
-    VDUMP(style.get<Factor>().value());
-    style.get<Count>() = 5;
-    VDUMP(style.get<Count>().value());
-    style.get<ReadMode>() = Mode::Backward;
-    VDUMP(style.get<ReadMode>().value() == Mode::Backward);
-    style.get<FooKey>() = Foo {};*/
-    // VDUMP(get<TextSize>(resolve<NormalTextBox>(style)).value());
-
     /*sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
     lu.u.appendColumn(sparse::StaticVector({ { 0, 0.5f }, { 1, 1.0f } }).copy());
@@ -188,27 +170,16 @@ void test() {
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
 
-    // std::unique_ptr<plt::Window> window = plt::Window::construct();
+    Ref<TextStyle> style;
+    style.get<TextSize>() = ref<TextSize>();
+    VDUMP(style.get<TextSize>().isPtr());
+
+    std::unique_ptr<plt::Window> window = plt::Window::construct();
     BasicAtlasAllocator atlasAlloc;
     Instance instance(&atlasAlloc);
     setInstance(&instance);
-    using namespace code;
-    Var a, b;
-    Equation eq1 = a || b;
-    Equation eq2 = a || shift(5_px);
-
-    RectVar outer;
-    RectVar inner;
-    RectEqn ioEqn = expandBy(inner, 20_pt) == outer;
-    ioEqn.updateShift(30_pt);
-    RectEqn matchScreenEq = instance.screen() == outer;
-
-    instance.resize({ 1000, 1000 }, 1.0f);
-    VDUMP(a.value());
-    VDUMP(b.value());
-    instance.debug(outer);
-    instance.debug(inner);
-    /*UiTest callback;
+    UiTest callback;
+    window->setDimensions(700, 700);
     window->setStateCallback(&callback);
     window->setTitle("UiTest");
     // gl::initialize();
@@ -217,7 +188,7 @@ void test() {
     while (!window->destoryed()) {
         plt::processEvents();
         callback.draw(window.get(), instance);
-    }*/
+    }
 }
 
 }

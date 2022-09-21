@@ -143,7 +143,7 @@ struct StaticRectEquation {
     }
 };
 namespace code {
-    constexpr ShiftedRangeVar expandBy(const RangeVarHandle& var, const Range& shift) {
+    constexpr ShiftedRangeVar extendBy(const RangeVarHandle& var, const Range& shift) {
         return { var, shift, false };
     }
     constexpr ShiftedRangeVar shrinkBy(const RangeVarHandle& var, const Range& shift) {
@@ -159,7 +159,7 @@ namespace code {
         return right == left;
     }
 
-    constexpr ShiftedRectVar expandBy(const RectVarHandle& var, const Rect& shift) {
+    constexpr ShiftedRectVar extendBy(const RectVarHandle& var, const Rect& shift) {
         return { var, shift, false };
     }
     constexpr ShiftedRectVar shrinkBy(const RectVarHandle& var, const Rect& shift) {
@@ -210,5 +210,12 @@ inline RectEqn& RectEqn::operator=(const StaticRectEquation& eq) {
     y() = eq.y();
     return *this;
 }
+
+constexpr StaticSum<2> RangeVarHandle::extend() const {
+    using namespace code;
+    return high() - low();
+}
+constexpr StaticSum<2> RectVarHandle::width() const { return x().extend(); }
+constexpr StaticSum<2> RectVarHandle::height() const { return y().extend(); }
 
 }

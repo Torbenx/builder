@@ -41,8 +41,8 @@ void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, f
 
 #else
 
-void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale) {
-    asPixelsBase(in, out, size, ptScale);
+void Size::asPixelsImpl(const Size* in, float* out, int_t size, float ptScale, float payloadAdd) {
+    asPixelsBase(in, out, size, ptScale, payloadAdd);
 }
 
 #endif

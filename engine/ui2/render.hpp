@@ -16,15 +16,20 @@ struct TextureView {
         return { data + shift.y() * stride + shift.x(), stride };
     }
 };
-constexpr TextureView operator+(const TextureView& view, const IntVec& shift) {
+
+}
+
+constexpr ui::TextureView operator+(const ui::TextureView& view, const ui::IntVec& shift) {
     return view.shift(shift);
 }
-constexpr TextureView operator+(const IntVec& shift, const TextureView& view) {
+constexpr ui::TextureView operator+(const ui::IntVec& shift, const ui::TextureView& view) {
     return view.shift(shift);
 }
-constexpr TextureView operator-(const TextureView& view, const IntVec& shift) {
+constexpr ui::TextureView operator-(const ui::TextureView& view, const ui::IntVec& shift) {
     return view.shift(-shift);
 }
+
+namespace ui {
 
 struct TextureHandle {
     uint32_t* data = nullptr;
@@ -63,7 +68,7 @@ void draw(T& renderer, RectVarHandle rect) {
     };
     draw(handle, rect);
 }
-RendererBase::~RendererBase() {
+inline RendererBase::~RendererBase() {
     if (*this)
         cancelDraw(*this);
 }

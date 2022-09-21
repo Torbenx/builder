@@ -24,24 +24,29 @@ struct IntVec {
     constexpr int y() const { return m_y; }
     constexpr bool operator==(const IntVec&) const = default;
 };
-constexpr IntVec operator+(const IntVec& l, const IntVec& r) {
+
+}
+
+constexpr ui::IntVec operator+(const ui::IntVec& l, const ui::IntVec& r) {
     return { l.x() + r.x(), l.y() + r.y() };
 }
-constexpr IntVec operator-(const IntVec& l, const IntVec& r) {
+constexpr ui::IntVec operator-(const ui::IntVec& l, const ui::IntVec& r) {
     return { l.x() - r.x(), l.y() - r.y() };
 }
-constexpr IntVec operator-(const IntVec& in) {
+constexpr ui::IntVec operator-(const ui::IntVec& in) {
     return { -in.x(), -in.y() };
 }
-constexpr IntVec operator*(const IntVec& l, int r) {
+constexpr ui::IntVec operator*(const ui::IntVec& l, int r) {
     return { l.x() * r, l.y() * r };
 }
-constexpr IntVec operator*(int l, const IntVec& r) {
+constexpr ui::IntVec operator*(int l, const ui::IntVec& r) {
     return { l * r.x(), l * r.y() };
 }
-constexpr IntVec operator/(const IntVec& l, int r) {
+constexpr ui::IntVec operator/(const ui::IntVec& l, int r) {
     return { l.x() / r, l.y() / r };
 }
+
+namespace ui {
 
 #define INT_VEC_ALIAS(name)               \
     struct name : IntVec {                \
@@ -70,9 +75,15 @@ struct IntRange {
     constexpr int extend() const { return high() - low() + 1; }
     constexpr bool operator==(const IntRange&) const = default;
 };
-constexpr IntRange operator-(const IntRange& in) {
+
+}
+
+constexpr ui::IntRange operator-(const ui::IntRange& in) {
     return { -in.low(), -in.high() };
 }
+
+namespace ui {
+
 struct IntRect {
     IntRange m_x, m_y;
     constexpr IntRect() { }
@@ -142,9 +153,14 @@ struct Range {
     constexpr Size& high() { return m_high; }
     constexpr const Size high() const { return m_high; }
 };
-constexpr Range operator-(const Range& in) {
+
+}
+
+constexpr ui::Range operator-(const ui::Range& in) {
     return { -in.low(), -in.high() };
 }
+
+namespace ui {
 
 struct Rect {
     Range m_x, m_y;
@@ -170,9 +186,14 @@ struct Rect {
     constexpr Size& top() { return y().high(); }
     constexpr const Size top() const { return y().high(); }
 };
-constexpr Rect operator-(const Rect& in) {
+
+}
+
+constexpr ui::Rect operator-(const ui::Rect& in) {
     return { -in.x(), -in.y() };
 }
+
+namespace ui {
 
 template<>
 struct Ref<Range> {
@@ -192,7 +213,8 @@ struct Ref<Range> {
     Ref<Size>& high() { return m_high; }
     const Ref<Size> high() const { return m_high; }
     Range value() const { return { low().value(), high().value() }; }
-    Range resolve(const Resolver& resolver) const { return { low().resolve(resolver), high().resolve(resolver) }; }
+    Range resolve(const Resolver& resolver, const Range& base) const { return { low().resolve(resolver, base.low()), high().resolve(resolver, base.high()) }; }
+    Range substitute(const Substituter& substituter, const Range& base) const { return { low().substitute(substituter, base.low()), high().substitute(substituter, base.high()) }; }
 };
 template<>
 struct Ref<Rect> {
@@ -224,7 +246,8 @@ struct Ref<Rect> {
     Ref<Size>& top() { return y().high(); }
     const Ref<Size> top() const { return y().high(); }
     Rect value() const { return { x().value(), y().value() }; }
-    Rect resolve(const Resolver& resolver) const { return { x().resolve(resolver), y().resolve(resolver) }; }
+    Rect resolve(const Resolver& resolver, const Rect& base) const { return { x().resolve(resolver, base.x()), y().resolve(resolver, base.y()) }; }
+    Rect substitute(const Substituter& substituter, const Rect& base) const { return { x().substitute(substituter, base.x()), y().substitute(substituter, base.y()) }; }
 };
 
 }

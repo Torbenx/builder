@@ -7,19 +7,26 @@
 namespace ui {
 
 struct Resolver;
+struct Substituter;
 
-struct RefInfo {
+template<typename T>
+struct alignas(4) wrapper {
+    T value;
+};
+
+struct PtrInfo {
     static constexpr int COMPACT_OFFSET_BITS = 12;
     static constexpr uint32_t MIN_OFFSET_ALIGNMENT = 4;
     static constexpr uint32_t MAX_OFFSET = ((size_t)1 << COMPACT_OFFSET_BITS) * MIN_OFFSET_ALIGNMENT;
     static constexpr int COMPACT_KEY_BITS = 30 - COMPACT_OFFSET_BITS;
     static constexpr uint32_t MAX_KEY = (size_t)1 << COMPACT_KEY_BITS;
-    static RefInfo fromCompact(uint32_t comp) {
+    static PtrInfo fromCompact(uint32_t comp) {
         return {
             .styleKey = comp >> COMPACT_OFFSET_BITS,
             .byteOffset = (comp & (((uint32_t)1 << COMPACT_KEY_BITS) - 1)) * MIN_OFFSET_ALIGNMENT
         };
     }
+    // generate compact 30-bit representation
     uint32_t compact() const {
         VERIFY(Ui, styleKey < MAX_KEY);
         VERIFY(Ui, stx::isAligned(MIN_OFFSET_ALIGNMENT, byteOffset));
@@ -28,45 +35,75 @@ struct RefInfo {
     }
     uint32_t styleKey = 0;
     uint32_t byteOffset = 0;
+
+    bool isNull() const { return styleKey == 0; }
 };
 
+template<typename T = void>
+struct Ptr {
+    uint32_t storage = 0;
+    Ptr() = default;
+    template<typename T2>
+    explicit Ptr(const Ptr<T2>& in)
+        : storage(in.storage) { }
+    explicit Ptr(uint32_t compactInfo)
+        : storage(compactInfo) { }
+    explicit Ptr(PtrInfo info)
+        : Ptr(info.compact()) { }
+    PtrInfo info() const { return PtrInfo::fromCompact(storage); }
+    operator Ptr<void>() const { return Ptr<void> { storage }; }
+    explicit operator bool() const { return storage != 0; }
+};
+
+// recursive ptr or value
+template<typename T>
+struct Ref;
+
 struct MakeSelfReference {
-    mutable const std::byte* baseAddress = nullptr;
+    const std::byte* baseAddress = nullptr;
     uint32_t styleKey = 0;
-    MakeSelfReference(int_t styleKey)
-        : styleKey(styleKey) { }
-    RefInfo operator()(const void* thiz) const {
-        if (!baseAddress)
-            baseAddress = (const std::byte*)thiz;
-        return { .styleKey = styleKey, .byteOffset = (uint32_t)((const std::byte*)thiz - baseAddress) };
+    MakeSelfReference(const void* baseAddress, int_t styleKey)
+        : baseAddress((const std::byte*)baseAddress), styleKey(styleKey) { }
+    Ptr<void> operator()(const void* thiz) const {
+        return Ptr<void>(PtrInfo { .styleKey = styleKey, .byteOffset = (uint32_t)((const std::byte*)thiz - baseAddress) });
     }
+};
+template<typename T>
+struct SelfReferenceRef : Ref<T> {
+    SelfReferenceRef(int_t styleKey)
+        : Ref<T>(MakeSelfReference(this, styleKey)) { }
 };
 
 template<typename T>
-struct Ref;
+struct Key {
+    uint32_t styleKey = 0;
+    SelfReferenceRef<T> ref() const { return { styleKey }; }
+    operator Ptr<T>() const { return PtrInfo { .styleKey = styleKey, .byteOffset = 0 }; }
+};
 
 template<typename T>
 struct RefLeaf;
 
-struct RefPtrBase {
+struct RefPointerLeaf {
     uintptr_t data = 0;
-    bool isRef() const { return data & 1; }
+    bool isPtr() const { return data & 1; }
     void set(void* value) {
         data = (uintptr_t)value;
     }
     void* value() const {
         return (void*)(data & ~(uintptr_t)1);
     }
-    void set(RefInfo info) {
-        data = ((uintptr_t)info.compact() << 32) | (uintptr_t)1;
+    void set(Ptr<void> info) {
+        data = ((uintptr_t)info.storage << 32) | (uintptr_t)1;
     }
-    RefInfo ref() const {
-        return RefInfo::fromCompact(data >> 32);
+    Ptr<void> ptr() const {
+        return Ptr<void> { (uint32_t)(data >> 32) };
     }
 };
 template<typename T>
-struct RefLeaf<T*> : RefPtrBase {
-    T* value() const { return (T*)RefPtrBase::value(); }
+struct RefLeaf<T*> : RefPointerLeaf {
+    T* value() const { return (T*)RefPointerLeaf::value(); }
+    Ptr<T> ptr() const { return (Ptr<T>)RefPointerLeaf::ptr(); }
 };
 
 template<>
@@ -74,7 +111,7 @@ struct RefLeaf<Size> {
     Size data;
     static constexpr uint32_t payloadMask = Size::payloadUintMask;
     static_assert(payloadMask == (uint32_t)1 << 30);
-    bool isRef() const { return data.payloadBit(); }
+    bool isPtr() const { return data.payloadBit(); }
     void set(Size size) {
         VERIFY(Ui, !size.payloadBit());
         data = size;
@@ -82,11 +119,11 @@ struct RefLeaf<Size> {
     Size value() const {
         return data.withoutPayload();
     }
-    void set(RefInfo info) {
-        data = Size::fromUint(info.compact() | payloadMask);
+    void set(Ptr<Size> ptr) {
+        data = Size::fromUint(ptr.storage | payloadMask);
     }
-    RefInfo ref() const {
-        return RefInfo::fromCompact(data.uint() & ~payloadMask);
+    Ptr<Size> ptr() const {
+        return Ptr<Size>(data.uint() & ~payloadMask);
     }
 };
 
@@ -95,11 +132,11 @@ struct RefLeaf<float> {
     static constexpr uint32_t flagBit = (uint32_t)1 << TagFloat<1>::tagPos;
     static_assert(flagBit == (uint32_t)1 << 30);
     TagFloat<1> data;
-    bool isRef() const { return data.tag(); }
+    bool isPtr() const { return data.tag(); }
     void set(float value) { data = { value, 0 }; }
-    void set(RefInfo info) { data = TagFloat<1>::fromUint(info.compact() | flagBit); }
+    void set(Ptr<float> ptr) { data = TagFloat<1>::fromUint(ptr.storage | flagBit); }
     float value() const { return data.value(); }
-    RefInfo ref() const { return RefInfo::fromCompact(data.uint() & ~flagBit); }
+    Ptr<float> ptr() const { return Ptr<float>(data.uint() & ~flagBit); }
 };
 
 template<typename T>
@@ -137,28 +174,28 @@ requires requires { typename SmallRefStorage32<T>; }
 struct RefLeaf<T> {
     static constexpr uint32_t flagBit = (uint32_t)1 << 31;
     uint32_t data = 0;
-    bool isRef() const { return data & flagBit; }
+    bool isPtr() const { return data & flagBit; }
     void set(T value) { data = SmallRefStorage32<T>::pack(value) & ~flagBit; }
-    void set(RefInfo info) { data = info.compact() | flagBit; }
+    void set(Ptr<T> ptr) { data = ptr.storage | flagBit; }
     T value() const { return SmallRefStorage32<T>::unpack(data); }
-    RefInfo ref() const { return RefInfo::fromCompact(data & ~flagBit); }
+    Ptr<T> ptr() const { return Ptr<T>(data & ~flagBit); }
 };
+
+template<typename T>
+T resolveLeaf(const Ref<T>& in, const Resolver& resolver, const T& base);
+template<typename T>
+T substituteLeaf(const Ref<T>& in, const Substituter& substituter, const T& base);
 
 template<typename T>
 requires requires { typename RefLeaf<T>; }
 struct Ref<T> : RefLeaf<T> {
     Ref() { }
-    Ref(const MakeSelfReference& selfRef) { this->set(selfRef(this)); }
+    Ref(const MakeSelfReference& selfRef) { this->set((Ptr<T>)selfRef(this)); }
     Ref(T value) { this->set(value); }
-    bool isValue() const { return !this->isRef(); }
-    T resolve(const Resolver&) const;
+    bool isValue() const { return !this->isPtr(); }
+    void clear() { this->set(Ptr<T>()); }
+    T resolve(const Resolver& resolver, const T& base) const { return resolveLeaf<T>(*this, resolver, base); }
+    T substitute(const Substituter& substituter, const T& base) const { return substituteLeaf<T>(*this, substituter, base); }
 };
-
-/*{
-    Ref<T> current = *this;
-    while (current.isRef())
-        current = *(Ref<T>*)style.fetch(ref());
-    return current.value();
-}*/
 
 }
