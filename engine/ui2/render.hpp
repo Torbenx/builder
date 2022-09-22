@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Rect.hpp"
+#include "event/Script.hpp"
 
 namespace ui {
 
@@ -42,19 +43,23 @@ struct AtlasAllocator {
     virtual void deallocateAtlas(TextureHandle texture) = 0;
 };
 
+struct TextureState {
+    TextureView texture;
+    IntVec dimensions;
+};
 struct RendererBase {
     uint32_t id = 0;
+    TextureState textureState() const;
     ~RendererBase();
     constexpr explicit operator bool() const { return id != 0; }
 };
 template<typename T>
-concept Renderer = std::derived_from<T, RendererBase> && requires(T& renderer, TextureView view, IntVec dimensions) { renderer.updateTexture(view, dimensions); };
+concept Renderer = std::derived_from<T, RendererBase> && requires(T& renderer) { { renderer.textureUpdateSignal() } -> std::same_as<evt::Signal>; };
 
 struct RendererHandle {
     RendererBase* base = nullptr;
-    void (*updatePtr)(RendererBase*, TextureView, IntVec) = nullptr;
+    evt::Signal signal;
     RendererBase* operator->() const { return base; }
-    void update(TextureView view, IntVec dimensions) const { updatePtr(base, view, dimensions); }
 };
 
 void draw(RendererHandle, RectVarHandle);
@@ -63,9 +68,7 @@ template<Renderer T>
 void draw(T& renderer, RectVarHandle rect) {
     RendererHandle handle;
     handle.base = (RendererBase*)&renderer;
-    handle.updatePtr = [](RendererBase* base, TextureView view, IntVec dimensions) {
-        static_cast<T*>(base)->updateTexture(view, dimensions);
-    };
+    handle.signal = renderer.textureUpdateSignal();
     draw(handle, rect);
 }
 inline RendererBase::~RendererBase() {

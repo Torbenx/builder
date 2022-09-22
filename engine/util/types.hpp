@@ -24,6 +24,9 @@ constexpr auto to_underlying(E e) noexcept {
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
+template<auto value>
+using constant = std::integral_constant<decltype(value), value>;
+
 }
 
 using int_t = stx::int_t;

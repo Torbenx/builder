@@ -29,6 +29,12 @@
 
 #define COMPILER_INTERFACE_GNU
 
+#if defined(__clang__)
+#define COMPILER_INTERNALS_CLANG
+#else
+#define COMPILER_INTERNALS_GCC
+#endif
+
 #define ASSUME(expr)                 \
     {                                \
         if (!(expr)) {               \
@@ -53,6 +59,12 @@
 #elif defined(_MSC_VER)
 
 #define COMPILER_INTERFACE_MSVC
+
+#if defined(__clang__)
+#define COMPILER_INTERNALS_CLANG
+#else
+#define COMPILER_INTERNALS_MSVC
+#endif
 
 #define ASSUME(expr) __assume(expr)
 

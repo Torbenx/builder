@@ -33,6 +33,7 @@ public:
 
     void draw(RendererHandle handle, RectVarHandle rect);
     void cancelDraw(RendererBase&);
+    TextureState textureState(const RendererBase&);
 
     RectVarHandle screen() const { return screenBox; }
 

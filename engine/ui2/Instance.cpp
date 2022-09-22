@@ -131,12 +131,14 @@ void Instance::update() {
 
     varValues = std::move(newVarValues);
 
+    evt::InlineExecutor executor;
     for (int_t updateId : textureUpdates) {
         auto& render = renders[updateId];
         IntRect rect = intRect(render.rect);
         render.allocPosition = allocateTexture(rect.dimensions());
-        render.handle.update(atlas.view() + render.allocPosition, rect.dimensions());
+        render.handle.signal.notify(&executor);
     }
+    executor.execute();
 
     outputOffsets.clear();
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
@@ -201,11 +203,23 @@ void Instance::cancelDraw(RendererBase& ref) {
 
     renders[back.handle->id] = back;
 }
+TextureState Instance::textureState(const RendererBase& ref) {
+    const RendererBase* base = &ref;
+    VERIFY(Ui, base->id != 0);
+    Render& render = renders[base->id];
+    return {
+        .texture = atlas.view() + render.allocPosition,
+        .dimensions = intRect(render.rect).dimensions(),
+    };
+}
 void draw(RendererHandle handle, RectVarHandle rect) {
     instance()->draw(handle, rect);
 }
 void cancelDraw(RendererBase& base) {
     instance()->cancelDraw(base);
+}
+TextureState RendererBase::textureState() const {
+    return instance()->textureState(*this);
 }
 
 IntVec Instance::allocateTexture(IntVec dimensions) {

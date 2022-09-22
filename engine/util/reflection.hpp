@@ -55,21 +55,15 @@ struct member_pointer_helper;
 
 template<typename T, typename B>
 struct member_pointer_helper<T B::*> {
-    using Type = T;
-    using Base = B;
+    using FieldType = T;
+    using BaseType = B;
 };
 
 template<auto ptr>
-struct member_pointer : member_pointer_helper<decltype(ptr)> { };
+using member_pointer = member_pointer_helper<decltype(ptr)> { };
 
 template<auto ptr>
-using MemberPointerType = typename member_pointer<ptr>::Type;
-
-template<auto ptr>
-using MemberPointerBase = typename member_pointer<ptr>::Base;
-
-template<auto ptr>
-static constexpr int OffsetOf = __builtin_offsetof(MemberPointerBase<ptr>, __builtin_member_ptr[ptr]);
+static constexpr int OffsetOf = __builtin_offsetof(member_pointer<ptr>::BaseType, __builtin_member_ptr[ptr]);
 
 // reflection
 template<typename B = void, typename T = void, int_t N = 0>

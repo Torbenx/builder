@@ -37,23 +37,33 @@ struct PtrInfo {
     uint32_t byteOffset = 0;
 
     bool isNull() const { return styleKey == 0; }
+    PtrInfo offsetBy(int_t offset) const {
+        return { styleKey, (uint32_t)(byteOffset + offset) };
+    }
 };
 
 template<typename T = void>
-struct Ptr {
+struct Ptr;
+
+struct PtrBase {
     uint32_t storage = 0;
-    Ptr() = default;
-    template<typename T2>
-    explicit Ptr(const Ptr<T2>& in)
-        : storage(in.storage) { }
-    explicit Ptr(uint32_t compactInfo)
+    PtrBase() = default;
+    explicit PtrBase(uint32_t compactInfo)
         : storage(compactInfo) { }
-    explicit Ptr(PtrInfo info)
-        : Ptr(info.compact()) { }
+    explicit PtrBase(PtrInfo info)
+        : PtrBase(info.compact()) { }
     PtrInfo info() const { return PtrInfo::fromCompact(storage); }
-    operator Ptr<void>() const { return Ptr<void> { storage }; }
+    operator Ptr<void>() const;
     explicit operator bool() const { return storage != 0; }
 };
+template<typename T>
+struct Ptr : PtrBase {
+    using PtrBase::PtrBase;
+    template<typename T2>
+    explicit Ptr(const Ptr<T2>& in)
+        : PtrBase(in) { }
+};
+inline PtrBase::operator Ptr<void>() const { return Ptr<void> { storage }; }
 
 // recursive ptr or value
 template<typename T>

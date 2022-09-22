@@ -32,6 +32,78 @@ void forEachKey(SmallStyleTableImpl<Keys...>& style, Callback&& callback) {
     (callback.template operator()<Keys>(get<Keys>(style)), ...);
 }
 
+namespace detail {
+    template<typename... Ts>
+    struct Pack;
+
+    template<typename P1, typename P2>
+    struct beginsWith;
+    template<typename T1, typename... Ts1, typename T2, typename... Ts2>
+    struct beginsWith<Pack<T1, Ts1...>, Pack<T2, Ts2...>> {
+        using type = std::conditional_t<
+            std::is_same_v<T1, T2>,
+            typename beginsWith<Pack<Ts1...>, Pack<Ts2...>>::type,
+            std::false_type>;
+    };
+    template<typename... Ts2>
+    struct beginsWith<Pack<>, Pack<Ts2...>> {
+        using type = std::true_type;
+    };
+    template<typename... Ts1>
+    struct beginsWith<Pack<Ts1...>, Pack<>> {
+        using type = std::false_type;
+    };
+    template<>
+    struct beginsWith<Pack<>, Pack<>> {
+        using type = std::true_type;
+    };
+
+    template<typename P1, typename P2>
+    struct subpackOf;
+    template<typename T1, typename... Ts1, typename T2, typename... Ts2>
+    struct subpackOf<Pack<T1, Ts1...>, Pack<T2, Ts2...>> {
+        using type = std::conditional_t<
+            std::is_same_v<T1, T2>,
+            typename beginsWith<Pack<Ts1...>, Pack<Ts2...>>::type,
+            typename subpackOf<Pack<T1, Ts1...>, Pack<Ts2...>>::type>;
+    };
+    template<typename... Ts1>
+    struct subpackOf<Pack<Ts1...>, Pack<>> {
+        using type = std::false_type;
+    };
+    template<typename... Ts2>
+    struct subpackOf<Pack<>, Pack<Ts2...>> {
+        using type = std::true_type;
+    };
+    template<>
+    struct subpackOf<Pack<>, Pack<>> {
+        using type = std::true_type;
+    };
+
+    template<typename T, typename... Ts>
+    struct first {
+        using type = T;
+    };
+
+    template<typename... Keys1, typename... Keys2>
+    static int_t computeByteOffset() {
+        using FirstKey = typename detail::first<Keys1...>::type;
+        const SmallStyleTableImpl<Keys2...>* inObject = nullptr;
+        const auto* baseObject = (const SmallStyleTableStorage<FirstKey>*)inObject;
+        return (std::byte*)baseObject - (std::byte*)inObject;
+    }
+}
+template<typename... Keys>
+struct Ptr<SmallStyleTableImpl<Keys...>> : PtrBase {
+    using PtrBase::PtrBase;
+    template<typename... Keys2>
+    Ptr(const Ptr<SmallStyleTableImpl<Keys2...>>& in) requires(detail::subpackOf<detail::Pack<Keys...>, detail::Pack<Keys2...>>::type::value)
+        : PtrBase(in.info().offsetBy(detail::computeByteOffset<Keys..., Keys2...>())) { }
+    template<typename T2>
+    explicit Ptr(const Ptr<T2>& in)
+        : PtrBase(in) { }
+};
+
 template<typename Key>
 struct SmallStyleTableRefStorage {
     Ref<typename Key::Type> value;

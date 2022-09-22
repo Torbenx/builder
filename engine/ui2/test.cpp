@@ -42,6 +42,9 @@ struct LayoutBox {
     }
 };
 
+DECLARE_STYLE_KEY(TestFlag, bool);
+using TestStyle = ui::SmallStyleTable<TestFlag>;
+
 struct UiTest : plt::WindowStateCallback {
 
     LayoutBox box1;
@@ -62,8 +65,10 @@ struct UiTest : plt::WindowStateCallback {
     void onInitialize(plt::Window*) override {
     }
 
-    struct TestRenderer : ui::RendererBase {
-        void updateTexture(ui::TextureView view, ui::IntVec dim) {
+    struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
+        void render(const ui::TextureState& texture, const TestStyle&) {
+            ui::TextureView view = texture.texture;
+            ui::IntVec dim = texture.dimensions;
             VDUMP((void*)view.data);
             VDUMP(dim.x());
             VDUMP(dim.y());
@@ -84,8 +89,10 @@ struct UiTest : plt::WindowStateCallback {
         box1.padding.x() = 10_px;
         box1.updatePaddings();
 
-        TestRenderer renderer;
-        ui::draw(renderer, box1.innerBox);
+        ui::CompoundStylable<ui::TextRenderer, TestRenderer> renderer;
+        ui::Ptr<ui::SmallStyleTable<ui::TextSize, TestFlag>> style;
+        renderer.setStyle(style);
+        ui::draw(renderer.get<TestRenderer>(), box1.innerBox);
 
         ui::IntVec windowSize { (int)window->width(), (int)window->height() };
         ui::instance()->resize(windowSize, 0.5f);
