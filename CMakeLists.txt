@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 project(engine)
 
-if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if (NOT MSVC)
     set(CMAKE_BUILD_TYPE release)
     set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG -g")
 endif()

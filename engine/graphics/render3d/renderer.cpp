@@ -389,6 +389,10 @@ namespace {
             }
 
             auto* node = item.input;
+
+            std::sort(node->effects.begin(), node->effects.end(), [](Effect::Handle first, Effect::Handle second) {
+                return first.type.data < second.type.data;
+            });
             auto shaderHandle = EffectShaderFactory::getHandle(node->effects);
 
             auto& shader = EffectShaderFactory::instance(*shaderHandle);

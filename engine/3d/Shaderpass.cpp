@@ -49,7 +49,7 @@ template<uint32_t N>
 void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& effects) {
     for (int_t i = 0; i < N; i++) {
         auto& map = counts[i];
-        uintptr_t key = (uintptr_t)effects[i].id;
+        uintptr_t key = (uintptr_t)effects[i].ptr;
         auto it = map.find(key);
         if (it == map.end()) {
             it = map.insert({ key, 0 }).first;
@@ -70,9 +70,9 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
         for (int_t i = 0; i < N; i++) {
             Effect::Handle ae = a.effects[indices[i]];
             Effect::Handle be = b.effects[indices[i]];
-            if (ae.id == be.id)
+            if (ae.ptr == be.ptr)
                 continue;
-            return ae.id < be.id;
+            return ae.ptr < be.ptr;
         }
         return false;
     });
@@ -80,18 +80,18 @@ void ShaderpassImpl<N>::addEntry(id_t objectId, std::vector<Effect::Handle>& eff
     for (auto& stream : levels) {
         stream.clear();
     }
-    std::array<sid_t, N> prev;
-    prev.fill(std::numeric_limits<sid_t>::max());
+    std::array<Effect*, N> prev;
+    prev.fill(nullptr);
     for (Entry& entry : entries) {
         int_t i = 0;
         for (; i < N; i++) {
             int_t j = indices[i];
-            if (prev[j] != entry.effects[j].id)
+            if (prev[j] != entry.effects[j].ptr)
                 break;
         }
         for (; i < N; i++) {
             int_t j = indices[i];
-            prev[j] = entry.effects[j].id;
+            prev[j] = entry.effects[j].ptr;
 
             auto& stream = levels[j];
             Effect::TypeData data = Effect::data(entry.effects[j].type);
@@ -115,19 +115,19 @@ void ShaderpassImpl<N>::draw(GraphicsObjectCollection& objects, Renderpass& rend
     EffectShader& shader = EffectShaderFactory::instance(*shaderHandle);
     shader.use();
     shader.uniformMat4x4(shader.viewProjectionUniform, renderpass.viewProjectionMatrix);
-    std::array<sid_t, N> prev;
-    prev.fill(std::numeric_limits<sid_t>::max());
+    std::array<Effect*, N> prev;
+    prev.fill(nullptr);
     auto readers = createReaderArray_helper(levels, std::make_index_sequence<N>());
     for (Entry& entry : entries) {
         int_t i = 0;
         for (; i < N; i++) {
             int_t j = indices[i];
-            if (prev[j] != entry.effects[j].id)
+            if (prev[j] != entry.effects[j].ptr)
                 break;
         }
         for (; i < N; i++) {
             int_t j = indices[i];
-            prev[j] = entry.effects[j].id;
+            prev[j] = entry.effects[j].ptr;
 
             DataStream::Reader& reader = readers[j];
             Effect::TypeData data = Effect::data(entry.effects[j].type);

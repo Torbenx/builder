@@ -142,7 +142,7 @@ struct ConstexprEffectDescriptor {
         bool output = false;
         constexpr VariableDescriptorBase() = default;
         constexpr VariableDescriptorBase(const Type* type, std::string_view name)
-            : type(type), nameBegin(name.begin()), nameLength(name.length()) { }
+            : type(type), nameBegin(name.data()), nameLength(name.length()) { }
         constexpr std::string_view name() const { return { nameBegin, (size_t)nameLength }; }
     };
     struct VariableDescriptor : VariableDescriptorBase {

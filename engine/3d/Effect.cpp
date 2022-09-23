@@ -3,15 +3,13 @@
 
 std::vector<EffectShader> EffectShaderFactory::shaders;
 
-Effect::TypeData* Effect::typeData;
-
 void init_effect() {
-    auto* it = __begin_effect;
+    /*auto* it = __begin_effect;
     Effect::typeData = it;
     for (; it != __end_effect; it++) {
         it->type = { (sid_t)(it - Effect::typeData) };
     }
-    log("registered {} effects", it - Effect::typeData);
+    log("registered {} effects", it - Effect::typeData);*/
 }
 
 namespace effect_detail {
@@ -34,15 +32,6 @@ struct ShaderMonitor final : public ResourceMonitor {
     }
 };
 
-std::vector<sIdAllocator> effectIdAllocators;
-
-}
-
-sid_t Effect::allocateEffectId(Effect::Type type) {
-    if (effect_detail::effectIdAllocators.size() <= type.id) {
-        effect_detail::effectIdAllocators.resize(type.id + 1);
-    }
-    return effect_detail::effectIdAllocators[type.id].allocateId();
 }
 
 EffectShaderBuilder::EffectShaderBuilder(AttributeList attributes)
@@ -85,7 +74,7 @@ std::string EffectShaderBuilder::buildFragmentSource() {
 Resource<id_t> EffectShaderFactory::getHandle(const std::vector<Effect::Handle>& effects) {
     uintptr_t hash = 0;
     for (Effect::Handle effect : effects) {
-        hash ^= ((uintptr_t)effect.type.id + 5711) * 7727;
+        hash ^= ((uintptr_t)effect.type.data + 5711) * 7727;
     }
 
     std::unique_ptr<effect_detail::ShaderMonitor>& ptr = effect_detail::shaderHandles[hash];

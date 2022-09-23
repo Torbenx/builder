@@ -59,7 +59,7 @@ void UiScene::build(GAllocator* allocator) {
     solver.freeSolution();
 }
 
-void UiScene::clear(GAllocator* allocator) {
+void UiScene::clear(GAllocator*) {
     solver.clear();
     components.clear();
 }

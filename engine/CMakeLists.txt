@@ -101,7 +101,7 @@ add_library(engine ${linkage}
 )
 
 # set_target_properties(engine PROPERTIES UNITY_BUILD ON)
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if(MSVC)
     target_compile_options(engine PRIVATE "/W3;/wd4244;/wd4267")
 else()
     target_compile_options(engine PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
@@ -125,9 +125,9 @@ add_executable(engine_test ${win32_executable}
     "ui2/test.cpp"
     "ui2/BigStyleTable.cpp"
 )
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if(MSVC)
     target_compile_options(engine_test PRIVATE "/W3;/wd4244;/wd4267")
 else()
     target_compile_options(engine_test PRIVATE "-Wall;-Wextra;-Wno-invalid-offsetof;-Wsuggest-override")
 endif()
-target_link_libraries(engine_test PUBLIC ${platform_libs} turbojpeg ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)
+target_link_libraries(engine_test PUBLIC ${platform_libs} ${CMAKE_THREAD_LIBS_INIT} ${Vulkan_LIBRARIES} fmt)

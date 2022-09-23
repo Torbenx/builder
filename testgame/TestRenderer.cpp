@@ -39,7 +39,7 @@ TestRenderer<G>::TestRenderer()
 
     log("=========================================");
 
-    runShadergenTest();
+    //runShadergenTest();
 
     log("=========================================");
 
@@ -156,32 +156,32 @@ TestRenderer<G>::TestRenderer()
     std::vector<Effect::Handle> effects1 {
         col1.handle(),
         ambientLight.handle(),
-        //spotLight.handle(),
+        spotLight.handle(),
         pointLight.handle(),
     };
     std::vector<Effect::Handle> effects2 {
         col2.handle(),
         ambientLight.handle(),
-        //spotLight.handle(),
+        spotLight.handle(),
         pointLight.handle(),
     };
     std::vector<Effect::Handle> effects3 {
         col3.handle(),
         ambientLight.handle(),
-        //spotLight.handle(),
+        spotLight.handle(),
         pointLight.handle(),
         reflection.handle(),
     };
     std::vector<Effect::Handle> effects4 {
         col4.handle(),
         ambientLight.handle(),
-        //spotLight.handle(),
+        spotLight.handle(),
         pointLight.handle(),
     };
     std::vector<Effect::Handle> effects5 {
         col5.handle(),
         ambientLight.handle(),
-        //spotLight.handle(),
+        spotLight.handle(),
         pointLight.handle(),
     };
 

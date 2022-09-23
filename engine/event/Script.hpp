@@ -14,12 +14,14 @@ struct Event {
 namespace evt {
 
 struct Script;
+struct ScriptHandle;
 struct Executor;
 
 struct ScriptPromise {
     Script get_return_object();
+    ScriptHandle scriptHandle();
     void unhandled_exception() { }
-    stdx::suspend_always initial_suspend() { return {}; }
+    stdx::suspend_never initial_suspend() { return {}; }
     stdx::suspend_never final_suspend() noexcept { return {}; }
     void return_void() { }
 
@@ -27,8 +29,17 @@ struct ScriptPromise {
     uint64_t key = 0;
     Executor* executor = nullptr;
 };
+static_assert(std::is_standard_layout_v<ScriptPromise>);
+template<typename T>
+concept CompatibleScriptPromise = std::is_base_of_v<ScriptPromise, T> && alignof(T) == alignof(ScriptPromise) && std::is_standard_layout_v<T>;
 
 struct ScriptHandle {
+    ScriptHandle() = default;
+    ScriptHandle(stdx::coroutine_handle<ScriptPromise> handle)
+        : handle(handle) { }
+    template<CompatibleScriptPromise Promise>
+    ScriptHandle(stdx::coroutine_handle<Promise> handle)
+        : handle(stdx::coroutine_handle<ScriptPromise>::from_address(handle.address())) { }
     stdx::coroutine_handle<ScriptPromise> handle = {};
     ScriptPromise* promise() const { return &handle.promise(); }
     ScriptPromise* operator->() const { return promise(); }
@@ -40,7 +51,8 @@ struct Script : ScriptHandle {
     using promise_type = ScriptPromise;
 };
 
-inline Script ScriptPromise::get_return_object() { return { { stdx::coroutine_handle<ScriptPromise>::from_promise(*this) } }; }
+inline ScriptHandle ScriptPromise::scriptHandle() { return { stdx::coroutine_handle<ScriptPromise>::from_promise(*this) }; }
+inline Script ScriptPromise::get_return_object() { return { scriptHandle() }; }
 
 struct Executor {
     std::vector<ScriptHandle> scripts;

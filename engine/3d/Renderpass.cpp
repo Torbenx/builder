@@ -27,7 +27,7 @@ void Renderpass::draw(GraphicsObjectCollection& objects, GAllocator* allocator) 
 
 void Renderpass::addObject(id_t objectId, std::vector<Effect::Handle> effects) {
     std::sort(effects.begin(), effects.end(), [](Effect::Handle first, Effect::Handle second) {
-        return first.type.id < second.type.id;
+        return first.type.data < second.type.data;
     });
     Resource<id_t> handle = EffectShaderFactory::getHandle(effects);
     int_t index;

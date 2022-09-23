@@ -62,6 +62,8 @@ void GAllocator::stage() {
 }
 
 void GAllocator::pumpDynamicData() {
+    VERIFY(Graphics, staticAllocations.size() == 0);
+    VERIFY(Graphics, dynamicAllocations.size() == 0);
     dynamicCPU[uploadDynamicIndex()].bind(GL_COPY_READ_BUFFER);
     dynamicBuffers[uploadDynamicIndex()].bind(GL_COPY_WRITE_BUFFER);
     glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, dynamicSize);

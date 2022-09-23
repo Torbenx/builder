@@ -5,11 +5,20 @@
 
 namespace evt {
 
+struct Anything {
+    bool await_ready() { return false; }
+    void await_suspend(ScriptHandle handle) {
+        handle->key = -1;
+        handle->state = 0;
+    }
+    void await_resume() { }
+};
+
 struct InlineCallback {
 #if defined(COMPILER_INTERNALS_CLANG)
     static constexpr int_t INLINE_CALLBACK_STORAGE_SIZE = 48;
 #elif defined(COMPILER_INTERNALS_GCC)
-    static constexpr int_t INLINE_CALLBACK_STORAGE_SIZE = 72;
+    static constexpr int_t INLINE_CALLBACK_STORAGE_SIZE = 64;
 #else
 // MSVC can currently not compile this
 // hence its does not get a size
@@ -28,8 +37,6 @@ struct InlineCallback {
                 }
                 void operator delete(void*) { }
                 promise_type(InlineCallback*& thizPtr) {
-                    state = 0;
-                    key = -1;
                     auto handle = std::coroutine_handle<promise_type>::from_promise(*this);
                     InlineCallback* newThizPtr = (InlineCallback*)handle.address();
                     // clang's optimizer optimizes this condition to false even when it is true???
@@ -42,8 +49,8 @@ struct InlineCallback {
 
             static CoroHandle coro(InlineCallback* thiz) {
                 while (true) {
+                    co_await Anything();
                     (static_cast<Base*>(thiz)->*callback)();
-                    co_await std::suspend_always();
                 }
             }
         };

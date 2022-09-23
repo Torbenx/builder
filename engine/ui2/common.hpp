@@ -105,7 +105,7 @@ DECLARE_STYLE_KEY(TextSize, Size);
 using TextStyle = SmallStyleTable<TextSize>;
 
 struct TextRenderer : BasicRenderer<TextRenderer, TextStyle> {
-    void render(const TextureState& state, const Style& style) {
+    void render(const TextureState&, const Style&) {
     }
 };
 

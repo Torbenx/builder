@@ -2,9 +2,9 @@
 
 #include "containers/ArrayView.hpp"
 #include "containers/IdAllocator.hpp"
+#include "handles.hpp"
 #include "math/sparse/Vector.hpp"
 #include "platform/thread_local_storage.hpp"
-#include "handles.hpp"
 #include "render.hpp"
 #include "util/types.hpp"
 #include <memory>

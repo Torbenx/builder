@@ -23,15 +23,7 @@ class Effect {
 public:
     using AddToFunc = void (*)(EffectShaderBuilder&);
 
-    struct Type {
-        sid_t id;
-    };
-
     struct TypeData {
-        static constexpr uint16_t NOT_EMPTY_MAGIC = 0xc0de;
-        Type type { 0 };
-        uint16_t magic = NOT_EMPTY_MAGIC;
-
         ArrayView<const int_t> vertexBufferElementSizes;
         InstructureArray<Effect, GPtr> vertexBuffers;
 
@@ -46,11 +38,17 @@ public:
         AddToFunc addToFunction;
     };
 
-    static TypeData data(Type type) { return typeData[type.id]; }
+    struct Type {
+        Type() = default;
+        Type(const TypeData& in)
+            : data(&in) { }
+        const TypeData* data = nullptr;
+    };
+
+    static const TypeData& data(Type type) { return *type.data; }
 
     struct Handle {
         Effect::Type type;
-        sid_t id;
         Effect* ptr;
         Effect* operator->() { return ptr; }
     };
@@ -60,13 +58,12 @@ public:
     }
 
     Effect(Type type)
-        : m_handle { type, allocateEffectId(type), this } { }
+        : m_handle { type, this } { }
 
     Handle handle() { return m_handle; }
 
 private:
     static sid_t allocateEffectId(Type);
-    static TypeData* typeData;
 
     Handle m_handle;
 
@@ -128,7 +125,7 @@ public:
     static inline IN_SECTION(effect) TypeData effectType = registerEffectType();
 
     EffectImpl()
-        : Effect(effectType.type) { }
+        : Effect(effectType) { }
 };
 
 class EffectShaderBuilder : public ShaderBuilder {

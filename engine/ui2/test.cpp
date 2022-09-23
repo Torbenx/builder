@@ -9,6 +9,7 @@
 #include "platform/windows/glcore.hpp"
 #include <memory>
 #include <sstream>
+#include "event/Awaitable.hpp"
 
 namespace {
 
@@ -176,6 +177,7 @@ void test() {
     float result[4] = {};
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
+    evt::test_awaitable();
 
     Ref<TextStyle> style;
     style.get<TextSize>() = ref<TextSize>();
