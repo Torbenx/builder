@@ -89,8 +89,8 @@ void Instance::dumpShiftSizes() {
 }
 
 void Instance::resize(IntVec windowSize, float ptScale) {
-    VDUMP(windowSize.x());
-    VDUMP(windowSize.y());
+    //VDUMP(windowSize.x());
+    //VDUMP(windowSize.y());
     screenDimensions = windowSize;
     this->ptScale = ptScale;
 
@@ -101,10 +101,27 @@ void Instance::resize(IntVec windowSize, float ptScale) {
     outputBlockMap.clear();
     outputBlockMap.resize(windowBlocks.x() * windowBlocks.y());
 
-    update();
+    std::vector<int_t> textureUpdates = updateLayout();
+    evt::InlineExecutor executor;
+    /*for (int_t updateId : textureUpdates) {
+        auto& render = renders[updateId];
+        IntRect rect = intRect(render.rect);
+        render.allocPosition = allocateTexture(rect.dimensions());
+        render.handle.signal.notify(&executor);
+    }*/
+    deallocateAllTextures();
+    for (int_t i = 1; i < (int_t)renders.size(); i++) {
+        auto& render = renders[i];
+        IntRect rect = intRect(render.rect);
+        render.allocPosition = allocateTexture(rect.dimensions());
+        render.handle.signal.notify(&executor);
+    }
+    executor.execute();
+
+    rebuildOutput();
 }
 
-void Instance::update() {
+std::vector<int_t> Instance::updateLayout() {
     sparse::LUDecomposition lu;
     lu.u = matrix.copy();
     int_t varCount = nextVarId;
@@ -130,16 +147,10 @@ void Instance::update() {
     }
 
     varValues = std::move(newVarValues);
+    return textureUpdates;
+}
 
-    evt::InlineExecutor executor;
-    for (int_t updateId : textureUpdates) {
-        auto& render = renders[updateId];
-        IntRect rect = intRect(render.rect);
-        render.allocPosition = allocateTexture(rect.dimensions());
-        render.handle.signal.notify(&executor);
-    }
-    executor.execute();
-
+void Instance::rebuildOutput() {
     outputOffsets.clear();
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
     for (uint32_t& u : outputBlockMap)
@@ -181,7 +192,7 @@ void Instance::update() {
             }
         }
     }
-    VDUMP(outputOffsets.size());
+    //VDUMP(outputOffsets.size());
 }
 
 void Instance::draw(RendererHandle handle, RectVarHandle rect) {
@@ -237,6 +248,10 @@ IntVec Instance::allocateTexture(IntVec dimensions) {
 }
 void Instance::deallocateTexture(IntRect) {
     VERIFY_NOT_REACHED(Ui);
+}
+
+void Instance::deallocateAllTextures() {
+    nextAtlasAllocationHeight = 0;
 }
 
 float Instance::valueOf(VarHandle var) const { return varValues[var.id]; }

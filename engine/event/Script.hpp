@@ -83,7 +83,19 @@ struct Signal {
             exe->scripts.push_back(script);
         }
     }
-    void notify() const;
+    void notify() const {
+        uint64_t oldState = script->state;
+        uint64_t newState = oldState + mask;
+        script->state = newState;
+        uint64_t key = script->key;
+        if ((newState & key) != 0 && (oldState & key) == 0) {
+            Executor* exe = script->executor;
+            if (exe)
+                exe->scripts.push_back(script);
+            else
+                script.handle.resume();
+        }
+    }
 
     Signal operator~() const { return { script, -mask }; }
 };

@@ -5,8 +5,16 @@
 #include <iostream>
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    using namespace plt;
     using namespace plt::windows;
     mainHInstance = hInstance;
+
+    // setup performence counter
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+    performenceCounterFrequency = frequency.QuadPart;
+
+    // register window class
     WNDCLASSEX wc;
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = CS_OWNDC;
@@ -20,27 +28,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     wc.lpszMenuName = NULL;
     wc.lpszClassName = mainWindowClassName;
     wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+    ATOM clazz = RegisterClassEx(&wc);
+    WIN_VERIFY(clazz != 0);
 
-    if (!RegisterClassEx(&wc)) {
-        VERIFY_NOT_REACHED(Windows);
-        return 1;
-    }
-
-    while (true) {
+    // setup thread local storage
+    std::vector<uint32_t> ununsedIndices;
+    int_t usedIndices = 0;
+    while (usedIndices < TLS_INDICES_COUNT) {
         uint32_t tlsIndex = TlsAlloc();
-        VDUMP(tlsIndex);
-        if (tlsIndex >= plt::TLS_INDICES_BASE - 1)
+        if (tlsIndex >= TLS_INDICES_BASE && tlsIndex < TLS_INDICES_BASE + TLS_INDICES_COUNT)
+            usedIndices += 1;
+        else
+            ununsedIndices.push_back(tlsIndex);
+        if (tlsIndex >= 63)
             break;
     }
-    for (int_t i = 0; i < plt::TLS_INDICES_COUNT; i++) {
-        uint32_t tlsIndex = TlsAlloc();
-        VDUMP(tlsIndex);
-        VERIFY(Windows, tlsIndex == plt::TLS_INDICES_BASE + (uint32_t)i);
-    }
+    EXPECT(Windows, usedIndices, TLS_INDICES_COUNT);
+    for (uint32_t index : ununsedIndices)
+        TlsFree(index);
 
     ::onNoInitialWindow();
 
     return 0;
+}
+
+uint64_t getNanos() {
+    LARGE_INTEGER t;
+    QueryPerformanceCounter(&t);
+    return t.QuadPart * 1'000'000'000 / plt::windows::performenceCounterFrequency;
 }
 
 void log_print(const std::string& tag, const std::string& msg) {
@@ -50,12 +65,4 @@ void log_print(const std::string& tag, const std::string& msg) {
     } else {
         std::cout << str;
     }
-}
-
-namespace plt {
-void processEvents() {
-    MSG msg;
-    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-        DispatchMessage(&msg);
-}
 }

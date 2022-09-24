@@ -39,6 +39,7 @@ struct WindowImpl : Window {
     WindowState m_state = WindowState::Uninitialized;
     WindowStateCallback* m_stateCallback = nullptr;
     WindowSurfaceCallback* m_surfaceCallback = nullptr;
+    bool inSizeMove = false;
 
     std::pair<int_t, int_t> calculateWindowSize();
     void updateDimensions();
@@ -52,6 +53,9 @@ struct WindowImpl : Window {
     void detachSurfaceCallback(WindowSurfaceCallback* callback);
     void setTitle(std::string_view title);
     void setDimensions(int_t width, int_t height);
+
+    void enterSizeMove();
+    void exitSizeMove();
 
     HWND hwnd() { return m_hwnd; }
     ScopedDeviceContext deviceContext() { return { hwnd() }; }

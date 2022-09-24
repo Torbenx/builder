@@ -10,6 +10,7 @@
 #include <memory>
 #include <sstream>
 #include "event/Awaitable.hpp"
+#include "util/LogTimer.hpp"
 
 namespace {
 
@@ -48,31 +49,13 @@ using TestStyle = ui::SmallStyleTable<TestFlag>;
 
 struct UiTest : plt::WindowStateCallback {
 
-    LayoutBox box1;
-    ui::RectEqn box1Eqn;
-    std::unique_ptr<uint32_t[]> framebuffer;
-    ui::IntVec frameSize;
-
-    UiTest() {
-        using namespace ui::code;
-        //box1Eqn = box1.outerBox == ui::instance()->screen();
-        ui::RectVarHandle screen = ui::instance()->screen();
-        box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
-        box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == screen.bottom() + screen.top();
-        box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
-        box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();
-    }
-
-    void onInitialize(plt::Window*) override {
-    }
-
     struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
         void render(const ui::TextureState& texture, const TestStyle&) {
             ui::TextureView view = texture.texture;
             ui::IntVec dim = texture.dimensions;
-            VDUMP((void*)view.data);
-            VDUMP(dim.x());
-            VDUMP(dim.y());
+            //VDUMP((void*)view.data);
+            //VDUMP(dim.x());
+            //VDUMP(dim.y());
             for (int_t j = 0; j < dim.y(); j++) {
                 for (int_t i = 0; i < dim.x(); i++) {
                     float fracX = i / (float)(dim.x() - 1);
@@ -85,28 +68,53 @@ struct UiTest : plt::WindowStateCallback {
             }
         }
     };
-    void onVisible(plt::Window* window) override {
+
+    LayoutBox box1;
+    ui::RectEqn box1Eqn;
+    std::unique_ptr<uint32_t[]> framebuffer;
+    ui::IntVec frameSize;
+    ui::CompoundStylable<ui::TextRenderer, TestRenderer> renderer;
+
+    UiTest() {
+        using namespace ui::code;
+        //box1Eqn = box1.outerBox == ui::instance()->screen();
+        ui::RectVarHandle screen = ui::instance()->screen();
+        box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
+        box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == screen.bottom() + screen.top();
+        box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
+        box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();
+
         box1.padding.y() = 10_px;
         box1.padding.x() = 10_px;
         box1.updatePaddings();
 
-        ui::CompoundStylable<ui::TextRenderer, TestRenderer> renderer;
-        ui::Ptr<ui::SmallStyleTable<ui::TextSize, TestFlag>> style;
-        renderer.setStyle(style);
         ui::draw(renderer.get<TestRenderer>(), box1.innerBox);
+    }
 
+    void onResize(plt::Window* window) override {
+        LogTimer timer;
         ui::IntVec windowSize { (int)window->width(), (int)window->height() };
         ui::instance()->resize(windowSize, 0.5f);
-        ui::instance()->debug(ui::instance()->screen());
+        /*ui::instance()->debug(ui::instance()->screen());
         ui::instance()->debug(box1.outerBox);
-        ui::instance()->debug(box1.innerBox);
+        ui::instance()->debug(box1.innerBox);*/
 
         ui::IntVec windowBlockSize = (windowSize + 15) / 16;
         frameSize = windowBlockSize * 16;
         framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
     }
 
+    uint64_t lastFrame = 0;
+    int_t frames = 0;
     void draw(plt::Window* window, ui::Instance& layout) {
+        uint64_t now = getNanos();
+        if (now - lastFrame >= 1'000'000'000) {
+            lastFrame = now;
+            log("FPS: {}", frames);
+            frames = 0;
+        }
+        frames += 1;
+        
         ui::TextureView frameView { framebuffer.get(), (window->width() + 15) / 16 * 16 };
         uint32_t background_color = 0xff'ff'ff'ff;
         for (int_t j = 0; j < window->height(); j++) {

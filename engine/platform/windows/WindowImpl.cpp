@@ -1,5 +1,6 @@
 #include "WindowImpl.hpp"
 #include "core.hpp"
+#include "event/Script.hpp"
 
 namespace plt::windows {
 
@@ -101,6 +102,15 @@ void WindowImpl::detachSurfaceCallback(WindowSurfaceCallback* callback) {
     m_surfaceCallback = nullptr;
 }
 
+void WindowImpl::enterSizeMove() {
+    VERIFY(Windows, !inSizeMove);
+    inSizeMove = true;
+}
+void WindowImpl::exitSizeMove() {
+    VERIFY(Windows, inSizeMove);
+    inSizeMove = false;
+}
+
 void WindowImpl::toState(WindowState targetState) {
     VERIFY(Windows, state() != WindowState::Destroyed);
     auto updateState = [&](WindowState newState) {
@@ -139,13 +149,22 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     if (!window)
         return DefWindowProc(hwnd, msg, wParam, lParam);
     switch (msg) {
-    case WM_SIZE: {
-        log<Tag::Windows>("WM_SIZE");
+    case WM_ENTERSIZEMOVE:
+        window->enterSizeMove();
+        return 0;
+    case WM_EXITSIZEMOVE:
+        window->exitSizeMove();
+        return 0;
+    case WM_PAINT:
+        
+        return 0;
+    case WM_WINDOWPOSCHANGED:
+        //log<Tag::Windows>("WM_WINDOWPOSCHANGED");
         window->updateDimensions();
         if (window->surfaceCallback())
             window->surfaceCallback()->onSurfaceChange(window);
+        window->stateCallback()->onResize(window);
         return 0;
-    }
     case WM_ACTIVATE: {
         log<Tag::Windows>("WM_ACTIVATE {:#b}", wParam);
         bool activate = LOWORD(wParam);
@@ -165,6 +184,20 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     }
     default:
         return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+    VERIFY_NOT_REACHED(Windows);
+}
+
+}
+
+namespace plt {
+
+void processEvents() {
+    MSG msg;
+    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+        if (msg.message == WM_PAINT)
+            break;
+        DispatchMessage(&msg);
     }
 }
 

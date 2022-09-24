@@ -29,7 +29,8 @@ public:
     void deleteVariable(RectVarHandle);
 
     void resize(IntVec windowSize, float ptScale);
-    void update();
+    std::vector<int_t> updateLayout();
+    void rebuildOutput();
 
     void draw(RendererHandle handle, RectVarHandle rect);
     void cancelDraw(RendererBase&);
@@ -109,6 +110,7 @@ private:
     int nextAtlasAllocationHeight = 0;
     IntVec allocateTexture(IntVec dimensions);
     void deallocateTexture(IntRect region);
+    void deallocateAllTextures();
 
     std::vector<uint32_t> outputBlockMap;
 

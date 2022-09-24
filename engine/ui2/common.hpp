@@ -51,11 +51,16 @@ public:
         : onStyleDirty(onStyleDirty) { }
     void setTable(BigStyleTable table) {
         bigTable = table;
+       // onStyleDirty.notify();
     }
     void setStyle(Ptr<Style> style) {
         baseStyle = style;
+        //onStyleDirty.notify();
     }
-    Ref<Style>& local() { return localStyle; }
+    Ref<Style>& mutateLocal() {
+        //onStyleDirty.notify();
+        return localStyle;
+    }
     const Ref<Style>& local() const { return localStyle; }
     Ptr<Style> style() const { return baseStyle; }
 

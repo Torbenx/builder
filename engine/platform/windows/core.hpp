@@ -44,4 +44,6 @@ inline void win_verify(bool cond, const char* condStr, const char* file, int lin
 }
 #define WIN_VERIFY(cond) plt::windows::win_verify(cond, #cond, __FILE__, __LINE__, __func__)
 
+constinit inline uint64_t performenceCounterFrequency = 0;
+
 }

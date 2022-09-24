@@ -44,6 +44,7 @@ class Window;
 struct WindowStateCallback {
     virtual void onAttach(Window*) { }
     virtual void onInitialize(Window*) { }
+    virtual void onResize(Window*) { }
     virtual void onVisible(Window*) { }
     virtual void onForeground(Window*) { }
     virtual void onBackground(Window*) { }
