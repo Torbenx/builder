@@ -17,19 +17,27 @@ public:
     Instance(AtlasAllocator* atlasAlloc);
     ~Instance();
 
-    VarHandle newVar();
-    RangeVarHandle newRange();
-    RectVarHandle newRect();
+    IdAllocator<uint32_t> eqnIdAlloc;
+    std::vector<Size> inhomTyped;
+    std::vector<float> inhomValues;
+    sparse::Matrix matrix;
     EquationHandle newEquation();
     void setEquation(EquationHandle, ArrayView<const sparse::Entry>);
     void updateInhom(EquationHandle, Size inhom);
     void removeEqn(EquationHandle);
+
+    uint32_t nextVarId = 4;
+    std::vector<float> varValues;
+    uint32_t allocateVariableIds(int_t count);
+    VarHandle newVar();
+    RangeVarHandle newRange();
+    RectVarHandle newRect();
     void deleteVariable(VarHandle);
     void deleteVariable(RangeVarHandle);
     void deleteVariable(RectVarHandle);
 
     void resize(IntVec windowSize, float ptScale);
-    std::vector<int_t> updateLayout();
+    void updateLayout(bool clearTextures);
     void rebuildOutput();
 
     void draw(RendererHandle handle, RectVarHandle rect);
@@ -42,37 +50,25 @@ public:
     void dumpVarValues();
     void dumpShiftValues();
     void dumpShiftSizes();
-    IntRect intRect(RectVarHandle var) const { return intRect(var, varValues.data()); }
-    void debug(RectVarHandle box) const {
-        log("Box: {}, {} - {}, {}", varValues[box.left().id], varValues[box.bottom().id], varValues[box.right().id], varValues[box.top().id]);
-    }
-
-private:
-    struct Render {
-        RendererHandle handle;
-        RectVarHandle rect;
-        IntVec allocPosition = {};
-    };
-
-    IdAllocator<uint32_t> eqnIdAlloc;
-    uint32_t nextVarId = 4;
-    std::vector<Size> inhomTyped;
-    std::vector<float> inhomValues;
-    std::vector<float> varValues;
-    sparse::Matrix matrix;
-    RectVarHandle screenBox;
-    EquationHandle screenEquations[4] = {};
-    IntVec screenDimensions;
-    float ptScale = 1.0f;
-    std::vector<Render> renders { 1 };
-
-    uint32_t allocateVariableIds(int_t count);
     static IntRect intRect(RectVarHandle var, const float* varValues) {
         return {
             IntRange { (int)varValues[var.left().id], (int)varValues[var.right().id] },
             IntRange { (int)varValues[var.bottom().id], (int)varValues[var.top().id] }
         };
     }
+    IntRect intRect(RectVarHandle var) const { return intRect(var, varValues.data()); }
+
+    RectVarHandle screenBox;
+    EquationHandle screenEquations[4] = {};
+    IntVec screenDimensions;
+    float ptScale = 1.0f;
+
+    struct Render {
+        RendererHandle handle;
+        RectVarHandle rect;
+        IntVec allocPosition = {};
+    };
+    std::vector<Render> renders { 1 };
 
     struct AtlasHelper : TextureHandle {
         AtlasAllocator* allocator = nullptr;
@@ -112,12 +108,16 @@ private:
     void deallocateTexture(IntRect region);
     void deallocateAllTextures();
 
-    std::vector<uint32_t> outputBlockMap;
-
-public:
     int_t outputLayers = 1;
+    std::vector<uint32_t> outputBlockMap;
     std::vector<IntVec> outputOffsets;
     TextureView atlasView() const { return atlas.view(); }
+    
+    evt::Executor coreExe;
+    evt::Executor styleComputationExe;
+    evt::Executor stylingExe;
+    evt::Executor renderingExe;
+    void doTick();
 };
 
 inline Instance* instance() { return (Instance*)plt::getThreadLocalPtr<plt::TLS_UI_INSTANCE_INDEX>(); }

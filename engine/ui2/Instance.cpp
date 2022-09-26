@@ -1,4 +1,5 @@
 #include "Instance.hpp"
+#include "common.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
 
@@ -88,9 +89,23 @@ void Instance::dumpShiftSizes() {
     }
 }
 
+void Instance::doTick() {
+    evt::setCurrentExecutor(&coreExe);
+    coreExe.execute();
+
+    evt::setCurrentExecutor(&stylingExe);
+    styleComputationExe.execute();
+    stylingExe.execute();
+
+    evt::setCurrentExecutor(&renderingExe);
+    updateLayout(true);
+    renderingExe.execute();
+
+    evt::setCurrentExecutor(nullptr);
+    rebuildOutput();
+}
+
 void Instance::resize(IntVec windowSize, float ptScale) {
-    //VDUMP(windowSize.x());
-    //VDUMP(windowSize.y());
     screenDimensions = windowSize;
     this->ptScale = ptScale;
 
@@ -100,28 +115,9 @@ void Instance::resize(IntVec windowSize, float ptScale) {
     IntVec windowBlocks = (windowSize + 15) / 16;
     outputBlockMap.clear();
     outputBlockMap.resize(windowBlocks.x() * windowBlocks.y());
-
-    std::vector<int_t> textureUpdates = updateLayout();
-    evt::InlineExecutor executor;
-    /*for (int_t updateId : textureUpdates) {
-        auto& render = renders[updateId];
-        IntRect rect = intRect(render.rect);
-        render.allocPosition = allocateTexture(rect.dimensions());
-        render.handle.signal.notify(&executor);
-    }*/
-    deallocateAllTextures();
-    for (int_t i = 1; i < (int_t)renders.size(); i++) {
-        auto& render = renders[i];
-        IntRect rect = intRect(render.rect);
-        render.allocPosition = allocateTexture(rect.dimensions());
-        render.handle.signal.notify(&executor);
-    }
-    executor.execute();
-
-    rebuildOutput();
 }
 
-std::vector<int_t> Instance::updateLayout() {
+void Instance::updateLayout(bool clearTextures) {
     sparse::LUDecomposition lu;
     lu.u = matrix.copy();
     int_t varCount = nextVarId;
@@ -132,22 +128,37 @@ std::vector<int_t> Instance::updateLayout() {
     std::vector<float> newVarValues(varCount);
     lu.inverseTranspose(inhomValues.data(), newVarValues.data());
 
-    std::vector<int_t> textureUpdates;
-    for (int_t i = 1; i < (int_t)renders.size(); i++) {
-        auto& render = renders[i];
-        IntRect oldRect = intRect(render.rect, varValues.data());
-        IntRect newRect = intRect(render.rect, newVarValues.data());
-        if (newRect.dimensions() == oldRect.dimensions())
-            continue;
-        if (render.allocPosition != IntVec {}) {
-            deallocateTexture({ BottomLeft(render.allocPosition), Dimensions(oldRect.dimensions()) });
-            render.allocPosition = {};
+    if (clearTextures) {
+        deallocateAllTextures();
+        for (int_t i = 1; i < (int_t)renders.size(); i++) {
+            auto& render = renders[i];
+            IntRect rect = intRect(render.rect);
+            render.allocPosition = allocateTexture(rect.dimensions());
+            render.handle.signal.notify();
         }
-        textureUpdates.push_back(i);
+    } else {
+        std::vector<int_t> textureUpdates;
+        for (int_t i = 1; i < (int_t)renders.size(); i++) {
+            auto& render = renders[i];
+            IntRect oldRect = intRect(render.rect, varValues.data());
+            IntRect newRect = intRect(render.rect, newVarValues.data());
+            if (newRect.dimensions() == oldRect.dimensions())
+                continue;
+            if (render.allocPosition != IntVec {}) {
+                deallocateTexture({ BottomLeft(render.allocPosition), Dimensions(oldRect.dimensions()) });
+                render.allocPosition = {};
+            }
+            textureUpdates.push_back(i);
+        }
+        for (int_t updateId : textureUpdates) {
+            auto& render = renders[updateId];
+            IntRect rect = intRect(render.rect);
+            render.allocPosition = allocateTexture(rect.dimensions());
+            render.handle.signal.notify();
+        }
     }
 
     varValues = std::move(newVarValues);
-    return textureUpdates;
 }
 
 void Instance::rebuildOutput() {
@@ -192,7 +203,6 @@ void Instance::rebuildOutput() {
             }
         }
     }
-    //VDUMP(outputOffsets.size());
 }
 
 void Instance::draw(RendererHandle handle, RectVarHandle rect) {
@@ -272,5 +282,20 @@ RangeVarHandle RangeVarHandle::allocate() { return instance()->newRange(); }
 void RangeVarHandle::deallocate(RangeVarHandle handle) { instance()->deleteVariable(handle); }
 RectVarHandle RectVarHandle::allocate() { return instance()->newRect(); }
 void RectVarHandle::deallocate(RectVarHandle handle) { instance()->deleteVariable(handle); }
+
+RectVarHandle screen() { return instance()->screen(); }
+
+evt::Executor* coreExecutor() { return &instance()->coreExe; }
+evt::Executor* stylingExecutor() { return &instance()->stylingExe; }
+evt::Executor* renderingExecutor() { return &instance()->renderingExe; }
+
+void StylableBase::invalidateStyleInternal(void (*computeFunc)(StylableBase*)) {
+    onStyleDirty.notify();
+    [](StylableBase* thiz, void (*computeFunc)(StylableBase*)) -> evt::Script {
+        co_await evt::OnExecutor(&instance()->styleComputationExe);
+        computeFunc(thiz);
+        thiz->isDirty = false;
+    }(this, computeFunc);
+}
 
 }

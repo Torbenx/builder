@@ -13,12 +13,11 @@ struct Resolver {
     Ref<BigStyleTable> table;
 };
 template<typename T>
-T resolveLeaf(const Ref<T>& in, const Resolver& resolver, const T& base) {
+T resolveLeaf(const Ref<T>& in, const Resolver& resolver) {
     Ref<T> current = in;
     while (current.isPtr()) {
         Ptr<T> ptr = current.ptr();
-        if (!ptr)
-            return base;
+        VERIFY(Ui, (bool)ptr);
         current = resolver.table.get(ptr);
     }
     return current.value();
@@ -32,47 +31,65 @@ T substituteLeaf(const Ref<T>& in, const Substituter& subs, const T& base) {
     if (!in.isPtr())
         return in.value();
     Ptr<T> ptr = in.ptr();
-    if (!ptr)
-        return base;
-    return subs.table.get(ptr);
+    if (ptr)
+        return subs.table.get(ptr);
+    return base;
 }
 
 template<typename T>
-T computeStyle(BigStyleTable bigTable, const Key<T>& baseStyle, const Ref<T>& localStyle) {
+T computeStyle(BigStyleTable bigTable, Ptr<T> baseStyle, const Ref<T>& localStyle) {
     return localStyle.substitute({ bigTable }, bigTable.get(baseStyle));
 }
 
+struct StylableBase {
+    BigStyleTable bigTable;
+    evt::Signal onStyleDirty;
+    bool isDirty = false;
+    StylableBase(evt::Signal onStyleDirty)
+        : onStyleDirty(onStyleDirty) { }
+    void invalidateStyleInternal(void (*)(StylableBase*));
+};
+
 template<typename S>
-class Stylable {
+class Stylable : private StylableBase {
 public:
     using Style = S;
 
-    Stylable(evt::Signal onStyleDirty)
-        : onStyleDirty(onStyleDirty) { }
+    using StylableBase::StylableBase;
+
     void setTable(BigStyleTable table) {
+        invalidateStyle();
         bigTable = table;
-       // onStyleDirty.notify();
     }
     void setStyle(Ptr<Style> style) {
+        invalidateStyle();
         baseStyle = style;
-        //onStyleDirty.notify();
     }
     Ref<Style>& mutateLocal() {
-        //onStyleDirty.notify();
+        invalidateStyle();
         return localStyle;
     }
     const Ref<Style>& local() const { return localStyle; }
     Ptr<Style> style() const { return baseStyle; }
 
+    void invalidateStyle() {
+        if (isDirty)
+            return;
+        isDirty = true;
+        StylableBase::invalidateStyleInternal([](StylableBase* base) {
+            log("computing style...");
+            Stylable* thiz = (Stylable*)base;
+            thiz->m_computedStyle = computeStyle(thiz->bigTable, thiz->baseStyle, thiz->localStyle);
+        });
+    }
+
 protected:
     const Style& computedStyle() const { return m_computedStyle; }
 
 private:
-    BigStyleTable bigTable;
     Ptr<Style> baseStyle;
     Ref<Style> localStyle;
     Style m_computedStyle;
-    evt::Signal onStyleDirty;
 };
 template<typename T>
 concept IsStylable = requires(T& t, BigStyleTable table, Ptr<typename T::Style> ptr) {
@@ -102,7 +119,9 @@ struct BasicRenderer : RendererBase, evt::InlineCallback, Stylable<Style> {
     }
     BasicRenderer()
         : evt::InlineCallback(stx::constant<&BasicRenderer::do_render>())
-        , Stylable<Style>(this->inlineCallback()) { }
+        , Stylable<Style>(this->inlineCallback()) {
+        this->inlineScript()->executor = renderingExecutor();
+    }
     evt::Signal textureUpdateSignal() const { return this->inlineCallback(); }
 };
 

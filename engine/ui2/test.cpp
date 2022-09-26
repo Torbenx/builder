@@ -1,16 +1,16 @@
-#include "common.hpp"
 #include "Instance.hpp"
+#include "common.hpp"
 #include "equation_code.hpp"
+#include "event/Awaitable.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
 #include "platform/windows/WindowImpl.hpp"
 #include "platform/windows/core.hpp"
 #include "platform/windows/glcore.hpp"
+#include "util/LogTimer.hpp"
 #include <memory>
 #include <sstream>
-#include "event/Awaitable.hpp"
-#include "util/LogTimer.hpp"
 
 namespace {
 
@@ -44,60 +44,92 @@ struct LayoutBox {
     }
 };
 
-DECLARE_STYLE_KEY(TestFlag, bool);
-using TestStyle = ui::SmallStyleTable<TestFlag>;
+enum class ColorChannel {
+    Red,
+    Green,
+    Blue,
+};
 
-struct UiTest : plt::WindowStateCallback {
+DECLARE_STYLE_KEY(Channel1, ColorChannel);
+DECLARE_STYLE_KEY(Channel2, ColorChannel);
+using TestStyle = ui::SmallStyleTable<Channel1, Channel2>;
+DECLARE_STYLE_KEY(DefaultTestStyle, TestStyle);
 
-    struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
-        void render(const ui::TextureState& texture, const TestStyle&) {
-            ui::TextureView view = texture.texture;
-            ui::IntVec dim = texture.dimensions;
-            //VDUMP((void*)view.data);
-            //VDUMP(dim.x());
-            //VDUMP(dim.y());
-            for (int_t j = 0; j < dim.y(); j++) {
-                for (int_t i = 0; i < dim.x(); i++) {
-                    float fracX = i / (float)(dim.x() - 1);
-                    float fracY = j / (float)(dim.y() - 1);
-                    uint32_t c1 = fracX * 255;
-                    uint32_t c2 = (1.0f - fracX) * 255;
-                    uint32_t c3 = fracY * fracY * 255;
-                    view[j][i] = 0xff'00'00'00 | (c3 << 24) | (c1 << 16) | c2;
-                }
+struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
+    void render(const ui::TextureState& texture, const TestStyle& style) {
+        auto channelToShift = [](ColorChannel channel) -> int {
+            switch (channel) {
+                case ColorChannel::Red:
+                    return 16;
+                case ColorChannel::Green:
+                    return 8;
+                case ColorChannel::Blue:
+                    return 0;
+                default:
+                    VERIFY_NOT_REACHED(Ui);
+            }
+        };
+        int shift1 = channelToShift(style.get<Channel1>());
+        int shift2 = channelToShift(style.get<Channel2>());
+        ui::TextureView view = texture.texture;
+        ui::IntVec dim = texture.dimensions;
+        for (int_t j = 0; j < dim.y(); j++) {
+            for (int_t i = 0; i < dim.x(); i++) {
+                float fracX = i / (float)(dim.x() - 1);
+                float fracY = j / (float)(dim.y() - 1);
+                uint32_t c1 = fracX * 255;
+                uint32_t c2 = (1.0f - fracX) * 255;
+                uint32_t c3 = fracY * fracY * 255;
+                view[j][i] = 0xff'00'00'00 | (c3 << 24) | (c1 << shift1) | (c2 << shift2);
             }
         }
-    };
+    }
+};
+evt::Script uiTestInit(evt::Executor* executor) {
+    co_await evt::OnExecutor(executor);
+
+    auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
+    ui::Ref<TestStyle>& testStyle = bigTable.get<DefaultTestStyle>();
+    testStyle.get<Channel1>() = ColorChannel::Green;
+    testStyle.get<Channel2>() = ColorChannel::Blue;
+    auto bigStyle = bigTable.finalize();
 
     LayoutBox box1;
     ui::RectEqn box1Eqn;
+
+    using namespace ui::code;
+    // box1Eqn = box1.outerBox == ui::instance()->screen();
+    ui::RectVarHandle screen = ui::instance()->screen();
+    box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
+    box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == screen.bottom() + screen.top();
+    box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
+    box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();
+
+    box1.padding.y() = 10_px;
+    box1.padding.x() = 10_px;
+    box1.updatePaddings();
+
+    TestRenderer renderer;
+    renderer.setTable(bigStyle);
+    renderer.setStyle(ui::key<DefaultTestStyle>());
+    auto& style = renderer.mutateLocal();
+    style.get<Channel1>() = ColorChannel::Red;
+    style.get<Channel2>() = ColorChannel::Blue;
+    ui::draw(renderer, box1.innerBox);
+
+    co_await evt::Anything();
+
+    co_return;
+}
+
+struct UiTest : plt::WindowStateCallback {
+
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
-    ui::CompoundStylable<ui::TextRenderer, TestRenderer> renderer;
-
-    UiTest() {
-        using namespace ui::code;
-        //box1Eqn = box1.outerBox == ui::instance()->screen();
-        ui::RectVarHandle screen = ui::instance()->screen();
-        box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
-        box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == screen.bottom() + screen.top();
-        box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
-        box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();
-
-        box1.padding.y() = 10_px;
-        box1.padding.x() = 10_px;
-        box1.updatePaddings();
-
-        ui::draw(renderer.get<TestRenderer>(), box1.innerBox);
-    }
 
     void onResize(plt::Window* window) override {
-        LogTimer timer;
         ui::IntVec windowSize { (int)window->width(), (int)window->height() };
         ui::instance()->resize(windowSize, 0.5f);
-        /*ui::instance()->debug(ui::instance()->screen());
-        ui::instance()->debug(box1.outerBox);
-        ui::instance()->debug(box1.innerBox);*/
 
         ui::IntVec windowBlockSize = (windowSize + 15) / 16;
         frameSize = windowBlockSize * 16;
@@ -107,6 +139,7 @@ struct UiTest : plt::WindowStateCallback {
     uint64_t lastFrame = 0;
     int_t frames = 0;
     void draw(plt::Window* window, ui::Instance& layout) {
+        layout.doTick();
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             lastFrame = now;
@@ -114,7 +147,7 @@ struct UiTest : plt::WindowStateCallback {
             frames = 0;
         }
         frames += 1;
-        
+
         ui::TextureView frameView { framebuffer.get(), (window->width() + 15) / 16 * 16 };
         uint32_t background_color = 0xff'ff'ff'ff;
         for (int_t j = 0; j < window->height(); j++) {
@@ -138,8 +171,8 @@ struct UiTest : plt::WindowStateCallback {
                             break;
                         uint32_t in = (layout.atlasView() + layerPos)[j][i];
                         uint32_t alpha = in >> 24;
-                        color = multiply(in >> 8, alpha) + multiply(color, 255 - alpha);
-                        // color = in >> 8;
+                        color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
+                        // color = in & 0xff'ff'ff;
                     }
                     (frameView + screenPos)[j][i] = color;
                 }
@@ -187,13 +220,10 @@ void test() {
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
     evt::test_awaitable();
 
-    Ref<TextStyle> style;
-    style.get<TextSize>() = ref<TextSize>();
-    VDUMP(style.get<TextSize>().isPtr());
-
     std::unique_ptr<plt::Window> window = plt::Window::construct();
     BasicAtlasAllocator atlasAlloc;
     Instance instance(&atlasAlloc);
+    uiTestInit(&instance.coreExe);
     setInstance(&instance);
     UiTest callback;
     window->setDimensions(700, 700);
@@ -203,7 +233,7 @@ void test() {
     // gl::attachWindow(window.get());
     window->initialize();
     while (!window->destoryed()) {
-        plt::processEvents();
+        plt::processEvents([&callback, &window]() { callback.draw(window.get(), *ui::instance()); });
         callback.draw(window.get(), instance);
     }
 }

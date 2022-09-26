@@ -4,6 +4,10 @@
 
 namespace plt::windows {
 
+namespace {
+    std::function<void()> processEventsCallback;
+}
+
 std::pair<int_t, int_t> WindowImpl::calculateWindowSize() {
     RECT rect { 0, 0, (int)width(), (int)height() };
     bool ret = AdjustWindowRectEx(&rect, mainWindowStyle, false, mainWindowExStyle);
@@ -155,15 +159,18 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     case WM_EXITSIZEMOVE:
         window->exitSizeMove();
         return 0;
-    case WM_PAINT:
-        
+    case WM_PAINT: {
+        VERIFY(Windows, (bool)processEventsCallback);
+        processEventsCallback();
         return 0;
+    }
     case WM_WINDOWPOSCHANGED:
         //log<Tag::Windows>("WM_WINDOWPOSCHANGED");
         window->updateDimensions();
         if (window->surfaceCallback())
             window->surfaceCallback()->onSurfaceChange(window);
-        window->stateCallback()->onResize(window);
+        if (window->stateCallback())
+            window->stateCallback()->onResize(window);
         return 0;
     case WM_ACTIVATE: {
         log<Tag::Windows>("WM_ACTIVATE {:#b}", wParam);
@@ -192,13 +199,15 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
 namespace plt {
 
-void processEvents() {
+void processEvents(std::function<void()> callback) {
+    windows::processEventsCallback = std::move(callback);
     MSG msg;
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_PAINT)
             break;
         DispatchMessage(&msg);
     }
+    windows::processEventsCallback = nullptr;
 }
 
 }

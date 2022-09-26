@@ -125,8 +125,8 @@ struct Ref<SmallStyleTableImpl<Keys...>> : SmallStyleTableRefStorage<Keys>... {
     void clear() {
         (get<Keys>().clear(), ...);
     }
-    SmallStyleTableImpl<Keys...> resolve(const Resolver& resolver, const SmallStyleTableImpl<Keys...>& base) const {
-        return { { get<Keys>().resolve(resolver, base.template get<Keys>()) }... };
+    SmallStyleTableImpl<Keys...> resolve(const Resolver& resolver) const {
+        return { { get<Keys>().resolve(resolver) }... };
     }
     SmallStyleTableImpl<Keys...> substitute(const Substituter& substituter, const SmallStyleTableImpl<Keys...>& base) const {
         return { { get<Keys>().substitute(substituter, base.template get<Keys>()) }... };

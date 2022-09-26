@@ -15,7 +15,6 @@ struct Window {
 
 namespace plt {
 
-
 enum class WindowState {
     Destroyed = 0,
     Uninitialized = 1,
@@ -98,7 +97,7 @@ protected:
     Window() { }
 };
 
-void processEvents();
+void processEvents(std::function<void()>);
 
 }
 

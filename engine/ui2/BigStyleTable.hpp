@@ -41,12 +41,16 @@ struct Ref<BigStyleTable> {
     }
     template<typename Key>
     Ref<typename Key::Type>& get() const {
+        log("accessing {}", Key::styleKey());
         return *(Ref<typename Key::Type>*)data[Key::styleKey()];
     }
     template<typename T>
     const T& get(Key<T> key) const {
+        log("accessing {}", key.styleKey);
         return *(Ref<T>*)data[key.styleKey];
     }
+
+    BigStyleTable finalize() const;
 };
 
 }

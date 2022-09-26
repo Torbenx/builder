@@ -213,7 +213,7 @@ struct Ref<Range> {
     Ref<Size>& high() { return m_high; }
     const Ref<Size> high() const { return m_high; }
     Range value() const { return { low().value(), high().value() }; }
-    Range resolve(const Resolver& resolver, const Range& base) const { return { low().resolve(resolver, base.low()), high().resolve(resolver, base.high()) }; }
+    Range resolve(const Resolver& resolver) const { return { low().resolve(resolver), high().resolve(resolver) }; }
     Range substitute(const Substituter& substituter, const Range& base) const { return { low().substitute(substituter, base.low()), high().substitute(substituter, base.high()) }; }
 };
 template<>
@@ -246,7 +246,7 @@ struct Ref<Rect> {
     Ref<Size>& top() { return y().high(); }
     const Ref<Size> top() const { return y().high(); }
     Rect value() const { return { x().value(), y().value() }; }
-    Rect resolve(const Resolver& resolver, const Rect& base) const { return { x().resolve(resolver, base.x()), y().resolve(resolver, base.y()) }; }
+    Rect resolve(const Resolver& resolver) const { return { x().resolve(resolver), y().resolve(resolver) }; }
     Rect substitute(const Substituter& substituter, const Rect& base) const { return { x().substitute(substituter, base.x()), y().substitute(substituter, base.y()) }; }
 };
 

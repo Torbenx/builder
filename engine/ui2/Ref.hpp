@@ -23,7 +23,7 @@ struct PtrInfo {
     static PtrInfo fromCompact(uint32_t comp) {
         return {
             .styleKey = comp >> COMPACT_OFFSET_BITS,
-            .byteOffset = (comp & (((uint32_t)1 << COMPACT_KEY_BITS) - 1)) * MIN_OFFSET_ALIGNMENT
+            .byteOffset = (comp & (((uint32_t)1 << COMPACT_OFFSET_BITS) - 1)) * MIN_OFFSET_ALIGNMENT
         };
     }
     // generate compact 30-bit representation
@@ -50,7 +50,7 @@ struct PtrBase {
     PtrBase() = default;
     explicit PtrBase(uint32_t compactInfo)
         : storage(compactInfo) { }
-    explicit PtrBase(PtrInfo info)
+    PtrBase(PtrInfo info)
         : PtrBase(info.compact()) { }
     PtrInfo info() const { return PtrInfo::fromCompact(storage); }
     operator Ptr<void>() const;
@@ -96,15 +96,15 @@ struct RefLeaf;
 
 struct RefPointerLeaf {
     uintptr_t data = 0;
-    bool isPtr() const { return data & 1; }
+    bool isValue() const { return data & 1; }
     void set(void* value) {
-        data = (uintptr_t)value;
+        data = (uintptr_t)value | (uintptr_t)1;
     }
     void* value() const {
         return (void*)(data & ~(uintptr_t)1);
     }
     void set(Ptr<void> info) {
-        data = ((uintptr_t)info.storage << 32) | (uintptr_t)1;
+        data = (uintptr_t)info.storage << 32;
     }
     Ptr<void> ptr() const {
         return Ptr<void> { (uint32_t)(data >> 32) };
@@ -121,19 +121,19 @@ struct RefLeaf<Size> {
     Size data;
     static constexpr uint32_t payloadMask = Size::payloadUintMask;
     static_assert(payloadMask == (uint32_t)1 << 30);
-    bool isPtr() const { return data.payloadBit(); }
+    bool isValue() const { return data.payloadBit(); }
     void set(Size size) {
         VERIFY(Ui, !size.payloadBit());
-        data = size;
+        data = size.withPayload();
     }
     Size value() const {
         return data.withoutPayload();
     }
     void set(Ptr<Size> ptr) {
-        data = Size::fromUint(ptr.storage | payloadMask);
+        data = Size::fromUint(ptr.storage);
     }
     Ptr<Size> ptr() const {
-        return Ptr<Size>(data.uint() & ~payloadMask);
+        return Ptr<Size>(data.uint());
     }
 };
 
@@ -142,11 +142,11 @@ struct RefLeaf<float> {
     static constexpr uint32_t flagBit = (uint32_t)1 << TagFloat<1>::tagPos;
     static_assert(flagBit == (uint32_t)1 << 30);
     TagFloat<1> data;
-    bool isPtr() const { return data.tag(); }
-    void set(float value) { data = { value, 0 }; }
-    void set(Ptr<float> ptr) { data = TagFloat<1>::fromUint(ptr.storage | flagBit); }
+    bool isValue() const { return data.tag(); }
+    void set(float value) { data = { value, 1 }; }
+    void set(Ptr<float> ptr) { data = TagFloat<1>::fromUint(ptr.storage); }
     float value() const { return data.value(); }
-    Ptr<float> ptr() const { return Ptr<float>(data.uint() & ~flagBit); }
+    Ptr<float> ptr() const { return Ptr<float>(data.uint()); }
 };
 
 template<typename T>
@@ -184,17 +184,17 @@ requires requires { typename SmallRefStorage32<T>; }
 struct RefLeaf<T> {
     static constexpr uint32_t flagBit = (uint32_t)1 << 31;
     uint32_t data = 0;
-    bool isPtr() const { return data & flagBit; }
-    void set(T value) { data = SmallRefStorage32<T>::pack(value) & ~flagBit; }
-    void set(Ptr<T> ptr) { data = ptr.storage | flagBit; }
-    T value() const { return SmallRefStorage32<T>::unpack(data); }
-    Ptr<T> ptr() const { return Ptr<T>(data & ~flagBit); }
+    bool isValue() const { return data & flagBit; }
+    void set(T value) { data = SmallRefStorage32<T>::pack(value) | flagBit; }
+    void set(Ptr<T> ptr) { data = ptr.storage; }
+    T value() const { return SmallRefStorage32<T>::unpack(data & ~flagBit); }
+    Ptr<T> ptr() const { return Ptr<T>(data); }
 };
 
 template<typename T>
-T resolveLeaf(const Ref<T>& in, const Resolver& resolver, const T& base);
+T resolveLeaf(const Ref<T>& in, const Resolver& Resolver);
 template<typename T>
-T substituteLeaf(const Ref<T>& in, const Substituter& substituter, const T& base);
+T substituteLeaf(const Ref<T>& in, const Substituter& substituter);
 
 template<typename T>
 requires requires { typename RefLeaf<T>; }
@@ -202,9 +202,9 @@ struct Ref<T> : RefLeaf<T> {
     Ref() { }
     Ref(const MakeSelfReference& selfRef) { this->set((Ptr<T>)selfRef(this)); }
     Ref(T value) { this->set(value); }
-    bool isValue() const { return !this->isPtr(); }
+    bool isPtr() const { return !this->isValue(); }
     void clear() { this->set(Ptr<T>()); }
-    T resolve(const Resolver& resolver, const T& base) const { return resolveLeaf<T>(*this, resolver, base); }
+    T resolve(const Resolver& resolver) const { return resolveLeaf<T>(*this, resolver); }
     T substitute(const Substituter& substituter, const T& base) const { return substituteLeaf<T>(*this, substituter, base); }
 };
 

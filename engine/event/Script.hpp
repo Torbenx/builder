@@ -1,5 +1,6 @@
 #pragma once
 
+#include "platform/thread_local_storage.hpp"
 #include "util/coroutines.hpp"
 #include "util/types.hpp"
 #include <vector>
@@ -17,6 +18,9 @@ struct Script;
 struct ScriptHandle;
 struct Executor;
 
+inline Executor* currentExecutor() { return (Executor*)plt::getThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(); }
+inline void setCurrentExecutor(Executor* exe) { plt::setThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(exe); }
+
 struct ScriptPromise {
     Script get_return_object();
     ScriptHandle scriptHandle();
@@ -31,7 +35,7 @@ struct ScriptPromise {
 };
 static_assert(std::is_standard_layout_v<ScriptPromise>);
 template<typename T>
-concept CompatibleScriptPromise = std::is_base_of_v<ScriptPromise, T> && alignof(T) == alignof(ScriptPromise) && std::is_standard_layout_v<T>;
+concept CompatibleScriptPromise = std::is_base_of_v<ScriptPromise, T> && alignof(T) == alignof(ScriptPromise) && sizeof(T) == sizeof(ScriptPromise) && std::is_standard_layout_v<T>;
 
 struct ScriptHandle {
     ScriptHandle() = default;
@@ -56,23 +60,32 @@ inline Script ScriptPromise::get_return_object() { return { scriptHandle() }; }
 
 struct Executor {
     std::vector<ScriptHandle> scripts;
-};
-struct InlineExecutor : Executor {
     void execute() {
-        for (ScriptHandle scr : scripts)
-            scr.handle.resume();
+        for (int_t i = 0; i < (int_t)scripts.size(); i++)  
+            scripts[i].handle.resume();
         scripts.clear();
     }
-    ~InlineExecutor() {
-        VERIFY(Event, scripts.empty());
+};
+
+struct OnExecutor {
+    Executor* executor = nullptr;
+    OnExecutor() = default;
+    OnExecutor(Executor* executor)
+        : executor(executor) { }
+    bool await_ready() { return false; }
+    void await_suspend(ScriptHandle script) {
+        script->executor = executor;
+        executor->scripts.push_back(script);
     }
+    void await_resume() { }
 };
 
 struct Signal {
     ScriptHandle script;
     uint64_t mask = 0;
 
-    void notify(Executor* localExecutor) const {
+    void notify() const {
+        Executor* localExecutor = currentExecutor();
         uint64_t oldState = script->state;
         uint64_t newState = oldState + mask;
         script->state = newState;
@@ -81,19 +94,6 @@ struct Signal {
             Executor* exe = script->executor;
             exe = exe ? exe : localExecutor;
             exe->scripts.push_back(script);
-        }
-    }
-    void notify() const {
-        uint64_t oldState = script->state;
-        uint64_t newState = oldState + mask;
-        script->state = newState;
-        uint64_t key = script->key;
-        if ((newState & key) != 0 && (oldState & key) == 0) {
-            Executor* exe = script->executor;
-            if (exe)
-                exe->scripts.push_back(script);
-            else
-                script.handle.resume();
         }
     }
 

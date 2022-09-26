@@ -92,15 +92,15 @@ class Vector : public VectorView {
 public:
     Vector() { }
 
-    static constexpr int_t space_size = 256 * (1 << 20);
-    static inline char* space = new char[space_size];
+    //static constexpr int_t space_size = 256 * (1 << 20);
+    //static inline char* space = new char[space_size];
 
     Vector(int_t size) {
-        static int_t offset = 0;
+        /*static int_t offset = 0;
         entries = (Entry*)(space + offset);
         offset += (size + 1) * sizeof(Entry);
-        VERIFY(Sparse, offset < space_size);
-        // entries = new Entry[size + 1];
+        VERIFY(Sparse, offset < space_size);*/
+        entries = new Entry[size + 1];
     }
 
     Vector(Vector&& other)
@@ -134,7 +134,7 @@ public:
     }
 
     void release() {
-        // delete[] entries;
+        delete[] entries;
         clearFields();
     }
 

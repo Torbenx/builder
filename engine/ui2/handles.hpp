@@ -2,6 +2,7 @@
 
 #include "Rect.hpp"
 #include "containers/ArrayView.hpp"
+#include "event/Script.hpp"
 
 namespace sparse {
 struct Entry;
@@ -46,15 +47,7 @@ struct RectVarHandle {
     constexpr StaticSum<2> height() const;
 };
 
-struct EquationHandle {
-    static EquationHandle allocate();
-    static void deallocate(EquationHandle);
-    uint32_t id = 0;
-    TagFloat<1> shiftFactor { 1.0f, 0 };
-
-    void updateShift(Size shift) const;
-    void updateEquation(ArrayView<const sparse::Entry>) const;
-};
+RectVarHandle screen();
 
 struct Var : VarHandle {
     Var()
@@ -112,6 +105,16 @@ template<int_t N>
 struct StaticEquation;
 struct StaticRangeEquation;
 struct StaticRectEquation;
+
+struct EquationHandle {
+    static EquationHandle allocate();
+    static void deallocate(EquationHandle);
+    uint32_t id = 0;
+    TagFloat<1> shiftFactor { 1.0f, 0 };
+
+    void updateShift(Size shift) const;
+    void updateEquation(ArrayView<const sparse::Entry>) const;
+};
 
 struct Equation : EquationHandle {
     Equation() = default;
@@ -180,5 +183,9 @@ struct RectEqn {
     constexpr Equation& top() { return y().high(); }
     constexpr const Equation& top() const { return y().high(); }
 };
+
+evt::Executor* coreExecutor();
+evt::Executor* stylingExecutor();
+evt::Executor* renderingExecutor();
 
 }
