@@ -2,18 +2,11 @@
 
 #include "Script.hpp"
 #include "util/target.hpp"
+#include "CompiledCondition.hpp"
 
 namespace evt {
 
-struct Anything {
-    bool await_ready() { return false; }
-    void await_suspend(ScriptHandle handle) {
-        handle->key = -1;
-        handle->state = 0;
-    }
-    void await_resume() { }
-};
-
+template<typename Condition = Anything::Condition>
 struct InlineCallback {
 #if defined(COMPILER_INTERNALS_CLANG)
     static constexpr int_t INLINE_CALLBACK_STORAGE_SIZE = 48;
@@ -49,7 +42,7 @@ struct InlineCallback {
 
             static CoroHandle coro(InlineCallback* thiz) {
                 while (true) {
-                    co_await Anything();
+                    co_await CompiledAwaitable<Condition>();
                     (static_cast<Base*>(thiz)->*callback)();
                 }
             }

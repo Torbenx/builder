@@ -111,14 +111,14 @@ struct CompoundStylable : Ts... {
 };
 
 template<typename Impl, typename Style>
-struct BasicRenderer : RendererBase, evt::InlineCallback, Stylable<Style> {
+struct BasicRenderer : RendererBase, evt::InlineCallback<>, Stylable<Style> {
     // impl has render(const TextureState& state, const Style& style)
     Impl* impl() { return static_cast<Impl*>(this); }
     void do_render() {
         impl()->render(this->textureState(), this->computedStyle());
     }
     BasicRenderer()
-        : evt::InlineCallback(stx::constant<&BasicRenderer::do_render>())
+        : evt::InlineCallback<>(stx::constant<&BasicRenderer::do_render>())
         , Stylable<Style>(this->inlineCallback()) {
         this->inlineScript()->executor = renderingExecutor();
     }

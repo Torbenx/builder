@@ -3,6 +3,7 @@
 #include "containers/Array.hpp"
 #include "containers/Tuple.hpp"
 #include "util/types.hpp"
+#include <algorithm>
 #include <variant>
 #include <vector>
 
@@ -14,7 +15,10 @@ enum class LogicalOp {
 };
 
 template<typename T>
-concept TmplTreeNode = T::is_tree_node;
+concept TmplTreeNode = requires {
+    typename T::NodeType;
+    std::convertible_to<T, typename T::NodeType>;
+};
 
 struct TmplLeafLoc {
     using mask_t = uint64_t;
@@ -32,7 +36,7 @@ struct TmplLeafLoc {
 
 template<LogicalOp op, typename Left, typename Right>
 struct TmplBranchNode {
-    static constexpr bool is_tree_node = true;
+    using NodeType = TmplBranchNode;
     Left left;
     Right right;
     template<TmplLeafLoc loc>
@@ -43,27 +47,36 @@ struct TmplBranchNode {
             return left.template get<(loc >> 1)>();
     }
 };
+
+template<typename Impl, typename pointer_type>
 struct TmplLeafNode {
-    static constexpr bool is_tree_node = true;
-    void* data = nullptr;
+    using NodeType = Impl;
+    pointer_type* m_pointer = nullptr;
+    constexpr TmplLeafNode() = default;
+    constexpr TmplLeafNode(pointer_type* p)
+        : m_pointer(p) { }
+
     template<TmplLeafLoc loc>
-    const TmplLeafNode& get() const {
-        static_assert(loc.location == 0);
-        return *this;
+    const Impl& get() const {
+        static_assert(loc == TmplLeafLoc {});
+        return *static_cast<const Impl*>(this);
     }
-    void* pointer() const { return data; }
+    void* pointer() const { return (void*)m_pointer; }
+
+    static uint64_t getState(pointer_type*) { return 0; }
     static uint64_t state(void* data) {
-        VDUMP(data);
-        return 0;
+        return Impl::getState(static_cast<pointer_type*>(data));
     }
+    static constexpr uint64_t eventCount() { return 0; }
+
+    static void doCommit(pointer_type*, Signal) { }
     static void commit(void* data, Signal sig) {
-        VDUMP(data);
-        VDUMP(sig.mask, ":#b");
-        VDUMP(sig.script.handle.address());
+        Impl::doCommit(static_cast<pointer_type*>(data), sig);
     }
+
+    static void doCancel(pointer_type*, ScriptHandle) { }
     static void cancel(void* data, ScriptHandle scr) {
-        VDUMP(data);
-        VDUMP(scr.handle.address());
+        Impl::doCancel(static_cast<pointer_type*>(data), scr);
     }
 };
 
@@ -71,6 +84,7 @@ namespace computation {
 
     struct LeafNode {
         TmplLeafLoc tmplLoc;
+        uint64_t eventCount = 0;
         constexpr bool operator==(const LeafNode&) const = default;
     };
 
@@ -112,7 +126,7 @@ namespace computation {
     constexpr CanonicalTree buildFromTmpl(std::type_identity<Node>, TmplLeafLocBuilder loc) {
         CanonicalTree out;
         AndNode andNode;
-        andNode.allOf.push_back(LeafNode { loc.build() });
+        andNode.allOf.push_back(LeafNode { loc.build(), Node::eventCount() });
         out.anyOf.push_back(std::move(andNode));
         return out;
     }
@@ -147,8 +161,11 @@ namespace computation {
     constexpr AndNodeInfo processAndNode(const AndNode& in) {
         AndNodeInfo out;
         out.allOfValue = in.atLeast.upperBound + 1;
-        uint64_t flipCount = out.allOfValue * in.allOf.size() + in.atLeast.target;
-        uint64_t upperBound = out.allOfValue * in.allOf.size() + in.atLeast.upperBound;
+        uint64_t eventCount = 0;
+        for (LeafNode leaf : in.allOf)
+            eventCount += leaf.eventCount;
+        uint64_t flipCount = out.allOfValue * eventCount + in.atLeast.target;
+        uint64_t upperBound = out.allOfValue * eventCount + in.atLeast.upperBound;
         uint64_t upperBoundCeil = std::bit_ceil(upperBound);
         out.baseCount = upperBoundCeil - flipCount;
         out.usedBits = std::countr_zero(upperBoundCeil);
@@ -209,7 +226,7 @@ namespace computation {
         std::vector<int_t> returnObjects;
     };
 
-    template<TmplTreeNode Node>
+    template<typename Node>
     constexpr Output perform() {
         CanonicalTree tree = buildFromTmpl(std::type_identity<Node>(), {});
         std::vector<AndNodeInfo> andInfos;
@@ -279,11 +296,16 @@ namespace computation {
     };
 }
 
-template<TmplTreeNode Node>
+template<typename Node>
+constexpr computation::OutputView computeAwaitable() {
+    return computation::StaticOutputView<computation::perform<Node>()>();
+}
+
+template<typename Node>
 struct Awaitable {
-    static constexpr computation::OutputView output = computation::StaticOutputView<computation::perform<Node>()>();
+    static constexpr auto output = computeAwaitable<Node>();
     template<int_t index>
-    using Handler = std::decay_t<decltype(std::declval<Node>().template get<output.leafs[index].tmplLoc>())>;
+    using Handler = std::remove_cvref_t<decltype(std::declval<Node>().template get<output.leafs[index].tmplLoc>())>;
 
     struct LeafState {
         void* pointer = nullptr;
@@ -328,8 +350,7 @@ struct Awaitable {
     }
     constexpr void await_suspend(ScriptHandle script) {
         suspendedScript = script;
-        script->state = startMask;
-        script->key = output.keyMask;
+        script->state = { startMask, output.keyMask };
         commit(script, stx::make_int_sequence<output.leafs.size()>());
     }
 
@@ -345,37 +366,47 @@ struct Awaitable {
         cancel(suspendedScript, stx::make_int_sequence<output.leafs.size()>());
     }
 };
-template<typename Node>
-Awaitable(const Node&) -> Awaitable<Node>;
+template<TmplTreeNode Node>
+Awaitable(const Node&) -> Awaitable<typename Node::NodeType>;
+
+template<TmplTreeNode Node>
+Awaitable<typename Node::NodeType> operator co_await(const Node& node) {
+    return Awaitable<typename Node::NodeType> { static_cast<typename Node::NodeType>(node) };
+}
 
 namespace code {
     template<TmplTreeNode Left, TmplTreeNode Right>
-    constexpr TmplBranchNode<LogicalOp::And, Left, Right> operator&&(const Left& left, const Right& right) {
-        return { left, right };
+    constexpr TmplBranchNode<LogicalOp::And, typename Left::NodeType, typename Right::NodeType> operator&&(const Left& left, const Right& right) {
+        return { static_cast<typename Left::NodeType>(left), static_cast<typename Right::NodeType>(right) };
     }
     template<TmplTreeNode Left, TmplTreeNode Right>
-    constexpr TmplBranchNode<LogicalOp::Or, Left, Right> operator||(const Left& left, const Right& right) {
-        return { left, right };
+    constexpr TmplBranchNode<LogicalOp::Or, typename Left::NodeType, typename Right::NodeType> operator||(const Left& left, const Right& right) {
+        return { static_cast<typename Left::NodeType>(left), static_cast<typename Right::NodeType>(right) };
     }
 }
 
-Script test_awaitable() {
-    using namespace code;
-    TmplLeafNode l1 { .data = (void*)1 };
-    TmplLeafNode l2 { .data = (void*)2 };
-    TmplLeafNode l3 { .data = (void*)3 };
-    auto node = l1 && (l2 || l3);
-    //auto node = (l1 && l2) || (l1 && l3);
-    Awaitable await { node };
-    VDUMP(await.output.startMask, ":#b");
-    VDUMP(await.output.keyMask, ":#b");
-    VDUMP(await.output.leafs.size());
-    VDUMP(await.output.leafs[0].mask, ":#b");
-    VDUMP(await.output.leafs[1].mask, ":#b");
-    VDUMP(await.output.leafs[2].mask, ":#b");
-    co_await await;
-    log<Tag::Event>("reached end");
-    co_return;
-}
+struct OnExecutor {
+    struct NodeType : TmplLeafNode<NodeType, Executor> {
+        static void doCommit(Executor* exe, Signal signal) {
+            signal.script->executor = exe;
+        }
+    };
+    Executor* executor = nullptr;
+    OnExecutor() = default;
+    OnExecutor(Executor* executor)
+        : executor(executor) { }
+    constexpr operator NodeType() const { return { executor }; }
+};
+
+struct Defer {
+    struct NodeType : TmplLeafNode<NodeType, void> {
+        static constexpr uint64_t eventCount() { return 1; }
+        static uint64_t getState(void*) { return 0; }
+        static void doCommit(void*, Signal signal) {
+            signal.notify();
+        }
+    };
+    constexpr operator NodeType() const { return {}; }
+};
 
 }

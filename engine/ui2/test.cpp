@@ -1,7 +1,7 @@
 #include "Instance.hpp"
 #include "common.hpp"
 #include "equation_code.hpp"
-#include "event/Awaitable.hpp"
+#include "event/CompiledCondition.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
@@ -59,14 +59,14 @@ struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
     void render(const ui::TextureState& texture, const TestStyle& style) {
         auto channelToShift = [](ColorChannel channel) -> int {
             switch (channel) {
-                case ColorChannel::Red:
-                    return 16;
-                case ColorChannel::Green:
-                    return 8;
-                case ColorChannel::Blue:
-                    return 0;
-                default:
-                    VERIFY_NOT_REACHED(Ui);
+            case ColorChannel::Red:
+                return 16;
+            case ColorChannel::Green:
+                return 8;
+            case ColorChannel::Blue:
+                return 0;
+            default:
+                VERIFY_NOT_REACHED(Ui);
             }
         };
         int shift1 = channelToShift(style.get<Channel1>());
@@ -86,7 +86,10 @@ struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
     }
 };
 evt::Script uiTestInit(evt::Executor* executor) {
-    co_await evt::OnExecutor(executor);
+    {
+        using namespace evt::code;
+        co_await (evt::OnExecutor(executor) && evt::Defer());
+    }
 
     auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
     ui::Ref<TestStyle>& testStyle = bigTable.get<DefaultTestStyle>();
@@ -114,7 +117,7 @@ evt::Script uiTestInit(evt::Executor* executor) {
     renderer.setStyle(ui::key<DefaultTestStyle>());
     auto& style = renderer.mutateLocal();
     style.get<Channel1>() = ColorChannel::Red;
-    style.get<Channel2>() = ColorChannel::Blue;
+    // style.get<Channel2>() = ColorChannel::Blue;
     ui::draw(renderer, box1.innerBox);
 
     co_await evt::Anything();

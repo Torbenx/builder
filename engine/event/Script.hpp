@@ -21,6 +21,11 @@ struct Executor;
 inline Executor* currentExecutor() { return (Executor*)plt::getThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(); }
 inline void setCurrentExecutor(Executor* exe) { plt::setThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(exe); }
 
+struct AwaitableState {
+    uint64_t state = 0;
+    uint64_t key = 0;
+};
+
 struct ScriptPromise {
     Script get_return_object();
     ScriptHandle scriptHandle();
@@ -29,8 +34,7 @@ struct ScriptPromise {
     stdx::suspend_never final_suspend() noexcept { return {}; }
     void return_void() { }
 
-    uint64_t state = 0;
-    uint64_t key = 0;
+    AwaitableState state;
     Executor* executor = nullptr;
 };
 static_assert(std::is_standard_layout_v<ScriptPromise>);
@@ -67,29 +71,16 @@ struct Executor {
     }
 };
 
-struct OnExecutor {
-    Executor* executor = nullptr;
-    OnExecutor() = default;
-    OnExecutor(Executor* executor)
-        : executor(executor) { }
-    bool await_ready() { return false; }
-    void await_suspend(ScriptHandle script) {
-        script->executor = executor;
-        executor->scripts.push_back(script);
-    }
-    void await_resume() { }
-};
-
 struct Signal {
     ScriptHandle script;
     uint64_t mask = 0;
 
     void notify() const {
         Executor* localExecutor = currentExecutor();
-        uint64_t oldState = script->state;
+        uint64_t oldState = script->state.state;
         uint64_t newState = oldState + mask;
-        script->state = newState;
-        uint64_t key = script->key;
+        script->state.state = newState;
+        uint64_t key = script->state.key;
         if ((newState & key) != 0 && (oldState & key) == 0) {
             Executor* exe = script->executor;
             exe = exe ? exe : localExecutor;
