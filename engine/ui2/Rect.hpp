@@ -206,6 +206,8 @@ struct Ref<Range> {
         : m_low(range.low()), m_high(range.high()) { }
     Ref(const Ref<Size>& value)
         : Ref(value, value) { }
+    Ref(const Size& value)
+        : Ref(Ref<Size>(value)) { }
     Ref(const Ref<Size>& low, const Ref<Size>& high)
         : m_low(low), m_high(high) { }
     Ref<Size>& low() { return m_low; }
@@ -225,8 +227,12 @@ struct Ref<Rect> {
         : m_x(selfRef), m_y(selfRef) { }
     Ref(const Rect& rect)
         : m_x(rect.x()), m_y(rect.y()) { }
+    Ref(const Size& value)
+        : Ref(Ref<Size>(value)) { }
     Ref(const Ref<Size>& value)
         : Ref(Ref<Range>(value)) { }
+    Ref(const Range& range)
+        : Ref(Ref<Range>(range)) { }
     Ref(const Ref<Range>& range)
         : Ref(range, range) { }
     Ref(const Ref<Range>& x, const Ref<Range>& y)

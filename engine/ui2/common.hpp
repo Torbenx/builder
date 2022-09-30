@@ -110,19 +110,24 @@ struct CompoundStylable : Ts... {
     }
 };
 
+constexpr evt::CompiledCondition basicRendererUpdate = []() {
+    return "textureUpdate"_ev || "styleUpdate"_ev;
+}();
 template<typename Impl, typename Style>
-struct BasicRenderer : RendererBase, evt::InlineCallback<>, Stylable<Style> {
+struct BasicRenderer : RendererBase, evt::InlineCallback<basicRendererUpdate>, Stylable<Style> {
     // impl has render(const TextureState& state, const Style& style)
     Impl* impl() { return static_cast<Impl*>(this); }
     void do_render() {
         impl()->render(this->textureState(), this->computedStyle());
     }
     BasicRenderer()
-        : evt::InlineCallback<>(stx::constant<&BasicRenderer::do_render>())
-        , Stylable<Style>(this->inlineCallback()) {
+        : evt::InlineCallback<basicRendererUpdate>(stx::constant<&BasicRenderer::do_render>())
+        , Stylable<Style>(basicRendererUpdate.signal(this->inlineScript(), "styleUpdate"_ev)) {
         this->inlineScript()->executor = renderingExecutor();
     }
-    evt::Signal textureUpdateSignal() const { return this->inlineCallback(); }
+    evt::Signal textureUpdateSignal() const {
+        return basicRendererUpdate.signal(this->inlineScript(), "textureUpdate"_ev);
+    }
 };
 
 DECLARE_STYLE_KEY(TextSize, Size);

@@ -1,29 +1,13 @@
 #pragma once
 
 #include "ASTBuilder.hpp"
+#include "containers/FixedString.hpp"
 
 namespace shadergen {
 
-struct FixedStringView {
-    const char* buffer = nullptr;
-    int_t length = 0;
-    constexpr operator std::string_view() const { return { buffer, (size_t)length }; }
-};
-template<int_t N>
-struct FixedString {
-    char buffer[N] = {};
-    constexpr FixedString(const char (&str)[N + 1]) {
-        std::copy_n(str, N, buffer);
-    }
-    constexpr int_t length() const { return N; }
-    constexpr operator FixedStringView() const { return { buffer, length() }; }
-};
-template<int_t M>
-FixedString(const char (&str)[M]) -> FixedString<M - 1>;
-
 namespace code {
-    template<FixedString str>
-    constexpr FixedStringView operator"" _v() {
+    template<stx::FixedString str>
+    constexpr std::string_view operator"" _v() {
         return str;
     }
 }
@@ -102,14 +86,14 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
     }
 
     template<typename T, int_t N = 0>
-    constexpr auto declareVariable(FixedStringView name, VarDeclContext* declContext, stx::Array<const VarDeclModifier*, N> mods = {}) {
+    constexpr auto declareVariable(std::string_view name, VarDeclContext* declContext, stx::Array<const VarDeclModifier*, N> mods = {}) {
         return DriverVariable<T, N>(
             name, mods, [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
             });
     }
     template<typename T>
-    constexpr auto variable(FixedStringView name) {
+    constexpr auto variable(std::string_view name) {
         return declareVariable<T>(name, currentDeclContext);
     }
 
@@ -153,24 +137,24 @@ struct StageDriver : BlockDriver {
     }
     constexpr StageDecl* stageDecl() const { return m_stageDecl; }
     template<typename T, int_t N = 0>
-    constexpr auto declareGlobal(FixedStringView name, stx::Array<const VarDeclModifier*, N> mods = {}) {
+    constexpr auto declareGlobal(std::string_view name, stx::Array<const VarDeclModifier*, N> mods = {}) {
         return declareVariable<T, N>(name, &stageDecl()->globals, mods);
     }
 
     template<typename T>
-    constexpr auto uniform(FixedStringView name) {
+    constexpr auto uniform(std::string_view name) {
         return declareGlobal<T, 1>(name, { &uniformIndicator });
     }
     template<typename T>
-    constexpr auto input(FixedStringView name) {
+    constexpr auto input(std::string_view name) {
         return declareGlobal<T, 1>(name, { &inputIndicator });
     }
     template<typename T>
-    constexpr auto output(FixedStringView name) {
+    constexpr auto output(std::string_view name) {
         return declareGlobal<T, 1>(name, { &outputIndicator });
     }
     template<typename T>
-    constexpr auto builtin(FixedStringView name) {
+    constexpr auto builtin(std::string_view name) {
         return declareGlobal<T, 1>(name);
     }
 };
@@ -179,7 +163,7 @@ template<typename T>
 struct VaryingReturnType {
     DriverVariable<T, 1> in;
     DriverVariable<T, 1> out;
-    constexpr VaryingReturnType(FixedStringView name, StageDriver& inStage, StageDriver& outStage)
+    constexpr VaryingReturnType(std::string_view name, StageDriver& inStage, StageDriver& outStage)
         : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
 };
 
@@ -199,7 +183,7 @@ struct GraphicsDriver {
     }
 
     template<typename T>
-    constexpr VaryingReturnType<T> varying(FixedStringView name) {
+    constexpr VaryingReturnType<T> varying(std::string_view name) {
         return { name, vert, frag };
     }
 };

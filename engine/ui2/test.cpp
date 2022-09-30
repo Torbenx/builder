@@ -1,7 +1,8 @@
 #include "Instance.hpp"
 #include "common.hpp"
 #include "equation_code.hpp"
-#include "event/CompiledCondition.hpp"
+#include "event/InlineCallback.hpp"
+#include "event/conditions.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
@@ -30,17 +31,26 @@ struct BasicAtlasAllocator : ui::AtlasAllocator {
     }
 };
 
-struct LayoutBox {
+DECLARE_STYLE_KEY(Padding, ui::Rect);
+using BoxStyle = ui::SmallStyleTable<Padding>;
+DECLARE_STYLE_KEY(DefaultBoxStyle, BoxStyle);
+
+struct LayoutBox : evt::InlineCallback<>, ui::Stylable<BoxStyle> {
     ui::RectVar outerBox;
     ui::RectVar innerBox;
-    ui::Rect padding;
     ui::RectEqn paddingEqn;
-    LayoutBox() {
+    LayoutBox()
+        : evt::InlineCallback<>(stx::constant<&LayoutBox::update>())
+        , Stylable<BoxStyle>(evt::monoCondition.signal(inlineScript())) {
+        inlineScript()->executor = ui::stylingExecutor();
+        setStyle(ui::key<DefaultBoxStyle>());
         using namespace ui::code;
-        paddingEqn = extendBy(innerBox, padding) == outerBox;
+        paddingEqn = extendBy(innerBox, {}) == outerBox;
     }
-    void updatePaddings() {
-        paddingEqn.updateShift(padding);
+    void update() {
+        log("- update");
+        const auto& style = computedStyle();
+        paddingEqn.updateShift(style.get<Padding>());
     }
 };
 
@@ -85,42 +95,45 @@ struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
         }
     }
 };
-evt::Script uiTestInit(evt::Executor* executor) {
-    {
-        using namespace evt::code;
-        co_await (evt::OnExecutor(executor) && evt::Defer());
-    }
+evt::Script uiTestInit() {
+    co_await (evt::OnExecutor(ui::coreExecutor()) && evt::Defer());
 
     auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
-    ui::Ref<TestStyle>& testStyle = bigTable.get<DefaultTestStyle>();
-    testStyle.get<Channel1>() = ColorChannel::Green;
-    testStyle.get<Channel2>() = ColorChannel::Blue;
+    {
+        ui::Ref<TestStyle>& testStyle = bigTable.get<DefaultTestStyle>();
+        testStyle.get<Channel1>() = ColorChannel::Green;
+        testStyle.get<Channel2>() = ColorChannel::Blue;
+        ui::Ref<BoxStyle>& boxStyle = bigTable.get<DefaultBoxStyle>();
+        boxStyle.get<Padding>() = 50_px;
+    }
     auto bigStyle = bigTable.finalize();
 
     LayoutBox box1;
     ui::RectEqn box1Eqn;
 
     using namespace ui::code;
-    // box1Eqn = box1.outerBox == ui::instance()->screen();
     ui::RectVarHandle screen = ui::instance()->screen();
-    box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
+    box1Eqn = box1.outerBox == screen;
+    /*box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
     box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == screen.bottom() + screen.top();
     box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
-    box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();
-
-    box1.padding.y() = 10_px;
-    box1.padding.x() = 10_px;
-    box1.updatePaddings();
+    box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();*/
 
     TestRenderer renderer;
     renderer.setTable(bigStyle);
     renderer.setStyle(ui::key<DefaultTestStyle>());
-    auto& style = renderer.mutateLocal();
-    style.get<Channel1>() = ColorChannel::Red;
-    // style.get<Channel2>() = ColorChannel::Blue;
+    box1.setTable(bigStyle);
     ui::draw(renderer, box1.innerBox);
+    {
+        auto& boxStyle = box1.mutateLocal();
+        boxStyle.get<Padding>().y() = 10_px;
+        boxStyle.get<Padding>().x() = 10_px;
+        auto& style = renderer.mutateLocal();
+        style.get<Channel1>() = ColorChannel::Red;
+        //style.get<Channel2>() = ColorChannel::Blue;
+    }
 
-    co_await evt::Anything();
+    co_await "nothing"_ev;
 
     co_return;
 }
@@ -175,7 +188,7 @@ struct UiTest : plt::WindowStateCallback {
                         uint32_t in = (layout.atlasView() + layerPos)[j][i];
                         uint32_t alpha = in >> 24;
                         color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
-                        // color = in & 0xff'ff'ff;
+                        //color = in & 0xff'ff'ff;
                     }
                     (frameView + screenPos)[j][i] = color;
                 }
@@ -221,13 +234,13 @@ void test() {
     float result[4] = {};
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
-    evt::test_awaitable();
+    evt::test();
 
     std::unique_ptr<plt::Window> window = plt::Window::construct();
     BasicAtlasAllocator atlasAlloc;
     Instance instance(&atlasAlloc);
-    uiTestInit(&instance.coreExe);
     setInstance(&instance);
+    uiTestInit();
     UiTest callback;
     window->setDimensions(700, 700);
     window->setStateCallback(&callback);

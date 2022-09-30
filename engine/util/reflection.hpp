@@ -1,53 +1,9 @@
 #pragma once
 
-#include "util/types.hpp"
+#include "containers/FixedString.hpp"
 #include <algorithm>
 #include <limits>
 #include <type_traits>
-
-// fixed_string
-template<int_t N>
-struct fixed_string {
-    char storage[N + 1] = {};
-
-    constexpr fixed_string() { }
-    constexpr fixed_string(const char (&str)[N + 1]) {
-        std::copy(str, str + length() + 1, storage);
-    }
-
-    constexpr const char* data() const { return storage; }
-    static constexpr int_t length() { return N; }
-    constexpr std::string_view view() const { return { data(), length() }; }
-
-    template<int_t M>
-    constexpr bool operator==(const fixed_string<M>& other) const {
-        if constexpr (N != M) {
-            return false;
-        } else {
-            for (int_t i = 0; i < N + 1; i++) {
-                if (data()[i] != other.data()[i])
-                    return false;
-            }
-            return true;
-        }
-    }
-
-    static constexpr bool empty() { return N == 0; }
-
-    template<int_t M>
-    constexpr auto operator+(const fixed_string<M>& other) const {
-        fixed_string<N + M> ret;
-        std::copy(data(), data() + length(), ret.storage);
-        std::copy(other.data(), other.data() + other.length(), ret.storage + length());
-        return ret;
-    }
-    template<int_t M>
-    constexpr auto operator+(const char (&str)[M]) {
-        return *this + fixed_string<M - 1>(str);
-    }
-};
-template<int_t N>
-fixed_string(const char (&)[N]) -> fixed_string<N - 1>;
 
 // member pointer utils
 template<typename T>
@@ -70,7 +26,7 @@ template<typename B = void, typename T = void, int_t N = 0>
 struct FieldInfo {
     using Base = B;
     int_t index = -1;
-    fixed_string<N> name = "";
+    FixedString<N> name = "";
     T B::*ptr = nullptr;
     constexpr explicit operator bool() const { return true; }
 };
@@ -199,14 +155,14 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
         return field.traverseUpTo(self(), std::forward<Callback>(callback));
     }
 
-    template<fixed_string separator>
-    static constexpr auto NAME_LAMBDA = []<int_t N = 0>(auto node, fixed_string<N> str = "") {
+    template<FixedString separator>
+    static constexpr auto NAME_LAMBDA = []<int_t N = 0>(auto node, FixedString<N> str = "") {
         if constexpr (str.empty())
             return node.name();
         else
             return str + separator + node.name();
     };
-    template<fixed_string separator = ".", typename par, typename T, FieldInfo info>
+    template<FixedString separator = ".", typename par, typename T, FieldInfo info>
     static constexpr auto nameIn(RefField<par, T, info> field) {
         return traverseDownFrom(field, NAME_LAMBDA<separator>);
     }
@@ -214,7 +170,7 @@ struct RefField : ref_fields_or_empty<type_, RefField, RefField<parent_, type_, 
     static constexpr auto nameOf(RefField<par, T, info> field) {
         return field.nameIn(self());
     }
-    template<fixed_string separator = ".">
+    template<FixedString separator = ".">
     static constexpr auto fullName() {
         return traverseTopDown(NAME_LAMBDA<separator>);
     }

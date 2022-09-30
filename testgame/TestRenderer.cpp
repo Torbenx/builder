@@ -39,7 +39,7 @@ TestRenderer<G>::TestRenderer()
 
     log("=========================================");
 
-    //runShadergenTest();
+    runShadergenTest();
 
     log("=========================================");
 

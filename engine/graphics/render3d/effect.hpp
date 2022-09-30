@@ -116,7 +116,7 @@ struct EffectStageDriver : StageDriver {
         return nullptr;
     }
     template<auto memberPtr, typename CXXType, int_t N>
-    constexpr auto declareEffectVariable(FixedStringView name, stx::Array<const VarDeclModifier*, N> mods) {
+    constexpr auto declareEffectVariable(std::string_view name, stx::Array<const VarDeclModifier*, N> mods) {
         return DriverVariable<CXXType, N>(
             name, mods,
             [&](const VarDecl* driverDecl) constexpr {
@@ -125,35 +125,35 @@ struct EffectStageDriver : StageDriver {
             });
     }
     template<auto memberPtr>
-    constexpr auto declareGraphicsPtrEffectVariable(FixedStringView name, const VarDeclModifier* modifier) {
+    constexpr auto declareGraphicsPtrEffectVariable(std::string_view name, const VarDeclModifier* modifier) {
         return declareEffectVariable<memberPtr, typename CXXTypeFromGraphicsPtr<decltype(memberPtr)>::type, 1>(name, { modifier });
     }
     template<typename T>
-    constexpr auto uniform(FixedStringView name) {
+    constexpr auto uniform(std::string_view name) {
         return declareGlobal<T, 1>(name, { &uniformIndicator });
     }
     template<typename T>
-    constexpr auto input(FixedStringView name) {
+    constexpr auto input(std::string_view name) {
         return declareGlobal<T, 1>(name, { &inputIndicator });
     }
     template<typename T>
-    constexpr auto output(FixedStringView name) {
+    constexpr auto output(std::string_view name) {
         return declareGlobal<T, 1>(name, { &outputIndicator });
     }
     template<auto memberPtr>
-    constexpr auto uniform(FixedStringView name) {
+    constexpr auto uniform(std::string_view name) {
         return declareGraphicsPtrEffectVariable<memberPtr>(name, &uniformIndicator);
     }
     template<auto memberPtr>
-    constexpr auto input(FixedStringView name) {
+    constexpr auto input(std::string_view name) {
         return declareGraphicsPtrEffectVariable<memberPtr>(name, &inputIndicator);
     }
     template<auto memberPtr>
-    constexpr auto output(FixedStringView name) {
+    constexpr auto output(std::string_view name) {
         return declareGraphicsPtrEffectVariable<memberPtr>(name, &outputIndicator);
     }
     template<auto memberPtr>
-    constexpr auto subpassInput(FixedStringView name) {
+    constexpr auto subpassInput(std::string_view name) {
         const SubpassIndexModifier& indexMod = subpassIndexMods.pushBack({ subpassCounter++ });
         return declareEffectVariable<memberPtr, Vec4, 2>(name, { &subpassIndicator, &indexMod });
     }
@@ -166,7 +166,7 @@ struct EffectDriver {
         : vert(storage), frag(storage) { }
 
     template<typename T>
-    constexpr VaryingReturnType<T> varying(FixedStringView name) {
+    constexpr VaryingReturnType<T> varying(std::string_view name) {
         return { name, vert, frag };
     }
 };

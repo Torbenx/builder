@@ -91,4 +91,6 @@ struct Signal {
     Signal operator~() const { return { script, -mask }; }
 };
 
+void test();
+
 }

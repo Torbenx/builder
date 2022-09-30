@@ -292,7 +292,6 @@ evt::Executor* renderingExecutor() { return &instance()->renderingExe; }
 void StylableBase::invalidateStyleInternal(void (*computeFunc)(StylableBase*)) {
     onStyleDirty.notify();
     [](StylableBase* thiz, void (*computeFunc)(StylableBase*)) -> evt::Script {
-        using namespace evt::code;
         co_await (evt::OnExecutor(&instance()->styleComputationExe) && evt::Defer());
         computeFunc(thiz);
         thiz->isDirty = false;

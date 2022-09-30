@@ -2,11 +2,12 @@
 
 #include "Script.hpp"
 #include "util/target.hpp"
-#include "CompiledCondition.hpp"
+#include "conditions.hpp"
+#include "Awaitable.hpp"
 
 namespace evt {
 
-template<typename Condition = Anything::Condition>
+template<CompiledCondition condition = CompiledCondition { monoCondition }>
 struct InlineCallback {
 #if defined(COMPILER_INTERNALS_CLANG)
     static constexpr int_t INLINE_CALLBACK_STORAGE_SIZE = 48;
@@ -42,7 +43,7 @@ struct InlineCallback {
 
             static CoroHandle coro(InlineCallback* thiz) {
                 while (true) {
-                    co_await CompiledAwaitable<Condition>();
+                    co_await condition;
                     (static_cast<Base*>(thiz)->*callback)();
                 }
             }
@@ -55,7 +56,6 @@ struct InlineCallback {
     }
 
     ScriptHandle inlineScript() const { return { stdx::coroutine_handle<ScriptPromise>::from_address((void*)storage) }; }
-    Signal inlineCallback() const { return { inlineScript(), 1 }; }
 };
 
 }
