@@ -10,6 +10,8 @@
 
 namespace evt {
 
+static constexpr uint64_t UNBOUND_EVENT_COUNT = 1000;
+
 enum class LogicalOp {
     And,
     Or,
@@ -43,45 +45,31 @@ struct TmplBranchNode {
     }
 };
 
-template<typename Impl, typename pointer_type>
+template<typename Impl>
 struct TmplLeafNode {
     static constexpr bool IS_TMPL_TREE_NODE = true;
-    pointer_type* m_pointer = nullptr;
-    constexpr TmplLeafNode() = default;
-    constexpr TmplLeafNode(pointer_type* p)
-        : m_pointer(p) { }
+
+    static constexpr uint64_t requiredEvents() { return 0; }
+    static constexpr uint64_t maxEvents() { return 0; }
 
     template<TmplLeafLoc loc>
     const Impl& get() const {
         static_assert(loc == TmplLeafLoc {});
         return *static_cast<const Impl*>(this);
     }
-    void* pointer() const { return (void*)m_pointer; }
 
-    static uint64_t getState(pointer_type*) { return 0; }
-    static uint64_t state(void* data) {
-        return Impl::getState(static_cast<pointer_type*>(data));
-    }
-    static constexpr uint64_t eventCount() { return 0; }
-
-    static void doCommit(pointer_type*, Signal) { }
-    static void commit(void* data, Signal sig) {
-        Impl::doCommit(static_cast<pointer_type*>(data), sig);
-    }
-
-    static void doCancel(pointer_type*, ScriptHandle) { }
-    static void cancel(void* data, ScriptHandle scr) {
-        Impl::doCancel(static_cast<pointer_type*>(data), scr);
-    }
+    uint64_t state() const { return 0; }
+    void commit(Signal) const { }
+    void cancel(ScriptHandle) const { }
 };
 
 template<typename Node>
-concept ConvertibleToTreeNode = requires {
+concept ActualTreeNode = Node::IS_TMPL_TREE_NODE;
+template<typename Node>
+concept ConvertibleToTreeNode = !ActualTreeNode<Node> && requires {
     typename Node::NodeType;
     std::convertible_to<Node, typename Node::NodeType>;
 };
-template<typename Node>
-concept ActualTreeNode = Node::IS_TMPL_TREE_NODE;
 template<typename Node>
 concept TmplTreeNode = ActualTreeNode<Node> || ConvertibleToTreeNode<Node>;
 
@@ -136,7 +124,6 @@ namespace compiled {
         std::vector<LeafNode> allOf;
         struct {
             std::vector<LeafNode> nodes;
-            int_t target = 0;
             int_t upperBound = 0; // inclusive
         } atLeast;
     };
@@ -155,8 +142,26 @@ namespace compiled {
     constexpr CanonicalTree buildFromTmpl(std::type_identity<Node>, TmplLeafLocBuilder loc) {
         CanonicalTree out;
         AndNode andNode;
-        andNode.allOf.push_back(LeafNode { loc.build(), Node::eventCount() });
+        VERIFY(Event, Node::maxEvents() >= Node::requiredEvents());
+        if (Node::maxEvents() == Node::requiredEvents()) {
+            andNode.allOf.push_back({ loc.build(), Node::requiredEvents() });
+        } else {
+            andNode.atLeast.nodes.push_back({ loc.build(), Node::requiredEvents() });
+            andNode.atLeast.upperBound += Node::maxEvents();
+        }
         out.anyOf.push_back(std::move(andNode));
+        return out;
+    }
+    constexpr AndNode mergeAndNodes(const AndNode& in1, const AndNode& in2) {
+        AndNode out;
+        out.allOf.insert(out.allOf.end(), in1.allOf.begin(), in1.allOf.end());
+        out.allOf.insert(out.allOf.end(), in2.allOf.begin(), in2.allOf.end());
+        deduplicate(out.allOf);
+        VERIFY(Event, in1.atLeast.upperBound == 0 || in2.atLeast.upperBound == 0);
+        if (in1.atLeast.upperBound > 0)
+            out.atLeast = in1.atLeast;
+        else if (in2.atLeast.upperBound > 0)
+            out.atLeast = in2.atLeast;
         return out;
     }
     template<LogicalOp op, typename Left, typename Right>
@@ -170,11 +175,7 @@ namespace compiled {
         } else {
             for (auto& leftNode : left.anyOf) {
                 for (auto& rightNode : right.anyOf) {
-                    AndNode andNode;
-                    andNode.allOf.insert(andNode.allOf.end(), leftNode.allOf.begin(), leftNode.allOf.end());
-                    andNode.allOf.insert(andNode.allOf.end(), rightNode.allOf.begin(), rightNode.allOf.end());
-                    deduplicate(andNode.allOf);
-                    out.anyOf.emplace_back(std::move(andNode));
+                    out.anyOf.emplace_back(mergeAndNodes(leftNode, rightNode));
                 }
             }
         }
@@ -193,7 +194,10 @@ namespace compiled {
         uint64_t eventCount = 0;
         for (LeafNode leaf : in.allOf)
             eventCount += leaf.eventCount;
-        uint64_t flipCount = out.allOfValue * eventCount + in.atLeast.target;
+        uint64_t atLeastTarget = 0;
+        for (LeafNode leaf : in.atLeast.nodes)
+            atLeastTarget += leaf.eventCount;
+        uint64_t flipCount = out.allOfValue * eventCount + atLeastTarget;
         uint64_t upperBound = out.allOfValue * eventCount + in.atLeast.upperBound;
         uint64_t upperBoundCeil = std::bit_ceil(upperBound);
         out.baseCount = upperBoundCeil - flipCount;
@@ -329,12 +333,13 @@ template<stx::FixedString str>
 struct NamedCondition {
     static constexpr stx::FixedString name = str;
 
-    struct NodeType : TmplLeafNode<NodeType, void> {
-        static constexpr uint64_t eventCount() { return 1; }
+    struct NodeType : TmplLeafNode<NodeType> {
+        static constexpr uint64_t maxEvents() { return UNBOUND_EVENT_COUNT; }
+        static constexpr uint64_t requiredEvents() { return 1; }
     };
     constexpr operator NodeType() const { return {}; }
 
-    constexpr operator std::string_view() { return name; }
+    constexpr operator std::string_view() const { return name; }
 };
 
 template<TmplTreeNode Node>
@@ -352,7 +357,7 @@ struct CompiledCondition {
     }
     template<int_t i, stx::FixedString name>
     static constexpr uint64_t selectMask(NamedCondition<name>) {
-        if constexpr (std::is_same_v<NodeTypeOf<Node, output.leafs[i].tmplLoc>, typename NamedCondition<name>::NodeType>)
+        if constexpr (std::is_base_of_v<typename NamedCondition<name>::NodeType, NodeTypeOf<Node, output.leafs[i].tmplLoc>>)
             return output.leafs[i].mask;
         else
             return 0;
@@ -371,6 +376,25 @@ struct CompiledCondition {
 };
 template<TmplTreeNode TreeNode>
 CompiledCondition(const TreeNode&) -> CompiledCondition<typename TreeNode::NodeType>;
+
+template<TmplTreeNode Base, uint64_t required, uint64_t upperBound>
+struct AtLeast : converted_tree_node_t<Base> {
+    static constexpr uint64_t requiredEvents() { return required; }
+    static constexpr uint64_t maxEvents() { return upperBound; }
+};
+template<uint64_t required, uint64_t upperBound = UNBOUND_EVENT_COUNT, TmplTreeNode Base>
+constexpr AtLeast<Base, required, std::min(upperBound, converted_tree_node_t<Base>::maxEvents())> atLeast(const Base& base) {
+    return { { convertTreeNode(base) } };
+}
+
+template<TmplTreeNode Base, uint64_t upperBound>
+struct UpperBound : converted_tree_node_t<Base> {
+    static constexpr uint64_t maxEvents() { return upperBound; }
+};
+template<uint64_t upperBound, TmplTreeNode Base>
+constexpr UpperBound<Base, std::min(upperBound, converted_tree_node_t<Base>::maxEvents())> upperBound(const Base& base) {
+    return { { convertTreeNode(base) } };
+}
 
 }
 

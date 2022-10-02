@@ -21,14 +21,18 @@ namespace detail {
     struct tuple_storage_indexed<T, i> {
     };
 
+    template<typename... Storage>
+    struct TupleImpl : Storage... { };
     template<typename S, typename... Types>
-    struct TupleImpl;
+    struct TupleIndirect;
     template<int_t... I, typename... Types>
-    struct TupleImpl<stx::int_sequence<I...>, Types...> : tuple_storage_indexed<Types, I>... { };
+    struct TupleIndirect<stx::int_sequence<I...>, Types...> {
+        using type = TupleImpl<tuple_storage_indexed<Types, I>...>;
+    };
 }
 
 template<typename... Types>
-struct Tuple : detail::TupleImpl<stx::int_sequence_for<Types...>, Types...> { };
+using Tuple = typename detail::TupleIndirect<stx::int_sequence_for<Types...>, Types...>::type;
 
 template<int_t i, typename T>
 auto& get(detail::tuple_storage_indexed<T, i>& s) {
@@ -37,6 +41,11 @@ auto& get(detail::tuple_storage_indexed<T, i>& s) {
 template<typename T>
 auto& get(detail::tuple_storage_base<T>& s) {
     return s.t;
+}
+
+template<typename... Types, int_t... I, typename Callback>
+void forEachElement(detail::TupleImpl<detail::tuple_storage_indexed<Types, I>...>& tuple, Callback&& callback) {
+    (callback(get<I>(tuple)), ...);
 }
 
 }

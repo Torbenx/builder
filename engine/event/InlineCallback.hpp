@@ -38,7 +38,6 @@ auto withCallSource(const Target& target, Source* source) requires SourceAwareCa
 
 template<typename T, T>
 struct CallDerived;
-
 template<typename Derived, typename R, typename... Args, R (Derived::*funcPtr)(Args...)>
 struct CallDerived<R (Derived::*)(Args...), funcPtr> {
     struct WithSource {

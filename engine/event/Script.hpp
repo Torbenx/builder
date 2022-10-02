@@ -53,6 +53,7 @@ struct ScriptHandle {
     ScriptPromise* operator->() const { return promise(); }
     ScriptPromise& operator*() const { return *promise(); }
     explicit operator bool() const { return (bool)handle; }
+    bool operator==(const ScriptHandle&) const = default;
 };
 
 struct Script : ScriptHandle {
@@ -90,6 +91,8 @@ struct Signal {
             exe->scripts.push_back(script);
         }
     }
+
+    bool operator==(const ScriptHandle& script) const { return this->script == script; }
 
     Signal operator~() const { return { script, -mask }; }
 };

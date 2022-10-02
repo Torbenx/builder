@@ -199,15 +199,9 @@ struct UiTest : plt::WindowStateCallback {
 
 }
 
-template<typename... Args>
-void testTuple(const stx::Tuple<Args...>&) { }
-
 namespace ui {
 
 void test() {
-    stx::Tuple<int, float, unsigned> tuple;
-    testTuple(tuple);
-
     /*sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
     lu.u.appendColumn(sparse::StaticVector({ { 0, 0.5f }, { 1, 1.0f } }).copy());

@@ -5,23 +5,24 @@
 namespace evt {
 
 struct OnExecutor {
-    struct NodeType : TmplLeafNode<NodeType, Executor> {
-        static void doCommit(Executor* exe, Signal signal) {
-            signal.script->executor = exe;
+    struct NodeType : TmplLeafNode<NodeType> {
+        Executor* executor = nullptr;
+        void commit(Signal signal) const {
+            signal.script->executor = executor;
         }
     };
     Executor* executor = nullptr;
     OnExecutor() = default;
     OnExecutor(Executor* executor)
         : executor(executor) { }
-    constexpr operator NodeType() const { return { executor }; }
+    constexpr operator NodeType() const { return { {}, executor }; }
 };
 
 struct Defer {
-    struct NodeType : TmplLeafNode<NodeType, void> {
-        static constexpr uint64_t eventCount() { return 1; }
-        static uint64_t getState(void*) { return 0; }
-        static void doCommit(void*, Signal signal) {
+    struct NodeType : TmplLeafNode<NodeType> {
+        static constexpr uint64_t requiredEvents() { return 1; }
+        static constexpr uint64_t maxEvents() { return 1; }
+        static void commit(Signal signal) {
             signal.send();
         }
     };
@@ -38,17 +39,19 @@ constexpr MonoCondition monoCondition;
 
 struct BinaryState {
     bool state = false;
-    struct NodeType : TmplLeafNode<NodeType, const BinaryState> {
-        static constexpr uint64_t eventCount() { return 1; }
-        static uint64_t getState(const BinaryState* state) {
-            return state->state;
+    struct NodeType : TmplLeafNode<NodeType> {
+        static constexpr uint64_t requiredEvents() { return 1; }
+        static constexpr uint64_t maxEvents() { return 1; }
+        const BinaryState* binaryState = nullptr;
+        uint64_t state() const {
+            return binaryState->state;
         }
-        static void doCommit(const BinaryState*, Signal) {
+        void commit(Signal) const {
         }
-        static void doCancel(const BinaryState*, ScriptHandle) {
+        void cancel(ScriptHandle) const {
         }
     };
-    constexpr operator NodeType() const { return { this }; }
+    constexpr operator NodeType() const { return { {}, this }; }
 };
 
 }

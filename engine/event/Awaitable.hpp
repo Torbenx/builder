@@ -8,57 +8,62 @@ namespace evt {
 template<TmplTreeNode Node>
 struct Awaitable {
     static constexpr const auto& output = CompiledCondition<Node>::output;
-    template<int_t index>
-    using Handler = NodeTypeOf<Node, output.leafs[index].tmplLoc>;
 
-    struct LeafState {
-        void* pointer = nullptr;
+    template<typename L>
+    struct LeafWrapper {
+        L leaf;
         uint64_t mask = 0;
     };
-    struct LeafsWrapper {
-        stx::Array<LeafState, output.leafs.size()> leafs;
-        constexpr LeafState& operator[](int_t index) { return leafs[index]; }
-        constexpr LeafsWrapper(const Node& node)
-            : LeafsWrapper(node, stx::make_int_sequence<output.leafs.size()>()) { }
-        template<int_t... I>
-        constexpr LeafsWrapper(const Node& node, stx::int_sequence<I...>)
-            : leafs { { { node.template get<output.leafs[I].tmplLoc>().pointer(), output.leafs[I].mask }... } } { }
+    template<typename L>
+    LeafWrapper(const L&, uint64_t) -> LeafWrapper<L>;
+    template<typename>
+    struct LeafsTupleHelper;
+    template<int_t... I>
+    struct LeafsTupleHelper<stx::int_sequence<I...>> {
+        using type = stx::Tuple<LeafWrapper<NodeTypeOf<Node, output.leafs[I].tmplLoc>>...>;
     };
-    LeafsWrapper leafs;
+    using LeafsTuple = typename LeafsTupleHelper<stx::make_int_sequence<output.leafs.size()>>::type;
+    LeafsTuple leafs;
 
     uint64_t startMask = output.startMask;
 
     ScriptHandle suspendedScript = {};
 
+    constexpr Awaitable(const Node& node)
+        : Awaitable(node, stx::make_int_sequence<output.leafs.size()>()) { }
     template<int_t... I>
-    constexpr void applyState(stx::int_sequence<I...>) {
-        startMask += (... + (Handler<I>::state(leafs[I].pointer) * leafs[I].mask));
+    constexpr Awaitable(const Node& node, stx::int_sequence<I...>)
+        : leafs { { makeWrapper<I>(node) }... } { }
+    template<int_t i>
+    constexpr auto makeWrapper(const Node& node) {
+        const auto& leaf = output.leafs[i];
+        return LeafWrapper { node.template get<leaf.tmplLoc>(), leaf.mask };
     }
     constexpr bool await_ready() {
-        applyState(stx::make_int_sequence<output.leafs.size()>());
+        stx::forEachElement(leafs, [&](const auto& wrapper) {
+            startMask += wrapper.leaf.state() * wrapper.mask;
+        });
         return (startMask & output.keyMask) != 0;
-    }
-
-    template<int_t... I>
-    constexpr void commit(ScriptHandle script, stx::int_sequence<I...>) {
-        (Handler<I>::commit(leafs[I].pointer, Signal { script, leafs[I].mask }), ...);
     }
     constexpr void await_suspend(ScriptHandle script) {
         suspendedScript = script;
         script->state = { startMask, output.keyMask };
-        commit(script, stx::make_int_sequence<output.leafs.size()>());
+        stx::forEachElement(leafs, [&](const auto& wrapper) {
+            wrapper.leaf.commit(Signal { script, wrapper.mask });
+        });
     }
-
-    constexpr void await_resume() { }
-
-    template<int_t... I>
-    constexpr void cancel(ScriptHandle script, stx::int_sequence<I...>) {
-        (Handler<I>::cancel(leafs[I].pointer, script), ...);
+    constexpr void cancel() {
+        stx::forEachElement(leafs, [&](const auto& wrapper) {
+            wrapper.leaf.cancel(suspendedScript);
+        });
+    }
+    constexpr void await_resume() {
+        cancel();
+        suspendedScript = {};
     }
     constexpr ~Awaitable() {
-        if (!suspendedScript)
-            return;
-        cancel(suspendedScript, stx::make_int_sequence<output.leafs.size()>());
+        if (suspendedScript)
+            cancel();
     }
 };
 
