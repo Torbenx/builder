@@ -7,7 +7,6 @@
 
 namespace evt {
 
-template<CompiledCondition condition = CompiledCondition { monoCondition }>
 struct InlineCallback {
 #if defined(COMPILER_INTERNALS_CLANG)
     static constexpr int_t INLINE_CALLBACK_STORAGE_SIZE = 48;
@@ -20,17 +19,17 @@ struct InlineCallback {
 #endif
     std::byte storage alignas(8)[INLINE_CALLBACK_STORAGE_SIZE];
 
-    template<typename Base, void (Base::*callback)()>
-    InlineCallback(std::integral_constant<void (Base::*)(), callback>) {
+    template<typename Base, void (Base::*callback)(), typename Node = MonoCondition::RootNode>
+    InlineCallback(std::integral_constant<void (Base::*)(), callback>, const CompiledCondition<Node>& condition = monoCondition) {
         struct CoroHandle {
             struct promise_type : ScriptPromise {
                 CoroHandle get_return_object() { return {}; }
-                void* operator new(size_t size, InlineCallback* ptr) {
+                void* operator new(size_t size, InlineCallback* ptr, const CompiledCondition<Node>&) {
                     EXPECT(Event, size, sizeof(ptr->storage));
                     return ptr->storage;
                 }
                 void operator delete(void*) { }
-                promise_type(InlineCallback*& thizPtr) {
+                promise_type(InlineCallback*& thizPtr, CompiledCondition<Node>&) {
                     auto handle = std::coroutine_handle<promise_type>::from_promise(*this);
                     InlineCallback* newThizPtr = (InlineCallback*)handle.address();
                     // clang's optimizer optimizes this condition to false even when it is true???
@@ -41,14 +40,14 @@ struct InlineCallback {
                 }
             };
 
-            static CoroHandle coro(InlineCallback* thiz) {
+            static CoroHandle coro(InlineCallback* thiz, CompiledCondition<Node> condition) {
                 while (true) {
                     co_await condition;
                     (static_cast<Base*>(thiz)->*callback)();
                 }
             }
         };
-        CoroHandle::coro(this);
+        CoroHandle::coro(this, condition);
     }
 
     ~InlineCallback() {

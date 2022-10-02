@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Rect.hpp"
+#include "ZIndex.hpp"
 #include "event/Script.hpp"
 
 namespace ui {
@@ -49,12 +50,15 @@ struct TextureState {
 };
 struct RendererBase {
     uint32_t id = 0;
+    ZIndex zIndex;
     TextureState textureState() const;
     ~RendererBase();
     constexpr explicit operator bool() const { return id != 0; }
 };
 template<typename T>
-concept Renderer = std::derived_from<T, RendererBase> && requires(T& renderer) { { renderer.textureUpdateSignal() } -> std::same_as<evt::Signal>; };
+concept Renderer = std::derived_from<T, RendererBase> && requires(T& renderer) {
+    { renderer.textureUpdateSignal() } -> std::same_as<evt::Signal>;
+};
 
 struct RendererHandle {
     RendererBase* base = nullptr;

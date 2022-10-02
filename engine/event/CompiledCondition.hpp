@@ -346,6 +346,7 @@ struct NamedEvent {
 
 template<TmplTreeNode Node>
 struct CompiledCondition {
+    using RootNode = Node;
     static constexpr auto output = compileCondition<Node>();
 
     template<stx::FixedString name>
@@ -366,7 +367,7 @@ struct CompiledCondition {
     template<stx::FixedString name>
     Signal signal(ScriptHandle script, NamedEvent<name> event) const {
         static constexpr uint64_t mask = makeMask(event);
-        // static_assert(mask != 0);
+        static_assert(mask != 0);
         return { script, mask };
     }
 

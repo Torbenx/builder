@@ -1,5 +1,5 @@
 #include "Instance.hpp"
-#include "common.hpp"
+#include "Stylable.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
 

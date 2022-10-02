@@ -1,6 +1,6 @@
 #include "BigStyleTable.hpp"
 #include "StyleKey.hpp"
-#include "common.hpp"
+#include "Stylable.hpp"
 
 namespace ui {
 
