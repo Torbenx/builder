@@ -134,7 +134,7 @@ void Instance::updateLayout(bool clearTextures) {
             auto& render = renders[i];
             IntRect rect = intRect(render.rect);
             render.allocPosition = allocateTexture(rect.dimensions());
-            render.handle.signal.notify();
+            render.handle.signal.send();
         }
     } else {
         std::vector<int_t> textureUpdates;
@@ -154,7 +154,7 @@ void Instance::updateLayout(bool clearTextures) {
             auto& render = renders[updateId];
             IntRect rect = intRect(render.rect);
             render.allocPosition = allocateTexture(rect.dimensions());
-            render.handle.signal.notify();
+            render.handle.signal.send();
         }
     }
 
@@ -290,7 +290,7 @@ evt::Executor* stylingExecutor() { return &instance()->stylingExe; }
 evt::Executor* renderingExecutor() { return &instance()->renderingExe; }
 
 void StylableBase::invalidateStyleInternal(void (*computeFunc)(StylableBase*)) {
-    onStyleDirty.notify();
+    onStyleDirty.send();
     [](StylableBase* thiz, void (*computeFunc)(StylableBase*)) -> evt::Script {
         co_await (evt::OnExecutor(&instance()->styleComputationExe) && evt::Defer());
         computeFunc(thiz);

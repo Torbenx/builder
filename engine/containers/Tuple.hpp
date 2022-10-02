@@ -28,7 +28,7 @@ namespace detail {
 }
 
 template<typename... Types>
-using Tuple = detail::TupleImpl<stx::int_sequence_for<Types...>, Types...>;
+struct Tuple : detail::TupleImpl<stx::int_sequence_for<Types...>, Types...> { };
 
 template<int_t i, typename T>
 auto& get(detail::tuple_storage_indexed<T, i>& s) {

@@ -22,18 +22,17 @@ struct Defer {
         static constexpr uint64_t eventCount() { return 1; }
         static uint64_t getState(void*) { return 0; }
         static void doCommit(void*, Signal signal) {
-            signal.notify();
+            signal.send();
         }
     };
     constexpr operator NodeType() const { return {}; }
 };
 
-using MonoConditionEvent = NamedEvent<"monoConditionEvent">;
-struct MonoCondition : CompiledCondition<MonoConditionEvent::NodeType> {
-    using Base = CompiledCondition<MonoConditionEvent::NodeType>;
-    Signal signal(ScriptHandle script) const { return Base::signal(script, MonoConditionEvent()); }
-    constexpr MonoCondition()
-        : Base({}) { }
+using MonoConditionNamed = NamedCondition<"monoCondition">;
+struct MonoCondition : CompiledCondition<MonoConditionNamed::NodeType> {
+    using Base = CompiledCondition<MonoConditionNamed::NodeType>;
+    Signal signal(ScriptHandle script) const { return Base::signal(script, MonoConditionNamed()); }
+    constexpr MonoCondition() = default;
 };
 constexpr MonoCondition monoCondition;
 

@@ -3,7 +3,6 @@
 #include "Script.hpp"
 #include "containers/Array.hpp"
 #include "containers/FixedString.hpp"
-#include "containers/Tuple.hpp"
 #include "util/types.hpp"
 #include <algorithm>
 #include <variant>
@@ -253,7 +252,6 @@ namespace compiled {
         uint64_t startMask = 0;
         uint64_t keyMask = 0;
         std::vector<LeafNodeInfo> leafs;
-        std::vector<int_t> returnObjects;
     };
 
     template<typename Node>
@@ -269,7 +267,6 @@ namespace compiled {
             .startMask = buildStartMask(andInfos),
             .keyMask = buildKeyMask(andInfos),
             .leafs = leafInfos,
-            .returnObjects = {},
         };
     }
 
@@ -301,18 +298,15 @@ namespace compiled {
         uint64_t startMask = 0;
         uint64_t keyMask = 0;
         OversizedStorage<LeafNodeInfo> leafs;
-        OversizedStorage<int_t> returnObjects;
         constexpr OversizedOutput(const Output& in)
             : startMask(in.startMask)
             , keyMask(in.keyMask)
-            , leafs(in.leafs)
-            , returnObjects(in.returnObjects) { }
+            , leafs(in.leafs) { }
     };
     struct OutputView {
         uint64_t startMask = 0;
         uint64_t keyMask = 0;
         ArrayView<const LeafNodeInfo> leafs;
-        ArrayView<const int_t> returnObjects;
     };
     template<OversizedOutput oversized>
     struct StaticOutputView : OutputView {
@@ -321,7 +315,6 @@ namespace compiled {
                 .startMask = oversized.startMask,
                 .keyMask = oversized.keyMask,
                 .leafs = StaticArrayView<LeafNodeInfo, oversized.leafs>(),
-                .returnObjects = StaticArrayView<int_t, oversized.returnObjects>(),
             } { }
     };
 
@@ -333,7 +326,7 @@ constexpr compiled::OutputView compileCondition() {
 }
 
 template<stx::FixedString str>
-struct NamedEvent {
+struct NamedCondition {
     static constexpr stx::FixedString name = str;
 
     struct NodeType : TmplLeafNode<NodeType, void> {
@@ -350,28 +343,29 @@ struct CompiledCondition {
     static constexpr auto output = compileCondition<Node>();
 
     template<stx::FixedString name>
-    static constexpr uint64_t makeMask(NamedEvent<name> event) {
+    static constexpr uint64_t makeMask(NamedCondition<name> event) {
         return makeMask(event, stx::make_int_sequence<output.leafs.size()>());
     }
     template<stx::FixedString name, int_t... I>
-    static constexpr uint64_t makeMask(NamedEvent<name> event, stx::int_sequence<I...>) {
+    static constexpr uint64_t makeMask(NamedCondition<name> event, stx::int_sequence<I...>) {
         return (... + selectMask<I>(event));
     }
     template<int_t i, stx::FixedString name>
-    static constexpr uint64_t selectMask(NamedEvent<name>) {
-        if constexpr (std::is_same_v<NodeTypeOf<Node, output.leafs[i].tmplLoc>, typename NamedEvent<name>::NodeType>)
+    static constexpr uint64_t selectMask(NamedCondition<name>) {
+        if constexpr (std::is_same_v<NodeTypeOf<Node, output.leafs[i].tmplLoc>, typename NamedCondition<name>::NodeType>)
             return output.leafs[i].mask;
         else
             return 0;
     }
     template<stx::FixedString name>
-    Signal signal(ScriptHandle script, NamedEvent<name> event) const {
+    Signal signal(ScriptHandle script, NamedCondition<name> event) const {
         static constexpr uint64_t mask = makeMask(event);
         static_assert(mask != 0);
         return { script, mask };
     }
 
     Node node;
+    constexpr CompiledCondition() = default;
     constexpr CompiledCondition(const Node& node)
         : node(node) { }
 };
@@ -390,4 +384,4 @@ constexpr evt::TmplBranchNode<evt::LogicalOp::Or, evt::converted_tree_node_t<Lef
 }
 
 template<stx::FixedString name>
-constexpr evt::NamedEvent<name> operator"" _ev() { return {}; }
+constexpr evt::NamedCondition<name> operator"" _ev() { return {}; }

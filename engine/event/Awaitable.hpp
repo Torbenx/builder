@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CompiledCondition.hpp"
+#include "containers/Tuple.hpp"
 
 namespace evt {
 
@@ -26,15 +27,6 @@ struct Awaitable {
     LeafsWrapper leafs;
 
     uint64_t startMask = output.startMask;
-
-    template<typename T>
-    struct ReturnObjectHelper;
-    template<int_t... I>
-    struct ReturnObjectHelper<stx::int_sequence<I...>> {
-        using type = stx::Tuple<typename Handler<output.returnObjects[I]>::ReturnObject...>;
-    };
-    using ReturnObject = typename ReturnObjectHelper<stx::make_int_sequence<output.returnObjects.size()>>::type;
-    // ReturnObject&& returnObject = {};
 
     ScriptHandle suspendedScript = {};
 

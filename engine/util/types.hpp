@@ -27,6 +27,21 @@ constexpr auto to_underlying(E e) noexcept {
 template<auto value>
 using constant = std::integral_constant<decltype(value), value>;
 
+template<typename T>
+struct member_pointer_helper;
+template<typename T, typename B>
+struct member_pointer_helper<T B::*> {
+    using FieldType = T;
+    using BaseType = B;
+};
+template<typename R, typename B, typename... Args>
+struct member_pointer_helper<R (B::*)(Args...)> {
+    using ReturnType = R;
+    using BaseType = B;
+};
+template<auto ptr>
+using member_pointer = member_pointer_helper<decltype(ptr)>;
+
 }
 
 using int_t = stx::int_t;

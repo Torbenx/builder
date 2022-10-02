@@ -112,7 +112,7 @@ struct CompoundStylable : Ts... {
 };
 
 template<typename Impl, typename Style>
-struct BasicRenderer : RendererBase, evt::InlineCallback, Stylable<Style> {
+struct BasicRenderer : RendererBase, evt::InlineScript<>, Stylable<Style> {
     static constexpr evt::CompiledCondition updateCondition = []() {
         return "textureUpdate"_ev || "styleUpdate"_ev;
     }();
@@ -122,7 +122,7 @@ struct BasicRenderer : RendererBase, evt::InlineCallback, Stylable<Style> {
         impl()->render(this->textureState(), this->computedStyle());
     }
     BasicRenderer()
-        : evt::InlineCallback(stx::constant<&BasicRenderer::do_render>(), updateCondition)
+        : evt::InlineScript<>(evt::callDerived<&BasicRenderer::do_render>, updateCondition)
         , Stylable<Style>(updateCondition.signal(this->inlineScript(), "styleUpdate"_ev)) {
         this->inlineScript()->executor = renderingExecutor();
     }
@@ -132,13 +132,13 @@ struct BasicRenderer : RendererBase, evt::InlineCallback, Stylable<Style> {
 };
 
 template<typename Impl, typename Style>
-struct BasicStylable : evt::InlineCallback, Stylable<Style> {
+struct BasicStylable : evt::InlineScript<>, Stylable<Style> {
     Impl* impl() { return static_cast<Impl*>(this); }
     void do_applyStyle() {
         impl()->applyStyle(this->computedStyle());
     }
     BasicStylable()
-        : evt::InlineCallback(stx::constant<&BasicStylable::do_applyStyle>())
+        : evt::InlineScript<>(evt::callDerived<&BasicStylable::do_applyStyle>)
         , Stylable<Style>(evt::monoCondition.signal(this->inlineScript())) {
         this->inlineScript()->executor = stylingExecutor();
     }

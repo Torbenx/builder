@@ -65,8 +65,11 @@ inline Script ScriptPromise::get_return_object() { return { scriptHandle() }; }
 struct Executor {
     std::vector<ScriptHandle> scripts;
     void execute() {
-        for (int_t i = 0; i < (int_t)scripts.size(); i++)  
-            scripts[i].handle.resume();
+        for (int_t i = 0; i < (int_t)scripts.size(); i++) {
+            auto& state = scripts[i]->state;
+            if ((state.state & state.key) != 0)
+                scripts[i].handle.resume();
+        }
         scripts.clear();
     }
 };
@@ -75,7 +78,7 @@ struct Signal {
     ScriptHandle script;
     uint64_t mask = 0;
 
-    void notify() const {
+    void send() const {
         Executor* localExecutor = currentExecutor();
         uint64_t oldState = script->state.state;
         uint64_t newState = oldState + mask;
