@@ -1,10 +1,11 @@
 #include "Instance.hpp"
 #include "Stylable.hpp"
+#include "Window.hpp"
 #include "box.hpp"
 #include "equation_code.hpp"
+#include "event/Event.hpp"
 #include "event/InlineCallback.hpp"
 #include "event/conditions.hpp"
-#include "event/Event.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
@@ -69,7 +70,7 @@ struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
                 float fracX = i / (float)(dim.x() - 1);
                 float fracY = j / (float)(dim.y() - 1);
                 uint32_t c1 = fracX * 255;
-                uint32_t c2 = (1.0f - fracX) * 255;
+                uint32_t c2 = 255 - c1;
                 uint32_t c3 = fracY * fracY * 255;
                 view[j][i] = 0xff'00'00'00 | (c3 << 24) | (c1 << shift1) | (c2 << shift2);
             }
@@ -77,7 +78,7 @@ struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
     }
 };
 evt::Script uiTestInit() {
-    co_await (evt::OnExecutor(ui::coreExecutor()) && evt::Defer());
+    co_await evt::OnExecutor(ui::coreExecutor());
 
     auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
     {
@@ -93,28 +94,26 @@ evt::Script uiTestInit() {
     ui::RectEqn box1Eqn;
 
     using namespace ui::code;
-    ui::RectVarHandle screen = ui::instance()->screen();
-    box1Eqn = box1.box() == screen;
-    /*box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == screen.left() + screen.right();
-    box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == screen.bottom() + screen.top();
+    ui::RectVarHandle windowRect = ui::window().rect();
+    box1Eqn = box1.box() == windowRect;
+    /*box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == windowRect.left() + windowRect.right();
+    box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == windowRect.bottom() + windowRect.top();
     box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
-    box1Eqn.top() = box1.innerBox.width() == 0.5f * screen.width();*/
+    box1Eqn.top() = box1.innerBox.width() == 0.5f * windowRect.width();*/
 
     box1.setTable(bigStyle);
     box1.padded().setStyle(ui::key<DefaultBoxStyle>());
     box1.renderer().setStyle(ui::key<DefaultTestStyle>());
-    
+
     {
         auto& boxStyle = box1.padded().mutateLocal();
         boxStyle.get<ui::Padding>().x() = 10_px;
-        boxStyle.get<ui::Padding>().y() = 10_px;
+        boxStyle.get<ui::Padding>().y() = 30_px;
         auto& style = box1.renderer().mutateLocal();
         style.get<Channel1>() = ColorChannel::Red;
     }
 
-    co_await "nothing"_ev;
-
-    co_return;
+    co_await ui::window().destroyed();
 }
 
 struct UiTest : plt::WindowStateCallback {
@@ -124,7 +123,10 @@ struct UiTest : plt::WindowStateCallback {
 
     void onResize(plt::Window* window) override {
         ui::IntVec windowSize { (int)window->width(), (int)window->height() };
-        ui::instance()->resize(windowSize, 0.5f);
+        auto* promise = const_cast<ui::WindowRelayScript::Promise*>(ui::instance()->window.relayPromise);
+        auto& ringBuffer = promise->relay<ui::ResizeEvent>().buffer;
+        ringBuffer[evt::tick()].push_back({ windowSize });
+        //ui::instance()->resize(windowSize, 0.5f);
 
         ui::IntVec windowBlockSize = (windowSize + 15) / 16;
         frameSize = windowBlockSize * 16;
@@ -227,7 +229,7 @@ void test() {
     // gl::initialize();
     // gl::attachWindow(window.get());
     window->initialize();
-    while (!window->destoryed()) {
+    while (!window->destroyed()) {
         plt::processEvents([&callback, &window]() { callback.draw(window.get(), *ui::instance()); });
         if (window->initialized())
             callback.draw(window.get(), instance);

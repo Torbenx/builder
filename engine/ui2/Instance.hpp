@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Window.hpp"
 #include "containers/ArrayView.hpp"
 #include "containers/IdAllocator.hpp"
 #include "handles.hpp"
@@ -44,8 +45,6 @@ public:
     void cancelDraw(RendererBase&);
     TextureState textureState(const RendererBase&);
 
-    RectVarHandle screen() const { return screenBox; }
-
     float valueOf(VarHandle var) const;
     void dumpVarValues();
     void dumpShiftValues();
@@ -58,9 +57,9 @@ public:
     }
     IntRect intRect(RectVarHandle var) const { return intRect(var, varValues.data()); }
 
-    RectVarHandle screenBox;
-    EquationHandle screenEquations[4] = {};
-    IntVec screenDimensions;
+    Window window;
+    EquationHandle windowEquations[4] = {};
+    IntVec windowDimensions;
     float ptScale = 1.0f;
 
     struct Render {
@@ -112,11 +111,11 @@ public:
     std::vector<uint32_t> outputBlockMap;
     std::vector<IntVec> outputOffsets;
     TextureView atlasView() const { return atlas.view(); }
-    
-    evt::Executor coreExe;
-    evt::Executor styleComputationExe;
-    evt::Executor stylingExe;
-    evt::Executor renderingExe;
+
+    evt::ExecutorImpl coreExe;
+    evt::ExecutorImpl styleComputationExe;
+    evt::ExecutorImpl stylingExe;
+    evt::ExecutorImpl renderingExe;
     void doTick();
 };
 

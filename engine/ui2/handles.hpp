@@ -2,7 +2,7 @@
 
 #include "Rect.hpp"
 #include "containers/ArrayView.hpp"
-#include "event/Script.hpp"
+#include "event/Event.hpp"
 
 namespace sparse {
 struct Entry;
@@ -46,8 +46,6 @@ struct RectVarHandle {
     constexpr StaticSum<2> width() const;
     constexpr StaticSum<2> height() const;
 };
-
-RectVarHandle screen();
 
 struct Var : VarHandle {
     Var()

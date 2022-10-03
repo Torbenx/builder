@@ -3,6 +3,7 @@
 #include "platform/thread_local_storage.hpp"
 #include "util/coroutines.hpp"
 #include "util/types.hpp"
+#include <algorithm>
 #include <vector>
 
 namespace Tag {
@@ -20,6 +21,11 @@ struct Executor;
 
 inline Executor* currentExecutor() { return (Executor*)plt::getThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(); }
 inline void setCurrentExecutor(Executor* exe) { plt::setThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(exe); }
+inline int_t tick() { return (uintptr_t)plt::getThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>(); }
+inline void setTick(int_t tick) {
+    VERIFY(Event, tick >= 0);
+    plt::setThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>((void*)(uintptr_t)tick);
+}
 
 struct AwaitableState {
     uint64_t state = 0;
@@ -53,6 +59,7 @@ struct ScriptHandle {
     ScriptPromise* operator->() const { return promise(); }
     ScriptPromise& operator*() const { return *promise(); }
     explicit operator bool() const { return (bool)handle; }
+    operator stdx::coroutine_handle<>() const { return handle; }
     bool operator==(const ScriptHandle&) const = default;
 };
 
@@ -64,14 +71,23 @@ inline ScriptHandle ScriptPromise::scriptHandle() { return { stdx::coroutine_han
 inline Script ScriptPromise::get_return_object() { return { scriptHandle() }; }
 
 struct Executor {
-    std::vector<ScriptHandle> scripts;
+    std::vector<stdx::coroutine_handle<>> handles;
+
+    void schedule(stdx::coroutine_handle<> handle) {
+        handles.push_back(handle);
+    }
+    void unschedule(stdx::coroutine_handle<> handle) {
+        auto it = std::find(handles.rbegin(), handles.rend(), handle);
+        VERIFY(Event, it != handles.rend());
+        handles.erase(handles.rend() - it + handles.begin());
+    }
+};
+struct ExecutorImpl : Executor {
+    Executor nextTick;
     void execute() {
-        for (int_t i = 0; i < (int_t)scripts.size(); i++) {
-            auto& state = scripts[i]->state;
-            if ((state.state & state.key) != 0)
-                scripts[i].handle.resume();
-        }
-        scripts.clear();
+        for (int_t i = 0; i < (int_t)handles.size(); i++)
+            handles[i].resume();
+        handles = std::move(nextTick.handles);
     }
 };
 
@@ -79,17 +95,21 @@ struct Signal {
     ScriptHandle script;
     uint64_t mask = 0;
 
-    void send() const {
+    void send(int_t count = 1) const {
         Executor* localExecutor = currentExecutor();
         uint64_t oldState = script->state.state;
-        uint64_t newState = oldState + mask;
+        uint64_t newState = oldState + mask * count;
         script->state.state = newState;
         uint64_t key = script->state.key;
-        if ((newState & key) != 0 && (oldState & key) == 0) {
-            Executor* exe = script->executor;
-            exe = exe ? exe : localExecutor;
-            exe->scripts.push_back(script);
-        }
+        bool wasReady = (oldState & key) != 0;
+        bool isReady = (newState & key) != 0;
+        Executor* exe = script->executor;
+        exe = exe ? exe : localExecutor;
+        VERIFY(Event, exe);
+        if (isReady && !wasReady)
+            exe->schedule(script);
+        else if (wasReady && !isReady)
+            exe->unschedule(script);
     }
 
     bool operator==(const ScriptHandle& script) const { return this->script == script; }

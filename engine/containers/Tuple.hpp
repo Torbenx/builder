@@ -35,11 +35,19 @@ template<typename... Types>
 using Tuple = typename detail::TupleIndirect<stx::int_sequence_for<Types...>, Types...>::type;
 
 template<int_t i, typename T>
-auto& get(detail::tuple_storage_indexed<T, i>& s) {
+T& get(detail::tuple_storage_indexed<T, i>& s) {
+    return s.t;
+}
+template<int_t i, typename T>
+const T& get(const detail::tuple_storage_indexed<T, i>& s) {
     return s.t;
 }
 template<typename T>
-auto& get(detail::tuple_storage_base<T>& s) {
+T& get(detail::tuple_storage_base<T>& s) {
+    return s.t;
+}
+template<typename T>
+const T& get(const detail::tuple_storage_base<T>& s) {
     return s.t;
 }
 

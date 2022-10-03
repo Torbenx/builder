@@ -88,7 +88,7 @@ public:
     bool initialized() const { return state() >= WindowState::Invisible; }
     bool visible() const { return state() > WindowState::Invisible; }
     bool foreground() const { return state() >= WindowState::Foreground; }
-    bool destoryed() const { return state() == WindowState::Destroyed; }
+    bool destroyed() const { return state() == WindowState::Destroyed; }
 
     Window(const Window&) = delete;
     ~Window();

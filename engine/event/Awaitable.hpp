@@ -48,12 +48,12 @@ struct Awaitable {
     constexpr void await_suspend(ScriptHandle script) {
         suspendedScript = script;
         script->state = { startMask, output.keyMask };
-        stx::forEachElement(leafs, [&](const auto& wrapper) {
+        stx::forEachElement(leafs, [&](auto& wrapper) {
             wrapper.leaf.commit(Signal { script, wrapper.mask });
         });
     }
     constexpr void cancel() {
-        stx::forEachElement(leafs, [&](const auto& wrapper) {
+        stx::forEachElement(leafs, [&](auto& wrapper) {
             wrapper.leaf.cancel(suspendedScript);
         });
     }

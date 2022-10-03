@@ -4,9 +4,10 @@
 
 namespace plt {
 
-constexpr uint32_t TLS_CURRENT_EXECUTOR_INDEX = 0;
-constexpr uint32_t TLS_UI_INSTANCE_INDEX = 1;
-constexpr int_t TLS_INDICES_COUNT = 2;
+constexpr uint32_t TLS_CURRENT_TICK_INDEX = 0;
+constexpr uint32_t TLS_CURRENT_EXECUTOR_INDEX = 1;
+constexpr uint32_t TLS_UI_INSTANCE_INDEX = 2;
+constexpr int_t TLS_INDICES_COUNT = 3;
 
 }
 

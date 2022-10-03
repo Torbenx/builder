@@ -30,7 +30,7 @@ extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(std::unique_ptr<plt
     /*gl::initialize();
     gl::attachWindow(window.get());
     window->initialize();
-    while (!window->destoryed()) {
+    while (!window->destroyed()) {
         plt::processEvents();
         glViewport(0, 0, window->width(), window->height());
         glClearColor(1, 0, 0, 1);

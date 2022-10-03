@@ -6,9 +6,12 @@ namespace evt {
 
 struct OnExecutor {
     struct NodeType : TmplLeafNode<NodeType> {
+        static constexpr uint64_t requiredEvents() { return 1; }
+        static constexpr uint64_t maxEvents() { return 1; }
         Executor* executor = nullptr;
         void commit(Signal signal) const {
             signal.script->executor = executor;
+            signal.send();
         }
     };
     Executor* executor = nullptr;
@@ -22,11 +25,16 @@ struct Defer {
     struct NodeType : TmplLeafNode<NodeType> {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
-        static void commit(Signal signal) {
+        Executor* executor = nullptr;
+        void commit(Signal signal) {
+            executor = signal.script->executor;
+            signal.script->executor = &static_cast<ExecutorImpl*>(executor)->nextTick;
             signal.send();
         }
+        void cancel(ScriptHandle script) {
+            script->executor = executor;
+        }
     };
-    constexpr operator NodeType() const { return {}; }
 };
 
 using MonoConditionNamed = NamedCondition<"monoCondition">;
@@ -39,6 +47,22 @@ constexpr MonoCondition monoCondition;
 
 struct BinaryState {
     bool state = false;
+    mutable std::vector<Signal> signals;
+
+    BinaryState() = default;
+    BinaryState(bool state)
+        : state(state) { }
+    BinaryState(const BinaryState&) = delete;
+    explicit operator bool() const { return state; }
+
+    void set(bool newState) {
+        if (newState == state)
+            return;
+        for (Signal signal : signals)
+            signal.send((int_t)newState - (int_t)state);
+        state = newState;
+    }
+
     struct NodeType : TmplLeafNode<NodeType> {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
@@ -46,9 +70,12 @@ struct BinaryState {
         uint64_t state() const {
             return binaryState->state;
         }
-        void commit(Signal) const {
+        void commit(Signal signal) const {
+            binaryState->signals.push_back(signal);
         }
-        void cancel(ScriptHandle) const {
+        void cancel(ScriptHandle script) const {
+            auto it = std::remove(binaryState->signals.begin(), binaryState->signals.end(), script);
+            binaryState->signals.erase(it, binaryState->signals.end());
         }
     };
     constexpr operator NodeType() const { return { {}, this }; }
