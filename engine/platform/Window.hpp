@@ -1,5 +1,6 @@
 #pragma once
 
+#include "event/Window.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
 #include <functional>
@@ -15,13 +16,7 @@ struct Window {
 
 namespace plt {
 
-enum class WindowState {
-    Destroyed = 0,
-    Uninitialized = 1,
-    Invisible = 2,
-    Background = 3,
-    Foreground = 4,
-};
+using WindowState = evt::WindowState;
 constexpr std::string_view windowStateToString(WindowState state) {
     switch (state) {
     case WindowState::Uninitialized:

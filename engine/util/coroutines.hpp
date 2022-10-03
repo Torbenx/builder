@@ -8,6 +8,17 @@ namespace stdx = std;
 namespace stdx = std::experimental;
 #endif
 
+template<typename T, typename... Args>
+struct stdx::coroutine_traits<T*, Args...> {
+    using promise_type = T;
+};
+template<typename T, typename... Args>
+struct stdx::coroutine_traits<const T*, Args...> {
+    using promise_type = T;
+};
+
+namespace stx {
+
 template<typename T>
 struct await_value {
     T t;
@@ -18,3 +29,5 @@ struct await_value {
 
 struct get_self_t { };
 static constexpr get_self_t get_self = {};
+
+}

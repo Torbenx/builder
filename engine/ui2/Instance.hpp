@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Window.hpp"
+#include "event/Window.hpp"
 #include "containers/ArrayView.hpp"
 #include "containers/IdAllocator.hpp"
 #include "handles.hpp"
@@ -13,9 +13,9 @@
 
 namespace ui {
 
-class Instance {
+class Instance  : public evt::Window {
 public:
-    Instance(AtlasAllocator* atlasAlloc);
+    Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc);
     ~Instance();
 
     IdAllocator<uint32_t> eqnIdAlloc;
@@ -37,7 +37,7 @@ public:
     void deleteVariable(RangeVarHandle);
     void deleteVariable(RectVarHandle);
 
-    void resize(IntVec windowSize, float ptScale);
+    void resize();
     void updateLayout(bool clearTextures);
     void rebuildOutput();
 
@@ -57,7 +57,7 @@ public:
     }
     IntRect intRect(RectVarHandle var) const { return intRect(var, varValues.data()); }
 
-    Window window;
+    RectVarHandle windowRect;
     EquationHandle windowEquations[4] = {};
     IntVec windowDimensions;
     float ptScale = 1.0f;

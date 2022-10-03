@@ -1,6 +1,5 @@
 #include "Instance.hpp"
 #include "Stylable.hpp"
-#include "Window.hpp"
 #include "box.hpp"
 #include "equation_code.hpp"
 #include "event/Event.hpp"
@@ -94,7 +93,7 @@ evt::Script uiTestInit() {
     ui::RectEqn box1Eqn;
 
     using namespace ui::code;
-    ui::RectVarHandle windowRect = ui::window().rect();
+    ui::RectVarHandle windowRect = ui::windowRect();
     box1Eqn = box1.box() == windowRect;
     /*box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == windowRect.left() + windowRect.right();
     box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == windowRect.bottom() + windowRect.top();
@@ -113,20 +112,37 @@ evt::Script uiTestInit() {
         style.get<Channel1>() = ColorChannel::Red;
     }
 
-    co_await ui::window().destroyed();
+    while (!ui::instance()->destroyed()) {
+        evt::EventReceiver<evt::WindowStateUpdate> events;
+        co_await (ui::instance()->stateUpdate() > events);
+        for (auto update : events.events)
+            log("state change: {} -> {}", evt::WindowStateUtil(update.from).toString(), evt::WindowStateUtil(update.to).toString());
+    }
 }
 
 struct UiTest : plt::WindowStateCallback {
 
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
+    evt::RelayedWindowBackend* relayedWindow = evt::relayWindow();
+    BasicAtlasAllocator atlasAlloc;
+    ui::Instance instance { relayedWindow, &atlasAlloc };
+
+    UiTest() {
+        relayedWindow->startRelay(&instance.coreExe);
+        ui::setInstance(&instance);
+        uiTestInit();
+    }
+
+    void onStageChange(plt::Window*, evt::WindowState oldState, evt::WindowState newState) override {
+        auto& ringBuffer = relayedWindow->stateUpdateBuf;
+        ringBuffer[evt::tick()].push_back({ oldState, newState });
+    }
 
     void onResize(plt::Window* window) override {
         ui::IntVec windowSize { (int)window->width(), (int)window->height() };
-        auto* promise = const_cast<ui::WindowRelayScript::Promise*>(ui::instance()->window.relayPromise);
-        auto& ringBuffer = promise->relay<ui::ResizeEvent>().buffer;
+        auto& ringBuffer = relayedWindow->resizeEventBuf;
         ringBuffer[evt::tick()].push_back({ windowSize });
-        //ui::instance()->resize(windowSize, 0.5f);
 
         ui::IntVec windowBlockSize = (windowSize + 15) / 16;
         frameSize = windowBlockSize * 16;
@@ -135,8 +151,8 @@ struct UiTest : plt::WindowStateCallback {
 
     uint64_t lastFrame = 0;
     int_t frames = 0;
-    void draw(plt::Window* window, ui::Instance& layout) {
-        layout.doTick();
+    void draw(plt::Window* window) {
+        instance.doTick();
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             lastFrame = now;
@@ -145,28 +161,31 @@ struct UiTest : plt::WindowStateCallback {
         }
         frames += 1;
 
-        ui::TextureView frameView { framebuffer.get(), (window->width() + 15) / 16 * 16 };
+        if (!framebuffer)
+            return;
+        ui::TextureView frameView { framebuffer.get(), frameSize.x() };
         uint32_t background_color = 0xff'ff'ff'ff;
-        for (int_t j = 0; j < window->height(); j++) {
-            for (int_t i = 0; i < window->width(); i++) {
+        ui::IntVec windowSize = instance.dimensions();
+        for (int_t j = 0; j < windowSize.y(); j++) {
+            for (int_t i = 0; i < windowSize.x(); i++) {
                 frameView[j][i] = background_color >> 8;
             }
         }
         auto multiply = [](uint32_t in, uint32_t alpha) {
             return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
         };
-        int_t blockCount = layout.outputOffsets.size() / (layout.outputLayers + 1);
+        int_t blockCount = instance.outputOffsets.size() / (instance.outputLayers + 1);
         for (int_t k = 0; k < blockCount; k++) {
-            ui::IntVec* block = layout.outputOffsets.data() + k * (layout.outputLayers + 1);
+            ui::IntVec* block = instance.outputOffsets.data() + k * (instance.outputLayers + 1);
             ui::IntVec screenPos = block[0];
             for (int_t j = 0; j < 16; j++) {
                 for (int_t i = 0; i < 16; i++) {
                     uint32_t color = (frameView + screenPos)[j][i];
-                    for (int_t layer = 0; layer < layout.outputLayers; layer++) {
+                    for (int_t layer = 0; layer < instance.outputLayers; layer++) {
                         ui::IntVec layerPos = block[layer + 1];
                         if (layerPos == ui::IntVec {})
                             break;
-                        uint32_t in = (layout.atlasView() + layerPos)[j][i];
+                        uint32_t in = (instance.atlasView() + layerPos)[j][i];
                         uint32_t alpha = in >> 24;
                         color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
                         // color = in & 0xff'ff'ff;
@@ -216,24 +235,23 @@ void test() {
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
     evt::test();
+    VDUMP(sizeof(evt::RelayedWindowBackend));
 
     std::unique_ptr<plt::Window> window = plt::Window::construct();
-    BasicAtlasAllocator atlasAlloc;
-    Instance instance(&atlasAlloc);
-    setInstance(&instance);
-    uiTestInit();
     UiTest callback;
     window->setDimensions(700, 700);
     window->setStateCallback(&callback);
     window->setTitle("UiTest");
     // gl::initialize();
     // gl::attachWindow(window.get());
+    callback.draw(window.get());
     window->initialize();
     while (!window->destroyed()) {
-        plt::processEvents([&callback, &window]() { callback.draw(window.get(), *ui::instance()); });
+        plt::processEvents([&callback, &window]() { callback.draw(window.get()); });
         if (window->initialized())
-            callback.draw(window.get(), instance);
+            callback.draw(window.get());
     }
+    callback.draw(window.get());
 }
 
 }

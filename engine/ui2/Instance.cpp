@@ -5,51 +5,22 @@
 
 namespace ui {
 
-namespace {
-    WindowRelayScript relayWindowEvents(WindowRelayScript::PromiseBase* prom = {}) {
-        auto* promise = static_cast<WindowRelayScript::Promise*>(prom);
-        while (true) {
-            std::vector<WindowStateUpdate> stateUpdates = promise->relay<WindowStateUpdate>().relay();
+Instance::Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc)
+    : evt::Window(window), atlas(atlasAlloc) {
 
-            if (!stateUpdates.empty()) {
-                WindowState finalState = stateUpdates.back().to;
-                promise->currentState = finalState;
-                WindowStateUtil util(finalState);
-                promise->initialized.set(util.initialized());
-                promise->visible.set(util.visible());
-                promise->foreground.set(util.foreground());
-                promise->destroyed.set(util.destroyed());
-            }
-
-            std::vector<ResizeEvent> resizeEvents = promise->relay<ResizeEvent>().relay();
-            if (!resizeEvents.empty()) 
-                promise->currentDimensions = resizeEvents.back().newDimensions;
-
-            promise->reschedule();
-            co_await stdx::suspend_always();
-        }
-    }
-}
-
-Instance::Instance(AtlasAllocator* atlasAlloc)
-    : atlas(atlasAlloc) {
-
-    auto* relayPromise = relayWindowEvents().promise;
-    relayPromise->startRelay(&coreExe);
-    window.relayPromise = relayPromise;
-    window.m_rect = newRect();
+    windowRect = newRect();
 
     [](Instance* instance) -> evt::Script {
         co_await evt::OnExecutor(&instance->coreExe);
-        IntVec initialDim = instance->window.dimensions();
+        IntVec initialDim = instance->dimensions();
         if (initialDim.x() > 0 && initialDim.y() > 0)
-            instance->resize(initialDim, 1.0f);
+            instance->resize();
         while (true) {
-            evt::EventReceiver<ResizeEvent> events;
-            co_await (instance->window.resizeEvent() > events || instance->window.destroyed());
-            if (instance->window.destroyed())
+            evt::EventReceiver<evt::ResizeEvent> events;
+            co_await (instance->resizeEvent() > events || instance->destroyed());
+            if (instance->destroyed())
                 break;
-            instance->resize(events.events.back().newDimensions, 1.0f);
+            instance->resize();
         }
     }(this);
 
@@ -58,16 +29,16 @@ Instance::Instance(AtlasAllocator* atlasAlloc)
         setEquation(eq, { { var.id, 1.0f } });
         return eq;
     };
-    windowEquations[0] = fix(window.rect().left());
-    windowEquations[1] = fix(window.rect().right());
-    windowEquations[2] = fix(window.rect().bottom());
-    windowEquations[3] = fix(window.rect().top());
+    windowEquations[0] = fix(windowRect.left());
+    windowEquations[1] = fix(windowRect.right());
+    windowEquations[2] = fix(windowRect.bottom());
+    windowEquations[3] = fix(windowRect.top());
 }
 
 Instance::~Instance() {
     for (int_t i = 0; i < 4; i++)
         removeEqn(windowEquations[i]);
-    deleteVariable(window.rect());
+    deleteVariable(windowRect);
 }
 
 uint32_t Instance::allocateVariableIds(int_t count) {
@@ -150,14 +121,11 @@ void Instance::doTick() {
     rebuildOutput();
 }
 
-void Instance::resize(IntVec windowSize, float ptScale) {
-    windowDimensions = windowSize;
-    this->ptScale = ptScale;
+void Instance::resize() {
+    updateInhom(windowEquations[1], dimensions().x() * 1_px);
+    updateInhom(windowEquations[3], dimensions().y() * 1_px);
 
-    updateInhom(windowEquations[1], windowSize.x() * 1_px);
-    updateInhom(windowEquations[3], windowSize.y() * 1_px);
-
-    IntVec windowBlocks = (windowSize + 15) / 16;
+    IntVec windowBlocks = (dimensions() + 15) / 16;
     outputBlockMap.clear();
     outputBlockMap.resize(windowBlocks.x() * windowBlocks.y());
 }
@@ -211,7 +179,7 @@ void Instance::rebuildOutput() {
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
     for (uint32_t& u : outputBlockMap)
         u = INVALID_BLOCK_ID;
-    IntVec blockDimensions = (windowDimensions + 15) / 16;
+    IntVec blockDimensions = (dimensions() + 15) / 16;
     for (int_t k = 1; k < (int_t)renders.size(); k++) {
         auto& render = renders[k];
         auto rect = intRect(render.rect);
@@ -328,7 +296,7 @@ void RangeVarHandle::deallocate(RangeVarHandle handle) { instance()->deleteVaria
 RectVarHandle RectVarHandle::allocate() { return instance()->newRect(); }
 void RectVarHandle::deallocate(RectVarHandle handle) { instance()->deleteVariable(handle); }
 
-const Window& window() { return instance()->window; }
+RectVarHandle windowRect() { return instance()->windowRect; }
 
 evt::Executor* coreExecutor() { return &instance()->coreExe; }
 evt::Executor* stylingExecutor() { return &instance()->stylingExe; }

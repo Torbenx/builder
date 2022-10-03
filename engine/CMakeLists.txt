@@ -124,6 +124,7 @@ add_executable(engine_test ${win32_executable}
     "ui2/Size.cpp"
     "ui2/test.cpp"
     "ui2/BigStyleTable.cpp"
+    "event/Window.cpp"
     "event/test.cpp"
 )
 if(MSVC)
