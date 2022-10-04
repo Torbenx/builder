@@ -1,7 +1,7 @@
 #pragma once
 
 #include "event/Window.hpp"
-#include "containers/ArrayView.hpp"
+#include "containers/DynArray.hpp"
 #include "containers/IdAllocator.hpp"
 #include "handles.hpp"
 #include "math/sparse/Vector.hpp"
@@ -12,6 +12,8 @@
 #include <vector>
 
 namespace ui {
+
+class LayoutStylableBase;
 
 class Instance  : public evt::Window {
 public:
@@ -111,6 +113,8 @@ public:
     std::vector<uint32_t> outputBlockMap;
     std::vector<IntVec> outputOffsets;
     TextureView atlasView() const { return atlas.view(); }
+
+    stx::DynArray<std::vector<LayoutStylableBase*>> layoutStylableUpdates;
 
     evt::ExecutorImpl coreExe;
     evt::ExecutorImpl styleComputationExe;

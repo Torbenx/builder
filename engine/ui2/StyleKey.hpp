@@ -12,7 +12,7 @@ struct StyleKeyRecord {
 };
 }
 
-DEFINE_SECTION(ui::StyleKeyRecord, ui_style_keys)
+DEFINE_SECTION(const ui::StyleKeyRecord, ui_style_keys)
 
 namespace ui {
 

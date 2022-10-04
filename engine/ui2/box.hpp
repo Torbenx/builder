@@ -6,13 +6,6 @@
 
 namespace ui {
 
-struct Element {
-    ZRange zRange;
-    Element(BigStyleTable = {}) { }
-    virtual void setStyleTable(BigStyleTable) { }
-    virtual ~Element() { }
-};
-
 template<typename R>
 concept StyledRenderer = IsStylable<R> && Renderer<R>;
 
@@ -34,7 +27,7 @@ struct ContentBox : R {
 
 DECLARE_STYLE_KEY(Padding, Rect);
 using PaddingStyle = SmallStyleTable<Padding>;
-struct PaddedImpl : BasicStylable<PaddedImpl, PaddingStyle> {
+struct PaddedImpl : LayoutStylable<PaddedImpl, PaddingStyle> {
     RectVar paddedBox;
     RectEqn paddingEqn;
     PaddedImpl(RectVarHandle innerBox) {

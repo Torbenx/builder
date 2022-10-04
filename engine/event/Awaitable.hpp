@@ -58,7 +58,8 @@ struct Awaitable {
         });
     }
     constexpr void await_resume() {
-        cancel();
+        if (suspendedScript)
+            cancel();
         suspendedScript = {};
     }
     constexpr ~Awaitable() {

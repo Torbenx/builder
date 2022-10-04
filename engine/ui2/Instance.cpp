@@ -6,7 +6,9 @@
 namespace ui {
 
 Instance::Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc)
-    : evt::Window(window), atlas(atlasAlloc) {
+    : evt::Window(window)
+    , atlas(atlasAlloc)
+    , layoutStylableUpdates(LayoutStylableBase::stylableCount()) {
 
     windowRect = newRect();
 
@@ -112,6 +114,13 @@ void Instance::doTick() {
     evt::setCurrentExecutor(&stylingExe);
     styleComputationExe.execute();
     stylingExe.execute();
+    for (int_t i = 0; i < layoutStylableUpdates.size(); i++) {
+        auto& updates = layoutStylableUpdates[i];
+        const auto& record = LayoutStylableBase::record(i);
+        for (LayoutStylableBase* toUpdate : updates)
+            record.updateStyle(toUpdate);
+        updates.clear();
+    }
 
     evt::setCurrentExecutor(&renderingExe);
     updateLayout(true);
@@ -310,6 +319,10 @@ void StylableBase::invalidateStyleInternal(void (*computeFunc)(StylableBase*)) {
         computeFunc(thiz);
         thiz->isDirty = false;
     }(this, computeFunc);
+}
+
+void LayoutStylableBase::invalidateStyleInternal(int_t index) {
+    instance()->layoutStylableUpdates[index].push_back(this);
 }
 
 }

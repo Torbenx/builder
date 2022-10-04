@@ -113,10 +113,7 @@ struct CompoundStylable : Ts... {
 
 template<typename Impl, typename Style>
 struct BasicRenderer : RendererBase, evt::InlineScript<>, Stylable<Style> {
-    static constexpr evt::CompiledCondition updateCondition = []() {
-        return "textureUpdate"_ev || "styleUpdate"_ev;
-    }();
-    // impl has render(const TextureState& state, const Style& style)
+    static constexpr evt::CompiledCondition updateCondition = "textureUpdate"_ev || "styleUpdate"_ev;
     Impl* impl() { return static_cast<Impl*>(this); }
     void do_render() {
         impl()->render(this->textureState(), this->computedStyle());
@@ -141,6 +138,74 @@ struct BasicStylable : evt::InlineScript<>, Stylable<Style> {
         : evt::InlineScript<>(evt::callDerived<&BasicStylable::do_applyStyle>)
         , Stylable<Style>(evt::monoCondition.signal(this->inlineScript())) {
         this->inlineScript()->executor = stylingExecutor();
+    }
+};
+
+class LayoutStylableBase;
+struct LayoutStylableRecord {
+    void (*updateStyle)(LayoutStylableBase*) = nullptr;
+};
+
+}
+
+DEFINE_SECTION(const ui::LayoutStylableRecord, layout_stylables);
+
+namespace ui {
+
+class LayoutStylableBase {
+public:
+    static int_t stylableCount() { return SECTION_ELEMENT_COUNT(layout_stylables); }
+    static const LayoutStylableRecord& record(int_t index) { return __begin_layout_stylables[index]; }
+
+protected:
+    void invalidateStyleInternal(int_t index);
+};
+
+template<typename Impl, typename S>
+class LayoutStylable : LayoutStylableBase {
+public:
+    using Style = S;
+
+private:
+    static void updateStyle(LayoutStylableBase* base) {
+        LayoutStylable* thiz = (LayoutStylable*)base;
+        thiz->isDirty = false;
+        thiz->m_computedStyle = computeStyle(thiz->bigTable, thiz->baseStyle, thiz->localStyle);
+        thiz->impl()->applyStyle(thiz->m_computedStyle);
+    }
+
+    static constexpr IN_SECTION(layout_stylables) LayoutStylableRecord record = {
+        .updateStyle = updateStyle,
+    };
+    static int_t index() { return &record - __begin_layout_stylables; }
+    Impl* impl() { return static_cast<Impl*>(this); }
+    bool isDirty = false;
+    BigStyleTable bigTable;
+    Ptr<Style> baseStyle;
+    Ref<Style> localStyle;
+    Style m_computedStyle;
+
+    void invalidateStyle() {
+        if (isDirty)
+            return;
+        isDirty = true;
+        invalidateStyleInternal(index());
+    }
+
+public:
+    const Style& computedStyle() const { return m_computedStyle; }
+    const Ref<Style>& local() const { return localStyle; }
+    void setTable(BigStyleTable table) {
+        invalidateStyle();
+        bigTable = table;
+    }
+    void setStyle(Ptr<Style> style) {
+        invalidateStyle();
+        baseStyle = style;
+    }
+    Ref<Style>& mutateLocal() {
+        invalidateStyle();
+        return localStyle;
     }
 };
 

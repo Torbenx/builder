@@ -235,8 +235,6 @@ void test() {
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
     evt::test();
-    VDUMP(sizeof(evt::WindowBackend));
-    VDUMP(sizeof(evt::RelayedWindowBackend));
 
     plt::Window window = plt::Window::construct();
     UiTest callback(window);
