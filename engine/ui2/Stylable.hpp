@@ -142,13 +142,21 @@ struct BasicStylable : evt::InlineScript<>, Stylable<Style> {
 };
 
 class LayoutStylableBase;
+class RenderStylableBase;
 struct LayoutStylableRecord {
     void (*updateStyle)(LayoutStylableBase*) = nullptr;
+};
+struct RenderStylableRecord {
+    void (*updateStyle)(RenderStylableBase*, void* out) = nullptr;
+    void (*render)(TextureState, const void*) = nullptr;
+    int_t renderDataAlignment = 0;
+    int_t renderDataSize = 0;
 };
 
 }
 
 DEFINE_SECTION(const ui::LayoutStylableRecord, layout_stylables);
+DEFINE_SECTION(const ui::RenderStylableRecord, render_stylables);
 
 namespace ui {
 
@@ -156,6 +164,14 @@ class LayoutStylableBase {
 public:
     static int_t stylableCount() { return SECTION_ELEMENT_COUNT(layout_stylables); }
     static const LayoutStylableRecord& record(int_t index) { return __begin_layout_stylables[index]; }
+
+protected:
+    void invalidateStyleInternal(int_t index);
+};
+class RenderStylableBase {
+public:
+    static int_t stylableCount() { return SECTION_ELEMENT_COUNT(render_stylables); }
+    static const RenderStylableRecord& record(int_t index) { return __begin_render_stylables[index]; }
 
 protected:
     void invalidateStyleInternal(int_t index);
@@ -178,6 +194,66 @@ private:
         .updateStyle = updateStyle,
     };
     static int_t index() { return &record - __begin_layout_stylables; }
+    Impl* impl() { return static_cast<Impl*>(this); }
+    bool isDirty = false;
+    BigStyleTable bigTable;
+    Ptr<Style> baseStyle;
+    Ref<Style> localStyle;
+    Style m_computedStyle;
+
+    void invalidateStyle() {
+        if (isDirty)
+            return;
+        isDirty = true;
+        invalidateStyleInternal(index());
+    }
+
+public:
+    const Style& computedStyle() const { return m_computedStyle; }
+    const Ref<Style>& local() const { return localStyle; }
+    void setTable(BigStyleTable table) {
+        invalidateStyle();
+        bigTable = table;
+    }
+    void setStyle(Ptr<Style> style) {
+        invalidateStyle();
+        baseStyle = style;
+    }
+    Ref<Style>& mutateLocal() {
+        invalidateStyle();
+        return localStyle;
+    }
+};
+template<typename Impl, typename S, typename RData = S>
+class RenderStylable : RenderStylableBase {
+public:
+    using Style = S;
+
+private:
+    static void updateStyle(RenderStylableBase* base, void* renderDataOut) {
+        RenderStylable* thiz = (RenderStylable*)base;
+        RData* renderData = (RData*)renderDataOut;
+        thiz->isDirty = false;
+        thiz->m_computedStyle = computeStyle(thiz->bigTable, thiz->baseStyle, thiz->localStyle);
+        if constexpr (std::is_same_v<RData, Style>) {
+            thiz->impl()->applyStyle(thiz->m_computedStyle);
+            *renderData = thiz->m_computedStyle;
+        } else {
+            thiz->impl()->applyStyle(thiz->m_computedStyle, renderData);
+        }
+    }
+    static void dispatchRender(TextureState texture, const void* renderDataIn) {
+        const RData* renderData = (const RData*)renderDataIn;
+        Impl::render(texture, *renderData);
+    }
+
+    static constexpr IN_SECTION(render_stylables) RenderStylableRecord record = {
+        .updateStyle = updateStyle,
+        .render = dispatchRender,
+        .renderDataAlignment = alignof(RData),
+        .renderDataSize = sizeof(RData),
+    };
+    static int_t index() { return &record - __begin_render_stylables; }
     Impl* impl() { return static_cast<Impl*>(this); }
     bool isDirty = false;
     BigStyleTable bigTable;
