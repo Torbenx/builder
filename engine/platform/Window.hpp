@@ -16,25 +16,7 @@ struct Window {
 
 namespace plt {
 
-using WindowState = evt::WindowState;
-constexpr std::string_view windowStateToString(WindowState state) {
-    switch (state) {
-    case WindowState::Uninitialized:
-        return "Uninitialized";
-    case WindowState::Destroyed:
-        return "Destroyed";
-    case WindowState::Invisible:
-        return "Invisible";
-    case WindowState::Background:
-        return "Background";
-    case WindowState::Foreground:
-        return "Foreground";
-    default:
-        return "invalid-window-state";
-    }
-}
-
-class Window;
+/*class Window;
 struct WindowStateCallback {
     virtual void onAttach(Window*) { }
     virtual void onInitialize(Window*) { }
@@ -46,55 +28,47 @@ struct WindowStateCallback {
     virtual void onDestroy(Window*) { }
     virtual void onDetach(Window*) { }
     virtual void onStageChange(Window* window, WindowState oldState, WindowState newState) {
+        using enum WindowState;
         log("state change: {} -> {}", windowStateToString(oldState), windowStateToString(newState));
-        if (newState == WindowState::Invisible && oldState == WindowState::Uninitialized)
+        if (newState == Invisible && oldState == Uninitialized)
             return onInitialize(window);
-        if (newState == WindowState::Background && oldState == WindowState::Invisible)
+        if (newState == Background && oldState == Invisible)
             return onVisible(window);
-        if (newState == WindowState::Foreground && oldState == WindowState::Background)
+        if (newState == Foreground && oldState == Background)
             return onForeground(window);
-        if (newState == WindowState::Background && oldState == WindowState::Foreground)
+        if (newState == Background && oldState == Foreground)
             return onBackground(window);
-        if (newState == WindowState::Invisible && oldState == WindowState::Background)
+        if (newState == Invisible && oldState == Background)
             return onInvisible(window);
-        if (newState == WindowState::Destroyed && oldState == WindowState::Invisible)
+        if (newState == Destroyed && oldState == Invisible)
             return onDestroy(window);
         log<Tag::Window>("bad window state change: {} -> {}", windowStateToString(oldState), windowStateToString(newState));
     }
-};
+};*/
 
-class Window {
+class Window : public evt::Window {
 public:
-    static std::unique_ptr<Window> construct();
+    static Window construct();
+    Window() = default;
 
     void setTitle(std::string_view title);
     std::string_view title() const;
 
-    void setStateCallback(WindowStateCallback* callback);
-    WindowStateCallback* stateCallback() const;
-
-    void setDimensions(int_t width, int_t height);
-    int_t width() const;
-    int_t height() const;
+    void setDimensions(ui::IntVec dimensions);
 
     void initialize();
     void destroy();
-    WindowState state() const;
-    bool initialized() const { return state() >= WindowState::Invisible; }
-    bool visible() const { return state() > WindowState::Invisible; }
-    bool foreground() const { return state() >= WindowState::Foreground; }
-    bool destroyed() const { return state() == WindowState::Destroyed; }
-
-    Window(const Window&) = delete;
-    ~Window();
 
 protected:
-    Window() { }
+    Window(const evt::WindowBackend* backend)
+        : evt::Window(backend) { }
 };
 
+evt::ExecutorImpl* coreExe();
+void continueStartup(Window initialWindow);
 void processEvents(std::function<void()>);
 
 }
 
 extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)();
-extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> window);
+extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window);

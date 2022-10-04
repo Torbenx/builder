@@ -68,7 +68,7 @@ concept ActualTreeNode = Node::IS_TMPL_TREE_NODE;
 template<typename Node>
 concept ConvertibleToTreeNode = !ActualTreeNode<Node> && requires {
     typename Node::NodeType;
-    std::convertible_to<Node, typename Node::NodeType>;
+    requires std::convertible_to<Node, typename Node::NodeType>;
 };
 template<typename Node>
 concept TmplTreeNode = ActualTreeNode<Node> || ConvertibleToTreeNode<Node>;

@@ -4,25 +4,31 @@
 #include "util/log.hpp"
 #include "util/target.hpp"
 
+namespace plt {
+    evt::ExecutorImpl* coreExe() {
+        static constinit evt::ExecutorImpl exe = {};
+        return &exe;
+    }
+
+    void continueStartup(Window initialWindow) {
+        if (initialWindow)
+            onInitialWindowConstructed(initialWindow);
+        else
+            onNoInitialWindow();
+    }
+}
 
 MAKE_WEAK_SYMBOL(onNoInitialWindow)
 extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)() {
     onInitialWindowConstructed(plt::Window::construct());
 }
 
-struct MyCallback : plt::WindowStateCallback {
-    void onInitialize(plt::Window*) override {
-    }
-};
-
 namespace ui {
 void test();
 }
 
 MAKE_WEAK_SYMBOL(onInitialWindowConstructed)
-extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(std::unique_ptr<plt::Window> window) {
-    MyCallback callback;
-    window->setStateCallback(&callback);
+extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window window) {
     // window->setDimensions(200, 200);
     // window->setTitle("Hello World!");
     ui::test();

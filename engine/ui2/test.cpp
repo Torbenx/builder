@@ -120,38 +120,37 @@ evt::Script uiTestInit() {
     }
 }
 
-struct UiTest : plt::WindowStateCallback {
+struct UiTest {
 
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
-    evt::RelayedWindowBackend* relayedWindow = evt::relayWindow();
+    evt::RelayedWindowBackend* relayedWindow;
     BasicAtlasAllocator atlasAlloc;
-    ui::Instance instance { relayedWindow, &atlasAlloc };
+    ui::Instance instance;
 
-    UiTest() {
+    UiTest(evt::Window window)
+        : relayedWindow(evt::relayWindow(window)), instance(relayedWindow, &atlasAlloc) {
+        [](UiTest* test) -> evt::Script {
+            while (true) {
+                evt::EventReceiver<evt::ResizeEvent> events;
+                co_await (test->relayedWindow->resizeEvents > events);
+                test->resize();
+            }
+        }(this);
         relayedWindow->startRelay(&instance.coreExe);
         ui::setInstance(&instance);
         uiTestInit();
     }
 
-    void onStageChange(plt::Window*, evt::WindowState oldState, evt::WindowState newState) override {
-        auto& ringBuffer = relayedWindow->stateUpdateBuf;
-        ringBuffer[evt::tick()].push_back({ oldState, newState });
-    }
-
-    void onResize(plt::Window* window) override {
-        ui::IntVec windowSize { (int)window->width(), (int)window->height() };
-        auto& ringBuffer = relayedWindow->resizeEventBuf;
-        ringBuffer[evt::tick()].push_back({ windowSize });
-
-        ui::IntVec windowBlockSize = (windowSize + 15) / 16;
+    void resize() {
+        ui::IntVec windowBlockSize = (instance.dimensions() + 15) / 16;
         frameSize = windowBlockSize * 16;
         framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
     }
 
     uint64_t lastFrame = 0;
     int_t frames = 0;
-    void draw(plt::Window* window) {
+    void draw(plt::Window window) {
         instance.doTick();
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
@@ -195,7 +194,7 @@ struct UiTest : plt::WindowStateCallback {
             }
         }
 
-        auto* impl = (plt::windows::WindowImpl*)window;
+        auto* impl = plt::windows::windowImpl(window);
         BITMAPINFO bitmapInfo {
             .bmiHeader = {
                 .biSize = sizeof(BITMAPINFOHEADER),
@@ -213,7 +212,8 @@ struct UiTest : plt::WindowStateCallback {
             .bmiColors = {},
         };
         auto dc = impl->deviceContext();
-        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, window->width(), window->height(), 0, 0, 0, window->height(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
+        ui::IntVec dim = instance.dimensions();
+        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
     }
 };
@@ -235,23 +235,21 @@ void test() {
     lu.inverseTranspose(std::array<float, 4> { 1.0f, 2.0f, 1000.0f, 3.0f }.data(), result);
     log("result = ({}, {}, {}, {})", result[0], result[1], result[2], result[3]);*/
     evt::test();
+    VDUMP(sizeof(evt::WindowBackend));
     VDUMP(sizeof(evt::RelayedWindowBackend));
 
-    std::unique_ptr<plt::Window> window = plt::Window::construct();
-    UiTest callback;
-    window->setDimensions(700, 700);
-    window->setStateCallback(&callback);
-    window->setTitle("UiTest");
-    // gl::initialize();
-    // gl::attachWindow(window.get());
-    callback.draw(window.get());
-    window->initialize();
-    while (!window->destroyed()) {
-        plt::processEvents([&callback, &window]() { callback.draw(window.get()); });
-        if (window->initialized())
-            callback.draw(window.get());
+    plt::Window window = plt::Window::construct();
+    UiTest callback(window);
+    window.setDimensions({ 700, 700 });
+    window.setTitle("UiTest");
+    callback.draw(window);
+    window.initialize();
+    while (!window.destroyed()) {
+        plt::processEvents([&callback, &window]() { callback.draw(window); });
+        if (window.initialized())
+            callback.draw(window);
     }
-    callback.draw(window.get());
+    callback.draw(window);
 }
 
 }

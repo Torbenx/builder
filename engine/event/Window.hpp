@@ -75,20 +75,17 @@ struct RelayedWindowBackend : WindowBackend, RelayPromise {
     void startRelay(Executor* exe) { RelayPromise::startRelay(exe, handle()); }
     void reschedule() { RelayPromise::reschedule(handle()); }
 };
-RelayedWindowBackend* relayWindow(RelayedWindowBackend* = {});
 
 class Window {
 private:
     const WindowBackend* window = nullptr;
 
 public:
+    Window() = default;
     Window(const WindowBackend* window)
         : window(window) { }
-    Window(const Window&) = delete;
-    ~Window() {
-        VERIFY(Event, state() == WindowState::Destroyed);
-    }
 
+    const WindowBackend* windowBackend() const { return window; }
     const evt::EventSource<WindowStateUpdate>& stateUpdate() const {
         return window->stateUpdates;
     }
@@ -101,6 +98,9 @@ public:
     const evt::BinaryState& destroyed() const { return window->destroyed; }
     WindowState state() const { return window->currentState; }
     ui::IntVec dimensions() const { return window->currentDimensions; }
+    explicit operator bool() const { return window; }
 };
+
+RelayedWindowBackend* relayWindow(Window);
 
 }

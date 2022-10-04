@@ -75,7 +75,7 @@ struct GLWindowSurface : WindowSurfaceCallback {
     void onAttach(WindowImpl* window) override {
         VERIFY(Windows, !this->window);
         this->window = window;
-        if (!window->initialized())
+        if (!window->initialized)
             return;
         initialize(window->deviceContext());
         updateSize();
@@ -105,10 +105,10 @@ namespace gl {
 
 void initialize() { }
 
-void attachWindow(plt::Window* window) {
+void attachWindow(plt::Window window) {
     using namespace plt::windows;
     GLWindowSurface* surface = new GLWindowSurface();
-    static_cast<WindowImpl*>(window)->attachSurfaceCallback(surface);
+    windowImpl(window)->attachSurfaceCallback(surface);
 }
 
 }

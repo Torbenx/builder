@@ -8,8 +8,8 @@ namespace {
     std::function<void()> processEventsCallback;
 }
 
-std::pair<int_t, int_t> WindowImpl::calculateWindowSize() {
-    RECT rect { 0, 0, (int)width(), (int)height() };
+ui::IntVec WindowImpl::calculateWindowSize() {
+    RECT rect { 0, 0, currentDimensions.x(), currentDimensions.y() };
     bool ret = AdjustWindowRectEx(&rect, mainWindowStyle, false, mainWindowExStyle);
     WIN_VERIFY(ret);
     return { rect.right - rect.left, rect.bottom - rect.top };
@@ -17,54 +17,51 @@ std::pair<int_t, int_t> WindowImpl::calculateWindowSize() {
 void WindowImpl::updateDimensions() {
     RECT clientRect;
     GetClientRect(hwnd(), &clientRect);
-    m_width = clientRect.right;
-    m_height = clientRect.bottom;
+    currentDimensions = { clientRect.right, clientRect.bottom };
 }
 void WindowImpl::initialize() {
     VERIFY(Windows, !hwnd());
-    int_t targetWidth = width(), targetHeight = height();
-    int windowWidth, windowHeight;
-    std::tie(windowWidth, windowHeight) = calculateWindowSize();
-    if (width() == 0)
-        windowWidth = CW_USEDEFAULT;
-    if (height() == 0)
-        windowHeight = CW_USEDEFAULT;
+    ui::IntVec targetDim = currentDimensions;
+    ui::IntVec windowDim = calculateWindowSize();
+    if (targetDim.x() == 0)
+        windowDim.x() = CW_USEDEFAULT;
+    if (targetDim.y() == 0)
+        windowDim.y() = CW_USEDEFAULT;
 
     HWND returned_hwnd = CreateWindowExA(
         mainWindowExStyle, mainWindowClassName, m_title.c_str(), mainWindowStyle,
-        CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
+        CW_USEDEFAULT, CW_USEDEFAULT, windowDim.x(), windowDim.y(),
         NULL, NULL, mainHInstance, (void*)this);
     WIN_VERIFY(returned_hwnd);
     VERIFY(Windows, returned_hwnd == hwnd());
 
     updateDimensions();
-    if (targetWidth)
-        VERIFY(Windows, width() == targetWidth);
-    if (targetHeight)
-        VERIFY(Windows, height() == targetHeight);
+    if (targetDim.x())
+        VERIFY(Windows, currentDimensions.x() == targetDim.x());
+    if (targetDim.y())
+        VERIFY(Windows, currentDimensions.y() == targetDim.y());
 
     SetWindowLongPtr(hwnd(), GWLP_USERDATA, (uintptr_t)this);
     ShowWindow(hwnd(), SW_SHOW);
 }
 void WindowImpl::destroy() {
-    toState(WindowState::Destroyed);
-    if (hwnd())
+    if (hwnd()) {
         DestroyWindow(hwnd());
-    else
+    } else {
+        incrementalStateChange(evt::WindowState::Destroyed);
         destroyImpl();
+    }
 }
 void WindowImpl::destroyImpl() {
     m_hwnd = nullptr;
     std::string toBeDestroyed = std::move(m_title);
-    m_width = 0;
-    m_height = 0;
+    currentDimensions = {};
 }
 void WindowImpl::destructor() {
-    if (state() == WindowState::Destroyed || state() == WindowState::Uninitialized)
+    if (currentState == evt::WindowState::Destroyed || currentState == evt::WindowState::Uninitialized)
         VERIFY(Windows, !hwnd());
     else
         destroy();
-    stateCallback()->onDetach(this);
 }
 
 void WindowImpl::setTitle(std::string_view title) {
@@ -74,25 +71,16 @@ void WindowImpl::setTitle(std::string_view title) {
     bool ret = SetWindowText(hwnd(), m_title.c_str());
     WIN_VERIFY(ret);
 }
-void WindowImpl::setDimensions(int_t width, int_t height) {
-    m_width = width;
-    m_height = height;
+void WindowImpl::setDimensions(ui::IntVec newDim) {
+    currentDimensions = newDim;
     if (!hwnd())
         return;
-    auto [windowWidth, windowHeight] = calculateWindowSize();
-    bool ret = SetWindowPos(hwnd(), HWND_TOPMOST, CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight, SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER);
+    ui::IntVec windowDim = calculateWindowSize();
+    bool ret = SetWindowPos(hwnd(), HWND_TOPMOST, CW_USEDEFAULT, CW_USEDEFAULT, windowDim.x(), windowDim.y(), SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER);
     WIN_VERIFY(ret);
-    VERIFY(Windows, this->width() == width);
-    VERIFY(Windows, this->height() == height);
+    VERIFY(Windows, currentDimensions == newDim);
 }
 
-void WindowImpl::setStateCallback(WindowStateCallback* callback) {
-    if (stateCallback())
-        stateCallback()->onDetach(this);
-    m_stateCallback = callback;
-    if (stateCallback())
-        stateCallback()->onAttach(this);
-}
 void WindowImpl::attachSurfaceCallback(WindowSurfaceCallback* callback) {
     VERIFY(Windows, callback);
     VERIFY(Windows, !surfaceCallback());
@@ -115,38 +103,43 @@ void WindowImpl::exitSizeMove() {
     inSizeMove = false;
 }
 
-void WindowImpl::toState(WindowState targetState) {
-    VERIFY(Windows, state() != WindowState::Destroyed);
-    auto updateState = [&](WindowState newState) {
-        WindowState oldState = m_state;
-        m_state = newState;
-        if (stateCallback())
-            stateCallback()->onStageChange(this, oldState, newState);
+namespace {
+    struct ScopedCoreExe {
+        bool active = true;
+        ScopedCoreExe() {
+            if (evt::currentExecutor() == coreExe()) {
+                active = false;
+            } else {
+                VERIFY(Windows, evt::currentExecutor() == nullptr);
+                evt::setCurrentExecutor(coreExe());
+            }
+        }
+        ~ScopedCoreExe() {
+            if (active) {
+                VERIFY(Windows, evt::currentExecutor() == coreExe());
+                evt::setCurrentExecutor(nullptr);
+            }
+        }
     };
-    if (targetState == WindowState::Destroyed) {
-        if (initialized())
-            toState(WindowState::Invisible);
-        updateState(WindowState::Destroyed);
-        return;
-    }
-    std::underlying_type_t<WindowState> direction = targetState > state() ? 1 : -1;
-    while (targetState != state())
-        updateState(WindowState { stx::to_underlying(state()) + direction });
 }
 
 LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    using enum evt::WindowState;
+    ScopedCoreExe scopedExe;
     if (msg == WM_CREATE) {
         log("WM_CREATE");
         CREATESTRUCT* initParams = (CREATESTRUCT*)lParam;
         WindowImpl* window = (WindowImpl*)initParams->lpCreateParams;
         VERIFY(Windows, window);
-        VERIFY(Windows, window->state() == WindowState::Uninitialized);
+        VERIFY(Windows, window->currentState == Uninitialized);
         window->m_hwnd = hwnd;
-        window->m_state = WindowState::Invisible;
+
+        window->currentState = Invisible;
         if (window->surfaceCallback())
             window->surfaceCallback()->onSurfaceCreate(window);
-        if (window->stateCallback())
-            window->stateCallback()->onStageChange(window, WindowState::Uninitialized, WindowState::Invisible);
+
+        window->currentState = Uninitialized;
+        window->incrementalStateChange(Invisible);
         return 0;
     }
     WindowImpl* window = (WindowImpl*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -161,16 +154,18 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
         return 0;
     case WM_PAINT: {
         VERIFY(Windows, (bool)processEventsCallback);
+        evt::setCurrentExecutor(nullptr);
+        coreExe()->execute();
         processEventsCallback();
+        evt::setCurrentExecutor(coreExe());
         return 0;
     }
     case WM_WINDOWPOSCHANGED:
-        //log<Tag::Windows>("WM_WINDOWPOSCHANGED");
+        // log<Tag::Windows>("WM_WINDOWPOSCHANGED");
         window->updateDimensions();
         if (window->surfaceCallback())
             window->surfaceCallback()->onSurfaceChange(window);
-        if (window->stateCallback())
-            window->stateCallback()->onResize(window);
+        window->performResize(window->currentDimensions);
         return 0;
     case WM_ACTIVATE: {
         log<Tag::Windows>("WM_ACTIVATE {:#b}", wParam);
@@ -178,14 +173,14 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
         bool minimize = HIWORD(wParam);
         if (activate)
             // minimize indicates whether the window was minimized
-            window->toState(WindowState::Foreground);
+            window->incrementalStateChange(Foreground);
         else
-            window->toState(minimize ? WindowState::Invisible : WindowState::Background);
+            window->incrementalStateChange(minimize ? Invisible : Background);
         return 0;
     }
     case WM_DESTROY: {
         log<Tag::Windows>("WM_DESTROY");
-        window->toState(WindowState::Destroyed);
+        window->incrementalStateChange(Destroyed);
         window->destroyImpl();
         return 0;
     }
@@ -207,6 +202,7 @@ void processEvents(std::function<void()> callback) {
             break;
         DispatchMessage(&msg);
     }
+    coreExe()->execute();
     windows::processEventsCallback = nullptr;
 }
 

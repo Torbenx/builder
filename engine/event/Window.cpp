@@ -1,4 +1,5 @@
 #include "Window.hpp"
+#include "Awaitable.hpp"
 
 namespace evt {
 
@@ -34,24 +35,40 @@ void WindowBackend::performResize(ui::IntVec newDimensions) {
     resizeEvents.sendEvent({ newDimensions });
 }
 
-RelayedWindowBackend* relayWindow(RelayedWindowBackend* relay) {
-    while (true) {
-        std::vector<WindowStateUpdate> stateUpdates = std::move(relay->stateUpdateBuf[tick()]);
-        relay->stateUpdates.sendEvents(stateUpdates);
-        if (!stateUpdates.empty()) {
-            WindowState finalState = stateUpdates.back().to;
-            relay->currentState = finalState;
-            relay->updateFlags();
+namespace {
+    RelayedWindowBackend* broadcastWindowEvents(RelayedWindowBackend* relay = {}) {
+        while (true) {
+            std::vector<WindowStateUpdate> stateUpdates = std::move(relay->stateUpdateBuf[tick()]);
+            relay->stateUpdates.sendEvents(stateUpdates);
+            if (!stateUpdates.empty()) {
+                WindowState finalState = stateUpdates.back().to;
+                relay->currentState = finalState;
+                relay->updateFlags();
+            }
+
+            std::vector<ResizeEvent> resizeEvents = std::move(relay->resizeEventBuf[tick()]);
+            relay->resizeEvents.sendEvents(resizeEvents);
+            if (!resizeEvents.empty())
+                relay->currentDimensions = resizeEvents.back().newDimensions;
+
+            relay->reschedule();
+            co_await stdx::suspend_always();
         }
-
-        std::vector<ResizeEvent> resizeEvents = std::move(relay->resizeEventBuf[tick()]);
-        relay->resizeEvents.sendEvents(resizeEvents);
-        if (!resizeEvents.empty())
-            relay->currentDimensions = resizeEvents.back().newDimensions;
-
-        relay->reschedule();
-        co_await stdx::suspend_always();
     }
+    Script recordWindowEvents(RelayedWindowBackend* output, Window window) {
+        while (true) {
+            EventReceiver<WindowStateUpdate> stateUpdates;
+            EventReceiver<ResizeEvent> resizeEvents;
+            co_await (window.stateUpdate() > stateUpdates || window.resizeEvent() > resizeEvents);
+            output->stateUpdateBuf[tick()] = std::move(stateUpdates.events);
+            output->resizeEventBuf[tick()] = std::move(resizeEvents.events);
+        }
+    }
+}
+RelayedWindowBackend* relayWindow(Window window) {
+    RelayedWindowBackend* out = broadcastWindowEvents();
+    recordWindowEvents(out, window);
+    return out;
 }
 
 }

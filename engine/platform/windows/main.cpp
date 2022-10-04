@@ -47,7 +47,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     for (uint32_t index : ununsedIndices)
         TlsFree(index);
 
-    ::onNoInitialWindow();
+    continueStartup({});
 
     return 0;
 }

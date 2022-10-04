@@ -32,27 +32,22 @@ struct ScopedDeviceContext {
     operator HDC() const { return hdc(); }
 };
 
-struct WindowImpl : Window {
+struct WindowImpl : evt::WindowBackend {
     HWND m_hwnd = nullptr;
     std::string m_title;
-    int_t m_width = 0, m_height = 0;
-    WindowState m_state = WindowState::Uninitialized;
-    WindowStateCallback* m_stateCallback = nullptr;
     WindowSurfaceCallback* m_surfaceCallback = nullptr;
     bool inSizeMove = false;
 
-    std::pair<int_t, int_t> calculateWindowSize();
+    ui::IntVec calculateWindowSize();
     void updateDimensions();
     void initialize();
     void destroy();
     void destroyImpl();
     void destructor();
-    void toState(WindowState targetState);
-    void setStateCallback(WindowStateCallback* callback);
     void attachSurfaceCallback(WindowSurfaceCallback* callback);
     void detachSurfaceCallback(WindowSurfaceCallback* callback);
     void setTitle(std::string_view title);
-    void setDimensions(int_t width, int_t height);
+    void setDimensions(ui::IntVec dimensions);
 
     void enterSizeMove();
     void exitSizeMove();
@@ -60,11 +55,11 @@ struct WindowImpl : Window {
     HWND hwnd() { return m_hwnd; }
     ScopedDeviceContext deviceContext() { return { hwnd() }; }
     std::string_view title() const { return m_title; }
-    int_t width() const { return m_width; }
-    int_t height() const { return m_height; }
-    WindowState state() const { return m_state; }
-    WindowStateCallback* stateCallback() const { return m_stateCallback; }
     WindowSurfaceCallback* surfaceCallback() const { return m_surfaceCallback; }
 };
+
+inline WindowImpl* windowImpl(Window window) {
+    return const_cast<WindowImpl*>(static_cast<const WindowImpl*>(window.windowBackend()));
+}
 
 }

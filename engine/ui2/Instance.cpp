@@ -275,6 +275,7 @@ void Instance::deallocateTexture(IntRect) {
 
 void Instance::deallocateAllTextures() {
     nextAtlasAllocationHeight = 0;
+    std::fill_n(atlas.data, atlas.dimensions.x() * atlas.dimensions.y(), 0);
 }
 
 float Instance::valueOf(VarHandle var) const { return varValues[var.id]; }
