@@ -18,18 +18,14 @@
 namespace {
 
 struct BasicAtlasAllocator : ui::AtlasAllocator {
-    ui::TextureHandle allocateAtlas(ui::IntVec size) override {
+    ui::IntVec nextAtlasSize(ui::IntVec size) override {
         if (size.x() == 0)
-            size.x() = 16384;
+            size.x() = 4096;
         if (size.y() == 0)
             size.y() = 2048;
         else
             size.y() = size.y() * 2;
-        uint32_t* data = std::allocator<uint32_t>().allocate(size.x() * size.y());
-        return { data, size };
-    }
-    void deallocateAtlas(ui::TextureHandle texture) override {
-        std::allocator<uint32_t>().deallocate(texture.data, texture.dimensions.x() * texture.dimensions.y());
+        return size;
     }
 };
 
@@ -46,8 +42,8 @@ DECLARE_STYLE_KEY(Channel2, ColorChannel);
 using TestStyle = ui::SmallStyleTable<Channel1, Channel2>;
 DECLARE_STYLE_KEY(DefaultTestStyle, TestStyle);
 
-struct TestRenderer : ui::BasicRenderer<TestRenderer, TestStyle> {
-    void render(const ui::TextureState& texture, const TestStyle& style) {
+struct TestRenderer : ui::RenderStylable<TestRenderer, TestStyle> {
+    static void render(const ui::TextureState& texture, const TestStyle& style) {
         auto channelToShift = [](ColorChannel channel) -> int {
             switch (channel) {
             case ColorChannel::Red:
@@ -127,6 +123,7 @@ struct UiTest {
     evt::RelayedWindowBackend* relayedWindow;
     BasicAtlasAllocator atlasAlloc;
     ui::Instance instance;
+    ui::TextureHandle atlas;
 
     UiTest(evt::Window window)
         : relayedWindow(evt::relayWindow(window)), instance(relayedWindow, &atlasAlloc) {
@@ -151,7 +148,6 @@ struct UiTest {
     uint64_t lastFrame = 0;
     int_t frames = 0;
     void draw(plt::Window window) {
-        instance.doTick();
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             lastFrame = now;
@@ -159,6 +155,29 @@ struct UiTest {
             frames = 0;
         }
         frames += 1;
+
+        instance.doTick();
+
+        if (atlas.dimensions != instance.atlasDimensions) {
+            std::allocator<uint32_t> alloc;
+            alloc.deallocate(atlas.data, atlas.dimensions.x() * atlas.dimensions.y());
+            atlas.dimensions = instance.atlasDimensions;
+            atlas.data = alloc.allocate(atlas.dimensions.x() * atlas.dimensions.y());
+        }
+        std::fill_n(atlas.data, atlas.dimensions.x() * atlas.dimensions.y(), 0);
+
+        for (int_t i = 0; i < instance.renderOutput.size(); i++) {
+            auto& outputs = instance.renderOutput[i];
+            const ui::RenderStylableRecord& record = ui::RenderStylableBase::record(i);
+            int_t stride = record.renderDataSizeAlign8 + sizeof(ui::IntRect);
+            for (auto it = outputs.begin(); it != outputs.end(); it += stride) {
+                ui::RenderOutputUtil output(&*it);
+                ui::TextureState texture { atlas.view() + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
+                record.render(texture, output.renderDataPtr());
+            }
+            outputs.clear();
+        }
+        instance.outputGeneration += 1;
 
         if (!framebuffer)
             return;
@@ -184,7 +203,7 @@ struct UiTest {
                         ui::IntVec layerPos = block[layer + 1];
                         if (layerPos == ui::IntVec {})
                             break;
-                        uint32_t in = (instance.atlasView() + layerPos)[j][i];
+                        uint32_t in = (atlas.view() + layerPos)[j][i];
                         uint32_t alpha = in >> 24;
                         color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
                         // color = in & 0xff'ff'ff;

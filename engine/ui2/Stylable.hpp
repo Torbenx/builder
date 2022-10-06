@@ -41,55 +41,6 @@ T computeStyle(BigStyleTable bigTable, Ptr<T> baseStyle, const Ref<T>& localStyl
     return localStyle.substitute({ bigTable }, bigTable.get(baseStyle));
 }
 
-struct StylableBase {
-    BigStyleTable bigTable;
-    evt::Signal onStyleDirty;
-    bool isDirty = false;
-    StylableBase(evt::Signal onStyleDirty)
-        : onStyleDirty(onStyleDirty) { }
-    void invalidateStyleInternal(void (*)(StylableBase*));
-};
-
-template<typename S>
-class Stylable : private StylableBase {
-public:
-    using Style = S;
-
-    using StylableBase::StylableBase;
-
-    void setTable(BigStyleTable table) {
-        invalidateStyle();
-        bigTable = table;
-    }
-    void setStyle(Ptr<Style> style) {
-        invalidateStyle();
-        baseStyle = style;
-    }
-    Ref<Style>& mutateLocal() {
-        invalidateStyle();
-        return localStyle;
-    }
-    const Ref<Style>& local() const { return localStyle; }
-    Ptr<Style> style() const { return baseStyle; }
-
-    void invalidateStyle() {
-        if (isDirty)
-            return;
-        isDirty = true;
-        StylableBase::invalidateStyleInternal([](StylableBase* base) {
-            Stylable* thiz = (Stylable*)base;
-            thiz->m_computedStyle = computeStyle(thiz->bigTable, thiz->baseStyle, thiz->localStyle);
-        });
-    }
-
-protected:
-    const Style& computedStyle() const { return m_computedStyle; }
-
-private:
-    Ptr<Style> baseStyle;
-    Ref<Style> localStyle;
-    Style m_computedStyle;
-};
 template<typename T>
 concept IsStylable = requires(T& t, BigStyleTable table, Ptr<typename T::Style> ptr) {
     t.setTable(table);
@@ -111,52 +62,14 @@ struct CompoundStylable : Ts... {
     }
 };
 
-template<typename Impl, typename Style>
-struct BasicRenderer : RendererBase, evt::InlineScript<>, Stylable<Style> {
-    static constexpr evt::CompiledCondition updateCondition = "textureUpdate"_ev || "styleUpdate"_ev;
-    Impl* impl() { return static_cast<Impl*>(this); }
-    void do_render() {
-        impl()->render(this->textureState(), this->computedStyle());
-    }
-    BasicRenderer()
-        : evt::InlineScript<>(evt::callDerived<&BasicRenderer::do_render>, updateCondition)
-        , Stylable<Style>(updateCondition.signal(this->inlineScript(), "styleUpdate"_ev)) {
-        this->inlineScript()->executor = renderingExecutor();
-    }
-    evt::Signal textureUpdateSignal() const {
-        return updateCondition.signal(this->inlineScript(), "textureUpdate"_ev);
-    }
-};
-
-template<typename Impl, typename Style>
-struct BasicStylable : evt::InlineScript<>, Stylable<Style> {
-    Impl* impl() { return static_cast<Impl*>(this); }
-    void do_applyStyle() {
-        impl()->applyStyle(this->computedStyle());
-    }
-    BasicStylable()
-        : evt::InlineScript<>(evt::callDerived<&BasicStylable::do_applyStyle>)
-        , Stylable<Style>(evt::monoCondition.signal(this->inlineScript())) {
-        this->inlineScript()->executor = stylingExecutor();
-    }
-};
-
+// Layout Stylable
 class LayoutStylableBase;
-class RenderStylableBase;
 struct LayoutStylableRecord {
     void (*updateStyle)(LayoutStylableBase*) = nullptr;
 };
-struct RenderStylableRecord {
-    void (*updateStyle)(RenderStylableBase*, void* out) = nullptr;
-    void (*render)(TextureState, const void*) = nullptr;
-    int_t renderDataAlignment = 0;
-    int_t renderDataSize = 0;
-};
 
 }
-
 DEFINE_SECTION(const ui::LayoutStylableRecord, layout_stylables);
-DEFINE_SECTION(const ui::RenderStylableRecord, render_stylables);
 
 namespace ui {
 
@@ -168,15 +81,6 @@ public:
 protected:
     void invalidateStyleInternal(int_t index);
 };
-class RenderStylableBase {
-public:
-    static int_t stylableCount() { return SECTION_ELEMENT_COUNT(render_stylables); }
-    static const RenderStylableRecord& record(int_t index) { return __begin_render_stylables[index]; }
-
-protected:
-    void invalidateStyleInternal(int_t index);
-};
-
 template<typename Impl, typename S>
 class LayoutStylable : LayoutStylableBase {
 public:
@@ -224,36 +128,67 @@ public:
         return localStyle;
     }
 };
-template<typename Impl, typename S, typename RData = S>
-class RenderStylable : RenderStylableBase {
+
+// Render Stylable
+class RenderStylableBase;
+struct RenderStylableRecord {
+    void (*updateStyleAndPrepareRender)(RenderStylableBase*, void*) = nullptr;
+    void (*prepareRender)(RenderStylableBase*, void*) = nullptr;
+    void (*render)(TextureState, const void*) = nullptr;
+    int_t renderDataSizeAlign8 = 0;
+};
+
+}
+
+DEFINE_SECTION(const ui::RenderStylableRecord, render_stylables);
+
+namespace ui {
+
+class RenderStylableBase {
+public:
+    static int_t stylableCount() { return SECTION_ELEMENT_COUNT(render_stylables); }
+    static const RenderStylableRecord& record(int_t index) { return __begin_render_stylables[index]; }
+
+    uint32_t id = 0;
+
+protected:
+    void invalidateStyleInternal(int_t index);
+};
+
+template<typename Impl, typename S, typename R = S>
+class RenderStylable : public RenderStylableBase {
 public:
     using Style = S;
+    using RData = R;
+
+    static int_t stylableIndex() { return &record - __begin_render_stylables; }
 
 private:
-    static void updateStyle(RenderStylableBase* base, void* renderDataOut) {
+    static void updateStyleAndPrepareRender(RenderStylableBase* base, void* renderDataOut) {
         RenderStylable* thiz = (RenderStylable*)base;
         RData* renderData = (RData*)renderDataOut;
         thiz->isDirty = false;
         thiz->m_computedStyle = computeStyle(thiz->bigTable, thiz->baseStyle, thiz->localStyle);
-        if constexpr (std::is_same_v<RData, Style>) {
-            thiz->impl()->applyStyle(thiz->m_computedStyle);
-            *renderData = thiz->m_computedStyle;
-        } else {
-            thiz->impl()->applyStyle(thiz->m_computedStyle, renderData);
-        }
+        thiz->impl()->applyStyle(thiz->m_computedStyle);
+        thiz->impl()->getRenderData(*renderData);
+    }
+    static void prepareRender(RenderStylableBase* base, void* renderDataOut) {
+        RenderStylable* thiz = (RenderStylable*)base;
+        RData* renderData = (RData*)renderDataOut;
+        thiz->impl()->getRenderData(*renderData);
     }
     static void dispatchRender(TextureState texture, const void* renderDataIn) {
         const RData* renderData = (const RData*)renderDataIn;
         Impl::render(texture, *renderData);
     }
 
+    static_assert(alignof(RData) <= 8);
     static constexpr IN_SECTION(render_stylables) RenderStylableRecord record = {
-        .updateStyle = updateStyle,
+        .updateStyleAndPrepareRender = updateStyleAndPrepareRender,
+        .prepareRender = prepareRender,
         .render = dispatchRender,
-        .renderDataAlignment = alignof(RData),
-        .renderDataSize = sizeof(RData),
+        .renderDataSizeAlign8 = stx::alignmentCeil(8, sizeof(RData)),
     };
-    static int_t index() { return &record - __begin_render_stylables; }
     Impl* impl() { return static_cast<Impl*>(this); }
     bool isDirty = false;
     BigStyleTable bigTable;
@@ -261,11 +196,16 @@ private:
     Ref<Style> localStyle;
     Style m_computedStyle;
 
+    void getRenderData(RData& out) requires std::is_same_v<RData, Style> {
+        out = computedStyle();
+    }
+    void applyStyle(const Style&) { }
+
     void invalidateStyle() {
         if (isDirty)
             return;
         isDirty = true;
-        invalidateStyleInternal(index());
+        invalidateStyleInternal(stylableIndex());
     }
 
 public:
@@ -284,5 +224,27 @@ public:
         return localStyle;
     }
 };
+
+template<typename T>
+concept Renderer = std::derived_from<T, RenderStylable<T, typename T::Style, typename T::RData>>;
+
+struct RendererHandle {
+    RenderStylableBase* base = nullptr;
+    int_t stylableIndex = -1;
+    RendererHandle() = default;
+    template<Renderer T>
+    RendererHandle(T& r)
+        : base(&r), stylableIndex(T::stylableIndex()) { }
+    RenderStylableBase* operator->() const { return base; }
+    const RenderStylableRecord& record() {
+        return RenderStylableBase::record(stylableIndex);
+    }
+    void prepareRender(void* renderData) {
+        record().prepareRender(base, renderData);
+    }
+};
+
+void draw(RendererHandle, RectVarHandle);
+void cancelDraw(RendererHandle);
 
 }

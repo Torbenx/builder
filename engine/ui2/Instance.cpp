@@ -7,7 +7,9 @@ namespace ui {
 
 Instance::Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc)
     : evt::Window(window)
-    , atlas(atlasAlloc)
+    , atlasAlloc(atlasAlloc)
+    , renderStylableUpdates(RenderStylableBase::stylableCount())
+    , renderOutput(RenderStylableBase::stylableCount())
     , layoutStylableUpdates(LayoutStylableBase::stylableCount()) {
 
     windowRect = newRect();
@@ -110,10 +112,8 @@ void Instance::dumpShiftSizes() {
 void Instance::doTick() {
     evt::setCurrentExecutor(&coreExe);
     coreExe.execute();
+    evt::setCurrentExecutor(nullptr);
 
-    evt::setCurrentExecutor(&stylingExe);
-    styleComputationExe.execute();
-    stylingExe.execute();
     for (int_t i = 0; i < layoutStylableUpdates.size(); i++) {
         auto& updates = layoutStylableUpdates[i];
         const auto& record = LayoutStylableBase::record(i);
@@ -121,12 +121,29 @@ void Instance::doTick() {
             record.updateStyle(toUpdate);
         updates.clear();
     }
-
-    evt::setCurrentExecutor(&renderingExe);
+    for (int_t i = 0; i < renderStylableUpdates.size(); i++) {
+        auto& updates = renderStylableUpdates[i];
+        const auto& record = RenderStylableBase::record(i);
+        for (uintptr_t& toUpdateUint : updates) {
+            RenderStylableBase* toUpdate = (RenderStylableBase*)toUpdateUint;
+            RenderOutputUtil output = allocateRenderOutput(renders[toUpdate->id]);
+            record.updateStyleAndPrepareRender(toUpdate, output.renderDataPtr());
+            toUpdateUint = (uintptr_t)toUpdate->id;
+        }
+    }
     updateLayout(true);
-    renderingExe.execute();
+    for (int_t i = 0; i < renderStylableUpdates.size(); i++) {
+        auto& updates = renderStylableUpdates[i];
+        for (uintptr_t toUpdate : updates) {
+            auto& render = renders[toUpdate];
+            RenderOutputUtil output = findRenderOutput(render);
+            IntVec dim = intRect(render.rect).dimensions();
+            IntRect atlasRect { BottomLeft(render.allocPosition), Dimensions(dim) };
+            output.atlasRect() = atlasRect;
+        }
+        updates.clear();
+    }
 
-    evt::setCurrentExecutor(nullptr);
     rebuildOutput();
 }
 
@@ -150,13 +167,25 @@ void Instance::updateLayout(bool clearTextures) {
     std::vector<float> newVarValues(varCount);
     lu.inverseTranspose(inhomValues.data(), newVarValues.data());
 
+    auto updateRenderTexture = [this](Render& render, IntRect screenRect) {
+        RenderOutputUtil output;
+        if (render.lastOutputGen == outputGeneration) {
+            output = findRenderOutput(render);
+        } else {
+            output = allocateRenderOutput(render);
+            render.handle.prepareRender(output.renderDataPtr());
+        }
+        IntRect atlasRect { BottomLeft(render.allocPosition), Dimensions(screenRect.dimensions()) };
+        output.atlasRect() = atlasRect;
+    };
+
     if (clearTextures) {
         deallocateAllTextures();
         for (int_t i = 1; i < (int_t)renders.size(); i++) {
             auto& render = renders[i];
             IntRect rect = intRect(render.rect);
             render.allocPosition = allocateTexture(rect.dimensions());
-            render.handle.signal.send();
+            updateRenderTexture(render, rect);
         }
     } else {
         std::vector<int_t> textureUpdates;
@@ -176,7 +205,7 @@ void Instance::updateLayout(bool clearTextures) {
             auto& render = renders[updateId];
             IntRect rect = intRect(render.rect);
             render.allocPosition = allocateTexture(rect.dimensions());
-            render.handle.signal.send();
+            updateRenderTexture(render, rect);
         }
     }
 
@@ -227,6 +256,24 @@ void Instance::rebuildOutput() {
     }
 }
 
+std::byte* Instance::findRenderOutput(const Render& render) {
+    VERIFY(Ui, render.lastOutputGen == outputGeneration);
+    return renderOutput[render.handle.stylableIndex].data() + render.outputOffsetBytes;
+}
+std::byte* Instance::allocateRenderOutput(Render& render) {
+    static_assert(sizeof(void*) == 8);
+    static_assert(alignof(IntRect) <= 8);
+    static_assert(sizeof(IntRect) % 8 == 0);
+    int_t stride = render.handle.record().renderDataSizeAlign8 + sizeof(IntRect);
+
+    std::vector<std::byte>& vec = renderOutput[render.handle.stylableIndex];
+    if (render.lastOutputGen != outputGeneration) {
+        render.lastOutputGen = outputGeneration;
+        render.outputOffsetBytes = vec.size();
+        vec.resize(vec.size() + stride);
+    }
+    return vec.data() + render.outputOffsetBytes;
+}
 void Instance::draw(RendererHandle handle, RectVarHandle rect) {
     if (handle->id == 0) {
         handle->id = renders.size();
@@ -235,27 +282,17 @@ void Instance::draw(RendererHandle handle, RectVarHandle rect) {
         renders[handle->id].rect = rect;
     }
 }
-void Instance::cancelDraw(RendererBase& ref) {
-    RendererBase* base = &ref;
-    VERIFY(Ui, base->id != 0);
+void Instance::cancelDraw(RendererHandle handle) {
+    VERIFY(Ui, handle->id != 0);
 
     Render back = renders.back();
     renders.pop_back();
-    back.handle->id = base->id;
-    base->id = 0;
+    back.handle->id = handle->id;
+    handle->id = 0;
 
     renders[back.handle->id] = back;
 }
-TextureState Instance::textureState(const RendererBase& ref) {
-    const RendererBase* base = &ref;
-    VERIFY(Ui, base->id != 0);
-    Render& render = renders[base->id];
-    return {
-        .texture = atlas.view() + render.allocPosition,
-        .dimensions = intRect(render.rect).dimensions(),
-    };
-}
-void draw(RendererHandle handle, RectVarHandle rect) {
+/*void draw(RendererHandle handle, RectVarHandle rect) {
     instance()->draw(handle, rect);
 }
 void cancelDraw(RendererBase& base) {
@@ -263,18 +300,17 @@ void cancelDraw(RendererBase& base) {
 }
 TextureState RendererBase::textureState() const {
     return instance()->textureState(*this);
-}
+}*/
 
 IntVec Instance::allocateTexture(IntVec dimensions) {
-    VERIFY(Ui, dimensions.x() <= atlas.dimensions.x());
+    VERIFY(Ui, dimensions.x() <= atlasDimensions.x() || atlasDimensions.x() == 0);
     IntVec allocPos { atlasPadding, nextAtlasAllocationHeight + atlasPadding };
     nextAtlasAllocationHeight += atlasPadding + dimensions.y();
     int_t neededHeight = nextAtlasAllocationHeight + atlasPadding;
-    if (neededHeight >= atlas.dimensions.y()) {
-        AtlasHelper newAtlas = atlas.allocateNext();
-        VERIFY(Ui, newAtlas.dimensions.x() == atlas.dimensions.x());
-        std::copy_n(atlas.data, atlas.dimensions.x() * atlas.dimensions.y(), newAtlas.data);
-        atlas = std::move(newAtlas);
+    while (neededHeight >= atlasDimensions.y()) {
+        IntVec newAtlasDimensions = atlasAlloc->nextAtlasSize(atlasDimensions);
+        VERIFY(Ui, newAtlasDimensions.x() == atlasDimensions.x() || atlasDimensions.x() == 0);
+        atlasDimensions = newAtlasDimensions;
     }
     return allocPos;
 }
@@ -284,7 +320,6 @@ void Instance::deallocateTexture(IntRect) {
 
 void Instance::deallocateAllTextures() {
     nextAtlasAllocationHeight = 0;
-    std::fill_n(atlas.data, atlas.dimensions.x() * atlas.dimensions.y(), 0);
 }
 
 float Instance::valueOf(VarHandle var) const { return varValues[var.id]; }
@@ -309,20 +344,18 @@ void RectVarHandle::deallocate(RectVarHandle handle) { instance()->deleteVariabl
 RectVarHandle windowRect() { return instance()->windowRect; }
 
 evt::Executor* coreExecutor() { return &instance()->coreExe; }
-evt::Executor* stylingExecutor() { return &instance()->stylingExe; }
-evt::Executor* renderingExecutor() { return &instance()->renderingExe; }
-
-void StylableBase::invalidateStyleInternal(void (*computeFunc)(StylableBase*)) {
-    onStyleDirty.send();
-    [](StylableBase* thiz, void (*computeFunc)(StylableBase*)) -> evt::Script {
-        co_await evt::OnExecutor(&instance()->styleComputationExe);
-        computeFunc(thiz);
-        thiz->isDirty = false;
-    }(this, computeFunc);
-}
 
 void LayoutStylableBase::invalidateStyleInternal(int_t index) {
     instance()->layoutStylableUpdates[index].push_back(this);
+}
+void RenderStylableBase::invalidateStyleInternal(int_t index) {
+    instance()->renderStylableUpdates[index].push_back((uintptr_t)this);
+}
+void draw(RendererHandle handle, RectVarHandle rect) {
+    instance()->draw(handle, rect);
+}
+void cancelDraw(RendererHandle handle) {
+    instance()->cancelDraw(handle);
 }
 
 }

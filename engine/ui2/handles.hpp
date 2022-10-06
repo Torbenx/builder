@@ -183,8 +183,6 @@ struct RectEqn {
 };
 
 evt::Executor* coreExecutor();
-evt::Executor* stylingExecutor();
-evt::Executor* renderingExecutor();
 
 RectVarHandle windowRect();
 

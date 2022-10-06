@@ -1,8 +1,9 @@
 #pragma once
 
-#include "event/Window.hpp"
+#include "Stylable.hpp"
 #include "containers/DynArray.hpp"
 #include "containers/IdAllocator.hpp"
+#include "event/Window.hpp"
 #include "handles.hpp"
 #include "math/sparse/Vector.hpp"
 #include "platform/thread_local_storage.hpp"
@@ -13,9 +14,24 @@
 
 namespace ui {
 
-class LayoutStylableBase;
+struct AtlasAllocator {
+    virtual IntVec nextAtlasSize(IntVec prevSize) = 0;
+};
 
-class Instance  : public evt::Window {
+struct RenderOutputUtil {
+    std::byte* output = nullptr;
+    RenderOutputUtil() = default;
+    RenderOutputUtil(std::byte* output)
+        : output(output) { }
+    void* renderDataPtr() {
+        return output + sizeof(IntRect);
+    }
+    IntRect& atlasRect() {
+        return *(IntRect*)output;
+    }
+};
+
+class Instance : public evt::Window {
 public:
     Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc);
     ~Instance();
@@ -43,10 +59,6 @@ public:
     void updateLayout(bool clearTextures);
     void rebuildOutput();
 
-    void draw(RendererHandle handle, RectVarHandle rect);
-    void cancelDraw(RendererBase&);
-    TextureState textureState(const RendererBase&);
-
     float valueOf(VarHandle var) const;
     void dumpVarValues();
     void dumpShiftValues();
@@ -64,45 +76,8 @@ public:
     IntVec windowDimensions;
     float ptScale = 1.0f;
 
-    struct Render {
-        RendererHandle handle;
-        RectVarHandle rect;
-        IntVec allocPosition = {};
-    };
-    std::vector<Render> renders { 1 };
-
-    struct AtlasHelper : TextureHandle {
-        AtlasAllocator* allocator = nullptr;
-        AtlasHelper(AtlasAllocator* allocator)
-            : allocator(allocator) { }
-        AtlasHelper(AtlasAllocator* allocator, IntVec prevSize)
-            : AtlasHelper(allocator) {
-            (TextureHandle&)* this = allocator->allocateAtlas(prevSize);
-        }
-        AtlasHelper(AtlasHelper&& other)
-            : TextureHandle(other), allocator(other.allocator) {
-            (TextureHandle&)other = {};
-        }
-        ~AtlasHelper() {
-            maybeDeallocate();
-        }
-        AtlasHelper& operator=(AtlasHelper&& other) {
-            maybeDeallocate();
-            allocator = other.allocator;
-            (TextureHandle&)* this = other;
-            (TextureHandle&)other = {};
-            return *this;
-        }
-
-        void maybeDeallocate() {
-            if (*this)
-                allocator->deallocateAtlas(*this);
-        }
-        AtlasHelper allocateNext() const {
-            return { allocator, dimensions };
-        }
-    };
-    AtlasHelper atlas;
+    AtlasAllocator* atlasAlloc = nullptr;
+    IntVec atlasDimensions;
     const int atlasPadding = 16;
     int nextAtlasAllocationHeight = 0;
     IntVec allocateTexture(IntVec dimensions);
@@ -112,14 +87,26 @@ public:
     int_t outputLayers = 1;
     std::vector<uint32_t> outputBlockMap;
     std::vector<IntVec> outputOffsets;
-    TextureView atlasView() const { return atlas.view(); }
+
+    struct Render {
+        RendererHandle handle;
+        RectVarHandle rect;
+        IntVec allocPosition = {};
+        uint32_t lastOutputGen = 0;
+        uint32_t outputOffsetBytes = 0;
+    };
+    std::vector<Render> renders { 1 };
+    stx::DynArray<std::vector<uintptr_t>> renderStylableUpdates;
+    stx::DynArray<std::vector<std::byte>> renderOutput;
+    uint32_t outputGeneration = 1;
+    std::byte* findRenderOutput(const Render& render);
+    std::byte* allocateRenderOutput(Render& render);
+    void draw(RendererHandle, RectVarHandle rect);
+    void cancelDraw(RendererHandle);
 
     stx::DynArray<std::vector<LayoutStylableBase*>> layoutStylableUpdates;
 
     evt::ExecutorImpl coreExe;
-    evt::ExecutorImpl styleComputationExe;
-    evt::ExecutorImpl stylingExe;
-    evt::ExecutorImpl renderingExe;
     void doTick();
 };
 
