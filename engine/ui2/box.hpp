@@ -1,20 +1,16 @@
 #pragma once
 
-#include "Stylable.hpp"
 #include "equation_code.hpp"
-#include "render.hpp"
+#include "Renderer.hpp"
 
 namespace ui {
 
-template<typename R>
-concept StyledRenderer = IsStylable<R> && Renderer<R>;
-
 template<typename B>
-concept StyledBox = IsStylable<B> && requires(const B& box) {
+concept StyledBox = Stylable<B> && requires(const B& box) {
     { box.box() } -> std::same_as<RectVarHandle>;
 };
 
-template<StyledRenderer R>
+template<IsRenderer R>
 struct ContentBox : R {
     RectVar contentBox;
     RectVarHandle box() const { return contentBox; }
@@ -27,7 +23,7 @@ struct ContentBox : R {
 
 DECLARE_STYLE_KEY(Padding, Rect);
 using PaddingStyle = SmallStyleTable<Padding>;
-struct PaddedImpl : LayoutStylable<PaddedImpl, PaddingStyle> {
+struct PaddedImpl : StyleConsumer<PaddedImpl, PaddingStyle> {
     RectVar paddedBox;
     RectEqn paddingEqn;
     PaddedImpl(RectVarHandle innerBox) {

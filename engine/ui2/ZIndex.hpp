@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BigStyleTable.hpp"
-#include "render.hpp"
 #include "StyleKey.hpp"
 #include "Rect.hpp"
 

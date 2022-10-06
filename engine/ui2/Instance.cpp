@@ -1,5 +1,4 @@
 #include "Instance.hpp"
-#include "Stylable.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
 
@@ -8,9 +7,9 @@ namespace ui {
 Instance::Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc)
     : evt::Window(window)
     , atlasAlloc(atlasAlloc)
-    , renderStylableUpdates(RenderStylableBase::stylableCount())
-    , renderOutput(RenderStylableBase::stylableCount())
-    , layoutStylableUpdates(LayoutStylableBase::stylableCount()) {
+    , rendererUpdates(RendererBase::recordCount())
+    , renderOutput(RendererBase::recordCount())
+    , styleConsumerUpdates(StyleConsumerBase::recordCount()) {
 
     windowRect = newRect();
 
@@ -114,26 +113,26 @@ void Instance::doTick() {
     coreExe.execute();
     evt::setCurrentExecutor(nullptr);
 
-    for (int_t i = 0; i < layoutStylableUpdates.size(); i++) {
-        auto& updates = layoutStylableUpdates[i];
-        const auto& record = LayoutStylableBase::record(i);
-        for (LayoutStylableBase* toUpdate : updates)
+    for (int_t i = 0; i < styleConsumerUpdates.size(); i++) {
+        auto& updates = styleConsumerUpdates[i];
+        const auto& record = StyleConsumerBase::record(i);
+        for (StyleConsumerBase* toUpdate : updates)
             record.updateStyle(toUpdate);
         updates.clear();
     }
-    for (int_t i = 0; i < renderStylableUpdates.size(); i++) {
-        auto& updates = renderStylableUpdates[i];
-        const auto& record = RenderStylableBase::record(i);
+    for (int_t i = 0; i < rendererUpdates.size(); i++) {
+        auto& updates = rendererUpdates[i];
+        const auto& record = RendererBase::record(i);
         for (uintptr_t& toUpdateUint : updates) {
-            RenderStylableBase* toUpdate = (RenderStylableBase*)toUpdateUint;
+            RendererBase* toUpdate = (RendererBase*)toUpdateUint;
             RenderOutputUtil output = allocateRenderOutput(renders[toUpdate->id]);
             record.updateStyleAndPrepareRender(toUpdate, output.renderDataPtr());
             toUpdateUint = (uintptr_t)toUpdate->id;
         }
     }
     updateLayout(true);
-    for (int_t i = 0; i < renderStylableUpdates.size(); i++) {
-        auto& updates = renderStylableUpdates[i];
+    for (int_t i = 0; i < rendererUpdates.size(); i++) {
+        auto& updates = rendererUpdates[i];
         for (uintptr_t toUpdate : updates) {
             auto& render = renders[toUpdate];
             RenderOutputUtil output = findRenderOutput(render);
@@ -345,11 +344,11 @@ RectVarHandle windowRect() { return instance()->windowRect; }
 
 evt::Executor* coreExecutor() { return &instance()->coreExe; }
 
-void LayoutStylableBase::invalidateStyleInternal(int_t index) {
-    instance()->layoutStylableUpdates[index].push_back(this);
+void StyleConsumerBase::invalidateStyleInternal(int_t index) {
+    instance()->styleConsumerUpdates[index].push_back(this);
 }
-void RenderStylableBase::invalidateStyleInternal(int_t index) {
-    instance()->renderStylableUpdates[index].push_back((uintptr_t)this);
+void RendererBase::invalidateStyleInternal(int_t index) {
+    instance()->rendererUpdates[index].push_back((uintptr_t)this);
 }
 void draw(RendererHandle handle, RectVarHandle rect) {
     instance()->draw(handle, rect);

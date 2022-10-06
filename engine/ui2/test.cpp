@@ -1,5 +1,4 @@
 #include "Instance.hpp"
-#include "Stylable.hpp"
 #include "box.hpp"
 #include "equation_code.hpp"
 #include "event/Event.hpp"
@@ -42,7 +41,7 @@ DECLARE_STYLE_KEY(Channel2, ColorChannel);
 using TestStyle = ui::SmallStyleTable<Channel1, Channel2>;
 DECLARE_STYLE_KEY(DefaultTestStyle, TestStyle);
 
-struct TestRenderer : ui::RenderStylable<TestRenderer, TestStyle> {
+struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
     static void render(const ui::TextureState& texture, const TestStyle& style) {
         auto channelToShift = [](ColorChannel channel) -> int {
             switch (channel) {
@@ -168,7 +167,7 @@ struct UiTest {
 
         for (int_t i = 0; i < instance.renderOutput.size(); i++) {
             auto& outputs = instance.renderOutput[i];
-            const ui::RenderStylableRecord& record = ui::RenderStylableBase::record(i);
+            const ui::RendererRecord& record = ui::RendererBase::record(i);
             int_t stride = record.renderDataSizeAlign8 + sizeof(ui::IntRect);
             for (auto it = outputs.begin(); it != outputs.end(); it += stride) {
                 ui::RenderOutputUtil output(&*it);

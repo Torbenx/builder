@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ArrayView.hpp"
+#include <algorithm>
 
 namespace stx {
 

@@ -1,13 +1,12 @@
 #pragma once
 
-#include "Stylable.hpp"
 #include "containers/DynArray.hpp"
 #include "containers/IdAllocator.hpp"
 #include "event/Window.hpp"
 #include "handles.hpp"
 #include "math/sparse/Vector.hpp"
 #include "platform/thread_local_storage.hpp"
-#include "render.hpp"
+#include "Renderer.hpp"
 #include "util/types.hpp"
 #include <memory>
 #include <vector>
@@ -96,7 +95,7 @@ public:
         uint32_t outputOffsetBytes = 0;
     };
     std::vector<Render> renders { 1 };
-    stx::DynArray<std::vector<uintptr_t>> renderStylableUpdates;
+    stx::DynArray<std::vector<uintptr_t>> rendererUpdates;
     stx::DynArray<std::vector<std::byte>> renderOutput;
     uint32_t outputGeneration = 1;
     std::byte* findRenderOutput(const Render& render);
@@ -104,7 +103,7 @@ public:
     void draw(RendererHandle, RectVarHandle rect);
     void cancelDraw(RendererHandle);
 
-    stx::DynArray<std::vector<LayoutStylableBase*>> layoutStylableUpdates;
+    stx::DynArray<std::vector<StyleConsumerBase*>> styleConsumerUpdates;
 
     evt::ExecutorImpl coreExe;
     void doTick();
