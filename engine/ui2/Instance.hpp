@@ -19,6 +19,9 @@ struct AtlasAllocator {
 
 struct RenderOutputUtil {
     std::byte* output = nullptr;
+    static int_t outputSize(int_t classIndex) {
+        return RendererBase::record(classIndex).renderDataSizeAlign8 + sizeof(IntRect);
+    }
     RenderOutputUtil() = default;
     RenderOutputUtil(std::byte* output)
         : output(output) { }
@@ -96,7 +99,7 @@ public:
     };
     std::vector<Render> renders { 1 };
     stx::DynArray<std::vector<uintptr_t>> rendererUpdates;
-    stx::DynArray<std::vector<std::byte>> renderOutput;
+    stx::DynArray<std::vector<std::byte>> incrementalRenderOutput;
     uint32_t outputGeneration = 1;
     std::byte* findRenderOutput(const Render& render);
     std::byte* allocateRenderOutput(Render& render);

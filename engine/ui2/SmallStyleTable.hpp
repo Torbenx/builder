@@ -84,21 +84,24 @@ namespace detail {
     struct first {
         using type = T;
     };
-
-    template<typename... Keys1, typename... Keys2>
-    static int_t computeByteOffset() {
-        using FirstKey = typename detail::first<Keys1...>::type;
-        const SmallStyleTableImpl<Keys2...>* inObject = nullptr;
-        const auto* baseObject = (const SmallStyleTableStorage<FirstKey>*)inObject;
-        return (std::byte*)baseObject - (std::byte*)inObject;
-    }
 }
 template<typename... Keys>
 struct Ptr<SmallStyleTableImpl<Keys...>> : PtrBase {
     using PtrBase::PtrBase;
+
+    template<typename... Keys2>
+    static int_t computeByteOffset() {
+        using FirstKey = typename detail::first<Keys...>::type;
+        const SmallStyleTableImpl<Keys2...>* inObject = nullptr;
+        const auto* baseObject = (const SmallStyleTableStorage<FirstKey>*)inObject;
+        return (std::byte*)baseObject - (std::byte*)inObject;
+
+    }
+
     template<typename... Keys2>
     Ptr(const Ptr<SmallStyleTableImpl<Keys2...>>& in) requires(detail::subpackOf<detail::Pack<Keys...>, detail::Pack<Keys2...>>::type::value)
-        : PtrBase(in.info().offsetBy(detail::computeByteOffset<Keys..., Keys2...>())) { }
+        : PtrBase(in.info().offsetBy(Ptr::computeByteOffset<Keys2...>())) { }
+
     template<typename T2>
     explicit Ptr(const Ptr<T2>& in)
         : PtrBase(in) { }

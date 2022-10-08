@@ -77,13 +77,13 @@
 #define IN_SECTION(name) IN_SECTION_P(name, m)
 
 // clang-format off
-#define DEFINE_SECTION(type, name)                               \
-    __pragma(section(SECTION_POSTFIX(name, a)))                  \
-    __pragma(section(SECTION_POSTFIX(name, m)))                  \
-    __pragma(section(SECTION_POSTFIX(name, z)))                  \
-    inline type IN_SECTION_P(name, a) __before_begin_##name;     \
-    inline type IN_SECTION_P(name, z) __after_end_##name;        \
-    constexpr type* __begin_##name = &__before_begin_##name + 1; \
+#define DEFINE_SECTION(type, name)                                \
+    __pragma(section(SECTION_POSTFIX(name, a)))                   \
+    __pragma(section(SECTION_POSTFIX(name, m)))                   \
+    __pragma(section(SECTION_POSTFIX(name, z)))                   \
+    inline type IN_SECTION_P(name, a) __before_begin_##name = {}; \
+    inline type IN_SECTION_P(name, z) __after_end_##name = {};    \
+    constexpr type* __begin_##name = &__before_begin_##name + 1;  \
     constexpr type* __end_##name = &__after_end_##name;
 // clang-format on
 
@@ -100,7 +100,7 @@
 #define SECTION_ELEMENT_COUNT(name) (__end_##name - __begin_##name)
 
 #define DEFINE_LINK_COUNTER(name) DEFINE_SECTION(char, name)
-#define LINK_COUNTER_IMPL(name)                                   \
+#define LINK_COUNTER_IMPL(name)                                                   \
     static inline constinit const char IN_SECTION(name) __link_counter_dummy = 0; \
     static inline int_t linkCounter() { return &__link_counter_dummy - __begin_##name; }
 #define LINK_COUNTER_MAX(name) SECTION_ELEMENT_COUNT(name)

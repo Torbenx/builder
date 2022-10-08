@@ -14,7 +14,7 @@ namespace detail {
 
     template<typename T, int_t i>
     struct tuple_storage_indexed : tuple_storage_base<T> {
-        //tuple_storage_untyped* untyped_ptr() { return this; }
+        // tuple_storage_untyped* untyped_ptr() { return this; }
     };
     template<typename T, int_t i>
     requires std::is_empty_v<T>
@@ -23,6 +23,7 @@ namespace detail {
 
     template<typename... Storage>
     struct TupleImpl : Storage... { };
+
     template<typename S, typename... Types>
     struct TupleIndirect;
     template<int_t... I, typename... Types>
@@ -32,7 +33,7 @@ namespace detail {
 }
 
 template<typename... Types>
-using Tuple = typename detail::TupleIndirect<stx::int_sequence_for<Types...>, Types...>::type;
+struct Tuple : detail::TupleIndirect<stx::make_int_sequence<sizeof...(Types)>, Types...>::type { };
 
 template<int_t i, typename T>
 T& get(detail::tuple_storage_indexed<T, i>& s) {

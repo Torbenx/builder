@@ -95,7 +95,7 @@ constexpr typename Node::NodeType convertTreeNode(const Node& node) requires Con
 }
 
 template<typename Node, TmplLeafLoc loc>
-using NodeTypeOf = std::remove_cvref_t<decltype(std::declval<Node>().template get<loc>())>;
+using NodeTypeOf = std::remove_cvref_t<typename stx::member_pointer<&Node::template get<loc>>::ReturnType>;
 
 namespace compiled {
 
@@ -391,9 +391,10 @@ template<TmplTreeNode Base, uint64_t upperBound>
 struct UpperBound : converted_tree_node_t<Base> {
     static constexpr uint64_t maxEvents() { return upperBound; }
 };
-template<uint64_t upperBound, TmplTreeNode Base>
-constexpr UpperBound<Base, std::min(upperBound, converted_tree_node_t<Base>::maxEvents())> upperBound(const Base& base) {
-    return { { convertTreeNode(base) } };
+template<uint64_t ub, TmplTreeNode Base>
+constexpr auto upperBound(const Base& base) {
+    constexpr uint64_t newUB = std::min(ub, converted_tree_node_t<Base>::maxEvents());
+    return UpperBound<Base, newUB> { { convertTreeNode(base) } };
 }
 
 }

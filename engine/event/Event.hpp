@@ -2,6 +2,7 @@
 
 #include "CompiledCondition.hpp"
 #include "containers/Tuple.hpp"
+#include "Scheduler.hpp"
 
 namespace evt {
 
@@ -66,7 +67,6 @@ struct RingBuffer {
     constexpr const T& operator[](int_t i) const { return storage[index(i)]; }
 };
 
-constexpr int_t MAX_CONCURRENT_TICKS = 8;
 template<typename E>
 using EventRingBuffer = RingBuffer<std::vector<E>, MAX_CONCURRENT_TICKS>;
 

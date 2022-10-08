@@ -1,8 +1,8 @@
 #include "Instance.hpp"
 #include "box.hpp"
 #include "equation_code.hpp"
+#include "event/Awaitable.hpp"
 #include "event/Event.hpp"
-#include "event/InlineCallback.hpp"
 #include "event/conditions.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
@@ -163,15 +163,20 @@ struct UiTest {
             atlas.dimensions = instance.atlasDimensions;
             atlas.data = alloc.allocate(atlas.dimensions.x() * atlas.dimensions.y());
         }
-        std::fill_n(atlas.data, atlas.dimensions.x() * atlas.dimensions.y(), 0);
 
-        for (int_t i = 0; i < instance.renderOutput.size(); i++) {
-            auto& outputs = instance.renderOutput[i];
+        for (int_t i = 0; i < instance.incrementalRenderOutput.size(); i++) {
+            auto& outputs = instance.incrementalRenderOutput[i];
             const ui::RendererRecord& record = ui::RendererBase::record(i);
-            int_t stride = record.renderDataSizeAlign8 + sizeof(ui::IntRect);
+            int_t stride = ui::RenderOutputUtil::outputSize(i);
             for (auto it = outputs.begin(); it != outputs.end(); it += stride) {
                 ui::RenderOutputUtil output(&*it);
                 ui::TextureState texture { atlas.view() + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
+                ui::TextureState paddedTexture { texture.texture - 16, texture.dimensions + 32 };
+                for (int_t j = 0; j < paddedTexture.dimensions.y(); j++) {
+                    for (int_t i = 0; i < paddedTexture.dimensions.x(); i++) {
+                        paddedTexture.texture[j][i] = 0;
+                    }
+                }
                 record.render(texture, output.renderDataPtr());
             }
             outputs.clear();

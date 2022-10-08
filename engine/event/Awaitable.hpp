@@ -33,7 +33,7 @@ struct Awaitable {
         : Awaitable(node, stx::make_int_sequence<output.leafs.size()>()) { }
     template<int_t... I>
     constexpr Awaitable(const Node& node, stx::int_sequence<I...>)
-        : leafs { { makeWrapper<I>(node) }... } { }
+        : leafs { { { makeWrapper<I>(node) }... } } { }
     template<int_t i>
     constexpr auto makeWrapper(const Node& node) {
         const auto& leaf = output.leafs[i];

@@ -11,7 +11,8 @@ Ref<BigStyleTable> Ref<BigStyleTable>::allocate() {
     data[0] = nullptr;
     for (int_t i = 0; i < keyCount; i++) {
         const StyleKeyRecord& record = __begin_ui_style_keys[i];
-        data[i + 1] = new (std::align_val_t(record.valueAlignment)) std::byte[record.valueSize]();
+        VERIFY(Ui, record.valueAlignment <= (int_t)__STDCPP_DEFAULT_NEW_ALIGNMENT__);
+        data[i + 1] = new std::byte[record.valueSize]();
     }
     return { data };
 }
@@ -23,7 +24,8 @@ BigStyleTable Ref<BigStyleTable>::finalize() const {
     Resolver resolver { .table = *this };
     for (int_t i = 0; i < keyCount; i++) {
         const StyleKeyRecord& record = __begin_ui_style_keys[i];
-        output[i + 1] = new (std::align_val_t(record.valueAlignment)) std::byte[record.valueSize]();
+        VERIFY(Ui, record.valueAlignment <= (int_t)__STDCPP_DEFAULT_NEW_ALIGNMENT__);
+        output[i + 1] = new std::byte[record.valueSize]();
         record.resolveFunc(output[i + 1], data[i + 1], resolver);
     }
     return { output };

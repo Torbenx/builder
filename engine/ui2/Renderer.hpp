@@ -76,7 +76,7 @@ public:
     using Style = S;
     using RData = R;
 
-    static int_t stylableIndex() { return &record - __begin_renderer_records; }
+    static int_t classIndex() { return &record - __begin_renderer_records; }
 
 private:
     static void updateStyleAndPrepareRender(RendererBase* base, void* renderDataOut) {
@@ -120,7 +120,7 @@ private:
         if (isDirty)
             return;
         isDirty = true;
-        invalidateStyleInternal(stylableIndex());
+        invalidateStyleInternal(classIndex());
     }
 
 public:
@@ -145,14 +145,14 @@ concept IsRenderer = std::derived_from<T, Renderer<T, typename T::Style, typenam
 
 struct RendererHandle {
     RendererBase* base = nullptr;
-    int_t stylableIndex = -1;
+    int_t classIndex = -1;
     RendererHandle() = default;
     template<IsRenderer T>
     RendererHandle(T& r)
-        : base(&r), stylableIndex(T::stylableIndex()) { }
+        : base(&r), classIndex(T::classIndex()) { }
     RendererBase* operator->() const { return base; }
     const RendererRecord& record() {
-        return RendererBase::record(stylableIndex);
+        return RendererBase::record(classIndex);
     }
     void prepareRender(void* renderData) {
         record().prepareRender(base, renderData);

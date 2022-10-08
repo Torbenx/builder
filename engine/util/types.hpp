@@ -39,6 +39,11 @@ struct member_pointer_helper<R (B::*)(Args...)> {
     using ReturnType = R;
     using BaseType = B;
 };
+template<typename R, typename B, typename... Args>
+struct member_pointer_helper<R (B::*)(Args...) const> {
+    using ReturnType = R;
+    using BaseType = B;
+};
 template<auto ptr>
 using member_pointer = member_pointer_helper<decltype(ptr)>;
 

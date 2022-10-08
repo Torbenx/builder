@@ -3,7 +3,6 @@
 #include "BigStyleTable.hpp"
 #include "SmallStyleTable.hpp"
 #include "StyleKey.hpp"
-#include "event/InlineCallback.hpp"
 #include "handles.hpp"
 
 namespace ui {
@@ -95,7 +94,7 @@ private:
     static constexpr IN_SECTION(style_consumer_records) StyleConsumerRecord record = {
         .updateStyle = updateStyle,
     };
-    static int_t index() { return &record - __begin_style_consumer_records; }
+    static int_t classIndex() { return &record - __begin_style_consumer_records; }
     Impl* impl() { return static_cast<Impl*>(this); }
     bool isDirty = false;
     BigStyleTable bigTable;
@@ -107,7 +106,7 @@ private:
         if (isDirty)
             return;
         isDirty = true;
-        invalidateStyleInternal(index());
+        invalidateStyleInternal(classIndex());
     }
 
 public:

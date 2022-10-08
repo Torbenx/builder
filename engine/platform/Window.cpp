@@ -6,7 +6,7 @@
 
 namespace plt {
     evt::ExecutorImpl* coreExe() {
-        static constinit evt::ExecutorImpl exe = {};
+        static evt::ExecutorImpl exe = {};
         return &exe;
     }
 
@@ -28,7 +28,7 @@ void test();
 }
 
 MAKE_WEAK_SYMBOL(onInitialWindowConstructed)
-extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window window) {
+extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window) {
     // window->setDimensions(200, 200);
     // window->setTitle("Hello World!");
     ui::test();

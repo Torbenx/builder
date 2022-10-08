@@ -1,4 +1,5 @@
 #include "Instance.hpp"
+#include "event/Awaitable.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
 
@@ -8,7 +9,7 @@ Instance::Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc)
     : evt::Window(window)
     , atlasAlloc(atlasAlloc)
     , rendererUpdates(RendererBase::recordCount())
-    , renderOutput(RendererBase::recordCount())
+    , incrementalRenderOutput(RendererBase::recordCount())
     , styleConsumerUpdates(StyleConsumerBase::recordCount()) {
 
     windowRect = newRect();
@@ -257,15 +258,12 @@ void Instance::rebuildOutput() {
 
 std::byte* Instance::findRenderOutput(const Render& render) {
     VERIFY(Ui, render.lastOutputGen == outputGeneration);
-    return renderOutput[render.handle.stylableIndex].data() + render.outputOffsetBytes;
+    return incrementalRenderOutput[render.handle.classIndex].data() + render.outputOffsetBytes;
 }
 std::byte* Instance::allocateRenderOutput(Render& render) {
-    static_assert(sizeof(void*) == 8);
-    static_assert(alignof(IntRect) <= 8);
-    static_assert(sizeof(IntRect) % 8 == 0);
-    int_t stride = render.handle.record().renderDataSizeAlign8 + sizeof(IntRect);
+    int_t stride = RenderOutputUtil::outputSize(render.handle.classIndex);
 
-    std::vector<std::byte>& vec = renderOutput[render.handle.stylableIndex];
+    std::vector<std::byte>& vec = incrementalRenderOutput[render.handle.classIndex];
     if (render.lastOutputGen != outputGeneration) {
         render.lastOutputGen = outputGeneration;
         render.outputOffsetBytes = vec.size();
@@ -291,15 +289,6 @@ void Instance::cancelDraw(RendererHandle handle) {
 
     renders[back.handle->id] = back;
 }
-/*void draw(RendererHandle handle, RectVarHandle rect) {
-    instance()->draw(handle, rect);
-}
-void cancelDraw(RendererBase& base) {
-    instance()->cancelDraw(base);
-}
-TextureState RendererBase::textureState() const {
-    return instance()->textureState(*this);
-}*/
 
 IntVec Instance::allocateTexture(IntVec dimensions) {
     VERIFY(Ui, dimensions.x() <= atlasDimensions.x() || atlasDimensions.x() == 0);

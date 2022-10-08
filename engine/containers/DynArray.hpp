@@ -2,6 +2,7 @@
 
 #include "ArrayView.hpp"
 #include <algorithm>
+#include <memory>
 
 namespace stx {
 

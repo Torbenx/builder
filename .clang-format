@@ -1,7 +1,5 @@
 ---
 BasedOnStyle: Webkit
-BreakBeforeBraces: Custom
-BraceWrapping:
-    AfterFunction: false
+BreakBeforeBraces: Attach
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 SpaceAfterTemplateKeyword: false
