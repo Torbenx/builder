@@ -109,7 +109,7 @@ void Instance::dumpShiftSizes() {
     }
 }
 
-void Instance::doTick() {
+void Instance::doTick(evt::Scheduler scheduler) {
     evt::setCurrentExecutor(&coreExe);
     coreExe.execute();
     evt::setCurrentExecutor(nullptr);
@@ -132,6 +132,8 @@ void Instance::doTick() {
         }
     }
     updateLayout(true);
+    layoutComplete.signalTargets(scheduler);
+
     for (int_t i = 0; i < rendererUpdates.size(); i++) {
         auto& updates = rendererUpdates[i];
         for (uintptr_t toUpdate : updates) {
@@ -143,8 +145,8 @@ void Instance::doTick() {
         }
         updates.clear();
     }
-
     rebuildOutput();
+    outputComplete.signalTargets(scheduler);
 }
 
 void Instance::resize() {

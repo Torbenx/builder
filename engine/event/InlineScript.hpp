@@ -4,57 +4,9 @@
 #include "Script.hpp"
 #include "conditions.hpp"
 #include "util/target.hpp"
+#include "Callable.hpp"
 
 namespace evt {
-
-template<typename Target, typename... Args, int_t... I>
-auto callWithTuple_helper(const Target& target, const stx::Tuple<Args...>& tuple, stx::int_sequence<I...>) {
-    return target(stx::get<I>(tuple)...);
-}
-template<typename Target, typename... Args>
-auto callWithTuple(const Target& target, const stx::Tuple<Args...>& tuple) {
-    return callWithTuple_helper<Target, Args...>(target, tuple, stx::int_sequence_for<Args...>());
-}
-
-template<typename Target>
-concept BasicCallable = requires(const Target& target, const typename Target::ArgsTuple& tuple) {
-    { callWithTuple(target, tuple) } -> std::same_as<typename Target::ReturnType>;
-};
-template<typename Target, typename Source>
-concept SourceAwareCallable = requires(const Target& target, Source* source) {
-    { target.withSource(source) } -> BasicCallable;
-};
-template<typename Target, typename Source>
-concept Callable = BasicCallable<Target> || SourceAwareCallable<Target, Source>;
-
-template<typename Target>
-Target withCallSource(const Target& target, void*) requires BasicCallable<Target> {
-    return target;
-}
-template<typename Target, typename Source>
-auto withCallSource(const Target& target, Source* source) requires SourceAwareCallable<Target, Source> {
-    return target.withSource(source);
-}
-
-template<typename T, T>
-struct CallDerived;
-template<typename Derived, typename R, typename... Args, R (Derived::*funcPtr)(Args...)>
-struct CallDerived<R (Derived::*)(Args...), funcPtr> {
-    struct WithSource {
-        using ReturnType = R;
-        using ArgsTuple = stx::Tuple<Args...>;
-        Derived* derived = nullptr;
-        constexpr R operator()(Args... args) const {
-            return (derived->*funcPtr)(args...);
-        }
-    };
-    template<typename Base>
-    constexpr WithSource withSource(Base* base) const requires std::derived_from<Derived, Base> {
-        return { static_cast<Derived*>(base) };
-    }
-};
-template<auto funcPtr>
-constexpr CallDerived<decltype(funcPtr), funcPtr> callDerived = {};
 
 struct InlineScriptBase {
 #if defined(COMPILER_INTERNALS_CLANG)
@@ -107,7 +59,7 @@ struct InlineScript : InlineScriptBase {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 co_await thiz->condition;
-                withCallSource(thiz->target, thiz)();
+                callWithSource(thiz->target, thiz);
             }
         }(this);
     }
@@ -124,7 +76,7 @@ struct InlineScript<void, ConditionNode> : InlineScriptBase {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 co_await thiz->condition;
-                withCallSource(Target {}, thiz)();
+                callWithSource(Target {}, thiz);
             }
         }(this);
     }
@@ -141,7 +93,7 @@ struct InlineScript<Target, void> : InlineScriptBase {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 co_await CompiledCondition<ConditionNode>();
-                withCallSource(thiz->target, thiz)();
+                callWithSource(thiz->target, thiz);
             }
         }(this);
     }
@@ -155,7 +107,7 @@ struct InlineScript<void, void> : InlineScriptBase {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 co_await CompiledCondition<ConditionNode>();
-                withCallSource(Target {}, thiz)();
+                callWithSource(Target {}, thiz);
             }
         }(this);
     }

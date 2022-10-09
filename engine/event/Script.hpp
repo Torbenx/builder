@@ -23,7 +23,7 @@ inline Executor* currentExecutor() { return (Executor*)plt::getThreadLocalPtr<pl
 inline void setCurrentExecutor(Executor* exe) { plt::setThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(exe); }
 inline int_t tick() { return (uintptr_t)plt::getThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>(); }
 inline void setTick(int_t tick) {
-    VERIFY(Event, tick >= 0);
+    //VERIFY(Event, tick >= 0);
     plt::setThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>((void*)(uintptr_t)tick);
 }
 

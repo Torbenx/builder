@@ -194,7 +194,7 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
 namespace plt {
 
-void processEvents(std::function<void()> callback) {
+void processEvents(evt::Scheduler scheduler, std::function<void()> callback) {
     windows::processEventsCallback = std::move(callback);
     MSG msg;
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -204,6 +204,7 @@ void processEvents(std::function<void()> callback) {
     }
     coreExe()->execute();
     windows::processEventsCallback = nullptr;
+    processedEvents().signalTargets(scheduler);
 }
 
 }

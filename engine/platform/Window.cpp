@@ -5,33 +5,46 @@
 #include "util/target.hpp"
 
 namespace plt {
-    evt::ExecutorImpl* coreExe() {
-        static evt::ExecutorImpl exe = {};
-        return &exe;
-    }
 
-    void continueStartup(Window initialWindow) {
-        if (initialWindow)
-            onInitialWindowConstructed(initialWindow);
-        else
-            onNoInitialWindow();
-    }
+evt::ExecutorImpl* coreExe() {
+    static evt::ExecutorImpl exe = {};
+    return &exe;
+}
+evt::dep::Source& processedEvents() {
+    static evt::dep::Source source = {};
+    return source;
+}
+
+void continueStartup(Window initialWindow) {
+    evt::runScheduler(
+        {
+            &initialWindow,
+            [](Window* window, evt::Scheduler scheduler) {
+                if (*window)
+                    onInitialWindowConstructed(*window, scheduler);
+                else
+                    onNoInitialWindow(scheduler);
+            },
+        },
+        1);
+}
+
 }
 
 MAKE_WEAK_SYMBOL(onNoInitialWindow)
-extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)() {
-    onInitialWindowConstructed(plt::Window::construct());
+extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)(evt::Scheduler scheduler) {
+    onInitialWindowConstructed(plt::Window::construct(), scheduler);
 }
 
 namespace ui {
-void test();
+void test(evt::Scheduler);
 }
 
 MAKE_WEAK_SYMBOL(onInitialWindowConstructed)
-extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window) {
+extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window, evt::Scheduler scheduler) {
     // window->setDimensions(200, 200);
     // window->setTitle("Hello World!");
-    ui::test();
+    ui::test(scheduler);
 
     /*gl::initialize();
     gl::attachWindow(window.get());

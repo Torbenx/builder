@@ -7,16 +7,14 @@
 namespace evt {
 namespace {
 
-    constinit inline std::atomic<int_t> lowestActiveTick = 1;
-
-    using Item = Task;
+    using Item = SchedulingItem;
 
     class Block {
     private:
         Item* allocBegin = nullptr;
         Item* m_begin = nullptr;
-        Item* m_end = 0;
-        Item* allocEnd = 0;
+        Item* m_end = nullptr;
+        Item* allocEnd = nullptr;
 
         void clearFields() {
             allocBegin = nullptr;
@@ -94,16 +92,17 @@ namespace {
                 *block.acquireBack() = item;
                 return;
             }
-            Block newBlock = Block { nextBlockCapacity(block.totalCapacity()) };
+            Block newBlock { nextBlockCapacity(block.totalCapacity()) };
             std::copy(block.begin(), block.end(), newBlock.acquireBack(block.size()));
             *newBlock.acquireBack() = item;
             block = std::move(newBlock);
         }
-        Item pop() {
+        Item tryPop() {
             if (block.empty())
                 return {};
             return block.popFront();
         }
+        int_t size() { return block.size(); }
     };
 
     struct GlobalQueue {
@@ -113,7 +112,7 @@ namespace {
             Block block;
         };
         AtomicQueue<QueueItem> m_queue;
-        Block pop() {
+        Block tryPop() {
             QueueItem* qItem = m_queue.popFront();
             Block ret = std::move(qItem->block);
             delete qItem;
@@ -126,8 +125,10 @@ namespace {
     };
 }
 
-struct Scheduler {
+struct SchedulerImpl {
+    static constinit inline std::atomic<int_t> lowestActiveTick = 1;
     static inline GlobalQueue globalQueues[MAX_CONCURRENT_TICKS] = {};
+
     LocalQueue localQueues[MAX_CONCURRENT_TICKS] = {};
     LocalQueue& localQueue(int_t tick) {
         return localQueues[(size_t)tick % MAX_CONCURRENT_TICKS];
@@ -136,12 +137,11 @@ struct Scheduler {
         return globalQueues[(size_t)tick & MAX_CONCURRENT_TICKS];
     }
 
-    int_t activeTick = 1;
-
     bool checkForBetter() {
         int_t lowestTick = lowestActiveTick.load(std::memory_order_relaxed);
+        int_t activeTick = evt::tick();
         for (int_t i = lowestTick; i < activeTick; i++) {
-            Block newBlock = globalQueue(i).pop();
+            Block newBlock = globalQueue(i).tryPop();
             if (newBlock.empty())
                 continue;
 
@@ -153,13 +153,13 @@ struct Scheduler {
                 globalQueue(activeTick).queue(std::move(oldBlock));
 
             activeTick = i;
-            evt::setTick(activeTick);
             return true;
         }
         return false;
     }
 
     void volunteerNonActive() {
+        int_t activeTick = evt::tick();
         for (int_t i = activeTick; i < activeTick + MAX_CONCURRENT_TICKS - 1; i++) {
             Block block = localQueue(i).takeBlock();
             if (!block.empty())
@@ -168,42 +168,75 @@ struct Scheduler {
     }
 
     void schedule(Item item, int_t tick) {
-        VERIFY(Event, tick <= activeTick);
+        VERIFY(Event, tick >= evt::tick());
         localQueue(tick).queue(item);
     }
 
-    void run() {
+    void run(Item item, int_t startTick) {
+        lowestActiveTick.store(startTick, std::memory_order_relaxed);
+        evt::setTick(startTick);
+        if (item)
+            item.execute(this);
+        evt::tickComplete().unlock(this, startTick);
+
         const int_t ticksPerSecond = 100;
         const int_t nanosPerSecond = 1'000'000'000;
         const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
-        uint64_t lastTickAbsolute = getNanos() / nanosPerTick;
+        uint64_t startTickAbsolute = getNanos() / nanosPerTick;
+        uint64_t absoluteTickShift = startTickAbsolute - startTick;
+        uint64_t lastTickAbsolute = startTickAbsolute - 1;
+
         while (true) {
-            while (Item item = localQueue(activeTick).pop()) {
-                item.execute(this);
+            int_t lowestTick = lowestActiveTick.load(std::memory_order_relaxed);
+            for (int_t i = lowestTick; i < lowestTick + MAX_CONCURRENT_TICKS; i++) {
+                auto& queue = localQueue(i);
+                evt::setTick(i);
+                while (Item item = queue.tryPop())
+                    item.execute(this);
             }
+
             uint64_t nowTickAbsolute = getNanos() / nanosPerTick;
             while (nowTickAbsolute > lastTickAbsolute) {
-                evt::setTick(evt::tick() + 1);
-                plt::processEvents([]() {});
-                plt::coreExe()->execute();
+                int_t tickToStart = lastTickAbsolute + 1 - absoluteTickShift;
+                if (tickToStart - lowestTick >= MAX_CONCURRENT_TICKS) {
+                    log<Tag::Event>("failed to start tick {}, lowest is {}, should be at {}", tickToStart, lowestTick, nowTickAbsolute - absoluteTickShift);
+                    break;
+                }
+                log("starting tick {}, lowest is {}", tickToStart, lowestTick);
+
+                evt::setTick(tickToStart);
+                plt::processEvents(this, []() {});
+
+                lastTickAbsolute += 1;
             }
         }
     }
+
+    void tickComplete(int_t tick) {
+        VERIFY(Event, localQueue(tick).empty());
+        int_t prevLowest = lowestActiveTick.fetch_add(1, std::memory_order_relaxed);
+        EXPECT(Event, prevLowest, tick);
+    }
 };
 
-void SchedulerHandle::schedule(Item item, int_t tick) {
+void Scheduler::schedule(Item item, int_t tick) {
     scheduler->schedule(item, tick);
 }
 
 void runScheduler(Item item, int_t startTick) {
-    Scheduler scheduler { .activeTick = startTick };
-    evt::setTick(startTick);
-    item.execute(&scheduler);
-    scheduler.run();
+    SchedulerImpl scheduler = SchedulerImpl {};
+    scheduler.run(item, startTick);
 }
 
-void Item::execute(Scheduler* scheduler) const {
-    function(scheduler, data);
+void Item::execute(Scheduler scheduler) const {
+    callback(data, scheduler);
+}
+
+dep::Target& tickComplete() {
+    static dep::Target target { [](Scheduler scheduler) {
+        scheduler.scheduler->tickComplete(evt::tick());
+    } };
+    return target;
 }
 
 }

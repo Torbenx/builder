@@ -65,10 +65,11 @@ protected:
 };
 
 evt::ExecutorImpl* coreExe();
+evt::dep::Source& processedEvents();
 void continueStartup(Window initialWindow);
-void processEvents(std::function<void()>);
+void processEvents(evt::Scheduler, std::function<void()>);
 
 }
 
-extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)();
-extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window);
+extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)(evt::Scheduler);
+extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window, evt::Scheduler);

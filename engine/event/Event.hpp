@@ -59,16 +59,8 @@ struct EventSource {
     }
 };
 
-template<typename T, int_t N>
-struct RingBuffer {
-    T storage[N] = {};
-    int_t index(int_t i) const { return (size_t)i % N; }
-    constexpr T& operator[](int_t i) { return storage[index(i)]; }
-    constexpr const T& operator[](int_t i) const { return storage[index(i)]; }
-};
-
 template<typename E>
-using EventRingBuffer = RingBuffer<std::vector<E>, MAX_CONCURRENT_TICKS>;
+using EventRingBuffer = TickRingBuffer<std::vector<E>>;
 
 struct RelayPromise {
     Executor* executor = nullptr;

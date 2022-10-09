@@ -115,28 +115,17 @@ evt::Script uiTestInit() {
     }
 }
 
-struct UiTest {
-
+struct PerformDrawTask : evt::Task {
+    ui::Instance& instance;
+    plt::Window nativeWindow;
+    ui::TextureHandle atlas;
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
-    evt::RelayedWindowBackend* relayedWindow;
-    BasicAtlasAllocator atlasAlloc;
-    ui::Instance instance;
-    ui::TextureHandle atlas;
 
-    UiTest(evt::Window window)
-        : relayedWindow(evt::relayWindow(window)), instance(relayedWindow, &atlasAlloc) {
-        [](UiTest* test) -> evt::Script {
-            while (true) {
-                evt::EventReceiver<evt::ResizeEvent> events;
-                co_await (test->relayedWindow->resizeEvents > events);
-                test->resize();
-            }
-        }(this);
-        relayedWindow->startRelay(&instance.coreExe);
-        ui::setInstance(&instance);
-        uiTestInit();
-    }
+    PerformDrawTask(ui::Instance& instance, plt::Window nativeWindow)
+        : Task { evt::CallDerivedMember<&PerformDrawTask::draw>() }
+        , instance(instance)
+        , nativeWindow(nativeWindow) { }
 
     void resize() {
         ui::IntVec windowBlockSize = (instance.dimensions() + 15) / 16;
@@ -146,7 +135,7 @@ struct UiTest {
 
     uint64_t lastFrame = 0;
     int_t frames = 0;
-    void draw(plt::Window window) {
+    void draw(evt::Scheduler) {
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             lastFrame = now;
@@ -154,8 +143,6 @@ struct UiTest {
             frames = 0;
         }
         frames += 1;
-
-        instance.doTick();
 
         if (atlas.dimensions != instance.atlasDimensions) {
             std::allocator<uint32_t> alloc;
@@ -217,7 +204,7 @@ struct UiTest {
             }
         }
 
-        auto* impl = plt::windows::windowImpl(window);
+        auto* impl = plt::windows::windowImpl(nativeWindow);
         BITMAPINFO bitmapInfo {
             .bmiHeader = {
                 .biSize = sizeof(BITMAPINFOHEADER),
@@ -238,14 +225,43 @@ struct UiTest {
         ui::IntVec dim = instance.dimensions();
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
-    }
+    };
 };
+
+evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
+    evt::RelayedWindowBackend* relayedWindow = evt::relayWindow(window);
+    BasicAtlasAllocator atlasAlloc;
+    ui::Instance instance { relayedWindow, &atlasAlloc };
+
+    plt::processedEvents().createDependency(instance.doLayout);
+    PerformDrawTask performDraw { instance, window };
+    instance.outputComplete.createDependency(performDraw);
+    performDraw.createDependency(evt::tickComplete());
+    instance.doLayout.unlock(scheduler);
+    performDraw.unlock(scheduler);
+
+    auto resizeScript = [&]() -> evt::Script {
+        while (true) {
+            evt::EventReceiver<evt::ResizeEvent> events;
+            co_await (relayedWindow->resizeEvents > events);
+            performDraw.resize();
+        }
+    };
+    resizeScript();
+
+    relayedWindow->startRelay(&instance.coreExe);
+
+    ui::setInstance(&instance);
+    uiTestInit();
+
+    co_await window.destroyed();
+}
 
 }
 
 namespace ui {
 
-void test() {
+void test(evt::Scheduler scheduler) {
     /*sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
     lu.u.appendColumn(sparse::StaticVector({ { 0, 0.5f }, { 1, 1.0f } }).copy());
@@ -260,17 +276,16 @@ void test() {
     evt::test();
 
     plt::Window window = plt::Window::construct();
-    UiTest callback(window);
+    uiTestWrapper(window, scheduler);
     window.setDimensions({ 700, 700 });
     window.setTitle("UiTest");
-    callback.draw(window);
     window.initialize();
-    while (!window.destroyed()) {
-        plt::processEvents([&callback, &window]() { callback.draw(window); });
+    /*while (!window.destroyed()) {
+        plt::processEvents({}, [&callback, &window]() { callback.draw(window); });
         if (window.initialized())
             callback.draw(window);
     }
-    callback.draw(window);
+    callback.draw(window);*/
 }
 
 }
