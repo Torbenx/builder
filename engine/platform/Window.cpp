@@ -1,4 +1,5 @@
 #include "Window.hpp"
+#include "containers/AtomicArrayBuilder.hpp"
 #include "opengl/core.hpp"
 #include "platform/windows/WindowImpl.hpp"
 #include "util/log.hpp"
@@ -7,17 +8,18 @@
 
 namespace plt {
 
-evt::ExecutorImpl* coreExe() {
-    static evt::ExecutorImpl exe = {};
-    return &exe;
-}
 evt::dep::Source& processedEvents() {
     static evt::dep::Source source = {};
     return source;
 }
 
 void continueStartup(Window initialWindow) {
-    std::thread(evt::enterScheduler).detach();
+    int_t extraThreadCount = 10;
+    std::vector<std::thread> threads;
+    threads.reserve(extraThreadCount);
+    for (int_t i = 0; i < extraThreadCount; i++)
+        threads.emplace_back(evt::enterScheduler);
+
     evt::startScheduler(
         {
             &initialWindow,
@@ -26,9 +28,43 @@ void continueStartup(Window initialWindow) {
                     onInitialWindowConstructed(*window, scheduler);
                 else
                     onNoInitialWindow(scheduler);
+
+                VERIFY(Platform, !tickComplete().unlockForResult(evt::tick()));
             },
         },
         0);
+
+    for (std::thread& thread : threads)
+        thread.join();
+}
+
+namespace {
+    using CallbackQueue = AtomicArrayBuilder<evt::BasicCallback<>>;
+    AtomicArrayBuilder<CallbackQueue::TakeReturnTypeView> callbacksForNextTick;
+    evt::TickRingBuffer<CallbackQueue> queuedCallbacks;
+}
+void queueCallback(evt::BasicCallback<> callback) {
+    queuedCallbacks[evt::tick()].pushBack(callback);
+}
+
+evt::dep::Target& tickComplete() {
+    static evt::dep::Target target { [](evt::Scheduler scheduler) {
+        callbacksForNextTick.pushBack(queuedCallbacks[evt::tick()].take().take());
+        scheduler.tickComplete();
+    } };
+    return target;
+}
+
+void processEvents(evt::Scheduler scheduler, evt::BasicCallback<> callback) {
+    processEventsImpl(callback);
+    auto callbacks = callbacksForNextTick.take();
+    for (auto& list : *callbacks) {
+        for (evt::BasicCallback<> c : list)
+            c();
+        list.destroy();
+    }
+    coreExe()->execute();
+    processedEvents().signalTargets(scheduler);
 }
 
 }

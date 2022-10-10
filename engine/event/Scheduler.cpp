@@ -140,9 +140,7 @@ struct SchedulerImpl {
         lowestActiveTick.store(startTick, std::memory_order_relaxed);
         evt::setTick(startTick);
         if (item)
-            item.execute(this);
-        if (evt::tickComplete().unlockForResult(startTick))
-            return;
+            item(this);
         runWithPlatformCheck();
     }
 
@@ -202,24 +200,22 @@ struct SchedulerImpl {
                 updateIdle(false);
                 do {
                     evt::setTick(activeTick);
-                    item.execute(this);
+                    item(this);
                     volunteerNonActive();
                 } while ((item = localQueues[activeTick].tryPop()));
             } else {
                 if (++nothingCounter >= nothingsBeforeIdle) {
                     int_t nonIdle = updateIdle(true);
                     if (nonIdle == 0) {
-                        int_t lowest = lowestTick();
-                        if (evt::tickComplete().blockedFromInvalidSignal(lowest)) {
-                            setTick(lowest);
-                            return;
-                        }
-                        using namespace std::chrono_literals;
-                        std::this_thread::sleep_for(1ms);
+                        // check exit condition here...
                     }
+                    using namespace std::chrono_literals;
+                    std::this_thread::sleep_for(1ms);
                 }
             }
-            activeTick = std::min(activeTick + 1, lowestTick() + MAX_CONCURRENT_TICKS - 1);
+            // having activeTick = lowestTick + MAX_CONCURRENT_TICKS should be fine since
+            // the ring buffer has an extra element that should always be empty
+            activeTick = std::min(activeTick + 1, lowestTick() + MAX_CONCURRENT_TICKS);
             activeTick = std::min(activeTick, additionalCheck(this));
             checkForBetter();
             volunteerNonActive();
@@ -239,13 +235,14 @@ struct SchedulerImpl {
                 uint64_t nowTickAbsolute = getNanos() / nanosPerTick;
                 int_t lowest = lowestTick();
                 int_t returnTick = std::numeric_limits<int_t>::max();
+                [[maybe_unused]] int_t shouldBeTick = nowTickAbsolute - absoluteTickShift;
                 while (nowTickAbsolute > lastTickAbsolute) {
                     int_t tickToStart = lastTickAbsolute + 1 - absoluteTickShift;
                     if (tickToStart - lowest >= MAX_CONCURRENT_TICKS) {
-                        // log<Tag::Event>("failed to start tick {}, lowest is {}, should be at {}", tickToStart, lowest, nowTickAbsolute - absoluteTickShift);
+                        // log<Tag::Event>("failed to start tick {}, lowest is {}, should be at {}", tickToStart, lowest, shouldBeTick);
                         break;
                     }
-                    // log("starting tick {}, lowest is {}", tickToStart, lowest);
+                    // log("starting tick {}, lowest is {}, should be at {}", tickToStart, lowest, shouldBeTick);
 
                     evt::setTick(tickToStart);
                     plt::processEvents(scheduler, []() {});
@@ -275,6 +272,9 @@ struct SchedulerImpl {
 void Scheduler::schedule(Item item, int_t tick) {
     scheduler->schedule(item, tick);
 }
+void Scheduler::tickComplete(int_t tick) {
+    scheduler->tickComplete(tick);
+}
 
 void startScheduler(Item item, int_t startTick) {
     auto scheduler = SchedulerImpl {};
@@ -285,15 +285,42 @@ void enterScheduler() {
     scheduler.enter();
 }
 
-void Item::execute(Scheduler scheduler) const {
-    callback(data, scheduler);
 }
 
-dep::Target& tickComplete() {
-    static dep::Target target { [](Scheduler scheduler) {
-        scheduler.scheduler->tickComplete(evt::tick());
-    } };
-    return target;
+namespace evt::dep {
+
+void Target::completeTick(Scheduler scheduler) {
+    PerTick& thisTick = perTick[evt::tick()];
+    VERIFY(Event, thisTick.counter.load(std::memory_order_relaxed) == READY_COUNT);
+    dependencyCount += thisTick.countDiff.load(std::memory_order_relaxed);
+    VERIFY(Event, dependencyCount > 0);
+    thisTick.counter.store(0, std::memory_order_relaxed);
+    thisTick.countDiff.store(0, std::memory_order_relaxed);
+
+    unlock(scheduler, evt::tick() + 1);
+}
+
+void Dependency::destroy(Scheduler scheduler) {
+    if (source) {
+        source->removeDependency(scheduler, *signal.target, signal.tickShift);
+        source = nullptr;
+        signal = {};
+    }
+}
+
+[[nodiscard]] Dependency Source::createDependency(Target& target, int_t tickShift) {
+    Signal signal { &target, tickShift };
+    targets.push_back(signal);
+    target.incrementDependencyCount(1, evt::tick() + tickShift);
+    return { this, signal };
+}
+
+void Source::removeDependency(Scheduler scheduler, Target& target, int_t tickShift) {
+    Signal signal { &target, tickShift };
+    auto it = std::find(targets.begin(), targets.end(), signal);
+    VERIFY(Event, it != targets.end());
+    targets.erase(it);
+    target.decrementDependencyCount(scheduler, 1, evt::tick() + tickShift);
 }
 
 }

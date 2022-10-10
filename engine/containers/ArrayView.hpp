@@ -52,12 +52,6 @@ public:
     constexpr T* begin() const { return data(); }
     constexpr T* end() const { return data() + size(); }
 
-    void release() {
-        delete[] m_data;
-        m_data = nullptr;
-        m_size = 0;
-    }
-
 private:
     T* m_data = nullptr;
     int_t m_size = 0;

@@ -1,9 +1,8 @@
 #pragma once
 
-#include "containers/ArrayView.hpp"
+#include "ArrayView.hpp"
 #include "resource/Owned.hpp"
 #include <atomic>
-#include <cstring>
 #include <mutex>
 #include <shared_mutex>
 
@@ -33,25 +32,36 @@ public:
             item, [](uint32_t) {});
     }
 
-    Owned<ArrayView<T>> take(uint32_t payload = 0) {
+    struct TakeReturnTypeView : ArrayView<T> {
+        int_t capacity = 0;
+        void destroy() {
+            std::destroy_n(this->data(), this->size());
+            std::allocator<T>().deallocate(this->data(), capacity);
+        }
+    };
+    using TakeReturnType = Owned<TakeReturnTypeView>;
+    TakeReturnType take(uint32_t payload = 0) {
         std::unique_lock<std::shared_mutex> g(lock);
         int_t offset = this->offset.load(std::memory_order_relaxed);
         int_t size = std::min(offset, capacity);
-        ArrayView<T> ret = { storage, size };
+        TakeReturnTypeView ret = { { storage, size }, capacity };
 
         storage = nullptr;
         this->offset.store(0, std::memory_order_relaxed);
         capacity = 0;
         this->payload = payload;
 
-        return { ret };
+        return ret;
     }
 
     void clear(uint32_t payload = 0) { take(payload).release(); }
 
-    ~AtomicArrayBuilder() { delete[] storage; }
+    ~AtomicArrayBuilder() {
+        take();
+    }
 
 private:
+
     T* storage = nullptr;
     std::atomic<int_t> offset = 0;
     int_t capacity = 0;
@@ -67,7 +77,7 @@ private:
         std::allocator<T> allocator;
         T* newStorage = allocator.allocate(newCapacity);
 
-        std::copy(storage, storage + capacity, newStorage);
+        std::uninitialized_copy_n(storage, capacity, newStorage);
 
         allocator.deallocate(storage, capacity);
 

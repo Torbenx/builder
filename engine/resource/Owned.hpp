@@ -1,11 +1,12 @@
 #pragma once
 
+#include "event/Callable.hpp"
 #include "util/log.hpp"
 #include <utility>
 
 namespace Tag {
 struct Resources {
-    static constexpr char tag[] = "resources";
+    static constexpr char tag[] = "res";
     static constexpr bool verifyEnabled = true;
 };
 }
@@ -14,9 +15,6 @@ namespace detail {
 
 template<typename T>
 concept PtrReleasable = std::is_pointer_v<T>;
-
-template<typename T>
-concept SimpleReleasable = requires(T value) { value.release(); };
 
 template<typename T>
 struct IsMemberFunction {
@@ -29,13 +27,19 @@ struct IsMemberFunction<R (B::*)(Args...)> {
 template<typename T>
 concept HasOperatorArrow = IsMemberFunction<decltype(&T::operator->)>::value;
 
+template<typename T>
+concept HasDestroy = std::is_same_v<decltype(&T::destroy), void (T::*)()>;
+
+template<typename T>
+struct DefaultDestroyCall;
+template<HasDestroy T>
+struct DefaultDestroyCall<T> {
+    using type = evt::CallMember<&T::destroy>;
+};
+
 }
 
-template<typename T>
-concept Releasable = detail::PtrReleasable<T> || detail::SimpleReleasable<T>;
-
-template<typename T>
-requires Releasable<T>
+template<typename T, evt::BasicCallable<void, T&> DestroyCall = typename detail::DefaultDestroyCall<T>::type>
 class Owned {
 private:
     T value;
@@ -45,6 +49,8 @@ public:
         : value() { }
     Owned(const T& value)
         : value(value) { }
+    Owned(const T& value, const DestroyCall&)
+        : value(value) { }
     Owned(const Owned&) = delete;
     Owned(Owned&& other)
         : value(other.value) {
@@ -52,7 +58,7 @@ public:
     }
 
     void set(const T& newValue) {
-        release();
+        destroy();
         value = newValue;
     }
     Owned& operator=(const Owned&) = delete;
@@ -67,9 +73,13 @@ public:
     }
 
     T take() {
-        T ret(value);
+        T ret = value;
         value = {};
         return ret;
+    }
+
+    void destroy() {
+        DestroyCall {}(value);
     }
 
     const T* operator->() requires(!detail::HasOperatorArrow<T>) { return &value; }
@@ -77,16 +87,7 @@ public:
     const T& operator*() { return value; }
     const T& get() { return value; }
 
-    void release() requires detail::SimpleReleasable<T> {
-        value.release();
-    }
-
-    void release() requires detail::PtrReleasable<T> {
-        delete value;
-        value = nullptr;
-    }
-
     ~Owned() {
-        release();
+        destroy();
     }
 };

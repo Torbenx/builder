@@ -245,7 +245,7 @@ evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
     evt::dep::Dependency dependencies[] = {
         plt::processedEvents().createDependency(instance.doLayout),
         instance.outputComplete.createDependency(performDraw),
-        performDraw.createDependency(evt::tickComplete()),
+        performDraw.createDependency(plt::tickComplete()),
         performDraw.createNextTickDependency(instance.doLayout),
     };
     instance.doLayout.unlock(scheduler);
@@ -254,7 +254,20 @@ evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
     relayedWindow->startRelay(&instance.coreExe);
 
     ui::setInstance(&instance);
-    co_await (evt::OnExecutor(plt::coreExe()) && uiTestInit()->completion);
+    auto testScript = uiTestInit();
+    co_await testScript->completion;
+    evt::dep::Dependency d = instance.layoutComplete.createDependency(plt::tickComplete());
+    dependencies[1].destroy({});
+    dependencies[2].destroy({});
+    dependencies[3].destroy({});
+    co_await evt::SuspendAnd([](evt::ScriptHandle script) {
+        plt::queueCallback({
+            script.address(),
+            [](void* address) {
+                evt::ScriptHandle::fromAddress(address).handle.resume();
+            },
+        });
+    });
 }
 
 }

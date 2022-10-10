@@ -84,4 +84,18 @@ struct BinaryState {
     constexpr operator NodeType() const { return { {}, this }; }
 };
 
+template<typename Callback>
+struct SuspendAnd {
+    Callback callback {};
+    SuspendAnd() = default;
+    SuspendAnd(const Callback& callback)
+        : callback(callback) { }
+    bool await_ready() { return false; }
+    template<typename Promise>
+    void await_suspend(stdx::coroutine_handle<Promise> handle) {
+        callback(handle);
+    }
+    void await_resume() { }
+};
+
 }

@@ -9,8 +9,9 @@ namespace evt {
 
 constexpr int_t MAX_CONCURRENT_TICKS = 7;
 
+struct Scheduler;
 struct SchedulerImpl;
-struct SchedulingItem;
+using SchedulingItem = BasicCallback<Scheduler>;
 
 struct Scheduler {
     SchedulerImpl* scheduler = nullptr;
@@ -18,27 +19,8 @@ struct Scheduler {
     Scheduler(SchedulerImpl* scheduler)
         : scheduler(scheduler) { }
     void schedule(SchedulingItem, int_t tick = evt::tick());
+    void tickComplete(int_t tick = evt::tick());
     explicit operator bool() { return (bool)scheduler; }
-};
-
-struct SchedulingItem {
-    void (*callback)(void*, Scheduler) = nullptr;
-    void* data = nullptr;
-
-    SchedulingItem() = default;
-    template<typename Data, BasicCallable<void, Data*, Scheduler> Callback>
-    SchedulingItem(Data* data, const Callback& callback) {
-        setCallback(data, callback);
-    }
-    explicit operator bool() const { return (bool)callback; }
-    void execute(Scheduler scheduler) const;
-    template<typename Data, BasicCallable<void, Data*, Scheduler> Callback>
-    void setCallback(Data* data, const Callback&) {
-        this->data = data;
-        this->callback = [](void* data, Scheduler scheduler) {
-            Callback {}((Data*)data, scheduler);
-        };
-    }
 };
 
 void startScheduler(SchedulingItem, int_t startTick);
@@ -86,7 +68,7 @@ struct Target {
     template<Callable<Target, void, Scheduler> Callback>
     void setCallback(const Callback&) {
         schedulingItem.setCallback(this, [](Target* thiz, Scheduler scheduler) {
-            callWithSource<void, Scheduler>(Callback {}, thiz, scheduler);
+            callWithSource<void, Scheduler>(Callback {}, *thiz, scheduler);
             thiz->completeTick(scheduler);
         });
     }
@@ -100,16 +82,7 @@ struct Target {
             scheduler.schedule(schedulingItem, tick);
     }
 
-    void completeTick(Scheduler scheduler) {
-        PerTick& thisTick = perTick[evt::tick()];
-        VERIFY(Event, thisTick.counter.load(std::memory_order_relaxed) == READY_COUNT);
-        dependencyCount += thisTick.countDiff.load(std::memory_order_relaxed);
-        VERIFY(Event, dependencyCount > 0);
-        thisTick.counter.store(0, std::memory_order_relaxed);
-        thisTick.countDiff.store(0, std::memory_order_relaxed);
-
-        unlock(scheduler, evt::tick() + 1);
-    }
+    void completeTick(Scheduler scheduler);
 
     void incrementDependencyCount(cnt_t count = 1, int_t tick = evt::tick()) {
         VERIFY(Event, count >= 0);
@@ -183,25 +156,14 @@ struct Source {
     Source() = default;
     Source(const Source&) = delete;
 
-   [[nodiscard]] Dependency createDependency(Target& target, int_t tickShift) {
-        Signal signal { &target, tickShift };
-        targets.push_back(signal);
-        target.incrementDependencyCount(1, evt::tick() + tickShift);
-        return { this, signal };
-    }
+    [[nodiscard]] Dependency createDependency(Target& target, int_t tickShift);
     [[nodiscard]] Dependency createDependency(Target& target) {
         return createDependency(target, 0);
     }
     [[nodiscard]] Dependency createNextTickDependency(Target& target) {
         return createDependency(target, 1);
     }
-    void removeDependency(Scheduler scheduler, Target& target, int_t tickShift) {
-        Signal signal { &target, tickShift };
-        auto it = std::find(targets.begin(), targets.end(), signal);
-        VERIFY(Event, it != targets.end());
-        targets.erase(it);
-        target.decrementDependencyCount(scheduler, 1, evt::tick() + tickShift);
-    }
+    void removeDependency(Scheduler scheduler, Target& target, int_t tickShift);
     void removeDependency(Scheduler scheduler, Target& target) {
         removeDependency(scheduler, target, 0);
     }
@@ -215,14 +177,6 @@ struct Source {
     }
 };
 
-inline void Dependency::destroy(Scheduler scheduler) {
-    if (source) {
-        source->removeDependency(scheduler, *signal.target, signal.tickShift);
-        source = nullptr;
-        signal = {};
-    }
-}
-
 template<typename Callback>
 struct SimpleTarget : Target {
     SimpleTarget() {
@@ -231,7 +185,7 @@ struct SimpleTarget : Target {
 
     void tailSignal(Scheduler scheduler) {
         if (applySignalForResult()) {
-            callWithSource<void, Scheduler>(Callback {}, this, scheduler);
+            callWithSource<void, Scheduler>(Callback {}, *this, scheduler);
             completeTick(scheduler);
         }
     }
@@ -248,13 +202,11 @@ struct Task : dep::Source, dep::Target {
     }
     template<Callable<Task, void, Scheduler> Callback>
     void setCallback(const Callback&) {
-        Target::setCallback(withDerived<Task>([](Task* thiz, Scheduler scheduler) {
+        Target::setCallback(withDerived<Task>([](Task& thiz, Scheduler scheduler) {
             callWithSource<void, Scheduler>(Callback {}, thiz, scheduler);
-            thiz->signalTargets(scheduler);
+            thiz.signalTargets(scheduler);
         }));
     }
 };
-
-dep::Target& tickComplete();
 
 }

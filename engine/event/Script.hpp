@@ -33,8 +33,13 @@ struct ScriptHandle {
     ScriptHandle(stdx::coroutine_handle<Promise> handle)
         : handle(stdx::coroutine_handle<ScriptPromise>::from_address(handle.address())) { }
 
+    static ScriptHandle fromAddress(void* address) {
+        return stdx::coroutine_handle<ScriptPromise>::from_address(address);
+    }
+
     stdx::coroutine_handle<ScriptPromise> handle = {};
 
+    void* address() const { return handle.address(); }
     ScriptPromise* promise() const { return &handle.promise(); }
     ScriptPromise* operator->() const { return promise(); }
     ScriptPromise& operator*() const { return *promise(); }

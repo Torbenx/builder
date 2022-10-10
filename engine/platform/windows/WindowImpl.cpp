@@ -5,7 +5,7 @@
 namespace plt::windows {
 
 namespace {
-    std::function<void()> processEventsCallback;
+    evt::BasicCallback<> processEventsCallback;
 }
 
 ui::IntVec WindowImpl::calculateWindowSize() {
@@ -194,7 +194,7 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
 namespace plt {
 
-void processEvents(evt::Scheduler scheduler, std::function<void()> callback) {
+void processEventsImpl(evt::BasicCallback<> callback) {
     windows::processEventsCallback = std::move(callback);
     MSG msg;
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -202,9 +202,7 @@ void processEvents(evt::Scheduler scheduler, std::function<void()> callback) {
             break;
         DispatchMessage(&msg);
     }
-    coreExe()->execute();
-    windows::processEventsCallback = nullptr;
-    processedEvents().signalTargets(scheduler);
+    windows::processEventsCallback = {};
 }
 
 }

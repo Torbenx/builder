@@ -1,5 +1,6 @@
 #pragma once
 
+#include "event/Callable.hpp"
 #include "event/Window.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
@@ -10,6 +11,10 @@
 namespace Tag {
 struct Window {
     static constexpr char tag[] = "window";
+    static constexpr bool verifyEnabled = true;
+};
+struct Platform {
+    static constexpr char tag[] = "platform";
     static constexpr bool verifyEnabled = true;
 };
 }
@@ -66,8 +71,12 @@ protected:
 
 evt::ExecutorImpl* coreExe();
 evt::dep::Source& processedEvents();
+evt::dep::Target& tickComplete();
 void continueStartup(Window initialWindow);
-void processEvents(evt::Scheduler, std::function<void()>);
+void processEvents(evt::Scheduler, evt::BasicCallback<>);
+void processEventsImpl(evt::BasicCallback<>);
+
+void queueCallback(evt::BasicCallback<>);
 
 }
 
