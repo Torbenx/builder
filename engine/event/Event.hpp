@@ -1,8 +1,9 @@
 #pragma once
 
+#include "Awaitable.hpp"
 #include "CompiledCondition.hpp"
-#include "containers/Tuple.hpp"
 #include "Scheduler.hpp"
+#include "containers/Tuple.hpp"
 
 namespace evt {
 
@@ -81,7 +82,7 @@ template<typename... Es>
 struct RelayOutputPromise : RelayPromise {
     stx::Tuple<EventRingBuffer<Es>...> buffers;
     stx::Tuple<EventSource<Es>...> outputs;
-    RelayOutputPromise(RelayOutputPromise*& promise) { promise = this; }
+    RelayOutputPromise(stx::int_sequence_for<Es...>, RelayOutputPromise*& promise) { promise = this; }
     auto handle() { return stdx::coroutine_handle<RelayOutputPromise>::from_promise(*this); }
     RelayOutputPromise* get_return_object() { return this; }
     void startRelay(Executor* exe) { RelayPromise::startRelay(exe, handle()); }
@@ -106,10 +107,18 @@ struct RelayOutputPromise : RelayPromise {
     const auto& buffer() const { return stx::get<i>(buffers); }
 
     template<typename E>
+    std::vector<E> takeEvents() {
+        return std::move(buffer<E>()[tick()]);
+    }
+    template<typename E>
     std::vector<E> sendEvents() {
         std::vector<E> events = std::move(buffer<E>()[tick()]);
         output<E>().sendEvents(events);
         return events;
+    }
+    template<int_t i>
+    auto takeEvents() {
+        return std::move(buffer<i>()[tick()]);
     }
     template<int_t i>
     auto sendEvents() {
@@ -128,7 +137,7 @@ RelayOutputPromise<Es...>* broadcastEvents(stx::int_sequence<I...>, RelayOutputP
     }
 }
 template<typename... Es, int_t... I>
-Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, EventSource<Es>&... sources) {
+Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, const EventSource<Es>&... sources) {
     while (true) {
         stx::Tuple<EventReceiver<Es>...> receivers;
         co_await ((sources > stx::get<I>(receivers)) || ...);
@@ -137,8 +146,8 @@ Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, 
     }
 }
 template<typename... Es>
-RelayOutputPromise<Es...>* relayEvents(EventSource<Es>&... sources) {
-    RelayOutputPromise<Es...>* output = broadcastEvents<Es...>();
+RelayOutputPromise<Es...>* relayEvents(const EventSource<Es>&... sources) {
+    RelayOutputPromise<Es...>* output = broadcastEvents<Es...>(stx::int_sequence_for<Es...>());
     recordEvents(output, stx::int_sequence_for<Es...>(), sources...);
     return output;
 }

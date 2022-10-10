@@ -21,13 +21,15 @@ struct OnExecutor {
     constexpr operator NodeType() const { return { {}, executor }; }
 };
 
-struct Defer {
+struct NextTick {
     struct NodeType : TmplLeafNode<NodeType> {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
         Executor* executor = nullptr;
         void commit(Signal signal) {
             executor = signal.script->executor;
+            if (!executor)
+                executor = evt::currentExecutor();
             signal.script->executor = &static_cast<ExecutorImpl*>(executor)->nextTick;
             signal.send();
         }
@@ -35,6 +37,7 @@ struct Defer {
             script->executor = executor;
         }
     };
+    constexpr operator NodeType() const { return {}; }
 };
 
 using MonoConditionNamed = NamedCondition<"monoCondition">;

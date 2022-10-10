@@ -3,38 +3,37 @@
 #include "platform/Window.hpp"
 #include "util/time.hpp"
 #include <atomic>
+#include <thread>
 
 namespace evt {
 namespace {
 
     using Item = SchedulingItem;
 
-    class Block {
-    private:
+    struct BlockData {
         Item* allocBegin = nullptr;
         Item* m_begin = nullptr;
         Item* m_end = nullptr;
         Item* allocEnd = nullptr;
-
-        void clearFields() {
-            allocBegin = nullptr;
-            m_begin = nullptr;
-            m_end = nullptr;
-            allocEnd = nullptr;
+    };
+    class Block : private BlockData {
+    private:
+        void setData(BlockData data) {
+            *(BlockData*)this = data;
         }
-        void stealFieldsFrom(Block& other) {
-            allocBegin = other.allocBegin;
-            m_begin = other.m_begin;
-            m_end = other.m_end;
-            allocEnd = other.allocEnd;
-            other.clearFields();
+        void stealDataFrom(Block& other) {
+            setData(other);
+            other.setData({});
         }
         void maybeDeallocate() {
             std::allocator<Item>().deallocate(allocBegin, allocSize());
         }
         int_t allocSize() const { return allocEnd - allocBegin; }
+        Block(const BlockData& data)
+            : BlockData(data) { }
 
     public:
+        static Block adoptData(BlockData data) { return Block(data); }
         Item* begin() { return m_begin; }
         Item* end() { return m_end; }
         int_t size() { return end() - begin(); }
@@ -53,7 +52,7 @@ namespace {
         Block() = default;
         Block(const Block&) = delete;
         Block(Block&& other) {
-            stealFieldsFrom(other);
+            stealDataFrom(other);
         }
         Block(int_t capacity) {
             allocBegin = std::allocator<Item>().allocate(capacity);
@@ -63,8 +62,13 @@ namespace {
         }
         Block& operator=(Block&& other) {
             maybeDeallocate();
-            stealFieldsFrom(other);
+            stealDataFrom(other);
             return *this;
+        }
+        BlockData takeData() {
+            BlockData data = *this;
+            setData({});
+            return data;
         }
         ~Block() {
             VERIFY(Event, empty());
@@ -106,114 +110,161 @@ namespace {
     };
 
     struct GlobalQueue {
-        struct QueueItem : AtomicQueueItem<QueueItem> {
-            QueueItem(Block&& block)
-                : block(std::move(block)) { }
-            Block block;
-        };
-        AtomicQueue<QueueItem> m_queue;
+        AtomicQueue<BlockData> m_queue;
         Block tryPop() {
-            QueueItem* qItem = m_queue.popFront();
-            Block ret = std::move(qItem->block);
-            delete qItem;
-            return ret;
+            std::optional<BlockData> block = m_queue.tryPopFront();
+            if (!block.has_value())
+                return {};
+            return Block::adoptData(block.value());
         }
         void queue(Block&& block) {
-            QueueItem* qItem = new QueueItem { std::move(block) };
-            m_queue.pushBack(qItem);
+            m_queue.pushBack(block.takeData());
         }
     };
 }
 
 struct SchedulerImpl {
     static constinit inline std::atomic<int_t> lowestActiveTick = 1;
-    static inline GlobalQueue globalQueues[MAX_CONCURRENT_TICKS] = {};
+    static constinit inline std::atomic<int_t> nonIdleThreads = 0;
+    static inline TickRingBuffer<GlobalQueue> globalQueues = {};
+    static int_t lowestTick() { return lowestActiveTick.load(std::memory_order_relaxed); }
 
-    LocalQueue localQueues[MAX_CONCURRENT_TICKS] = {};
-    LocalQueue& localQueue(int_t tick) {
-        return localQueues[(size_t)tick % MAX_CONCURRENT_TICKS];
-    }
-    GlobalQueue& globalQueue(int_t tick) {
-        return globalQueues[(size_t)tick & MAX_CONCURRENT_TICKS];
-    }
-
-    bool checkForBetter() {
-        int_t lowestTick = lowestActiveTick.load(std::memory_order_relaxed);
-        int_t activeTick = evt::tick();
-        for (int_t i = lowestTick; i < activeTick; i++) {
-            Block newBlock = globalQueue(i).tryPop();
-            if (newBlock.empty())
-                continue;
-
-            VERIFY(Event, localQueue(i).empty());
-            localQueue(i).setBlock(std::move(newBlock));
-
-            Block oldBlock = localQueue(activeTick).takeBlock();
-            if (!oldBlock.empty())
-                globalQueue(activeTick).queue(std::move(oldBlock));
-
-            activeTick = i;
-            return true;
-        }
-        return false;
-    }
-
-    void volunteerNonActive() {
-        int_t activeTick = evt::tick();
-        for (int_t i = activeTick; i < activeTick + MAX_CONCURRENT_TICKS - 1; i++) {
-            Block block = localQueue(i).takeBlock();
-            if (!block.empty())
-                globalQueue(i).queue(std::move(block));
-        }
-    }
+    TickRingBuffer<LocalQueue> localQueues = {};
 
     void schedule(Item item, int_t tick) {
         VERIFY(Event, tick >= evt::tick());
-        localQueue(tick).queue(item);
+        localQueues[tick].queue(item);
     }
 
-    void run(Item item, int_t startTick) {
+    void start(Item item, int_t startTick) {
         lowestActiveTick.store(startTick, std::memory_order_relaxed);
         evt::setTick(startTick);
         if (item)
             item.execute(this);
-        evt::tickComplete().unlock(this, startTick);
+        if (evt::tickComplete().unlockForResult(startTick))
+            return;
+        runWithPlatformCheck();
+    }
 
-        const int_t ticksPerSecond = 100;
-        const int_t nanosPerSecond = 1'000'000'000;
-        const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
-        uint64_t startTickAbsolute = getNanos() / nanosPerTick;
-        uint64_t absoluteTickShift = startTickAbsolute - startTick;
-        uint64_t lastTickAbsolute = startTickAbsolute - 1;
+    void enter() {
+        runWithNoOpCheck();
+    }
 
-        while (true) {
-            int_t lowestTick = lowestActiveTick.load(std::memory_order_relaxed);
-            for (int_t i = lowestTick; i < lowestTick + MAX_CONCURRENT_TICKS; i++) {
-                auto& queue = localQueue(i);
-                evt::setTick(i);
-                while (Item item = queue.tryPop())
-                    item.execute(this);
+    template<typename AdditionalCheck>
+    void run(AdditionalCheck additionalCheck) {
+        // localQueues valid for [lowestTick, lowestTick + MAX_CONCURRENT_TICKS)
+        // and empty for [lowestTick, activeTick)
+        int_t activeTick = lowestTick();
+        auto checkForBetter = [&]() {
+            for (int_t i = lowestTick(); i < activeTick; i++) {
+                Block newBlock = globalQueues[i].tryPop();
+                if (newBlock.empty())
+                    continue;
+
+                VERIFY(Event, localQueues[i].empty());
+                localQueues[i].setBlock(std::move(newBlock));
+                activeTick = i;
+                break;
             }
-
-            uint64_t nowTickAbsolute = getNanos() / nanosPerTick;
-            while (nowTickAbsolute > lastTickAbsolute) {
-                int_t tickToStart = lastTickAbsolute + 1 - absoluteTickShift;
-                if (tickToStart - lowestTick >= MAX_CONCURRENT_TICKS) {
-                    log<Tag::Event>("failed to start tick {}, lowest is {}, should be at {}", tickToStart, lowestTick, nowTickAbsolute - absoluteTickShift);
-                    break;
+        };
+        auto volunteerNonActive = [&]() {
+            int_t lowest = lowestTick();
+            for (int_t i = activeTick + 1; i < lowest + MAX_CONCURRENT_TICKS; i++) {
+                Block block = localQueues[i].takeBlock();
+                if (!block.empty()) {
+                    globalQueues[i].queue(std::move(block));
                 }
-                log("starting tick {}, lowest is {}", tickToStart, lowestTick);
-
-                evt::setTick(tickToStart);
-                plt::processEvents(this, []() {});
-
-                lastTickAbsolute += 1;
             }
+        };
+        auto updateIdle = [idleState = true](bool idle) mutable -> int_t {
+            if (idle && !idleState) {
+                idleState = true;
+                return nonIdleThreads.fetch_sub(1, std::memory_order_relaxed) - 1;
+            }
+            if (!idle && idleState) {
+                idleState = false;
+                return nonIdleThreads.fetch_add(1, std::memory_order_relaxed) + 1;
+            }
+            return nonIdleThreads.load(std::memory_order_relaxed);
+        };
+        int_t nothingCounter = 0;
+        static constexpr int_t nothingsBeforeIdle = 100;
+        while (true) {
+            /*{
+                int_t lowest = lowestTick();
+                log<Tag::Event>("lowest = {}, active = {}", lowest, activeTick);
+                for (int_t i = lowest; i < lowest + MAX_CONCURRENT_TICKS; i++)
+                    log<Tag::Event>("{}: {} item(s) waiting", i, localQueues[i].size());
+            }*/
+            Item item = localQueues[activeTick].tryPop();
+            if (item) {
+                nothingCounter = 0;
+                updateIdle(false);
+                do {
+                    evt::setTick(activeTick);
+                    item.execute(this);
+                    volunteerNonActive();
+                } while ((item = localQueues[activeTick].tryPop()));
+            } else {
+                using namespace std::chrono_literals;
+                if (++nothingCounter >= nothingsBeforeIdle) {
+                    int_t nonIdle = updateIdle(true);
+                    if (nonIdle == 0) {
+                        if (evt::tickComplete().blockedFromInvalidSignal(lowestTick())) {
+                            return;
+                        }
+                        std::this_thread::sleep_for(1ms);
+                    }
+                }
+            }
+            activeTick = std::min(activeTick + 1, lowestTick() + MAX_CONCURRENT_TICKS - 1);
+            activeTick = std::min(activeTick, additionalCheck(this));
+            checkForBetter();
+            volunteerNonActive();
         }
     }
 
+    void runWithPlatformCheck() {
+        struct Check {
+            const int_t ticksPerSecond = 100;
+            const int_t nanosPerSecond = 1'000'000'000;
+            const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
+            uint64_t startTickAbsolute = getNanos() / nanosPerTick;
+            uint64_t absoluteTickShift = startTickAbsolute - evt::tick();
+            uint64_t lastTickAbsolute = startTickAbsolute - 1;
+
+            int_t operator()(Scheduler scheduler) {
+                uint64_t nowTickAbsolute = getNanos() / nanosPerTick;
+                int_t lowest = lowestTick();
+                int_t returnTick = std::numeric_limits<int_t>::max();
+                while (nowTickAbsolute > lastTickAbsolute) {
+                    int_t tickToStart = lastTickAbsolute + 1 - absoluteTickShift;
+                    if (tickToStart - lowest >= MAX_CONCURRENT_TICKS) {
+                        // log<Tag::Event>("failed to start tick {}, lowest is {}, should be at {}", tickToStart, lowest, nowTickAbsolute - absoluteTickShift);
+                        break;
+                    }
+                    // log("starting tick {}, lowest is {}", tickToStart, lowest);
+
+                    evt::setTick(tickToStart);
+                    plt::processEvents(scheduler, []() {});
+
+                    lastTickAbsolute += 1;
+                    returnTick = std::min(tickToStart, returnTick);
+                }
+                return returnTick;
+            }
+        };
+        run<Check>({});
+    }
+
+    void runWithNoOpCheck() {
+        run([](Scheduler) -> int_t {
+            return std::numeric_limits<int_t>::max();
+        });
+    }
+
     void tickComplete(int_t tick) {
-        VERIFY(Event, localQueue(tick).empty());
+        VERIFY(Event, localQueues[tick].empty());
         int_t prevLowest = lowestActiveTick.fetch_add(1, std::memory_order_relaxed);
         EXPECT(Event, prevLowest, tick);
     }
@@ -223,9 +274,13 @@ void Scheduler::schedule(Item item, int_t tick) {
     scheduler->schedule(item, tick);
 }
 
-void runScheduler(Item item, int_t startTick) {
-    SchedulerImpl scheduler = SchedulerImpl {};
-    scheduler.run(item, startTick);
+void startScheduler(Item item, int_t startTick) {
+    auto scheduler = SchedulerImpl {};
+    scheduler.start(item, startTick);
+}
+void enterScheduler() {
+    auto scheduler = SchedulerImpl {};
+    scheduler.enter();
 }
 
 void Item::execute(Scheduler scheduler) const {

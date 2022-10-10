@@ -110,9 +110,9 @@ void Instance::dumpShiftSizes() {
 }
 
 void Instance::doTick(evt::Scheduler scheduler) {
-    evt::setCurrentExecutor(&coreExe);
+    // VDUMP((bool)destroyed());
+    setInstance(this);
     coreExe.execute();
-    evt::setCurrentExecutor(nullptr);
 
     for (int_t i = 0; i < styleConsumerUpdates.size(); i++) {
         auto& updates = styleConsumerUpdates[i];

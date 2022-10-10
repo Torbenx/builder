@@ -3,6 +3,7 @@
 #include "platform/windows/WindowImpl.hpp"
 #include "util/log.hpp"
 #include "util/target.hpp"
+#include <thread>
 
 namespace plt {
 
@@ -16,7 +17,8 @@ evt::dep::Source& processedEvents() {
 }
 
 void continueStartup(Window initialWindow) {
-    evt::runScheduler(
+    std::thread(evt::enterScheduler).detach();
+    evt::startScheduler(
         {
             &initialWindow,
             [](Window* window, evt::Scheduler scheduler) {
@@ -26,7 +28,7 @@ void continueStartup(Window initialWindow) {
                     onNoInitialWindow(scheduler);
             },
         },
-        1);
+        0);
 }
 
 }

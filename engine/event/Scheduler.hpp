@@ -7,7 +7,7 @@
 
 namespace evt {
 
-constexpr int_t MAX_CONCURRENT_TICKS = 8;
+constexpr int_t MAX_CONCURRENT_TICKS = 7;
 
 struct SchedulerImpl;
 struct SchedulingItem;
@@ -18,6 +18,7 @@ struct Scheduler {
     Scheduler(SchedulerImpl* scheduler)
         : scheduler(scheduler) { }
     void schedule(SchedulingItem, int_t tick = evt::tick());
+    explicit operator bool() { return (bool)scheduler; }
 };
 
 struct SchedulingItem {
@@ -40,7 +41,8 @@ struct SchedulingItem {
     }
 };
 
-void runScheduler(SchedulingItem, int_t startTick);
+void startScheduler(SchedulingItem, int_t startTick);
+void enterScheduler();
 
 template<typename T, int_t N>
 struct RingBuffer {
@@ -50,7 +52,7 @@ struct RingBuffer {
     constexpr const T& operator[](int_t i) const { return storage[index(i)]; }
 };
 template<typename T>
-using TickRingBuffer = RingBuffer<T, MAX_CONCURRENT_TICKS>;
+using TickRingBuffer = RingBuffer<T, MAX_CONCURRENT_TICKS + 1>;
 
 }
 
@@ -59,6 +61,7 @@ namespace evt::dep {
 using cnt_t = int16_t;
 constexpr cnt_t READY_COUNT = std::numeric_limits<cnt_t>::max();
 constexpr cnt_t COUNT_BOUND = ((int_t)READY_COUNT + 1) / 2;
+constexpr cnt_t INVALID_SIGNAL_INCREMENT = COUNT_BOUND / 2;
 
 struct Target {
     struct PerTick {
@@ -88,8 +91,14 @@ struct Target {
         });
     }
 
+    bool unlockForResult(int_t tick = evt::tick()) {
+        VERIFY(Event, dependencyCount > 0);
+        return applySignalForResult(READY_COUNT - dependencyCount, tick);
+    }
     void unlock(Scheduler scheduler, int_t tick = evt::tick()) {
-        applySignal(scheduler, READY_COUNT - dependencyCount, tick);
+        VERIFY(Event, (bool)scheduler);
+        if (unlockForResult(tick))
+            scheduler.schedule(schedulingItem, tick);
     }
 
     void completeTick(Scheduler scheduler) {
@@ -102,15 +111,15 @@ struct Target {
         unlock(scheduler, evt::tick() + 1);
     }
 
-    void incrementDependencyCount(cnt_t count = 1) {
+    void incrementDependencyCount(cnt_t count = 1, int_t tick = evt::tick()) {
         VERIFY(Event, count >= 0);
-        auto& tick = perTick[evt::tick()];
-        tick.countDiff.fetch_add(count, std::memory_order_relaxed);
-        tick.counter.fetch_sub(count, std::memory_order_seq_cst);
+        auto& thisTick = perTick[tick];
+        thisTick.countDiff.fetch_add(count, std::memory_order_relaxed);
+        thisTick.counter.fetch_sub(count, std::memory_order_seq_cst);
     }
-    void decrementDependencyCount(Scheduler scheduler, cnt_t count = 1) {
-        perTick[evt::tick()].countDiff.fetch_sub(count, std::memory_order_relaxed);
-        applySignal(scheduler, count, evt::tick());
+    void decrementDependencyCount(Scheduler scheduler, cnt_t count = 1, int_t tick = evt::tick()) {
+        perTick[tick].countDiff.fetch_sub(count, std::memory_order_relaxed);
+        applySignal(scheduler, count, tick);
     }
 
     bool applySignalForResult(cnt_t count = 1, int_t tick = evt::tick()) {
@@ -119,32 +128,100 @@ struct Target {
         return i == READY_COUNT;
     }
     void applySignal(Scheduler scheduler, cnt_t count = 1, int_t tick = evt::tick()) {
-        if (applySignalForResult(count, tick))
-            scheduler.schedule(schedulingItem, tick);
+        if (applySignalForResult(count, tick)) {
+            if (scheduler)
+                scheduler.schedule(schedulingItem, tick);
+            else
+                perTick[tick].counter.fetch_add(INVALID_SIGNAL_INCREMENT, std::memory_order_seq_cst);
+        }
+    }
+    bool blockedFromInvalidSignal(int_t tick) const {
+        return perTick[tick].counter.load(std::memory_order_relaxed) == (cnt_t)(READY_COUNT + INVALID_SIGNAL_INCREMENT);
+    }
+    ~Target() {
+        VERIFY(Event, blockedFromInvalidSignal(evt::tick()));
+    }
+};
+
+struct Signal {
+    Target* target = nullptr;
+    int_t tickShift = 0;
+    bool operator==(const Signal&) const = default;
+};
+struct Source;
+struct Dependency {
+    Source* source = nullptr;
+    Signal signal = {};
+
+    Dependency() = default;
+    Dependency(Source* source, Signal signal)
+        : source(source), signal(signal) { }
+    Dependency(const Dependency&) = delete;
+    Dependency(Dependency&& other)
+        : source(other.source), signal(other.signal) {
+        other.source = nullptr;
+        other.signal = {};
+    }
+    ~Dependency() { destroy({}); }
+    Dependency& operator=(Dependency&& other) {
+        destroy({});
+        source = other.source;
+        signal = other.signal;
+        other.source = nullptr;
+        other.signal = {};
+        return *this;
+    }
+    void destroy(Scheduler);
+    void leak() {
+        source = nullptr;
+        signal = {};
     }
 };
 
 struct Source {
-    std::vector<Target*> targets;
+    std::vector<Signal> targets;
     Source() = default;
     Source(const Source&) = delete;
 
-    void createDependency(Target& target) {
-        targets.push_back(&target);
-        target.incrementDependencyCount();
+   [[nodiscard]] Dependency createDependency(Target& target, int_t tickShift) {
+        Signal signal { &target, tickShift };
+        targets.push_back(signal);
+        target.incrementDependencyCount(1, evt::tick() + tickShift);
+        return { this, signal };
     }
-    void removeDependency(Scheduler scheduler, Target& target) {
-        auto it = std::find(targets.begin(), targets.end(), &target);
+    [[nodiscard]] Dependency createDependency(Target& target) {
+        return createDependency(target, 0);
+    }
+    [[nodiscard]] Dependency createNextTickDependency(Target& target) {
+        return createDependency(target, 1);
+    }
+    void removeDependency(Scheduler scheduler, Target& target, int_t tickShift) {
+        Signal signal { &target, tickShift };
+        auto it = std::find(targets.begin(), targets.end(), signal);
         VERIFY(Event, it != targets.end());
         targets.erase(it);
-        target.decrementDependencyCount(scheduler);
+        target.decrementDependencyCount(scheduler, 1, evt::tick() + tickShift);
+    }
+    void removeDependency(Scheduler scheduler, Target& target) {
+        removeDependency(scheduler, target, 0);
+    }
+    void removeNextTickDependency(Scheduler scheduler, Target& target) {
+        removeDependency(scheduler, target, 1);
     }
 
     void signalTargets(Scheduler scheduler) {
-        for (Target* target : targets)
-            target->applySignal(scheduler);
+        for (auto target : targets)
+            target.target->applySignal(scheduler, 1, evt::tick() + target.tickShift);
     }
 };
+
+inline void Dependency::destroy(Scheduler scheduler) {
+    if (source) {
+        source->removeDependency(scheduler, *signal.target, signal.tickShift);
+        source = nullptr;
+        signal = {};
+    }
+}
 
 template<typename Callback>
 struct SimpleTarget : Target {

@@ -85,9 +85,11 @@ struct Executor {
 struct ExecutorImpl : Executor {
     Executor nextTick;
     void execute() {
+        setCurrentExecutor(this);
         for (int_t i = 0; i < (int_t)handles.size(); i++)
             handles[i].resume();
         handles = std::move(nextTick.handles);
+        setCurrentExecutor(nullptr);
     }
 };
 

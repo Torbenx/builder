@@ -1,51 +1,63 @@
 #pragma once
 
+#include "ArrayView.hpp"
 #include <atomic>
-#include <concepts>
+#include <optional>
 
 template<typename T>
-struct AtomicQueueItem {
-    std::atomic<T*> next = nullptr;
-};
-
-template<typename T>
-concept AtomicQueueable = std::derived_from<T, AtomicQueueItem<T>>;
-
-template<AtomicQueueable T>
 class AtomicQueue {
+private:
+    struct Item {
+        std::atomic<Item*> next = nullptr;
+        T value;
+    };
+
 public:
-    AtomicQueue()
-        : initial(nullptr), head(&initial), tail(&initial) { }
-
-    T* popFront() {
-        std::atomic<T*>* oldHead = head.load(std::memory_order_relaxed);
-        while (true) {
-            T* t = oldHead->load(std::memory_order_seq_cst);
-            if (t && head.compare_exchange_weak(oldHead, &(t->next), std::memory_order_relaxed)) {
-                return t;
-            }
-        }
+    AtomicQueue() {
+        Item* initialItem = new Item {};
+        head.store(initialItem, std::memory_order_relaxed);
+        tail.store(initialItem, std::memory_order_relaxed);
     }
-
-    void pushBack(T* t) {
-        t->next.store(nullptr, std::memory_order_relaxed);
-        std::atomic<T*>* oldTail = tail.exchange(&(t->next), std::memory_order_relaxed);
-        oldTail->store(t, std::memory_order_seq_cst);
-    }
-
-    void pushBack(AtomicQueue* l) {
-        std::atomic<T*>* oldTail = tail.exchange(l->tail.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        oldTail->store(l->head.load(std::memory_order_relaxed)->load(std::memory_order_acquire), std::memory_order_release);
-    }
-
-    void clear() {
-        initial.store(nullptr, std::memory_order_relaxed);
-        tail.store(&initial);
-        head.store(&initial);
+    ~AtomicQueue() {
+        Item* head = this->head.load(std::memory_order_relaxed);
+        Item* tail = this->tail.load(std::memory_order_relaxed);
+        VERIFY(Containers, head == tail);
+        delete head;
     }
 
 private:
-    std::atomic<T*> initial;
-    std::atomic<std::atomic<T*>*> head;
-    std::atomic<std::atomic<T*>*> tail;
+    std::optional<T> tryReplaceHead(Item*& oldHead) {
+        Item* item = oldHead->next.load(std::memory_order_seq_cst);
+        if (item) {
+            T copy = item->value;
+            if (head.compare_exchange_weak(oldHead, item, std::memory_order_relaxed)) {
+                delete oldHead;
+                return copy;
+            }
+        }
+        return {};
+    }
+
+public:
+    T popFront() {
+        Item* oldHead = head.load(std::memory_order_relaxed);
+        while (true) {
+            if (std::optional<T> ret = tryReplaceHead(oldHead))
+                return ret.value();
+        }
+    }
+    std::optional<T> tryPopFront() {
+        Item* oldHead = head.load(std::memory_order_relaxed);
+        return tryReplaceHead(oldHead);
+    }
+
+    void pushBack(T value) {
+        Item* item = new Item { nullptr, std::move(value) };
+        Item* oldTail = tail.exchange(item, std::memory_order_relaxed);
+        oldTail->next.store(item, std::memory_order_seq_cst);
+    }
+
+private:
+    std::atomic<Item*> head = nullptr;
+    std::atomic<Item*> tail = nullptr;
 };

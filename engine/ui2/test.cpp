@@ -101,8 +101,8 @@ evt::Script uiTestInit() {
 
     {
         auto& boxStyle = box1.padded().mutateLocal();
-        boxStyle.get<ui::Padding>().x() = 10_px;
-        boxStyle.get<ui::Padding>().y() = 30_px;
+        boxStyle.get<ui::Padding>().x() = 0_px;
+        boxStyle.get<ui::Padding>().y() = 0_px;
         auto& style = box1.renderer().mutateLocal();
         style.get<Channel1>() = ColorChannel::Red;
     }
@@ -121,28 +121,34 @@ struct PerformDrawTask : evt::Task {
     ui::TextureHandle atlas;
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
+    evt::RelayOutputPromise<evt::ResizeEvent>* resizeRelay;
 
     PerformDrawTask(ui::Instance& instance, plt::Window nativeWindow)
         : Task { evt::CallDerivedMember<&PerformDrawTask::draw>() }
         , instance(instance)
-        , nativeWindow(nativeWindow) { }
-
-    void resize() {
-        ui::IntVec windowBlockSize = (instance.dimensions() + 15) / 16;
-        frameSize = windowBlockSize * 16;
-        framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
+        , nativeWindow(nativeWindow)
+        , resizeRelay(evt::relayEvents(instance.resizeEvent())) {
     }
 
     uint64_t lastFrame = 0;
     int_t frames = 0;
+    uint64_t totalDrawTime = 0;
     void draw(evt::Scheduler) {
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
+            log("FPS: {}, draw time: {}%", frames, totalDrawTime * 100.0f / (now - lastFrame));
             lastFrame = now;
-            log("FPS: {}", frames);
+            totalDrawTime = 0;
             frames = 0;
         }
         frames += 1;
+
+        auto resizeEvents = resizeRelay->takeEvents<evt::ResizeEvent>();
+        if (resizeEvents.size() > 0) {
+            ui::IntVec windowBlockSize = (resizeEvents.back().newDimensions + 15) / 16;
+            frameSize = windowBlockSize * 16;
+            framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
+        }
 
         if (atlas.dimensions != instance.atlasDimensions) {
             std::allocator<uint32_t> alloc;
@@ -170,7 +176,7 @@ struct PerformDrawTask : evt::Task {
         }
         instance.outputGeneration += 1;
 
-        if (!framebuffer)
+        if (!framebuffer || instance.destroyed())
             return;
         ui::TextureView frameView { framebuffer.get(), frameSize.x() };
         uint32_t background_color = 0xff'ff'ff'ff;
@@ -225,6 +231,8 @@ struct PerformDrawTask : evt::Task {
         ui::IntVec dim = instance.dimensions();
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
+
+        totalDrawTime += getNanos() - now;
     };
 };
 
@@ -233,28 +241,22 @@ evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
     BasicAtlasAllocator atlasAlloc;
     ui::Instance instance { relayedWindow, &atlasAlloc };
 
-    plt::processedEvents().createDependency(instance.doLayout);
     PerformDrawTask performDraw { instance, window };
-    instance.outputComplete.createDependency(performDraw);
-    performDraw.createDependency(evt::tickComplete());
+    evt::dep::Dependency dependencies[] = {
+        plt::processedEvents().createDependency(instance.doLayout),
+        instance.outputComplete.createDependency(performDraw),
+        performDraw.createDependency(evt::tickComplete()),
+        performDraw.createNextTickDependency(instance.doLayout),
+    };
     instance.doLayout.unlock(scheduler);
     performDraw.unlock(scheduler);
-
-    auto resizeScript = [&]() -> evt::Script {
-        while (true) {
-            evt::EventReceiver<evt::ResizeEvent> events;
-            co_await (relayedWindow->resizeEvents > events);
-            performDraw.resize();
-        }
-    };
-    resizeScript();
 
     relayedWindow->startRelay(&instance.coreExe);
 
     ui::setInstance(&instance);
     uiTestInit();
 
-    co_await window.destroyed();
+    co_await stdx::suspend_always();
 }
 
 }

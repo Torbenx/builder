@@ -17,6 +17,9 @@ struct ContentBox : R {
     ContentBox() {
         draw((R&)*this, contentBox);
     }
+    ~ContentBox() {
+        cancelDraw((R&)*this);
+    }
     R& renderer() { return *this; }
     const R& renderer() const { return *this; }
 };
