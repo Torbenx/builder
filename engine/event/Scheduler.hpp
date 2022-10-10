@@ -92,7 +92,6 @@ struct Target {
     }
 
     bool unlockForResult(int_t tick = evt::tick()) {
-        VERIFY(Event, dependencyCount > 0);
         return applySignalForResult(READY_COUNT - dependencyCount, tick);
     }
     void unlock(Scheduler scheduler, int_t tick = evt::tick()) {
@@ -105,6 +104,7 @@ struct Target {
         PerTick& thisTick = perTick[evt::tick()];
         VERIFY(Event, thisTick.counter.load(std::memory_order_relaxed) == READY_COUNT);
         dependencyCount += thisTick.countDiff.load(std::memory_order_relaxed);
+        VERIFY(Event, dependencyCount > 0);
         thisTick.counter.store(0, std::memory_order_relaxed);
         thisTick.countDiff.store(0, std::memory_order_relaxed);
 

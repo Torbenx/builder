@@ -254,9 +254,7 @@ evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
     relayedWindow->startRelay(&instance.coreExe);
 
     ui::setInstance(&instance);
-    uiTestInit();
-
-    co_await stdx::suspend_always();
+    co_await (evt::OnExecutor(plt::coreExe()) && uiTestInit()->completion);
 }
 
 }

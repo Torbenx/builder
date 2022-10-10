@@ -68,6 +68,7 @@ add_library(engine ${linkage}
     "resource/JpegDecoder.cpp"
     "util/time.cpp"
     "util/Shaders.cpp"
+    "util/log.cpp"
 
     # "util/draw_util.cpp"
     "input/Pointer.cpp"
@@ -127,6 +128,8 @@ add_executable(engine_test ${win32_executable}
     "event/Window.cpp"
     "event/test.cpp"
     "event/Scheduler.cpp"
+    "event/Script.cpp"
+    "util/log.cpp"
 )
 if(MSVC)
     target_compile_options(engine_test PRIVATE "/W3;/wd4244;/wd4267")

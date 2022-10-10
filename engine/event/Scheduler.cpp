@@ -206,13 +206,15 @@ struct SchedulerImpl {
                     volunteerNonActive();
                 } while ((item = localQueues[activeTick].tryPop()));
             } else {
-                using namespace std::chrono_literals;
                 if (++nothingCounter >= nothingsBeforeIdle) {
                     int_t nonIdle = updateIdle(true);
                     if (nonIdle == 0) {
-                        if (evt::tickComplete().blockedFromInvalidSignal(lowestTick())) {
+                        int_t lowest = lowestTick();
+                        if (evt::tickComplete().blockedFromInvalidSignal(lowest)) {
+                            setTick(lowest);
                             return;
                         }
+                        using namespace std::chrono_literals;
                         std::this_thread::sleep_for(1ms);
                     }
                 }

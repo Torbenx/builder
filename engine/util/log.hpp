@@ -29,6 +29,7 @@ static void log(fmt::format_string<Args...> str, Args&&... args) {
     log_print(tag::tag, msg);
 }
 
+void verify_failed();
 template<VerifyTag tag>
 constexpr void verify(bool, const char*, const char*, int, const char*) requires(!tag::verifyEnabled) { }
 
@@ -39,6 +40,7 @@ template<VerifyTag tag>
 constexpr void verify(bool cond, const char* condStr, const char* file, int line, const char* func) requires tag::verifyEnabled {
     if (!cond) {
         log<tag>("VERIFY failed {}:{}: {}(): {}", file, line, func, condStr);
+        verify_failed();
     }
 }
 
