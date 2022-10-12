@@ -176,7 +176,12 @@ struct PerformDrawTask : evt::Task {
         }
         instance.outputGeneration += 1;
 
-        if (!framebuffer || instance.destroyed())
+        drawToFramebuffer();
+        totalDrawTime += getNanos() - now;
+    };
+
+    void drawToFramebuffer() {
+        if (!framebuffer || nativeWindow.destroyed())
             return;
         ui::TextureView frameView { framebuffer.get(), frameSize.x() };
         uint32_t background_color = 0xff'ff'ff'ff;
@@ -231,42 +236,66 @@ struct PerformDrawTask : evt::Task {
         ui::IntVec dim = instance.dimensions();
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
+    }
+};
 
-        totalDrawTime += getNanos() - now;
+struct UiTest : evt::Task {
+    plt::Window window;
+    evt::dep::Dependency depIn = plt::processedEvents().createDependency(*this);
+    evt::dep::Dependency depOut = createDependency(plt::tickComplete());
+    evt::ExecutorImpl uiExecutor;
+    evt::RelayedWindowBackend* relayedWindow = evt::relayWindow(window);
+    BasicAtlasAllocator atlasAlloc;
+    ui::Instance instance { relayedWindow, &uiExecutor, &atlasAlloc };
+    PerformDrawTask performDraw { instance, window };
+    evt::dep::Source readyForDraw;
+    evt::dep::Dependency dependencies[3] = {
+        readyForDraw.createDependency(performDraw),
+        performDraw.createDependency(plt::tickComplete()),
+        performDraw.createNextTickDependency(*this),
     };
+    evt::TickRingBuffer<bool> shutdownSignal;
+    UiTest(plt::Window window, evt::Scheduler scheduler)
+        : Task { evt::CallDerivedMember<&UiTest::update>() }
+        , window(window) {
+
+        unlock(scheduler);
+        performDraw.unlock(scheduler);
+
+        relayedWindow->startRelay(&uiExecutor);
+    }
+
+    void update(evt::Scheduler scheduler) {
+        ui::setInstance(&instance);
+        uiExecutor.execute();
+        instance.doTick(scheduler);
+        if (shutdownSignal[evt::tick()]) {
+            scheduler.schedule({
+                this,
+                [](UiTest* test, evt::Scheduler) {
+                    delete test;
+                },
+            });
+        } else {
+            readyForDraw.signalTargets(scheduler);
+        }
+    }
 };
 
 evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
-    evt::RelayedWindowBackend* relayedWindow = evt::relayWindow(window);
-    BasicAtlasAllocator atlasAlloc;
-    ui::Instance instance { relayedWindow, &atlasAlloc };
-
-    PerformDrawTask performDraw { instance, window };
-    evt::dep::Dependency dependencies[] = {
-        plt::processedEvents().createDependency(instance.doLayout),
-        instance.outputComplete.createDependency(performDraw),
-        performDraw.createDependency(plt::tickComplete()),
-        performDraw.createNextTickDependency(instance.doLayout),
-    };
-    instance.doLayout.unlock(scheduler);
-    performDraw.unlock(scheduler);
-
-    relayedWindow->startRelay(&instance.coreExe);
-
-    ui::setInstance(&instance);
+    UiTest* test = new UiTest { window, scheduler };
+    ui::setInstance(&test->instance);
     auto testScript = uiTestInit();
-    co_await testScript->completion;
-    evt::dep::Dependency d = instance.layoutComplete.createDependency(plt::tickComplete());
-    dependencies[1].destroy({});
-    dependencies[2].destroy({});
-    dependencies[3].destroy({});
-    co_await evt::SuspendAnd([](evt::ScriptHandle script) {
-        plt::queueCallback({
-            script.address(),
-            [](void* address) {
-                evt::ScriptHandle::fromAddress(address).handle.resume();
-            },
-        });
+    co_await (evt::OnExecutor(&test->uiExecutor) && evt::NextTick() && testScript->completion);
+
+    
+    plt::queueCallback({
+        test,
+        [](UiTest* test, evt::Scheduler scheduler) {
+            evt::dep::Source* source = new evt::dep::Source;
+            test->depIn = source->createDependency(*test);
+            test->shutdownSignal[evt::tick()] = true;
+        },
     });
 }
 

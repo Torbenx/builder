@@ -76,7 +76,7 @@ void continueStartup(Window initialWindow);
 void processEvents(evt::Scheduler, evt::BasicCallback<>);
 void processEventsImpl(evt::BasicCallback<>);
 
-void queueCallback(evt::BasicCallback<>);
+void queueCallback(evt::BasicCallback<evt::Scheduler>);
 
 }
 

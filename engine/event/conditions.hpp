@@ -25,15 +25,16 @@ struct NextTick {
     struct NodeType : TmplLeafNode<NodeType> {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
-        Executor* executor = nullptr;
+        ExecutorImpl* executor = nullptr;
         void commit(Signal signal) {
-            executor = signal.script->executor;
+            executor = static_cast<ExecutorImpl*>(signal.script->executor);
             if (!executor)
-                executor = evt::currentExecutor();
-            signal.script->executor = &static_cast<ExecutorImpl*>(executor)->nextTick;
+                executor = static_cast<ExecutorImpl*>(evt::currentExecutor());
+            signal.script->executor = &executor->nextTick;
             signal.send();
         }
         void cancel(ScriptHandle script) {
+            VERIFY(Event, script->executor == &executor->nextTick);
             script->executor = executor;
         }
     };

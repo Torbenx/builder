@@ -35,7 +35,7 @@ struct RenderOutputUtil {
 
 class Instance : public evt::Window {
 public:
-    Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc);
+    Instance(const evt::WindowBackend* window, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc);
     ~Instance();
 
     IdAllocator<uint32_t> eqnIdAlloc;
@@ -108,8 +108,7 @@ public:
 
     stx::DynArray<std::vector<StyleConsumerBase*>> styleConsumerUpdates;
 
-    evt::ExecutorImpl coreExe;
-    evt::dep::Target doLayout { evt::WithContaining<&Instance::doLayout, evt::CallMember<&Instance::doTick>>() };
+    evt::ExecutorImpl* coreExe = nullptr;
     evt::dep::Source outputComplete;
     evt::dep::Source layoutComplete;
     void doTick(evt::Scheduler);

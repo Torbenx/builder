@@ -155,6 +155,9 @@ struct Source {
     std::vector<Signal> targets;
     Source() = default;
     Source(const Source&) = delete;
+    ~Source() {
+        VERIFY(Event, targets.empty());
+    }
 
     [[nodiscard]] Dependency createDependency(Target& target, int_t tickShift);
     [[nodiscard]] Dependency createDependency(Target& target) {

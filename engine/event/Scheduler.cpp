@@ -293,11 +293,16 @@ void Target::completeTick(Scheduler scheduler) {
     PerTick& thisTick = perTick[evt::tick()];
     VERIFY(Event, thisTick.counter.load(std::memory_order_relaxed) == READY_COUNT);
     dependencyCount += thisTick.countDiff.load(std::memory_order_relaxed);
-    VERIFY(Event, dependencyCount > 0);
     thisTick.counter.store(0, std::memory_order_relaxed);
     thisTick.countDiff.store(0, std::memory_order_relaxed);
 
-    unlock(scheduler, evt::tick() + 1);
+    if (dependencyCount > 0) {
+        unlock(scheduler, evt::tick() + 1);
+    } else {
+        VERIFY(Event, dependencyCount == 0);
+        // block it
+        applySignal({}, READY_COUNT, evt::tick());
+    }
 }
 
 void Dependency::destroy(Scheduler scheduler) {

@@ -5,17 +5,18 @@
 
 namespace ui {
 
-Instance::Instance(const evt::WindowBackend* window, AtlasAllocator* atlasAlloc)
+Instance::Instance(const evt::WindowBackend* window, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc)
     : evt::Window(window)
     , atlasAlloc(atlasAlloc)
     , rendererUpdates(RendererBase::recordCount())
     , incrementalRenderOutput(RendererBase::recordCount())
-    , styleConsumerUpdates(StyleConsumerBase::recordCount()) {
+    , styleConsumerUpdates(StyleConsumerBase::recordCount())
+    , coreExe(coreExe) {
 
     windowRect = newRect();
 
     [](Instance* instance) -> evt::Script {
-        co_await evt::OnExecutor(&instance->coreExe);
+        co_await evt::OnExecutor(instance->coreExe);
         IntVec initialDim = instance->dimensions();
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();
@@ -110,10 +111,6 @@ void Instance::dumpShiftSizes() {
 }
 
 void Instance::doTick(evt::Scheduler scheduler) {
-    // VDUMP((bool)destroyed());
-    setInstance(this);
-    coreExe.execute();
-
     for (int_t i = 0; i < styleConsumerUpdates.size(); i++) {
         auto& updates = styleConsumerUpdates[i];
         const auto& record = StyleConsumerBase::record(i);
@@ -333,7 +330,7 @@ void RectVarHandle::deallocate(RectVarHandle handle) { instance()->deleteVariabl
 
 RectVarHandle windowRect() { return instance()->windowRect; }
 
-evt::Executor* coreExecutor() { return &instance()->coreExe; }
+evt::Executor* coreExecutor() { return instance()->coreExe; }
 
 void StyleConsumerBase::invalidateStyleInternal(int_t index) {
     instance()->styleConsumerUpdates[index].push_back(this);
