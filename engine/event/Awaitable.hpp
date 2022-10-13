@@ -27,7 +27,7 @@ struct Awaitable {
 
     uint64_t startMask = output.startMask;
 
-    ScriptHandle suspendedScript = {};
+    Script suspendedScript = {};
 
     constexpr Awaitable(const Node& node)
         : Awaitable(node, stx::make_int_sequence<output.leafs.size()>()) { }
@@ -45,7 +45,7 @@ struct Awaitable {
         });
         return (startMask & output.keyMask) != 0;
     }
-    constexpr void await_suspend(ScriptHandle script) {
+    constexpr void await_suspend(Script script) {
         suspendedScript = script;
         script->state = { startMask, output.keyMask };
         stx::forEachElement(leafs, [&](auto& wrapper) {

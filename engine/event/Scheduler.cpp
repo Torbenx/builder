@@ -11,10 +11,9 @@ namespace {
     using Item = SchedulingItem;
 
     struct BlockData {
-        Item* allocBegin = nullptr;
-        Item* m_begin = nullptr;
-        Item* m_end = nullptr;
-        Item* allocEnd = nullptr;
+        Item* m_data = nullptr;
+        uint32_t m_size = 0;
+        uint32_t m_capacity = 0;
     };
     class Block : private BlockData {
     private:
@@ -26,27 +25,28 @@ namespace {
             other.setData({});
         }
         void maybeDeallocate() {
-            std::allocator<Item>().deallocate(allocBegin, allocSize());
+            std::allocator<Item>().deallocate(data(), capacity());
         }
-        int_t allocSize() const { return allocEnd - allocBegin; }
         Block(const BlockData& data)
             : BlockData(data) { }
 
     public:
         static Block adoptData(BlockData data) { return Block(data); }
-        Item* begin() { return m_begin; }
-        Item* end() { return m_end; }
-        int_t size() { return end() - begin(); }
-        Item* data() { return m_begin; }
+        Item* begin() { return data(); }
+        Item* end() { return data() + size(); }
+        int_t size() { return m_size; }
+        Item* data() { return m_data; }
         bool empty() { return size() == 0; }
-        int_t backSpace() { return allocEnd - end(); }
-        int_t frontSpace() { return begin() - allocBegin; }
-        int_t totalCapacity() { return allocEnd - allocBegin; }
-        Item popFront() { return *(m_begin++); }
+        int_t capacity() { return m_capacity; }
+        Item popBack() {
+            Item ret = (*this)[size() - 1];
+            m_size -= 1;
+            return ret;
+        }
         Item& operator[](int_t i) { return data()[i]; }
         Item* acquireBack(int_t size = 1) {
             Item* ret = end();
-            m_end += size;
+            m_size += size;
             return ret;
         }
         Block() = default;
@@ -55,10 +55,9 @@ namespace {
             stealDataFrom(other);
         }
         Block(int_t capacity) {
-            allocBegin = std::allocator<Item>().allocate(capacity);
-            allocEnd = allocBegin + capacity;
-            m_begin = allocBegin;
-            m_end = allocBegin;
+            m_data = std::allocator<Item>().allocate(capacity);
+            m_size = 0;
+            m_capacity = capacity;
         }
         Block& operator=(Block&& other) {
             maybeDeallocate();
@@ -76,7 +75,7 @@ namespace {
         }
     };
 
-    struct LocalQueue {
+    struct LocalStack {
         Block block;
         static constexpr int_t nextBlockCapacity(int_t cap) {
             if (cap == 0)
@@ -91,20 +90,20 @@ namespace {
         Block takeBlock() {
             return std::move(block);
         }
-        void queue(Item item) {
-            if (block.backSpace() >= 1) {
+        void push(Item item) {
+            if (block.capacity() - block.size() >= 1) {
                 *block.acquireBack() = item;
                 return;
             }
-            Block newBlock { nextBlockCapacity(block.totalCapacity()) };
-            std::copy(block.begin(), block.end(), newBlock.acquireBack(block.size()));
+            Block newBlock { nextBlockCapacity(block.capacity()) };
+            std::copy_n(block.data(), block.size(), newBlock.acquireBack(block.size()));
             *newBlock.acquireBack() = item;
             block = std::move(newBlock);
         }
         Item tryPop() {
             if (block.empty())
                 return {};
-            return block.popFront();
+            return block.popBack();
         }
         int_t size() { return block.size(); }
     };
@@ -129,11 +128,11 @@ struct SchedulerImpl {
     static inline TickRingBuffer<GlobalQueue> globalQueues = {};
     static int_t lowestTick() { return lowestActiveTick.load(std::memory_order_relaxed); }
 
-    TickRingBuffer<LocalQueue> localQueues = {};
+    TickRingBuffer<LocalStack> localStackes = {};
 
     void schedule(Item item, int_t tick) {
         VERIFY(Event, tick >= evt::tick());
-        localQueues[tick].queue(item);
+        localStackes[tick].push(item);
     }
 
     void start(Item item, int_t startTick) {
@@ -150,7 +149,7 @@ struct SchedulerImpl {
 
     template<typename AdditionalCheck>
     void run(AdditionalCheck additionalCheck) {
-        // localQueues valid for [lowestTick, lowestTick + MAX_CONCURRENT_TICKS)
+        // localStackes valid for [lowestTick, lowestTick + MAX_CONCURRENT_TICKS)
         // and empty for [lowestTick, activeTick)
         int_t activeTick = lowestTick();
         auto checkForBetter = [&]() {
@@ -159,8 +158,8 @@ struct SchedulerImpl {
                 if (newBlock.empty())
                     continue;
 
-                VERIFY(Event, localQueues[i].empty());
-                localQueues[i].setBlock(std::move(newBlock));
+                VERIFY(Event, localStackes[i].empty());
+                localStackes[i].setBlock(std::move(newBlock));
                 activeTick = i;
                 break;
             }
@@ -168,7 +167,7 @@ struct SchedulerImpl {
         auto volunteerNonActive = [&]() {
             int_t lowest = lowestTick();
             for (int_t i = activeTick + 1; i < lowest + MAX_CONCURRENT_TICKS; i++) {
-                Block block = localQueues[i].takeBlock();
+                Block block = localStackes[i].takeBlock();
                 if (!block.empty()) {
                     globalQueues[i].queue(std::move(block));
                 }
@@ -192,9 +191,9 @@ struct SchedulerImpl {
                 int_t lowest = lowestTick();
                 log<Tag::Event>("lowest = {}, active = {}", lowest, activeTick);
                 for (int_t i = lowest; i < lowest + MAX_CONCURRENT_TICKS; i++)
-                    log<Tag::Event>("{}: {} item(s) waiting", i, localQueues[i].size());
+                    log<Tag::Event>("{}: {} item(s) waiting", i, localStackes[i].size());
             }*/
-            Item item = localQueues[activeTick].tryPop();
+            Item item = localStackes[activeTick].tryPop();
             if (item) {
                 nothingCounter = 0;
                 updateIdle(false);
@@ -202,7 +201,7 @@ struct SchedulerImpl {
                     evt::setTick(activeTick);
                     item(this);
                     volunteerNonActive();
-                } while ((item = localQueues[activeTick].tryPop()));
+                } while ((item = localStackes[activeTick].tryPop()));
             } else {
                 if (++nothingCounter >= nothingsBeforeIdle) {
                     int_t nonIdle = updateIdle(true);
@@ -263,7 +262,7 @@ struct SchedulerImpl {
     }
 
     void tickComplete(int_t tick) {
-        VERIFY(Event, localQueues[tick].empty());
+        VERIFY(Event, localStackes[tick].empty());
         int_t prevLowest = lowestActiveTick.fetch_add(1, std::memory_order_relaxed);
         EXPECT(Event, prevLowest, tick);
     }

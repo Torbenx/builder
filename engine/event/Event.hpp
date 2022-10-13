@@ -3,6 +3,7 @@
 #include "Awaitable.hpp"
 #include "CompiledCondition.hpp"
 #include "Scheduler.hpp"
+#include "containers/Owned.hpp"
 #include "containers/Tuple.hpp"
 
 namespace evt {
@@ -24,7 +25,7 @@ struct EventSignal {
         receiver->events.insert(receiver->events.end(), events.begin(), events.end());
         signal.send(events.size());
     }
-    bool operator==(const ScriptHandle& script) const { return signal == script; }
+    bool operator==(const Script& script) const { return signal == script; }
 };
 
 template<typename E>
@@ -39,7 +40,7 @@ struct EventSource {
         void commit(Signal signal) const {
             source->signals.push_back({ signal, receiver });
         }
-        void cancel(ScriptHandle script) const {
+        void cancel(Script script) const {
             auto it = std::remove(source->signals.begin(), source->signals.end(), script);
             source->signals.erase(it, source->signals.end());
         }
@@ -77,6 +78,22 @@ struct RelayPromise {
     void return_void() { }
     void unhandled_exception() { }
 };
+
+}
+
+template<std::derived_from<evt::RelayPromise> T>
+struct stx::DeallocateCall<T*> {
+    struct type {
+        constexpr void operator()(T*& promise) const {
+            if (promise) {
+                promise->handle().destroy();
+                promise = nullptr;
+            }
+        }
+    };
+};
+
+namespace evt {
 
 template<typename... Es>
 struct RelayOutputPromise : RelayPromise {
@@ -128,28 +145,41 @@ struct RelayOutputPromise : RelayPromise {
     }
 };
 
-template<typename... Es, int_t... I>
-RelayOutputPromise<Es...>* broadcastEvents(stx::int_sequence<I...>, RelayOutputPromise<Es...>* promise = {}) {
-    while (true) {
-        (promise->template sendEvents<I>(), ...);
-        promise->reschedule();
-        co_await stdx::suspend_always();
+namespace detail {
+    template<typename... Es, int_t... I>
+    RelayOutputPromise<Es...>* broadcastEvents(stx::int_sequence<I...>, RelayOutputPromise<Es...>* promise = {}) {
+        while (true) {
+            (promise->template sendEvents<I>(), ...);
+            promise->reschedule();
+            co_await stdx::suspend_always();
+        }
     }
-}
-template<typename... Es, int_t... I>
-Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, const EventSource<Es>&... sources) {
-    while (true) {
-        stx::Tuple<EventReceiver<Es>...> receivers;
-        co_await ((sources > stx::get<I>(receivers)) || ...);
-        int_t tick = evt::tick();
-        ((stx::get<I>(output->buffers)[tick] = std::move(stx::get<I>(receivers).events)), ...);
+    template<typename... Es, int_t... I>
+    Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, const EventSource<Es>&... sources) {
+        while (true) {
+            stx::Tuple<EventReceiver<Es>...> receivers;
+            co_await ((sources > stx::get<I>(receivers)) || ...);
+            int_t tick = evt::tick();
+            ((stx::get<I>(output->buffers)[tick] = std::move(stx::get<I>(receivers).events)), ...);
+        }
     }
 }
 template<typename... Es>
-RelayOutputPromise<Es...>* relayEvents(const EventSource<Es>&... sources) {
-    RelayOutputPromise<Es...>* output = broadcastEvents<Es...>(stx::int_sequence_for<Es...>());
-    recordEvents(output, stx::int_sequence_for<Es...>(), sources...);
-    return output;
+struct EventRelay {
+    stx::Owned<Script> input;
+    stx::Owned<RelayOutputPromise<Es...>*> output;
+
+    stx::Owned<RelayOutputPromise<Es...>*> broadcastEvents(Executor* executor) {
+        VERIFY(Event, (bool)output);
+        output->startRelay(executor);
+        return std::move(output);
+    }
+};
+template<typename... Es>
+EventRelay<Es...> relayEvents(const EventSource<Es>&... sources) {
+    RelayOutputPromise<Es...>* output = detail::broadcastEvents<Es...>(stx::int_sequence_for<Es...>());
+    Script input = detail::recordEvents(output, stx::int_sequence_for<Es...>(), sources...);
+    return { input, output };
 }
 
 }

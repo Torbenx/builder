@@ -74,6 +74,7 @@ struct RelayedWindowBackend : WindowBackend, RelayPromise {
     RelayedWindowBackend* get_return_object() { return this; }
     void startRelay(Executor* exe) { RelayPromise::startRelay(exe, handle()); }
     void reschedule() { RelayPromise::reschedule(handle()); }
+    void deallocate() { handle().destroy(); }
 };
 
 class Window {
@@ -86,21 +87,31 @@ public:
         : window(window) { }
 
     const WindowBackend* windowBackend() const { return window; }
-    const evt::EventSource<WindowStateUpdate>& stateUpdate() const {
+    const EventSource<WindowStateUpdate>& stateUpdate() const {
         return window->stateUpdates;
     }
-    const evt::EventSource<ResizeEvent>& resizeEvent() const {
+    const EventSource<ResizeEvent>& resizeEvent() const {
         return window->resizeEvents;
     }
-    const evt::BinaryState& initialized() const { return window->initialized; }
-    const evt::BinaryState& visible() const { return window->visible; }
-    const evt::BinaryState& foreground() const { return window->foreground; }
-    const evt::BinaryState& destroyed() const { return window->destroyed; }
+    const BinaryState& initialized() const { return window->initialized; }
+    const BinaryState& visible() const { return window->visible; }
+    const BinaryState& foreground() const { return window->foreground; }
+    const BinaryState& destroyed() const { return window->destroyed; }
     WindowState state() const { return window->currentState; }
     ui::IntVec dimensions() const { return window->currentDimensions; }
     explicit operator bool() const { return window; }
 };
 
-RelayedWindowBackend* relayWindow(Window);
+struct WindowRelay {
+    stx::Owned<Script> input;
+    stx::Owned<RelayedWindowBackend*> output;
+
+    stx::Owned<RelayedWindowBackend*> broadcastEvents(Executor* executor) {
+        VERIFY(Event, (bool)output);
+        output->startRelay(executor);
+        return std::move(output);
+    }
+};
+WindowRelay relayWindow(Window);
 
 }

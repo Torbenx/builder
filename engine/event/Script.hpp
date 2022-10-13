@@ -25,15 +25,16 @@ inline void setTick(int_t tick) {
 
 template<typename T, typename Base>
 concept CompatibleCoroutinePromise = std::is_base_of_v<Base, T> && alignof(T) == alignof(Base) && sizeof(T) == sizeof(Base) && std::is_standard_layout_v<T>;
-struct ScriptHandle {
-    ScriptHandle() = default;
-    ScriptHandle(stdx::coroutine_handle<ScriptPromise> handle)
+struct Script {
+    using promise_type = ScriptPromise;
+    Script() = default;
+    Script(stdx::coroutine_handle<ScriptPromise> handle)
         : handle(handle) { }
     template<CompatibleCoroutinePromise<ScriptPromise> Promise>
-    ScriptHandle(stdx::coroutine_handle<Promise> handle)
+    Script(stdx::coroutine_handle<Promise> handle)
         : handle(stdx::coroutine_handle<ScriptPromise>::from_address(handle.address())) { }
 
-    static ScriptHandle fromAddress(void* address) {
+    static Script fromAddress(void* address) {
         return stdx::coroutine_handle<ScriptPromise>::from_address(address);
     }
 
@@ -45,11 +46,8 @@ struct ScriptHandle {
     ScriptPromise& operator*() const { return *promise(); }
     explicit operator bool() const { return (bool)handle; }
     operator stdx::coroutine_handle<>() const { return handle; }
-    bool operator==(const ScriptHandle&) const = default;
-};
-
-struct Script : ScriptHandle {
-    using promise_type = ScriptPromise;
+    bool operator==(const Script&) const = default;
+    void deallocate() { handle.destroy(); }
 };
 
 struct Executor {
@@ -78,12 +76,12 @@ struct ExecutorImpl : Executor {
 };
 
 struct Signal {
-    ScriptHandle script;
+    Script script;
     uint64_t mask = 0;
 
     void send(int_t count = 1) const;
 
-    bool operator==(const ScriptHandle& script) const { return this->script == script; }
+    bool operator==(const Script& script) const { return this->script == script; }
 
     Signal operator~() const { return { script, -mask }; }
 };

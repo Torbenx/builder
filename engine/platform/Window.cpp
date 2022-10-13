@@ -59,10 +59,10 @@ void processEvents(evt::Scheduler scheduler, evt::BasicCallback<> callback) {
     processEventsImpl(callback);
     evt::setCurrentExecutor(coreExe());
     auto callbacks = callbacksForNextTick.take();
-    for (auto& list : *callbacks) {
+    for (auto& list : callbacks) {
         for (evt::BasicCallback<evt::Scheduler> c : list)
             c(scheduler);
-        list.destroy();
+        list.deallocate();
     }
     coreExe()->execute();
     processedEvents().signalTargets(scheduler);

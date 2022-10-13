@@ -27,8 +27,8 @@ struct AwaitableState {
     uint64_t key = 0;
 };
 struct ScriptPromise {
-    Script get_return_object() { return { scriptHandle() }; }
-    ScriptHandle scriptHandle() { return { stdx::coroutine_handle<ScriptPromise>::from_promise(*this) }; }
+    Script get_return_object() { return { Script() }; }
+    Script Script() { return { stdx::coroutine_handle<ScriptPromise>::from_promise(*this) }; }
     void unhandled_exception() { }
     stdx::suspend_never initial_suspend() { return {}; }
     stdx::suspend_never final_suspend() noexcept { return {}; }

@@ -65,10 +65,10 @@ namespace {
         }
     }
 }
-RelayedWindowBackend* relayWindow(Window window) {
-    RelayedWindowBackend* out = broadcastWindowEvents();
-    recordWindowEvents(out, window);
-    return out;
+WindowRelay relayWindow(Window window) {
+    RelayedWindowBackend* output = broadcastWindowEvents();
+    Script input = recordWindowEvents(output, window);
+    return { input, output };
 }
 
 }

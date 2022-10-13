@@ -40,7 +40,7 @@ struct InlineScriptBase {
         };
     };
 
-    ScriptHandle inlineScript() const { return { stdx::coroutine_handle<ScriptPromise>::from_address((void*)storage) }; }
+    Script inlineScript() const { return { stdx::coroutine_handle<ScriptPromise>::from_address((void*)storage) }; }
 
     ~InlineScriptBase() {
         inlineScript().handle.destroy();

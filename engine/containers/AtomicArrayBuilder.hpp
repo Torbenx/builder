@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ArrayView.hpp"
-#include "resource/Owned.hpp"
+#include "Owned.hpp"
 #include <atomic>
 #include <mutex>
 #include <shared_mutex>
@@ -34,12 +34,12 @@ public:
 
     struct TakeReturnTypeView : ArrayView<T> {
         int_t capacity = 0;
-        void destroy() {
+        void deallocate() {
             std::destroy_n(this->data(), this->size());
             std::allocator<T>().deallocate(this->data(), capacity);
         }
     };
-    using TakeReturnType = Owned<TakeReturnTypeView>;
+    using TakeReturnType = stx::Owned<TakeReturnTypeView>;
     TakeReturnType take(uint32_t payload = 0) {
         std::unique_lock<std::shared_mutex> g(lock);
         int_t offset = this->offset.load(std::memory_order_relaxed);

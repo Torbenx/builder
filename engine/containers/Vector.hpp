@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Array.hpp"
+#include "Owned.hpp"
 #include "util/types.hpp"
 #include <algorithm>
 
@@ -149,51 +150,6 @@ public:
 
     constexpr operator ArrayView<T>() { return { data(), size() }; }
     constexpr operator ArrayView<const T>() const { return { data(), size() }; }
-};
-
-template<typename T, int_t N>
-class InlineVector : public Vector<T> {
-    Array<T, N> storage = {};
-
-public:
-    constexpr InlineVector()
-        : Vector<T>(storage.elements, 0, N, true, true) {
-        if (storage.data() == this->data())
-            delete (int*)nullptr;
-    }
-    constexpr InlineVector(const InlineVector& other)
-        : InlineVector() {
-        this->copyFrom(other);
-    }
-    constexpr InlineVector(InlineVector&& other)
-        : InlineVector() {
-        this->moveFrom(std::move(other));
-    }
-};
-
-namespace detail {
-    template<typename T, int_t N>
-    struct ArrayWrapper {
-        using value_type = T;
-        Array<T, N> storage = {};
-        int_t size = 0;
-        constexpr ArrayWrapper(const InlineVector<T, N>& v) {
-            std::copy_n(v.data(), v.size(), storage.data());
-            size = v.size();
-        }
-    };
-}
-
-template<detail::ArrayWrapper arg>
-struct StaticStorage {
-    using T = typename decltype(arg)::value_type;
-    static constexpr Array<T, arg.size> storage = []() constexpr {
-        Array<T, arg.size> array;
-        std::copy_n(arg.storage.data(), arg.size, array.data());
-        return array;
-    }
-    ();
-    constexpr operator const Vector<T>() const { return { const_cast<T*>(storage.data()), storage.size(), storage.size(), false, true }; }
 };
 
 }

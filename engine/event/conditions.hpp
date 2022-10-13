@@ -33,7 +33,7 @@ struct NextTick {
             signal.script->executor = &executor->nextTick;
             signal.send();
         }
-        void cancel(ScriptHandle script) {
+        void cancel(Script script) {
             VERIFY(Event, script->executor == &executor->nextTick);
             script->executor = executor;
         }
@@ -44,7 +44,7 @@ struct NextTick {
 using MonoConditionNamed = NamedCondition<"monoCondition">;
 struct MonoCondition : CompiledCondition<MonoConditionNamed::NodeType> {
     using Base = CompiledCondition<MonoConditionNamed::NodeType>;
-    Signal signal(ScriptHandle script) const { return Base::signal(script, MonoConditionNamed()); }
+    Signal signal(Script script) const { return Base::signal(script, MonoConditionNamed()); }
     constexpr MonoCondition() = default;
 };
 constexpr MonoCondition monoCondition;
@@ -77,7 +77,7 @@ struct BinaryState {
         void commit(Signal signal) const {
             binaryState->signals.push_back(signal);
         }
-        void cancel(ScriptHandle script) const {
+        void cancel(Script script) const {
             auto it = std::remove(binaryState->signals.begin(), binaryState->signals.end(), script);
             binaryState->signals.erase(it, binaryState->signals.end());
         }
