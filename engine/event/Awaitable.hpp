@@ -16,6 +16,11 @@ struct Awaitable {
     };
     template<typename L>
     LeafWrapper(const L&, uint64_t) -> LeafWrapper<L>;
+    template<int_t i>
+    static constexpr auto makeWrapper(const Node& node) {
+        const auto& leaf = output.leafs[i];
+        return LeafWrapper { node.template get<leaf.tmplLoc>(), leaf.mask };
+    }
     template<typename>
     struct LeafsTupleHelper;
     template<int_t... I>
@@ -23,22 +28,22 @@ struct Awaitable {
         using type = stx::Tuple<LeafWrapper<NodeTypeOf<Node, output.leafs[I].tmplLoc>>...>;
     };
     using LeafsTuple = typename LeafsTupleHelper<stx::make_int_sequence<output.leafs.size()>>::type;
-    LeafsTuple leafs;
+    struct Leafs : LeafsTuple {
+        constexpr Leafs(const CompiledCondition<Node>& condition)
+            : Leafs(condition.node) { }
+        template<std::convertible_to<Node> Node2>
+        constexpr Leafs(const Node2& node)
+            : Leafs(node, stx::make_int_sequence<output.leafs.size()>()) { }
+        template<int_t... I>
+        constexpr Leafs(const Node& node, stx::int_sequence<I...>)
+            : LeafsTuple { { { makeWrapper<I>(node) }... } } { }
+    };
+    Leafs leafs;
 
     uint64_t startMask = output.startMask;
 
     Script suspendedScript = {};
 
-    constexpr Awaitable(const Node& node)
-        : Awaitable(node, stx::make_int_sequence<output.leafs.size()>()) { }
-    template<int_t... I>
-    constexpr Awaitable(const Node& node, stx::int_sequence<I...>)
-        : leafs { { { makeWrapper<I>(node) }... } } { }
-    template<int_t i>
-    constexpr auto makeWrapper(const Node& node) {
-        const auto& leaf = output.leafs[i];
-        return LeafWrapper { node.template get<leaf.tmplLoc>(), leaf.mask };
-    }
     constexpr bool await_ready() {
         stx::forEachElement(leafs, [&](const auto& wrapper) {
             startMask += wrapper.leaf.state() * wrapper.mask;
@@ -67,14 +72,11 @@ struct Awaitable {
             cancel();
     }
 };
-
-}
-
-template<evt::TmplTreeNode Node>
-inline evt::Awaitable<evt::converted_tree_node_t<Node>> operator co_await(const Node& node) {
-    return { convertTreeNode(node) };
-}
+template<TmplTreeNode Node>
+Awaitable(const Node&) -> Awaitable<converted_tree_node_t<Node>>;
 template<typename Node>
-inline evt::Awaitable<Node> operator co_await(const evt::CompiledCondition<Node>& cond) {
-    return { cond.node };
+Awaitable(const CompiledCondition<Node>&) -> Awaitable<Node>;
+
 }
+
+#define await co_await ::evt::Awaitable

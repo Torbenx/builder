@@ -111,11 +111,11 @@ struct SourceImpl {
 };
 
 template<typename E>
-struct traits;
-template<typename E>
 concept HasCustomReceiver = requires { typename E::EventReceiver; };
 template<typename E>
 concept HasCustomSource = requires { typename E::EventSource; };
+template<typename E>
+struct traits;
 template<typename E>
 requires(!HasCustomReceiver<E> && !HasCustomSource<E>) struct traits<E> {
     using Receiver = ListReceiver<E>;
@@ -234,7 +234,7 @@ namespace detail {
     Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, const SourceImpl<Es>&... sources) {
         while (true) {
             stx::Tuple<Receiver<Es>...> receivers {};
-            co_await ((sources > stx::get<I>(receivers)) || ...);
+            await { ((sources > stx::get<I>(receivers)) || ...) };
             int_t tick = evt::tick();
             ((output->template buffer<I>()[tick] = std::move(stx::get<I>(receivers))), ...);
         }

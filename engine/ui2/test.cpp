@@ -72,7 +72,7 @@ struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
     }
 };
 evt::Script uiTestInit() {
-    co_await evt::OnExecutor(ui::coreExecutor());
+    await { evt::OnExecutor(ui::coreExecutor()) };
 
     auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
     {
@@ -109,7 +109,7 @@ evt::Script uiTestInit() {
 
     while (!ui::instance()->destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;
-        co_await (ui::instance()->stateUpdate() > events);
+        await { ui::instance()->stateUpdate() > events };
         for (auto update : events.events)
             log("state change: {} -> {}", evt::WindowStateUtil(update.from).toString(), evt::WindowStateUtil(update.to).toString());
     }
@@ -134,7 +134,6 @@ struct PerformDrawTask : evt::Task {
     int_t frames = 0;
     uint64_t totalDrawTime = 0;
     void draw(evt::Scheduler) {
-        //log("draw...");
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             log("FPS: {}, draw time: {}%", frames, totalDrawTime * 100.0f / (now - lastFrame));
@@ -259,7 +258,7 @@ struct UpdateUiTask : evt::Task {
 struct ShutdownEvent { };
 evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, evt::Scheduler scheduler) {
     relayedBackend->startRelay(instance.coreExe);
-    
+
     PerformDrawTask performDraw { instance, window };
     evt::dep::Dependency dependencies[] = {
         instance.outputComplete.createDependency(performDraw),
@@ -267,10 +266,10 @@ evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromis
         performDraw.createNextTickDependency(updateUi),
     };
     performDraw.unlock(scheduler);
-    
+
     ui::setInstance(&instance);
     auto testScript = uiTestInit();
-    co_await (evt::OnExecutor(ui::coreExecutor()) && evt::NextTick() && testScript->completion);
+    await { evt::OnExecutor(ui::coreExecutor()) && evt::NextTick() && testScript->completion };
 
     plt::queueCallback({
         &shutdownSource,
@@ -297,7 +296,7 @@ evt::Script uiTestWrapper1(plt::Window window, evt::Scheduler scheduler) {
     uiTestWrapper2(window, std::move(windowRelay.output), instance, updateUi, shutdownSource, scheduler);
 
     evt::Receiver<ShutdownEvent> events;
-    co_await (shutdownSource > events);
+    await { shutdownSource > events };
 }
 
 }

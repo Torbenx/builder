@@ -58,7 +58,7 @@ struct InlineScript : InlineScriptBase {
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
-                co_await thiz->condition;
+                await { thiz->condition };
                 callWithSource(thiz->target, *thiz);
             }
         }(this);
@@ -75,7 +75,7 @@ struct InlineScript<void, ConditionNode> : InlineScriptBase {
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
-                co_await thiz->condition;
+                await { thiz->condition };
                 callWithSource(Target {}, *thiz);
             }
         }(this);
@@ -92,7 +92,7 @@ struct InlineScript<Target, void> : InlineScriptBase {
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
-                co_await CompiledCondition<ConditionNode>();
+                await { CompiledCondition<ConditionNode>() };
                 callWithSource(thiz->target, *thiz);
             }
         }(this);
@@ -106,7 +106,7 @@ struct InlineScript<void, void> : InlineScriptBase {
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
-                co_await CompiledCondition<ConditionNode>();
+                await { CompiledCondition<ConditionNode>() };
                 callWithSource(Target {}, *thiz);
             }
         }(this);
