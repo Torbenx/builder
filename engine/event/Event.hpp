@@ -77,26 +77,54 @@ struct Signal {
 
 template<typename E>
 struct SourceImpl {
-    struct NodeType : TmplLeafNode<NodeType> {
+    struct IgnoreContentNode : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return UNBOUND_EVENT_COUNT; }
 
-        const SourceImpl* source = nullptr;
-        Receiver<E>* receiver = nullptr;
+        struct ScratchSpace {
+            Receiver<E> receiver;
+        };
 
-        void commit(Signal<> signal) const {
-            source->signals.push_back({ signal, receiver });
+        const SourceImpl& source;
+
+        void commit(Signal<> signal, ScratchSpace& scratch) const {
+            source.signals.push_back({ signal, &scratch.receiver });
         }
-        void cancel(Script script) const {
-            auto it = std::remove(source->signals.begin(), source->signals.end(), script);
-            source->signals.erase(it, source->signals.end());
+        void cancel(Script script, ScratchSpace&) const {
+            auto it = std::remove(source.signals.begin(), source.signals.end(), script);
+            source.signals.erase(it, source.signals.end());
         }
     };
+    struct MoveContentNode : TmplLeafNode {
+        static constexpr uint64_t requiredEvents() { return 1; }
+        static constexpr uint64_t maxEvents() { return UNBOUND_EVENT_COUNT; }
+
+        const SourceImpl& source;
+        Receiver<E>& receiver;
+
+        void commit(Signal<> signal) const {
+            source.signals.push_back({ signal, &receiver });
+        }
+        void cancel(Script script) const {
+            auto it = std::remove(source.signals.begin(), source.signals.end(), script);
+            source.signals.erase(it, source.signals.end());
+        }
+    };
+    template<stx::BasicCallable<void, E> Callback>
+    struct DispatchContentNode : IgnoreContentNode {
+        Callback callback;
+        void cancel(Script script, typename IgnoreContentNode::ScratchSpace& scratch) const {
+            IgnoreContentNode::cancel(script, scratch);
+            scratch.receiver.dispatchTo(callback);
+        }
+    };
+    using NodeType = IgnoreContentNode;
+
     mutable std::vector<Signal<E>> signals;
     SourceImpl() = default;
     SourceImpl(const SourceImpl&) = delete;
-    constexpr NodeType operator>(Receiver<E>& rec) const {
-        return { {}, this, &rec };
+    constexpr MoveContentNode operator>(Receiver<E>& rec) const {
+        return { {}, *this, rec };
     }
     void sendEvent(const E& event) {
         for (const Signal<E>& signal : signals)
@@ -107,6 +135,9 @@ struct SourceImpl {
             return;
         for (const Signal<E>& signal : signals)
             signal.send(events);
+    }
+    constexpr operator NodeType() const {
+        return { {}, *this };
     }
 };
 

@@ -21,8 +21,7 @@ Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();
         while (true) {
-            evt::Receiver<evt::ResizeEvent> events;
-            await { instance->resizeEvent() > events || instance->destroyed() };
+            await { instance->resizeEvent() || instance->destroyed() };
             if (instance->destroyed())
                 break;
             instance->resize();

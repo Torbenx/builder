@@ -36,32 +36,29 @@ struct TmplBranchNode {
     static constexpr bool IS_TMPL_TREE_NODE = true;
     Left left;
     Right right;
-    template<TmplLeafLoc loc>
-    const auto& get() const {
-        if constexpr (loc.lowestBit())
-            return right.template get<(loc >> 1)>();
-        else
-            return left.template get<(loc >> 1)>();
-    }
 };
-
-template<typename Impl>
 struct TmplLeafNode {
     static constexpr bool IS_TMPL_TREE_NODE = true;
 
     static constexpr uint64_t requiredEvents() { return 0; }
     static constexpr uint64_t maxEvents() { return 0; }
 
-    template<TmplLeafLoc loc>
-    const Impl& get() const {
-        static_assert(loc == TmplLeafLoc {});
-        return *static_cast<const Impl*>(this);
-    }
-
     uint64_t state() const { return 0; }
     void commit(Signal<>) const { }
     void cancel(Script) const { }
 };
+template<TmplLeafLoc loc, std::derived_from<TmplLeafNode> Node>
+const Node& get(const Node& node) {
+    static_assert(loc == TmplLeafLoc {});
+    return node;
+}
+template<TmplLeafLoc loc, LogicalOp op, typename Left, typename Right>
+const auto& get(const TmplBranchNode<op, Left, Right>& node) {
+    if constexpr (loc.lowestBit())
+        return get<(loc >> 1)>(node.right);
+    else
+        return get<(loc >> 1)>(node.left);
+}
 
 template<typename Node>
 concept ActualTreeNode = Node::IS_TMPL_TREE_NODE;
@@ -95,7 +92,7 @@ constexpr typename Node::NodeType convertTreeNode(const Node& node) requires Con
 }
 
 template<typename Node, TmplLeafLoc loc>
-using NodeTypeOf = std::remove_cvref_t<typename stx::member_pointer<&Node::template get<loc>>::ReturnType>;
+using NodeTypeOf = std::remove_cvref_t<decltype(get<loc>(std::declval<Node>()))>;
 
 namespace compiled {
 
@@ -333,7 +330,7 @@ template<stx::FixedString str>
 struct NamedCondition {
     static constexpr stx::FixedString name = str;
 
-    struct NodeType : TmplLeafNode<NodeType> {
+    struct NodeType : TmplLeafNode {
         static constexpr uint64_t maxEvents() { return UNBOUND_EVENT_COUNT; }
         static constexpr uint64_t requiredEvents() { return 1; }
     };

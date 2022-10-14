@@ -5,7 +5,7 @@
 namespace evt {
 
 struct OnExecutor {
-    struct NodeType : TmplLeafNode<NodeType> {
+    struct NodeType : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
         Executor* executor = nullptr;
@@ -22,7 +22,7 @@ struct OnExecutor {
 };
 
 struct NextTick {
-    struct NodeType : TmplLeafNode<NodeType> {
+    struct NodeType : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
         ExecutorImpl* executor = nullptr;
@@ -67,7 +67,7 @@ struct BinaryState {
         state = newState;
     }
 
-    struct NodeType : TmplLeafNode<NodeType> {
+    struct NodeType : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
         const BinaryState* binaryState = nullptr;

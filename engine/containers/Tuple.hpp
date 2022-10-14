@@ -1,5 +1,6 @@
 #pragma once
 
+#include "util/Callable.hpp"
 #include "util/types.hpp"
 
 namespace stx {
@@ -55,6 +56,10 @@ const T& get(const detail::tuple_storage_base<T>& s) {
 template<typename... Types, int_t... I, typename Callback>
 void forEachElement(detail::TupleImpl<detail::tuple_storage_indexed<Types, I>...>& tuple, Callback&& callback) {
     (callback(get<I>(tuple)), ...);
+}
+template<typename... Types, int_t... I, typename Callback>
+void forEachElementIndexed(detail::TupleImpl<detail::tuple_storage_indexed<Types, I>...>& tuple, Callback&& callback) {
+    (callback(get<I>(tuple), stx::constant<I>()), ...);
 }
 
 }

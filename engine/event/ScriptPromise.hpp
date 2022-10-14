@@ -7,7 +7,7 @@ namespace evt {
 struct ScriptCompletionEvent {
     mutable std::vector<Signal<>> signals;
 
-    struct NodeType : TmplLeafNode<NodeType> {
+    struct NodeType : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
         const ScriptCompletionEvent* event = nullptr;

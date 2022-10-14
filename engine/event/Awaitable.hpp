@@ -5,12 +5,28 @@
 
 namespace evt {
 
+template<typename Node>
+concept NeedsScratchSpace = requires { typename Node::ScratchSpace; };
+template<typename Node>
+struct scratch_space_or_empty {
+    using type = struct { };
+};
+template<NeedsScratchSpace Node>
+struct scratch_space_or_empty<Node> {
+    using type = typename Node::ScratchSpace;
+};
+
 template<TmplTreeNode Node>
 struct Awaitable {
     static constexpr const auto& output = CompiledCondition<Node>::output;
+    static constexpr int_t LEAF_COUNT = output.leafs.size();
+
+    template<int_t i>
+    using NodeOf = NodeTypeOf<Node, output.leafs[i].tmplLoc>;
 
     template<typename L>
     struct LeafWrapper {
+        using LeafType = L;
         L leaf;
         uint64_t mask = 0;
     };
@@ -19,21 +35,21 @@ struct Awaitable {
     template<int_t i>
     static constexpr auto makeWrapper(const Node& node) {
         const auto& leaf = output.leafs[i];
-        return LeafWrapper { node.template get<leaf.tmplLoc>(), leaf.mask };
+        return LeafWrapper { get<leaf.tmplLoc>(node), leaf.mask };
     }
     template<typename>
     struct LeafsTupleHelper;
     template<int_t... I>
     struct LeafsTupleHelper<stx::int_sequence<I...>> {
-        using type = stx::Tuple<LeafWrapper<NodeTypeOf<Node, output.leafs[I].tmplLoc>>...>;
+        using type = stx::Tuple<LeafWrapper<NodeOf<I>>...>;
     };
-    using LeafsTuple = typename LeafsTupleHelper<stx::make_int_sequence<output.leafs.size()>>::type;
+    using LeafsTuple = typename LeafsTupleHelper<stx::make_int_sequence<LEAF_COUNT>>::type;
     struct Leafs : LeafsTuple {
         constexpr Leafs(const CompiledCondition<Node>& condition)
             : Leafs(condition.node) { }
         template<std::convertible_to<Node> Node2>
         constexpr Leafs(const Node2& node)
-            : Leafs(node, stx::make_int_sequence<output.leafs.size()>()) { }
+            : Leafs(node, stx::make_int_sequence<LEAF_COUNT>()) { }
         template<int_t... I>
         constexpr Leafs(const Node& node, stx::int_sequence<I...>)
             : LeafsTuple { { { makeWrapper<I>(node) }... } } { }
@@ -44,6 +60,15 @@ struct Awaitable {
 
     Script suspendedScript = {};
 
+    template<typename>
+    struct ScratchTupleHelper;
+    template<int_t... I>
+    struct ScratchTupleHelper<stx::int_sequence<I...>> {
+        using type = stx::Tuple<typename scratch_space_or_empty<NodeOf<I>>::type...>;
+    };
+    using ScratchTuple = typename ScratchTupleHelper<stx::make_int_sequence<LEAF_COUNT>>::type;
+    ScratchTuple&& scratchSpaces = {};
+
     constexpr bool await_ready() {
         stx::forEachElement(leafs, [&](const auto& wrapper) {
             startMask += wrapper.leaf.state() * wrapper.mask;
@@ -53,13 +78,21 @@ struct Awaitable {
     constexpr void await_suspend(Script script) {
         suspendedScript = script;
         script->state = { startMask, output.keyMask };
-        stx::forEachElement(leafs, [&](auto& wrapper) {
-            wrapper.leaf.commit(Signal<> { script, wrapper.mask });
+        stx::forEachElementIndexed(leafs, [&]<typename Wrapper, int_t i>(Wrapper& wrapper, std::integral_constant<int_t, i>) {
+            if constexpr (NeedsScratchSpace<typename Wrapper::LeafType>) {
+                wrapper.leaf.commit(Signal<> { script, wrapper.mask }, stx::get<i>(scratchSpaces));
+            } else {
+                wrapper.leaf.commit(Signal<> { script, wrapper.mask });
+            }
         });
     }
     constexpr void cancel() {
-        stx::forEachElement(leafs, [&](auto& wrapper) {
-            wrapper.leaf.cancel(suspendedScript);
+        stx::forEachElementIndexed(leafs, [&]<typename Wrapper, int_t i>(Wrapper& wrapper, std::integral_constant<int_t, i>) {
+            if constexpr (NeedsScratchSpace<typename Wrapper::LeafType>) {
+                wrapper.leaf.cancel(suspendedScript, stx::get<i>(scratchSpaces));
+            } else {
+                wrapper.leaf.cancel(suspendedScript);
+            }
         });
     }
     constexpr void await_resume() {

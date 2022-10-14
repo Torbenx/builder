@@ -295,8 +295,7 @@ evt::Script uiTestWrapper1(plt::Window window, evt::Scheduler scheduler) {
 
     uiTestWrapper2(window, std::move(windowRelay.output), instance, updateUi, shutdownSource, scheduler);
 
-    evt::Receiver<ShutdownEvent> events;
-    await { shutdownSource > events };
+    await { shutdownSource };
 }
 
 }
