@@ -33,10 +33,13 @@ struct RenderOutputUtil {
     }
 };
 
-class Instance : public evt::Window {
+class Instance {
 public:
     Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc);
     ~Instance();
+
+    const evt::Source<evt::WindowStateUpdate>& windowState;
+    const evt::Source<evt::WindowStateUpdate>& state() { return windowState; }
 
     IdAllocator<uint32_t> eqnIdAlloc;
     std::vector<Size> inhomTyped;

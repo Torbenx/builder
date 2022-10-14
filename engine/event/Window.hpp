@@ -76,29 +76,4 @@ struct WindowStateUpdate {
 };
 static_assert(HasCustomSource<WindowStateUpdate>);
 
-class Window {
-private:
-    const Source<WindowStateUpdate>* m_stateUpdate = nullptr;
-    const Source<ResizeEvent>* m_resizeEvent = nullptr;
-
-public:
-    Window() = default;
-    Window(const Source<WindowStateUpdate>& stateUpdate, const Source<ResizeEvent>& resizeEvent)
-        : m_stateUpdate(&stateUpdate), m_resizeEvent(&resizeEvent) { }
-
-    const Source<WindowStateUpdate>& stateUpdate() const {
-        return *m_stateUpdate;
-    }
-    const Source<ResizeEvent>& resizeEvent() const {
-        return *m_resizeEvent;
-    }
-    const BinaryState& initialized() const { return stateUpdate().initialized; }
-    const BinaryState& visible() const { return stateUpdate().visible; }
-    const BinaryState& foreground() const { return stateUpdate().foreground; }
-    const BinaryState& destroyed() const { return stateUpdate().destroyed; }
-    WindowState state() const { return stateUpdate().currentState; }
-    ui::IntVec dimensions() const { return resizeEvent().currentDimensions; }
-    explicit operator bool() const { return m_stateUpdate; }
-};
-
 }

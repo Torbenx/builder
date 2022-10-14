@@ -32,7 +32,7 @@ struct ScopedDeviceContext {
     operator HDC() const { return hdc(); }
 };
 
-struct WindowImpl : evt::Source<evt::WindowStateUpdate>, evt::Source<evt::ResizeEvent> {
+struct WindowImpl : WindowBackendBase {
     HWND m_hwnd = nullptr;
     std::string m_title;
     WindowSurfaceCallback* m_surfaceCallback = nullptr;
@@ -59,7 +59,7 @@ struct WindowImpl : evt::Source<evt::WindowStateUpdate>, evt::Source<evt::Resize
 };
 
 inline WindowImpl* windowImpl(Window window) {
-    return const_cast<WindowImpl*>(static_cast<const WindowImpl*>(&window.stateUpdate()));
+    return static_cast<WindowImpl*>(window.windowBackend());
 }
 
 }

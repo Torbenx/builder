@@ -1,7 +1,7 @@
 #pragma once
 
-#include "util/Callable.hpp"
 #include "event/Window.hpp"
+#include "util/Callable.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
 #include <functional>
@@ -51,7 +51,9 @@ struct WindowStateCallback {
     }
 };*/
 
-class Window : public evt::Window {
+struct WindowBackendBase : evt::Source<evt::WindowStateUpdate>, evt::Source<evt::ResizeEvent> { };
+
+class Window {
 public:
     static Window construct();
     Window() = default;
@@ -64,9 +66,25 @@ public:
     void initialize();
     void destroy();
 
+    const evt::Source<evt::WindowStateUpdate>& stateUpdate() const { return *backend; }
+    evt::WindowState state() const { return stateUpdate().currentState; }
+    const evt::BinaryState& initialized() const { return stateUpdate().initialized; }
+    const evt::BinaryState& visible() const { return stateUpdate().visible; }
+    const evt::BinaryState& foreground() const { return stateUpdate().foreground; }
+    const evt::BinaryState& destroyed() const { return stateUpdate().destroyed; }
+
+    const evt::Source<evt::ResizeEvent>& resizeEvent() const { return *backend; }
+    ui::IntVec dimensions() const { return resizeEvent().currentDimensions; }
+
+    explicit operator bool() const { return (bool)backend; }
+
+    WindowBackendBase* windowBackend() { return backend; }
+    const WindowBackendBase* windowBackend() const { return backend; }
+
 protected:
-    Window(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent)
-        : evt::Window(stateUpdate, resizeEvent) { }
+    WindowBackendBase* backend = nullptr;
+    Window(WindowBackendBase* backend)
+        : backend(backend) { }
 };
 
 evt::ExecutorImpl* coreExe();

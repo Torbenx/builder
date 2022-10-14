@@ -108,9 +108,9 @@ evt::Script uiTestInit() {
         style.get<Channel1>() = ColorChannel::Red;
     }
 
-    while (!ui::instance()->destroyed()) {
+    while (!ui::instance()->state().destroyed) {
         evt::Receiver<evt::WindowStateUpdate> events;
-        await { ui::instance()->stateUpdate() > events };
+        await { ui::instance()->state() > events };
         for (auto update : events.events)
             log("state change: {} -> {}", evt::WindowStateUtil(update.from).toString(), evt::WindowStateUtil(update.to).toString());
     }
@@ -124,11 +124,11 @@ struct PerformDrawTask : evt::Task {
     ui::IntVec frameSize;
     evt::Relay<evt::ResizeEvent> resizeRelay;
 
-    PerformDrawTask(ui::Instance& instance, plt::Window nativeWindow)
+    PerformDrawTask(ui::Instance& instance, evt::Source<evt::ResizeEvent>& resizeEvent, plt::Window nativeWindow)
         : Task { stx::CallDerivedMember<&PerformDrawTask::draw>() }
         , instance(instance)
         , nativeWindow(nativeWindow)
-        , resizeRelay(evt::relayEvents(instance.resizeEvent())) {
+        , resizeRelay(evt::relayEvents(resizeEvent)) {
     }
 
     uint64_t lastFrame = 0;
@@ -186,7 +186,7 @@ struct PerformDrawTask : evt::Task {
             return;
         ui::TextureView frameView { framebuffer.get(), frameSize.x() };
         uint32_t background_color = 0xff'ff'ff'ff;
-        ui::IntVec windowSize = instance.dimensions();
+        ui::IntVec windowSize = instance.windowDimensions;
         for (int_t j = 0; j < windowSize.y(); j++) {
             for (int_t i = 0; i < windowSize.x(); i++) {
                 frameView[j][i] = background_color >> 8;
@@ -234,7 +234,7 @@ struct PerformDrawTask : evt::Task {
             .bmiColors = {},
         };
         auto dc = impl->deviceContext();
-        ui::IntVec dim = instance.dimensions();
+        ui::IntVec dim = instance.windowDimensions;
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
     }
@@ -260,7 +260,7 @@ struct ShutdownEvent { };
 evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, evt::Scheduler scheduler) {
     relayedBackend->startRelay(instance.coreExe);
 
-    PerformDrawTask performDraw { instance, window };
+    PerformDrawTask performDraw { instance, relayedBackend->output<evt::ResizeEvent>(), window };
     evt::dep::Dependency dependencies[] = {
         instance.outputComplete.createDependency(performDraw),
         performDraw.createDependency(plt::tickComplete()),

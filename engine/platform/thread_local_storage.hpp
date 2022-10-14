@@ -26,6 +26,8 @@ inline uint64_t read_segment_register(uint32_t offset) {
     return __readgsqword(offset);
 }
 #else
+// based mingw's implentation of read/writegsqword
+static_assert(sizeof(void*) == 8);
 inline void write_segment_register(uint32_t offset, uint64_t data) {
     asm("mov{q %[data], %%gs:%[offset] | %%gs:%[offset], %[data]}"
             : [offset] "=m"((*(uint64_t*)(uintptr_t)offset))

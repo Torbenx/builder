@@ -6,7 +6,7 @@
 namespace ui {
 
 Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc)
-    : evt::Window(stateUpdate, resizeEvent)
+    : windowState(stateUpdate)
     , atlasAlloc(atlasAlloc)
     , rendererUpdates(RendererBase::recordCount())
     , incrementalRenderOutput(RendererBase::recordCount())
@@ -15,18 +15,19 @@ Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const
 
     windowRect = newRect();
 
-    [](Instance* instance) -> evt::Script {
+    [](Instance* instance, const evt::Source<evt::ResizeEvent>& resizeEvent) -> evt::Script {
         await { evt::OnExecutor(instance->coreExe) };
-        IntVec initialDim = instance->dimensions();
+        IntVec initialDim = resizeEvent.currentDimensions;
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();
         while (true) {
-            await { instance->resizeEvent() || instance->destroyed() };
-            if (instance->destroyed())
+            await { resizeEvent || instance->state().destroyed };
+            if (instance->state().destroyed)
                 break;
+            instance->windowDimensions = resizeEvent.currentDimensions;
             instance->resize();
         }
-    }(this);
+    }(this, resizeEvent);
 
     auto fix = [&](VarHandle var) -> EquationHandle {
         EquationHandle eq = newEquation();
@@ -146,10 +147,10 @@ void Instance::doTick(evt::Scheduler scheduler) {
 }
 
 void Instance::resize() {
-    updateInhom(windowEquations[1], dimensions().x() * 1_px);
-    updateInhom(windowEquations[3], dimensions().y() * 1_px);
+    updateInhom(windowEquations[1], windowDimensions.x() * 1_px);
+    updateInhom(windowEquations[3], windowDimensions.y() * 1_px);
 
-    IntVec windowBlocks = (dimensions() + 15) / 16;
+    IntVec windowBlocks = (windowDimensions + 15) / 16;
     outputBlockMap.clear();
     outputBlockMap.resize(windowBlocks.x() * windowBlocks.y());
 }
@@ -215,7 +216,7 @@ void Instance::rebuildOutput() {
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
     for (uint32_t& u : outputBlockMap)
         u = INVALID_BLOCK_ID;
-    IntVec blockDimensions = (dimensions() + 15) / 16;
+    IntVec blockDimensions = (windowDimensions + 15) / 16;
     for (int_t k = 1; k < (int_t)renders.size(); k++) {
         auto& render = renders[k];
         auto rect = intRect(render.rect);

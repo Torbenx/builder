@@ -207,7 +207,7 @@ void processEventsImpl(stx::BasicCallback<> callback) {
 
 Window Window::construct() {
     auto* window = new windows::WindowImpl;
-    return Window(*window, *window);
+    return Window(window);
 }
 
 }
