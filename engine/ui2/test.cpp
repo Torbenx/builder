@@ -108,7 +108,7 @@ evt::Script uiTestInit() {
     }
 
     while (!ui::instance()->destroyed()) {
-        evt::EventReceiver<evt::WindowStateUpdate> events;
+        evt::Receiver<evt::WindowStateUpdate> events;
         co_await (ui::instance()->stateUpdate() > events);
         for (auto update : events.events)
             log("state change: {} -> {}", evt::WindowStateUtil(update.from).toString(), evt::WindowStateUtil(update.to).toString());
@@ -121,7 +121,7 @@ struct PerformDrawTask : evt::Task {
     ui::TextureHandle atlas;
     std::unique_ptr<uint32_t[]> framebuffer;
     ui::IntVec frameSize;
-    evt::EventRelay<evt::ResizeEvent> resizeRelay;
+    evt::Relay<evt::ResizeEvent> resizeRelay;
 
     PerformDrawTask(ui::Instance& instance, plt::Window nativeWindow)
         : Task { evt::CallDerivedMember<&PerformDrawTask::draw>() }
@@ -134,7 +134,7 @@ struct PerformDrawTask : evt::Task {
     int_t frames = 0;
     uint64_t totalDrawTime = 0;
     void draw(evt::Scheduler) {
-        log("draw...");
+        //log("draw...");
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             log("FPS: {}, draw time: {}%", frames, totalDrawTime * 100.0f / (now - lastFrame));
@@ -145,8 +145,8 @@ struct PerformDrawTask : evt::Task {
         frames += 1;
 
         auto resizeEvents = resizeRelay.output->takeEvents<evt::ResizeEvent>();
-        if (resizeEvents.size() > 0) {
-            ui::IntVec windowBlockSize = (resizeEvents.back().newDimensions + 15) / 16;
+        if (resizeEvents.hasEvent()) {
+            ui::IntVec windowBlockSize = (resizeEvents.event.value().newDimensions + 15) / 16;
             frameSize = windowBlockSize * 16;
             framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
         }
@@ -257,7 +257,7 @@ struct UpdateUiTask : evt::Task {
 };
 
 struct ShutdownEvent { };
-evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayedWindowBackend*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::EventSource<ShutdownEvent>& shutdownSource, evt::Scheduler scheduler) {
+evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, evt::Scheduler scheduler) {
     relayedBackend->startRelay(instance.coreExe);
     
     PerformDrawTask performDraw { instance, window };
@@ -274,7 +274,7 @@ evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayedWindowBack
 
     plt::queueCallback({
         &shutdownSource,
-        [](evt::EventSource<ShutdownEvent>* shutdownSource, evt::Scheduler) {
+        [](evt::Source<ShutdownEvent>* shutdownSource, evt::Scheduler) {
             shutdownSource->sendEvent({});
         },
     });
@@ -282,12 +282,12 @@ evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayedWindowBack
 }
 
 evt::Script uiTestWrapper1(plt::Window window, evt::Scheduler scheduler) {
-    evt::EventSource<ShutdownEvent> shutdownSource;
+    evt::Source<ShutdownEvent> shutdownSource;
 
     evt::ExecutorImpl uiExecutor;
-    evt::WindowRelay windowRelay = evt::relayWindow(window);
+    evt::Relay windowRelay = evt::relayEvents(window.stateUpdate(), window.resizeEvent());
     BasicAtlasAllocator atlasAlloc;
-    ui::Instance instance { windowRelay.output, &uiExecutor, &atlasAlloc };
+    ui::Instance instance { windowRelay.output->output<evt::WindowStateUpdate>(), windowRelay.output->output<evt::ResizeEvent>(), &uiExecutor, &atlasAlloc };
 
     UpdateUiTask updateUi { instance, &uiExecutor };
     auto inputDep = plt::processedEvents().createDependency(updateUi);
@@ -296,7 +296,7 @@ evt::Script uiTestWrapper1(plt::Window window, evt::Scheduler scheduler) {
 
     uiTestWrapper2(window, std::move(windowRelay.output), instance, updateUi, shutdownSource, scheduler);
 
-    evt::EventReceiver<ShutdownEvent> events;
+    evt::Receiver<ShutdownEvent> events;
     co_await (shutdownSource > events);
 }
 

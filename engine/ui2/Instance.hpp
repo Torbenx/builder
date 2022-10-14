@@ -35,7 +35,7 @@ struct RenderOutputUtil {
 
 class Instance : public evt::Window {
 public:
-    Instance(const evt::WindowBackend* window, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc);
+    Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc);
     ~Instance();
 
     IdAllocator<uint32_t> eqnIdAlloc;

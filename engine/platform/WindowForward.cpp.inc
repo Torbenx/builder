@@ -1,27 +1,21 @@
 namespace plt {
-    
-Window Window::construct() {
-    return Window(new WINDOW_IMPL);
-}
 
 void Window::setTitle(std::string_view title) {
-    const_cast<WINDOW_IMPL*>(static_cast<const WINDOW_IMPL*>(windowBackend()))->setTitle(title);
+    TO_WINDOW_IMPL(*this)->setTitle(title);
 }
 std::string_view Window::title() const {
-    return static_cast<const WINDOW_IMPL*>(windowBackend())->title();
+    return TO_WINDOW_IMPL(*this)->title();
 }
 
 void Window::setDimensions(ui::IntVec dim) {
-    const_cast<WINDOW_IMPL*>(static_cast<const WINDOW_IMPL*>(windowBackend()))->setDimensions(dim);
+    TO_WINDOW_IMPL(*this)->setDimensions(dim);
 }
 
 void Window::initialize() {
-    const_cast<WINDOW_IMPL*>(static_cast<const WINDOW_IMPL*>(windowBackend()))->initialize();
+    TO_WINDOW_IMPL(*this)->initialize();
 }
 void Window::destroy() {
-    auto* window = const_cast<WINDOW_IMPL*>(static_cast<const WINDOW_IMPL*>(windowBackend()));
-    window->destroy();
-    // delete window;
+    TO_WINDOW_IMPL(*this)->destroy();
 }
 
 }

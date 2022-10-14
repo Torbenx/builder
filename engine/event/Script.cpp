@@ -2,7 +2,7 @@
 
 namespace evt {
 
-void Signal::send(int_t count) const {
+void Signal<>::send(int_t count) const {
     Executor* localExecutor = currentExecutor();
     uint64_t oldState = script->state.state;
     uint64_t newState = oldState + mask * count;

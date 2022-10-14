@@ -59,7 +59,7 @@ struct TmplLeafNode {
     }
 
     uint64_t state() const { return 0; }
-    void commit(Signal) const { }
+    void commit(Signal<>) const { }
     void cancel(Script) const { }
 };
 
@@ -363,7 +363,7 @@ struct CompiledCondition {
             return 0;
     }
     template<stx::FixedString name>
-    Signal signal(Script script, NamedCondition<name> event) const {
+    Signal<> signal(Script script, NamedCondition<name> event) const {
         static constexpr uint64_t mask = makeMask(event);
         static_assert(mask != 0);
         return { script, mask };

@@ -5,39 +5,86 @@
 #include "Scheduler.hpp"
 #include "containers/Owned.hpp"
 #include "containers/Tuple.hpp"
+#include <optional>
 
 namespace evt {
 
 template<typename E>
-struct EventReceiver {
+struct traits;
+template<typename E>
+using Receiver = typename traits<E>::Receiver;
+template<typename E>
+using Source = typename traits<E>::Source;
+
+template<typename E>
+struct ListReceiver {
     std::vector<E> events;
+    void receiveEvent(const E& e) {
+        events.push_back(e);
+    }
+    void receiveEvents(const ListReceiver<E>& other) {
+        events.insert(events.end(), other.events.begin(), other.events.end());
+    }
+    bool hasEvent() const {
+        return events.size() > 0;
+    }
+    int_t count() const {
+        return events.size();
+    }
+    void reset() {
+        events.clear();
+    }
+};
+template<typename E>
+struct KeepLastReceiver {
+    std::optional<E> event;
+    KeepLastReceiver() = default;
+    KeepLastReceiver(const KeepLastReceiver&) = default;
+    KeepLastReceiver(KeepLastReceiver&& other)
+        : event(std::move(other.event)) { other.event.reset(); }
+    KeepLastReceiver& operator=(const KeepLastReceiver&) = default;
+    KeepLastReceiver& operator=(KeepLastReceiver&& other) {
+        event = std::move(other.event);
+        other.event.reset();
+        return *this;
+    }
+    void receiveEvent(const E& e) {
+        event = e;
+    }
+    void receiveEvents(const KeepLastReceiver<E>& other) {
+        VERIFY(Event, other.event.has_value());
+        event = other.event.value();
+    }
+    bool hasEvent() const { return event.has_value(); }
+    int_t count() const { return event.has_value(); }
+    void reset() { event.reset(); }
 };
 
 template<typename E>
-struct EventSignal {
-    Signal signal;
-    EventReceiver<E>* receiver = nullptr;
+struct Signal {
+    Signal<> signal;
+    Receiver<E>* receiver = nullptr;
     void send(const E& e) const {
-        receiver->events.emplace_back(e);
+        receiver->receiveEvent(e);
         signal.send();
     }
-    void send(ArrayView<const E> events) const {
-        receiver->events.insert(receiver->events.end(), events.begin(), events.end());
-        signal.send(events.size());
+    void send(const Receiver<E>& events) const {
+        receiver->receiveEvents(events);
+        signal.send(events.count());
     }
     bool operator==(const Script& script) const { return signal == script; }
 };
 
 template<typename E>
-struct EventSource {
+struct SourceImpl {
     struct NodeType : TmplLeafNode<NodeType> {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return UNBOUND_EVENT_COUNT; }
 
-        const EventSource* source = nullptr;
-        EventReceiver<E>* receiver = nullptr;
+        const SourceImpl* source = nullptr;
+        Receiver<E>* receiver = nullptr;
 
-        void commit(Signal signal) const {
+        void commit(Signal<> signal) const {
             source->signals.push_back({ signal, receiver });
         }
         void cancel(Script script) const {
@@ -45,24 +92,53 @@ struct EventSource {
             source->signals.erase(it, source->signals.end());
         }
     };
-    mutable std::vector<EventSignal<E>> signals;
-    EventSource() = default;
-    EventSource(const EventSource&) = delete;
-    constexpr NodeType operator>(EventReceiver<E>& rec) const {
+    mutable std::vector<Signal<E>> signals;
+    SourceImpl() = default;
+    SourceImpl(const SourceImpl&) = delete;
+    constexpr NodeType operator>(Receiver<E>& rec) const {
         return { {}, this, &rec };
     }
     void sendEvent(const E& event) {
-        for (const EventSignal<E>& signal : signals)
+        for (const Signal<E>& signal : signals)
             signal.send(event);
     }
-    void sendEvents(ArrayView<const E> events) {
-        for (const EventSignal<E>& signal : signals)
+    void sendEvents(const Receiver<E>& events) {
+        if (!events.hasEvent())
+            return;
+        for (const Signal<E>& signal : signals)
             signal.send(events);
     }
 };
 
 template<typename E>
-using EventRingBuffer = TickRingBuffer<std::vector<E>>;
+struct traits;
+template<typename E>
+concept HasCustomReceiver = requires { typename E::EventReceiver; };
+template<typename E>
+concept HasCustomSource = requires { typename E::EventSource; };
+template<typename E>
+requires(!HasCustomReceiver<E> && !HasCustomSource<E>) struct traits<E> {
+    using Receiver = ListReceiver<E>;
+    using Source = SourceImpl<E>;
+};
+template<typename E>
+requires(HasCustomReceiver<E> && !HasCustomSource<E>) struct traits<E> {
+    using Receiver = typename E::EventReceiver;
+    using Source = SourceImpl<E>;
+};
+template<typename E>
+requires(!HasCustomReceiver<E> && HasCustomSource<E>) struct traits<E> {
+    using Receiver = ListReceiver<E>;
+    using Source = typename E::EventSource;
+};
+template<typename E>
+requires(HasCustomReceiver<E>&& HasCustomSource<E>) struct traits<E> {
+    using Receiver = typename E::EventReceiver;
+    using Source = typename E::EventSource;
+};
+
+template<typename E>
+using EventRingBuffer = TickRingBuffer<Receiver<E>>;
 
 struct RelayPromise {
     Executor* executor = nullptr;
@@ -76,7 +152,7 @@ struct RelayPromise {
     stdx::suspend_always initial_suspend() { return {}; }
     stdx::suspend_never final_suspend() noexcept { return {}; }
     void return_void() { }
-    void unhandled_exception() { }
+    void unhandled_exception() { VERIFY_NOT_REACHED(Event); }
 };
 
 }
@@ -98,7 +174,7 @@ namespace evt {
 template<typename... Es>
 struct RelayOutputPromise : RelayPromise {
     stx::Tuple<EventRingBuffer<Es>...> buffers;
-    stx::Tuple<EventSource<Es>...> outputs;
+    stx::Tuple<Source<Es>...> outputs;
     RelayOutputPromise(stx::int_sequence_for<Es...>, RelayOutputPromise*& promise) { promise = this; }
     auto handle() { return stdx::coroutine_handle<RelayOutputPromise>::from_promise(*this); }
     RelayOutputPromise* get_return_object() { return this; }
@@ -106,30 +182,30 @@ struct RelayOutputPromise : RelayPromise {
     void reschedule() { RelayPromise::reschedule(handle()); }
 
     template<typename E>
-    EventSource<E>& output() { return stx::get<EventSource<E>>(outputs); }
+    Source<E>& output() { return stx::get<Source<E>>(outputs); }
     template<typename E>
-    const EventSource<E>& output() const { return stx::get<EventSource<E>>(outputs); }
+    const Source<E>& output() const { return stx::get<Source<E>>(outputs); }
     template<int_t i>
     auto& output() { return stx::get<i>(outputs); }
     template<int_t i>
     const auto& output() const { return stx::get<i>(outputs); }
 
     template<typename E>
-    auto& buffer() { return stx::get<EventRingBuffer<E>>(buffers); }
+    EventRingBuffer<E>& buffer() { return stx::get<EventRingBuffer<E>>(buffers); }
     template<typename E>
-    const auto& buffer() const { return stx::get<EventRingBuffer<E>>(buffers); }
+    const EventRingBuffer<E>& buffer() const { return stx::get<EventRingBuffer<E>>(buffers); }
     template<int_t i>
     auto& buffer() { return stx::get<i>(buffers); }
     template<int_t i>
     const auto& buffer() const { return stx::get<i>(buffers); }
 
     template<typename E>
-    std::vector<E> takeEvents() {
+    Receiver<E> takeEvents() {
         return std::move(buffer<E>()[tick()]);
     }
     template<typename E>
-    std::vector<E> sendEvents() {
-        std::vector<E> events = std::move(buffer<E>()[tick()]);
+    Receiver<E> sendEvents() {
+        Receiver<E> events = std::move(buffer<E>()[tick()]);
         output<E>().sendEvents(events);
         return events;
     }
@@ -155,28 +231,28 @@ namespace detail {
         }
     }
     template<typename... Es, int_t... I>
-    Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, const EventSource<Es>&... sources) {
+    Script recordEvents(RelayOutputPromise<Es...>* output, stx::int_sequence<I...>, const SourceImpl<Es>&... sources) {
         while (true) {
-            stx::Tuple<EventReceiver<Es>...> receivers;
+            stx::Tuple<Receiver<Es>...> receivers {};
             co_await ((sources > stx::get<I>(receivers)) || ...);
             int_t tick = evt::tick();
-            ((stx::get<I>(output->buffers)[tick] = std::move(stx::get<I>(receivers).events)), ...);
+            ((output->template buffer<I>()[tick] = std::move(stx::get<I>(receivers))), ...);
         }
     }
 }
 template<typename... Es>
-struct EventRelay {
+struct Relay {
     stx::Owned<Script> input;
     stx::Owned<RelayOutputPromise<Es...>*> output;
 
-    stx::Owned<RelayOutputPromise<Es...>*> broadcastEvents(Executor* executor) {
+    [[nodiscard]] stx::Owned<RelayOutputPromise<Es...>*> broadcastEvents(Executor* executor) {
         VERIFY(Event, (bool)output);
         output->startRelay(executor);
         return std::move(output);
     }
 };
 template<typename... Es>
-EventRelay<Es...> relayEvents(const EventSource<Es>&... sources) {
+[[nodiscard]] Relay<Es...> relayEvents(const SourceImpl<Es>&... sources) {
     RelayOutputPromise<Es...>* output = detail::broadcastEvents<Es...>(stx::int_sequence_for<Es...>());
     Script input = detail::recordEvents(output, stx::int_sequence_for<Es...>(), sources...);
     return { input, output };

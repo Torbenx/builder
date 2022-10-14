@@ -49,7 +49,7 @@ struct Awaitable {
         suspendedScript = script;
         script->state = { startMask, output.keyMask };
         stx::forEachElement(leafs, [&](auto& wrapper) {
-            wrapper.leaf.commit(Signal { script, wrapper.mask });
+            wrapper.leaf.commit(Signal<> { script, wrapper.mask });
         });
     }
     constexpr void cancel() {

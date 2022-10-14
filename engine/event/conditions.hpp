@@ -9,7 +9,7 @@ struct OnExecutor {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
         Executor* executor = nullptr;
-        void commit(Signal signal) const {
+        void commit(Signal<> signal) const {
             signal.script->executor = executor;
             signal.send();
         }
@@ -26,7 +26,7 @@ struct NextTick {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
         ExecutorImpl* executor = nullptr;
-        void commit(Signal signal) {
+        void commit(Signal<> signal) {
             executor = static_cast<ExecutorImpl*>(signal.script->executor);
             if (!executor)
                 executor = static_cast<ExecutorImpl*>(evt::currentExecutor());
@@ -44,14 +44,14 @@ struct NextTick {
 using MonoConditionNamed = NamedCondition<"monoCondition">;
 struct MonoCondition : CompiledCondition<MonoConditionNamed::NodeType> {
     using Base = CompiledCondition<MonoConditionNamed::NodeType>;
-    Signal signal(Script script) const { return Base::signal(script, MonoConditionNamed()); }
+    Signal<> signal(Script script) const { return Base::signal(script, MonoConditionNamed()); }
     constexpr MonoCondition() = default;
 };
 constexpr MonoCondition monoCondition;
 
 struct BinaryState {
     bool state = false;
-    mutable std::vector<Signal> signals;
+    mutable std::vector<Signal<>> signals;
 
     BinaryState() = default;
     BinaryState(bool state)
@@ -62,7 +62,7 @@ struct BinaryState {
     void set(bool newState) {
         if (newState == state)
             return;
-        for (Signal signal : signals)
+        for (Signal<> signal : signals)
             signal.send((int_t)newState - (int_t)state);
         state = newState;
     }
@@ -74,7 +74,7 @@ struct BinaryState {
         uint64_t state() const {
             return binaryState->state;
         }
-        void commit(Signal signal) const {
+        void commit(Signal<> signal) const {
             binaryState->signals.push_back(signal);
         }
         void cancel(Script script) const {

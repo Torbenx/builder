@@ -65,8 +65,8 @@ public:
     void destroy();
 
 protected:
-    Window(const evt::WindowBackend* backend)
-        : evt::Window(backend) { }
+    Window(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent)
+        : evt::Window(stateUpdate, resizeEvent) { }
 };
 
 evt::ExecutorImpl* coreExe();

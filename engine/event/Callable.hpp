@@ -5,7 +5,10 @@
 namespace evt {
 
 template<typename Target, typename Ret = void, typename... Args>
-concept BasicCallable = requires(const Target& target, Args... args) {
+concept BasicCallable = (requires(const Target& target, Args... args) {
+    target(args...);
+} && std::is_void_v<Ret>)
+    || requires(const Target& target, Args... args) {
     { target(args...) } -> std::same_as<Ret>;
 };
 template<typename Target, typename Source, typename Ret = void, typename... Args>
@@ -56,7 +59,7 @@ template<typename T, T t>
 struct CallMemberImpl;
 template<typename Class, typename Ret, typename... Args, Ret (Class::*funcPtr)(Args...)>
 struct CallMemberImpl<Ret (Class::*)(Args...), funcPtr> {
-    constexpr Ret operator()(Class& thiz, Args... args) const  {
+    constexpr Ret operator()(Class& thiz, Args... args) const {
         return (thiz.*funcPtr)(args...);
     }
 };

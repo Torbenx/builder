@@ -5,8 +5,8 @@
 
 namespace ui {
 
-Instance::Instance(const evt::WindowBackend* window, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc)
-    : evt::Window(window)
+Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc)
+    : evt::Window(stateUpdate, resizeEvent)
     , atlasAlloc(atlasAlloc)
     , rendererUpdates(RendererBase::recordCount())
     , incrementalRenderOutput(RendererBase::recordCount())
@@ -21,7 +21,7 @@ Instance::Instance(const evt::WindowBackend* window, evt::ExecutorImpl* coreExe,
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();
         while (true) {
-            evt::EventReceiver<evt::ResizeEvent> events;
+            evt::Receiver<evt::ResizeEvent> events;
             co_await (instance->resizeEvent() > events || instance->destroyed());
             if (instance->destroyed())
                 break;

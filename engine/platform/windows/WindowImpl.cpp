@@ -205,8 +205,13 @@ void processEventsImpl(evt::BasicCallback<> callback) {
     windows::processEventsCallback = {};
 }
 
+Window Window::construct() {
+    auto* window = new windows::WindowImpl;
+    return Window(*window, *window);
 }
 
-#define WINDOW_IMPL plt::windows::WindowImpl
+}
+
+#define TO_WINDOW_IMPL plt::windows::windowImpl
 #include "platform/WindowForward.cpp.inc"
-#undef WINDOW_IMPL
+#undef TO_WINDOW_IMPL

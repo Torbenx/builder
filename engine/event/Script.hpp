@@ -19,7 +19,7 @@ struct ScriptPromise;
 
 inline int_t tick() { return (uintptr_t)plt::getThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>(); }
 inline void setTick(int_t tick) {
-    //VERIFY(Event, tick >= 0);
+    // VERIFY(Event, tick >= 0);
     plt::setThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>((void*)(uintptr_t)tick);
 }
 
@@ -47,7 +47,12 @@ struct Script {
     explicit operator bool() const { return (bool)handle; }
     operator stdx::coroutine_handle<>() const { return handle; }
     bool operator==(const Script&) const = default;
-    void deallocate() { handle.destroy(); }
+    void deallocate() {
+        if (handle) {
+            handle.destroy();
+            handle = {};
+        }
+    }
 };
 
 struct Executor {
@@ -75,7 +80,11 @@ struct ExecutorImpl : Executor {
     }
 };
 
-struct Signal {
+template<typename E = void>
+struct Signal;
+
+template<>
+struct Signal<void> {
     Script script;
     uint64_t mask = 0;
 
@@ -83,7 +92,7 @@ struct Signal {
 
     bool operator==(const Script& script) const { return this->script == script; }
 
-    Signal operator~() const { return { script, -mask }; }
+    Signal<> operator~() const { return { script, -mask }; }
 };
 
 void test();

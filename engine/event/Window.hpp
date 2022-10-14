@@ -7,6 +7,17 @@
 namespace evt {
 
 struct ResizeEvent {
+    using EventReceiver = KeepLastReceiver<ResizeEvent>;
+    struct EventSource : SourceImpl<ResizeEvent> {
+        ui::IntVec currentDimensions;
+        void sendEvents(const Receiver<ResizeEvent>& events);
+        void performResize(ui::IntVec newDim) {
+            sendEvent({ newDim });
+        }
+
+    private:
+        using SourceImpl<ResizeEvent>::sendEvent;
+    };
     ui::IntVec newDimensions;
 };
 
@@ -45,73 +56,49 @@ struct WindowStateUtil {
 };
 
 struct WindowStateUpdate {
+    struct EventSource : SourceImpl<WindowStateUpdate> {
+        using Base = SourceImpl<WindowStateUpdate>;
+        WindowState currentState = WindowState::Uninitialized;
+        BinaryState initialized { false };
+        BinaryState visible { false };
+        BinaryState foreground { false };
+        BinaryState destroyed { false };
+
+        void sendEvents(const Receiver<WindowStateUpdate>&);
+        void incrementalStateChange(WindowState);
+        void updateFlags();
+
+    private:
+        using Base::sendEvent;
+    };
     WindowState from;
     WindowState to;
 };
-
-struct WindowBackend {
-    WindowState currentState = WindowState::Uninitialized;
-    ui::IntVec currentDimensions;
-
-    EventSource<WindowStateUpdate> stateUpdates;
-    EventSource<ResizeEvent> resizeEvents;
-    BinaryState initialized { false };
-    BinaryState visible { false };
-    BinaryState foreground { false };
-    BinaryState destroyed { false };
-
-    void incrementalStateChange(WindowState);
-    void updateFlags();
-    void performResize(ui::IntVec);
-};
-
-struct RelayedWindowBackend : WindowBackend, RelayPromise {
-    EventRingBuffer<WindowStateUpdate> stateUpdateBuf;
-    EventRingBuffer<ResizeEvent> resizeEventBuf;
-
-    RelayedWindowBackend(RelayedWindowBackend*& thiz) { thiz = this; }
-    auto handle() { return stdx::coroutine_handle<RelayedWindowBackend>::from_promise(*this); }
-    RelayedWindowBackend* get_return_object() { return this; }
-    void startRelay(Executor* exe) { RelayPromise::startRelay(exe, handle()); }
-    void reschedule() { RelayPromise::reschedule(handle()); }
-    void deallocate() { handle().destroy(); }
-};
+static_assert(HasCustomSource<WindowStateUpdate>);
 
 class Window {
 private:
-    const WindowBackend* window = nullptr;
+    const Source<WindowStateUpdate>* m_stateUpdate = nullptr;
+    const Source<ResizeEvent>* m_resizeEvent = nullptr;
 
 public:
     Window() = default;
-    Window(const WindowBackend* window)
-        : window(window) { }
+    Window(const Source<WindowStateUpdate>& stateUpdate, const Source<ResizeEvent>& resizeEvent)
+        : m_stateUpdate(&stateUpdate), m_resizeEvent(&resizeEvent) { }
 
-    const WindowBackend* windowBackend() const { return window; }
-    const EventSource<WindowStateUpdate>& stateUpdate() const {
-        return window->stateUpdates;
+    const Source<WindowStateUpdate>& stateUpdate() const {
+        return *m_stateUpdate;
     }
-    const EventSource<ResizeEvent>& resizeEvent() const {
-        return window->resizeEvents;
+    const Source<ResizeEvent>& resizeEvent() const {
+        return *m_resizeEvent;
     }
-    const BinaryState& initialized() const { return window->initialized; }
-    const BinaryState& visible() const { return window->visible; }
-    const BinaryState& foreground() const { return window->foreground; }
-    const BinaryState& destroyed() const { return window->destroyed; }
-    WindowState state() const { return window->currentState; }
-    ui::IntVec dimensions() const { return window->currentDimensions; }
-    explicit operator bool() const { return window; }
+    const BinaryState& initialized() const { return stateUpdate().initialized; }
+    const BinaryState& visible() const { return stateUpdate().visible; }
+    const BinaryState& foreground() const { return stateUpdate().foreground; }
+    const BinaryState& destroyed() const { return stateUpdate().destroyed; }
+    WindowState state() const { return stateUpdate().currentState; }
+    ui::IntVec dimensions() const { return resizeEvent().currentDimensions; }
+    explicit operator bool() const { return m_stateUpdate; }
 };
-
-struct WindowRelay {
-    stx::Owned<Script> input;
-    stx::Owned<RelayedWindowBackend*> output;
-
-    stx::Owned<RelayedWindowBackend*> broadcastEvents(Executor* executor) {
-        VERIFY(Event, (bool)output);
-        output->startRelay(executor);
-        return std::move(output);
-    }
-};
-WindowRelay relayWindow(Window);
 
 }

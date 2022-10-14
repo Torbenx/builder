@@ -3,11 +3,17 @@
 
 namespace evt {
 
-void WindowBackend::incrementalStateChange(WindowState finalState) {
+void ResizeEvent::EventSource::sendEvents(const Receiver<ResizeEvent>& events) {
+    if (events.hasEvent())
+        currentDimensions = events.event.value().newDimensions;
+    SourceImpl<ResizeEvent>::sendEvents(events);
+}
+
+void WindowStateUpdate::EventSource::incrementalStateChange(WindowState finalState) {
     using enum WindowState;
     VERIFY(Event, currentState != Destroyed);
     auto updateState = [&](WindowState newState) {
-        stateUpdates.sendEvent({ currentState, newState });
+        sendEvent({ currentState, newState });
         currentState = newState;
     };
 
@@ -24,51 +30,19 @@ void WindowBackend::incrementalStateChange(WindowState finalState) {
 
     updateFlags();
 }
-void WindowBackend::updateFlags() {
+void WindowStateUpdate::EventSource::updateFlags() {
     WindowStateUtil util(currentState);
     initialized.set(util.initialized());
     visible.set(util.visible());
     foreground.set(util.foreground());
     destroyed.set(util.destroyed());
 }
-void WindowBackend::performResize(ui::IntVec newDimensions) {
-    resizeEvents.sendEvent({ newDimensions });
-}
-
-namespace {
-    RelayedWindowBackend* broadcastWindowEvents(RelayedWindowBackend* relay = {}) {
-        while (true) {
-            std::vector<WindowStateUpdate> stateUpdates = std::move(relay->stateUpdateBuf[tick()]);
-            relay->stateUpdates.sendEvents(stateUpdates);
-            if (!stateUpdates.empty()) {
-                WindowState finalState = stateUpdates.back().to;
-                relay->currentState = finalState;
-                relay->updateFlags();
-            }
-
-            std::vector<ResizeEvent> resizeEvents = std::move(relay->resizeEventBuf[tick()]);
-            relay->resizeEvents.sendEvents(resizeEvents);
-            if (!resizeEvents.empty())
-                relay->currentDimensions = resizeEvents.back().newDimensions;
-
-            relay->reschedule();
-            co_await stdx::suspend_always();
-        }
+void WindowStateUpdate::EventSource::sendEvents(const Receiver<WindowStateUpdate>& events) {
+    if (events.hasEvent()) {
+        Base::sendEvents(events);
+        currentState = events.events.back().to;
+        updateFlags();
     }
-    Script recordWindowEvents(RelayedWindowBackend* output, Window window) {
-        while (true) {
-            EventReceiver<WindowStateUpdate> stateUpdates;
-            EventReceiver<ResizeEvent> resizeEvents;
-            co_await (window.stateUpdate() > stateUpdates || window.resizeEvent() > resizeEvents);
-            output->stateUpdateBuf[tick()] = std::move(stateUpdates.events);
-            output->resizeEventBuf[tick()] = std::move(resizeEvents.events);
-        }
-    }
-}
-WindowRelay relayWindow(Window window) {
-    RelayedWindowBackend* output = broadcastWindowEvents();
-    Script input = recordWindowEvents(output, window);
-    return { input, output };
 }
 
 }
