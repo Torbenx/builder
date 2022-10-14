@@ -270,7 +270,7 @@ evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromis
 
     ui::setInstance(&instance);
     auto testScript = uiTestInit();
-    await { evt::OnExecutor(ui::coreExecutor()) && evt::NextTick() && testScript->completion };
+    await { evt::OnExecutor(ui::coreExecutor()) && evt::NextTick() && *testScript->completion };
 
     plt::queueCallback({
         &shutdownSource,

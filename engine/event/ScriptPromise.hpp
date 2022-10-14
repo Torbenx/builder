@@ -33,11 +33,14 @@ struct ScriptPromise {
     stdx::suspend_never initial_suspend() { return {}; }
     stdx::suspend_never final_suspend() noexcept { return {}; }
     void return_void() { }
-    ~ScriptPromise() { completion.send(); }
+    ~ScriptPromise() {
+        completion->send();
+        delete completion;
+    }
 
     AwaitableState state;
     Executor* executor = nullptr;
-    ScriptCompletionEvent completion;
+    ScriptCompletionEvent* completion = new ScriptCompletionEvent;
 };
 static_assert(std::is_standard_layout_v<ScriptPromise>);
 

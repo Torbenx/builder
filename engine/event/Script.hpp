@@ -92,7 +92,7 @@ struct Signal<void> {
 
     bool operator==(const Script& script) const { return this->script == script; }
 
-    Signal<> operator~() const { return { script, -mask }; }
+    Signal<> operator~() const { return { script, (uint64_t)-(int64_t)mask }; }
 };
 
 void test();
