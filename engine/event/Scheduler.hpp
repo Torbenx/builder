@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Callable.hpp"
+#include "util/Callable.hpp"
 #include "Script.hpp"
 #include "util/types.hpp"
 #include <atomic>
@@ -11,7 +11,7 @@ constexpr int_t MAX_CONCURRENT_TICKS = 7;
 
 struct Scheduler;
 struct SchedulerImpl;
-using SchedulingItem = BasicCallback<Scheduler>;
+using SchedulingItem = stx::BasicCallback<Scheduler>;
 
 struct Scheduler {
     SchedulerImpl* scheduler = nullptr;
@@ -61,14 +61,14 @@ struct Target {
 
     Target() = default;
     Target(const Target&) = delete;
-    template<Callable<Target, void, Scheduler> Callback>
+    template<stx::Callable<Target, void, Scheduler> Callback>
     Target(const Callback& callback) {
         setCallback(callback);
     }
-    template<Callable<Target, void, Scheduler> Callback>
+    template<stx::Callable<Target, void, Scheduler> Callback>
     void setCallback(const Callback&) {
         schedulingItem.setCallback(this, [](Target* thiz, Scheduler scheduler) {
-            callWithSource<void, Scheduler>(Callback {}, *thiz, scheduler);
+            stx::callWithSource<void, Scheduler>(Callback {}, *thiz, scheduler);
             thiz->completeTick(scheduler);
         });
     }
@@ -183,12 +183,12 @@ struct Source {
 template<typename Callback>
 struct SimpleTarget : Target {
     SimpleTarget() {
-        this->setCallback<WithDerived<SimpleTarget, Callback>>({});
+        this->setCallback<stx::WithDerived<SimpleTarget, Callback>>({});
     }
 
     void tailSignal(Scheduler scheduler) {
         if (applySignalForResult()) {
-            callWithSource<void, Scheduler>(Callback {}, *this, scheduler);
+            stx::callWithSource<void, Scheduler>(Callback {}, *this, scheduler);
             completeTick(scheduler);
         }
     }
@@ -199,14 +199,14 @@ struct SimpleTarget : Target {
 namespace evt {
 
 struct Task : dep::Source, dep::Target {
-    template<Callable<Task, void, Scheduler> Callback>
+    template<stx::Callable<Task, void, Scheduler> Callback>
     Task(const Callback& callback) {
         setCallback(callback);
     }
-    template<Callable<Task, void, Scheduler> Callback>
+    template<stx::Callable<Task, void, Scheduler> Callback>
     void setCallback(const Callback&) {
-        Target::setCallback(withDerived<Task>([](Task& thiz, Scheduler scheduler) {
-            callWithSource<void, Scheduler>(Callback {}, thiz, scheduler);
+        Target::setCallback(stx::withDerived<Task>([](Task& thiz, Scheduler scheduler) {
+            stx::callWithSource<void, Scheduler>(Callback {}, thiz, scheduler);
             thiz.signalTargets(scheduler);
         }));
     }

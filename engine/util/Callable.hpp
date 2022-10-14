@@ -2,7 +2,7 @@
 
 #include "containers/Tuple.hpp"
 
-namespace evt {
+namespace stx {
 
 template<typename Target, typename Ret = void, typename... Args>
 concept BasicCallable = (requires(const Target& target, Args... args) {

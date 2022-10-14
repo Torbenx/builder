@@ -39,11 +39,11 @@ void continueStartup(Window initialWindow) {
 }
 
 namespace {
-    using CallbackQueue = AtomicArrayBuilder<evt::BasicCallback<evt::Scheduler>>;
+    using CallbackQueue = AtomicArrayBuilder<stx::BasicCallback<evt::Scheduler>>;
     AtomicArrayBuilder<CallbackQueue::TakeReturnTypeView> callbacksForNextTick;
     evt::TickRingBuffer<CallbackQueue> queuedCallbacks;
 }
-void queueCallback(evt::BasicCallback<evt::Scheduler> callback) {
+void queueCallback(stx::BasicCallback<evt::Scheduler> callback) {
     queuedCallbacks[evt::tick()].pushBack(callback);
 }
 
@@ -55,12 +55,12 @@ evt::dep::Target& tickComplete() {
     return target;
 }
 
-void processEvents(evt::Scheduler scheduler, evt::BasicCallback<> callback) {
+void processEvents(evt::Scheduler scheduler, stx::BasicCallback<> callback) {
     processEventsImpl(callback);
     evt::setCurrentExecutor(coreExe());
     auto callbacks = callbacksForNextTick.take();
     for (auto& list : callbacks) {
-        for (evt::BasicCallback<evt::Scheduler> c : list)
+        for (stx::BasicCallback<evt::Scheduler> c : list)
             c(scheduler);
         list.deallocate();
     }

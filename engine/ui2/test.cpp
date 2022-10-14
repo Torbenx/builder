@@ -124,7 +124,7 @@ struct PerformDrawTask : evt::Task {
     evt::Relay<evt::ResizeEvent> resizeRelay;
 
     PerformDrawTask(ui::Instance& instance, plt::Window nativeWindow)
-        : Task { evt::CallDerivedMember<&PerformDrawTask::draw>() }
+        : Task { stx::CallDerivedMember<&PerformDrawTask::draw>() }
         , instance(instance)
         , nativeWindow(nativeWindow)
         , resizeRelay(evt::relayEvents(instance.resizeEvent())) {
@@ -244,7 +244,7 @@ struct UpdateUiTask : evt::Task {
     evt::ExecutorImpl* executor = nullptr;
 
     UpdateUiTask(ui::Instance& instance, evt::ExecutorImpl* exe)
-        : evt::Task { evt::CallDerivedMember<&UpdateUiTask::update>() }
+        : evt::Task { stx::CallDerivedMember<&UpdateUiTask::update>() }
         , instance(instance)
         , executor(exe) { }
 

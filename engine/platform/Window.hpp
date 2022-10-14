@@ -1,6 +1,6 @@
 #pragma once
 
-#include "event/Callable.hpp"
+#include "util/Callable.hpp"
 #include "event/Window.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
@@ -73,10 +73,10 @@ evt::ExecutorImpl* coreExe();
 evt::dep::Source& processedEvents();
 evt::dep::Target& tickComplete();
 void continueStartup(Window initialWindow);
-void processEvents(evt::Scheduler, evt::BasicCallback<>);
-void processEventsImpl(evt::BasicCallback<>);
+void processEvents(evt::Scheduler, stx::BasicCallback<>);
+void processEventsImpl(stx::BasicCallback<>);
 
-void queueCallback(evt::BasicCallback<evt::Scheduler>);
+void queueCallback(stx::BasicCallback<evt::Scheduler>);
 
 }
 

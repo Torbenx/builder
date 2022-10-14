@@ -1,6 +1,6 @@
 #pragma once
 
-#include "event/Callable.hpp"
+#include "util/Callable.hpp"
 
 namespace stx {
 
@@ -25,7 +25,7 @@ namespace detail {
     template<typename T>
     requires std::is_same_v<decltype(&T::deallocate), void (T::*)()>
     struct DefaultDeallocateCall<T> {
-        using type = evt::CallMember<&T::deallocate>;
+        using type = CallMember<&T::deallocate>;
     };
 
     template<typename T>
@@ -65,7 +65,7 @@ struct DeallocateCall {
     using type = typename detail::DefaultDeallocateCall<T>::type;
 };
 
-template<typename T, evt::BasicCallable<void, T&> DeallocateCall = typename DeallocateCall<T>::type>
+template<typename T, BasicCallable<void, T&> DeallocateCall = typename DeallocateCall<T>::type>
 class Owned : public detail::TypeOrWrapper<T>::type {
 private:
     using Base = typename detail::TypeOrWrapper<T>::type;

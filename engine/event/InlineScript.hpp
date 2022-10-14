@@ -4,7 +4,7 @@
 #include "Script.hpp"
 #include "conditions.hpp"
 #include "util/target.hpp"
-#include "Callable.hpp"
+#include "util/Callable.hpp"
 
 namespace evt {
 
@@ -54,12 +54,12 @@ struct InlineScript : InlineScriptBase {
     Condition condition;
     InlineScript(const Target& target, const Condition& condition)
         : target(target), condition(condition) {
-        static_assert(Callable<Target, InlineScript>);
+        static_assert(stx::Callable<Target, InlineScript>);
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 await { thiz->condition };
-                callWithSource(thiz->target, *thiz);
+                stx::callWithSource(thiz->target, *thiz);
             }
         }(this);
     }
@@ -69,14 +69,14 @@ template<typename ConditionNode>
 struct InlineScript<void, ConditionNode> : InlineScriptBase {
     using Condition = CompiledCondition<ConditionNode>;
     Condition condition;
-    template<Callable<InlineScript> Target>
+    template<stx::Callable<InlineScript> Target>
     InlineScript(const Target&, const Condition& condition)
         : condition(condition) {
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 await { thiz->condition };
-                callWithSource(Target {}, *thiz);
+                stx::callWithSource(Target {}, *thiz);
             }
         }(this);
     }
@@ -88,12 +88,12 @@ struct InlineScript<Target, void> : InlineScriptBase {
     template<typename ConditionNode = MonoCondition::RootNode>
     InlineScript(const Target& target, const CompiledCondition<ConditionNode>& = monoCondition)
         : target(target) {
-        static_assert(Callable<Target, InlineScript>);
+        static_assert(stx::Callable<Target, InlineScript>);
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 await { CompiledCondition<ConditionNode>() };
-                callWithSource(thiz->target, *thiz);
+                stx::callWithSource(thiz->target, *thiz);
             }
         }(this);
     }
@@ -101,13 +101,13 @@ struct InlineScript<Target, void> : InlineScriptBase {
 
 template<>
 struct InlineScript<void, void> : InlineScriptBase {
-    template<Callable<InlineScript> Target, typename ConditionNode = MonoCondition::RootNode>
+    template<stx::Callable<InlineScript> Target, typename ConditionNode = MonoCondition::RootNode>
     InlineScript(const Target&, const CompiledCondition<ConditionNode>& = monoCondition) {
         [](InlineScriptBase* base) -> CoroHandle {
             InlineScript* thiz = static_cast<InlineScript*>(base);
             while (true) {
                 await { CompiledCondition<ConditionNode>() };
-                callWithSource(Target {}, *thiz);
+                stx::callWithSource(Target {}, *thiz);
             }
         }(this);
     }
