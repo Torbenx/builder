@@ -22,7 +22,7 @@ struct Awaitable {
     static constexpr int_t LEAF_COUNT = output.leafs.size();
 
     template<int_t i>
-    using NodeOf = NodeTypeOf<Node, output.leafs[i].tmplLoc>;
+    using NodeOf = typename CompiledCondition<Node>::template NodeOf<i>;
 
     template<typename L>
     struct LeafWrapper {

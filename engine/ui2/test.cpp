@@ -53,6 +53,7 @@ struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
                 return 0;
             default:
                 VERIFY_NOT_REACHED(Ui);
+                return 0;
             }
         };
         int shift1 = channelToShift(style.get<Channel1>());

@@ -344,6 +344,9 @@ struct CompiledCondition {
     using RootNode = Node;
     static constexpr auto output = compileCondition<Node>();
 
+    template<int_t i>
+    using NodeOf = std::remove_cvref_t<decltype(get<output.leafs[i].tmplLoc>(std::declval<Node>()))>;
+
     template<stx::FixedString name>
     static constexpr uint64_t makeMask(NamedCondition<name> event) {
         return makeMask(event, stx::make_int_sequence<output.leafs.size()>());
@@ -354,7 +357,7 @@ struct CompiledCondition {
     }
     template<int_t i, stx::FixedString name>
     static constexpr uint64_t selectMask(NamedCondition<name>) {
-        if constexpr (std::is_base_of_v<typename NamedCondition<name>::NodeType, NodeTypeOf<Node, output.leafs[i].tmplLoc>>)
+        if constexpr (std::is_base_of_v<typename NamedCondition<name>::NodeType, NodeOf<i>>)
             return output.leafs[i].mask;
         else
             return 0;
