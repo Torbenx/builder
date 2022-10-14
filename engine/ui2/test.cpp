@@ -108,9 +108,9 @@ evt::Script uiTestInit() {
         style.get<Channel1>() = ColorChannel::Red;
     }
 
-    while (!ui::instance()->state().destroyed) {
+    while (!ui::destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;
-        await { ui::instance()->state() > events };
+        await { ui::stateUpdate() > events };
         for (auto update : events.events)
             log("state change: {} -> {}", evt::WindowStateUtil(update.from).toString(), evt::WindowStateUtil(update.to).toString());
     }

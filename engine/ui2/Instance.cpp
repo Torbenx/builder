@@ -21,8 +21,8 @@ Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();
         while (true) {
-            await { resizeEvent || instance->state().destroyed };
-            if (instance->state().destroyed)
+            await { resizeEvent || instance->windowState.destroyed };
+            if (instance->windowState.destroyed)
                 break;
             instance->windowDimensions = resizeEvent.currentDimensions;
             instance->resize();
@@ -309,40 +309,11 @@ void Instance::deallocateAllTextures() {
     nextAtlasAllocationHeight = 0;
 }
 
-float Instance::valueOf(VarHandle var) const { return varValues[var.id]; }
-float VarHandle::value() const { return instance()->valueOf(*this); }
-
-void EquationHandle::updateShift(Size shift) const {
-    instance()->updateInhom(*this, (shiftFactor.value() * shift).withPayloadIf(shiftFactor.tag()));
-}
-void EquationHandle::updateEquation(ArrayView<const sparse::Entry> terms) const {
-    instance()->setEquation(*this, terms);
-}
-EquationHandle EquationHandle::allocate() { return instance()->newEquation(); }
-void EquationHandle::deallocate(EquationHandle handle) { instance()->removeEqn(handle); }
-
-VarHandle VarHandle::allocate() { return instance()->newVar(); }
-void VarHandle::deallocate(VarHandle handle) { instance()->deleteVariable(handle); }
-RangeVarHandle RangeVarHandle::allocate() { return instance()->newRange(); }
-void RangeVarHandle::deallocate(RangeVarHandle handle) { instance()->deleteVariable(handle); }
-RectVarHandle RectVarHandle::allocate() { return instance()->newRect(); }
-void RectVarHandle::deallocate(RectVarHandle handle) { instance()->deleteVariable(handle); }
-
-RectVarHandle windowRect() { return instance()->windowRect; }
-
-evt::Executor* coreExecutor() { return instance()->coreExe; }
-
 void StyleConsumerBase::invalidateStyleInternal(int_t index) {
     instance()->styleConsumerUpdates[index].push_back(this);
 }
 void RendererBase::invalidateStyleInternal(int_t index) {
     instance()->rendererUpdates[index].push_back((uintptr_t)this);
-}
-void draw(RendererHandle handle, RectVarHandle rect) {
-    instance()->draw(handle, rect);
-}
-void cancelDraw(RendererHandle handle) {
-    instance()->cancelDraw(handle);
 }
 
 }

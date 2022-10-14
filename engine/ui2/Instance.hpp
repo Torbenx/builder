@@ -39,7 +39,6 @@ public:
     ~Instance();
 
     const evt::Source<evt::WindowStateUpdate>& windowState;
-    const evt::Source<evt::WindowStateUpdate>& state() { return windowState; }
 
     IdAllocator<uint32_t> eqnIdAlloc;
     std::vector<Size> inhomTyped;
@@ -64,7 +63,7 @@ public:
     void updateLayout(bool clearTextures);
     void rebuildOutput();
 
-    float valueOf(VarHandle var) const;
+    float valueOf(VarHandle var) const { return varValues[var.id]; }
     void dumpVarValues();
     void dumpShiftValues();
     void dumpShiftSizes();
@@ -119,5 +118,40 @@ public:
 
 inline Instance* instance() { return (Instance*)plt::getThreadLocalPtr<plt::TLS_UI_INSTANCE_INDEX>(); }
 inline void setInstance(Instance* instance) { plt::setThreadLocalPtr<plt::TLS_UI_INSTANCE_INDEX>(instance); }
+
+inline const evt::Source<evt::WindowStateUpdate>& stateUpdate() { return instance()->windowState; }
+inline evt::WindowState state() { return stateUpdate().currentState; }
+inline const evt::BinaryState& initialized() { return stateUpdate().initialized; }
+inline const evt::BinaryState& visible() { return stateUpdate().visible; }
+inline const evt::BinaryState& foreground() { return stateUpdate().foreground; }
+inline const evt::BinaryState& destroyed() { return stateUpdate().destroyed; }
+
+inline RectVarHandle windowRect() { return instance()->windowRect; }
+inline evt::Executor* coreExecutor() { return instance()->coreExe; }
+
+inline float VarHandle::value() const { return instance()->valueOf(*this); }
+
+inline void EquationHandle::updateShift(Size shift) const {
+    instance()->updateInhom(*this, (shiftFactor.value() * shift).withPayloadIf(shiftFactor.tag()));
+}
+inline void EquationHandle::updateEquation(ArrayView<const sparse::Entry> terms) const {
+    instance()->setEquation(*this, terms);
+}
+inline EquationHandle EquationHandle::allocate() { return instance()->newEquation(); }
+inline void EquationHandle::deallocate(EquationHandle handle) { instance()->removeEqn(handle); }
+
+inline VarHandle VarHandle::allocate() { return instance()->newVar(); }
+inline void VarHandle::deallocate(VarHandle handle) { instance()->deleteVariable(handle); }
+inline RangeVarHandle RangeVarHandle::allocate() { return instance()->newRange(); }
+inline void RangeVarHandle::deallocate(RangeVarHandle handle) { instance()->deleteVariable(handle); }
+inline RectVarHandle RectVarHandle::allocate() { return instance()->newRect(); }
+inline void RectVarHandle::deallocate(RectVarHandle handle) { instance()->deleteVariable(handle); }
+
+inline void draw(RendererHandle handle, RectVarHandle rect) {
+    instance()->draw(handle, rect);
+}
+inline void cancelDraw(RendererHandle handle) {
+    instance()->cancelDraw(handle);
+}
 
 }
