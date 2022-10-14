@@ -61,8 +61,8 @@ namespace ui {
 
 class RendererBase {
 public:
-    static int_t recordCount() { return SECTION_ELEMENT_COUNT(renderer_records); }
-    static const RendererRecord& record(int_t index) { return __begin_renderer_records[index]; }
+    static int_t recordCount() { return sections::renderer_records().size(); }
+    static const RendererRecord& record(int_t index) { return sections::renderer_records()[index]; }
 
     uint32_t id = 0;
 
@@ -76,7 +76,7 @@ public:
     using Style = S;
     using RData = R;
 
-    static int_t classIndex() { return &record - __begin_renderer_records; }
+    static int_t classIndex() { return &record - sections::renderer_records().data(); }
 
 private:
     static void updateStyleAndPrepareRender(RendererBase* base, void* renderDataOut) {

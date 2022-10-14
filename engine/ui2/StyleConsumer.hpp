@@ -72,8 +72,8 @@ namespace ui {
 
 class StyleConsumerBase {
 public:
-    static int_t recordCount() { return SECTION_ELEMENT_COUNT(style_consumer_records); }
-    static const StyleConsumerRecord& record(int_t index) { return __begin_style_consumer_records[index]; }
+    static int_t recordCount() { return sections::style_consumer_records().size(); }
+    static const StyleConsumerRecord& record(int_t index) { return sections::style_consumer_records()[index]; }
 
 protected:
     void invalidateStyleInternal(int_t index);
@@ -94,7 +94,7 @@ private:
     static constexpr IN_SECTION(style_consumer_records) StyleConsumerRecord record = {
         .updateStyle = updateStyle,
     };
-    static int_t classIndex() { return &record - __begin_style_consumer_records; }
+    static int_t classIndex() { return &record - sections::style_consumer_records().data(); }
     Impl* impl() { return static_cast<Impl*>(this); }
     bool isDirty = false;
     BigStyleTable bigTable;

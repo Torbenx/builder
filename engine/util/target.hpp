@@ -1,6 +1,7 @@
 #pragma once
 
-#include "util/types.hpp"
+#include "containers/ArrayView.hpp"
+#include "util/log.hpp"
 #include <bit>
 
 // PLATFORM
@@ -25,6 +26,15 @@
 
 // COMPILER STUFF
 
+namespace platform {
+
+template<typename T>
+inline ArrayView<T> normalizeSectionBounds(T* begin, T* end) {
+    return { begin, end - begin };
+}
+
+}
+
 #if defined(__GNUC__)
 
 #define COMPILER_INTERFACE_GNU
@@ -44,11 +54,14 @@
 
 #define ALIGN_AS(al) __attribute__((aligned(al)))
 
-#define DEFINE_SECTION(type, name)                    \
-    extern type __start_##name;                       \
-    extern type __stop_##name;                        \
-    constexpr type* __begin_##name = &__start_##name; \
-    constexpr type* __end_##name = &__stop_##name;
+#define DEFINE_SECTION(type, name)                                                    \
+    extern type __start_##name;                                                       \
+    extern type __stop_##name;                                                        \
+    namespace sections {                                                              \
+        inline ArrayView<type> name() {                                               \
+            return platform::normalizeSectionBounds(&__start_##name, &__stop_##name); \
+        }                                                                             \
+    }
 
 #define IN_SECTION(name) __attribute__((section(#name)))
 
@@ -83,8 +96,11 @@
     __pragma(section(SECTION_POSTFIX(name, z)))                   \
     inline type IN_SECTION_P(name, a) __before_begin_##name = {}; \
     inline type IN_SECTION_P(name, z) __after_end_##name = {};    \
-    constexpr type* __begin_##name = &__before_begin_##name + 1;  \
-    constexpr type* __end_##name = &__after_end_##name;
+    namespace sections {                                          \
+        inline ArrayView<type> name() {                           \
+            return platform::normalizeSectionBounds(&__before_begin_##name + 1, &__after_end_##name); \
+        }                                                         \
+    }
 // clang-format on
 
 #define MAKE_WEAK_SYMBOL(name) __pragma(comment(linker, "/alternatename:" #name "=" #name "__weak"))

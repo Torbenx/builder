@@ -32,7 +32,7 @@ struct StyleKey {
 
     static uint32_t styleKey() {
         static_assert(std::is_base_of_v<StyleKey, Key>);
-        return &keyRecord - __begin_ui_style_keys + 1;
+        return &keyRecord - sections::ui_style_keys().data() + 1;
     }
     static const inline SelfReferenceRef<Type> selfRef { styleKey() };
 };
