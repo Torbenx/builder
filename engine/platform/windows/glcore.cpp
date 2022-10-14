@@ -3,7 +3,7 @@
 
 namespace plt::windows {
 
-#define GL_FUNCTION(type, name) name = (type)wglGetProcAddress(#name);
+#define GL_FUNCTION(type, name) name = (type)(void*)wglGetProcAddress(#name);
 void initializeGLFunctions(HDC dc) {
     static bool initialized = false;
     if (initialized)

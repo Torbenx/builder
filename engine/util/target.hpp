@@ -113,7 +113,7 @@ inline ArrayView<T> normalizeSectionBounds(T* begin, T* end) {
 
 #endif
 
-#ifdef EMULATE_SECTIONS
+#if defined(COMPILER_INTERNALS_GCC)
 
 #define DECLARE_RECORDED_CLASS(record_type, section_name)                                        \
     namespace records::detail {                                                                  \
