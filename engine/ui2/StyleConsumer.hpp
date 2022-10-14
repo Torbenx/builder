@@ -66,14 +66,14 @@ struct StyleConsumerRecord {
 };
 
 }
-DEFINE_SECTION(const ui::StyleConsumerRecord, style_consumer_records);
+DECLARE_RECORDED_CLASS(const ui::StyleConsumerRecord, ui_style_consumers);
 
 namespace ui {
 
 class StyleConsumerBase {
 public:
-    static int_t recordCount() { return sections::style_consumer_records().size(); }
-    static const StyleConsumerRecord& record(int_t index) { return sections::style_consumer_records()[index]; }
+    static int_t recordCount() { return records::ui_style_consumers().size(); }
+    static const StyleConsumerRecord& record(int_t index) { return records::ui_style_consumers()[index]; }
 
 protected:
     void invalidateStyleInternal(int_t index);
@@ -91,10 +91,10 @@ private:
         thiz->impl()->applyStyle(thiz->m_computedStyle);
     }
 
-    static constexpr IN_SECTION(style_consumer_records) StyleConsumerRecord record = {
-        .updateStyle = updateStyle,
-    };
-    static int_t classIndex() { return &record - sections::style_consumer_records().data(); }
+    static constexpr StyleConsumerRecord makeRecord() {
+        return { .updateStyle = updateStyle };
+    }
+    RECORDED_CLASS_IMPL(const ui::StyleConsumerRecord, ui_style_consumers, makeRecord);
     Impl* impl() { return static_cast<Impl*>(this); }
     bool isDirty = false;
     BigStyleTable bigTable;

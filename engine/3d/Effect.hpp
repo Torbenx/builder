@@ -96,7 +96,7 @@ template<typename T>
 concept HasVertexUniform = std140::Struct<typename T::VertexUniform> && std::is_same_v<decltype(T::vertexUniform), UniformHelper<typename T::VertexUniform>>;
 }
 
-DEFINE_SECTION(Effect::TypeData, effect)
+DECLARE_SECTION(Effect::TypeData, effect)
 
 template<typename T>
 class EffectImpl : public Effect {

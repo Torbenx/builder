@@ -54,7 +54,7 @@ inline ArrayView<T> normalizeSectionBounds(T* begin, T* end) {
 
 #define ALIGN_AS(al) __attribute__((aligned(al)))
 
-#define DEFINE_SECTION(type, name)                                                    \
+#define DECLARE_SECTION(type, name)                                                   \
     extern type __start_##name;                                                       \
     extern type __stop_##name;                                                        \
     namespace sections {                                                              \
@@ -90,7 +90,7 @@ inline ArrayView<T> normalizeSectionBounds(T* begin, T* end) {
 #define IN_SECTION(name) IN_SECTION_P(name, m)
 
 // clang-format off
-#define DEFINE_SECTION(type, name)                                \
+#define DECLARE_SECTION(type, name)                                \
     __pragma(section(SECTION_POSTFIX(name, a)))                   \
     __pragma(section(SECTION_POSTFIX(name, m)))                   \
     __pragma(section(SECTION_POSTFIX(name, z)))                   \
@@ -113,13 +113,38 @@ inline ArrayView<T> normalizeSectionBounds(T* begin, T* end) {
 
 #endif
 
-#define SECTION_ELEMENT_COUNT(name) (__end_##name - __begin_##name)
+#ifdef EMULATE_SECTIONS
 
-#define DEFINE_LINK_COUNTER(name) DEFINE_SECTION(char, name)
-#define LINK_COUNTER_IMPL(name)                                                   \
-    static inline constinit const char IN_SECTION(name) __link_counter_dummy = 0; \
-    static inline int_t linkCounter() { return &__link_counter_dummy - __begin_##name; }
-#define LINK_COUNTER_MAX(name) SECTION_ELEMENT_COUNT(name)
+#define DECLARE_RECORDED_CLASS(record_type, section_name)                                        \
+    namespace records::detail {                                                                  \
+        inline constinit std::vector<std::remove_cv_t<record_type>> records_##section_name = {}; \
+        inline int_t next_index_##section_name(const std::remove_cv_t<record_type>& record) {    \
+            int_t index = records_##section_name.size();                                         \
+            records_##section_name.emplace_back(record);                                         \
+            return index;                                                                        \
+        }                                                                                        \
+    }                                                                                            \
+    namespace records {                                                                          \
+        inline ArrayView<record_type> section_name() { return detail::records_##section_name; }  \
+    }
+
+#define RECORDED_CLASS_IMPL(record_type, section_name, make_func)                              \
+    static inline int_t CLASS_INDEX = records::detail::next_index_##section_name(make_func()); \
+    static int_t classIndex() { return CLASS_INDEX; }
+
+#else
+
+#define DECLARE_RECORDED_CLASS(record_type, section_name)                                 \
+    DECLARE_SECTION(record_type, section_name)                                            \
+    namespace records {                                                                   \
+        inline ArrayView<record_type> section_name() { return sections::section_name(); } \
+    }
+
+#define RECORDED_CLASS_IMPL(record_type, section_name, make_func)                     \
+    static constexpr IN_SECTION(section_name) record_type class_record = make_func(); \
+    static int_t classIndex() { return &class_record - sections::section_name().data(); }
+
+#endif
 
 namespace platform {
 

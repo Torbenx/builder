@@ -12,7 +12,7 @@ struct StyleKeyRecord {
 };
 }
 
-DEFINE_SECTION(const ui::StyleKeyRecord, ui_style_keys)
+DECLARE_RECORDED_CLASS(const ui::StyleKeyRecord, ui_style_keys)
 
 namespace ui {
 
@@ -22,17 +22,20 @@ struct StyleKey {
 
     static_assert(alignof(wrapper<Type>) == alignof(Ref<Type>));
     static_assert(sizeof(wrapper<Type>) == sizeof(Ref<Type>));
-    static constexpr IN_SECTION(ui_style_keys) StyleKeyRecord keyRecord = {
-        .valueAlignment = alignof(wrapper<Type>),
-        .valueSize = sizeof(wrapper<Type>),
-        .resolveFunc = [](void* output, const void* input, const Resolver& res) {
-            new (output) T { ((const Ref<T>*)input)->resolve(res) };
-        },
-    };
+    static constexpr StyleKeyRecord makeRecord() {
+        return {
+            .valueAlignment = alignof(wrapper<Type>),
+            .valueSize = sizeof(wrapper<Type>),
+            .resolveFunc = [](void* output, const void* input, const Resolver& res) {
+                new (output) T { ((const Ref<T>*)input)->resolve(res) };
+            },
+        };
+    }
+    RECORDED_CLASS_IMPL(const ui::StyleKeyRecord, ui_style_keys, makeRecord);
 
     static uint32_t styleKey() {
         static_assert(std::is_base_of_v<StyleKey, Key>);
-        return &keyRecord - sections::ui_style_keys().data() + 1;
+        return classIndex() + 1;
     }
     static const inline SelfReferenceRef<Type> selfRef { styleKey() };
 };

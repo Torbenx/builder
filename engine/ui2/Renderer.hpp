@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Rect.hpp"
-#include "ZIndex.hpp"
 #include "StyleConsumer.hpp"
+#include "ZIndex.hpp"
 #include "event/Script.hpp"
 
 namespace ui {
@@ -55,28 +55,28 @@ struct RendererRecord {
 
 }
 
-DEFINE_SECTION(const ui::RendererRecord, renderer_records);
+DECLARE_RECORDED_CLASS(const ui::RendererRecord, ui_renderers);
 
 namespace ui {
 
 class RendererBase {
 public:
-    static int_t recordCount() { return sections::renderer_records().size(); }
-    static const RendererRecord& record(int_t index) { return sections::renderer_records()[index]; }
+    static int_t recordCount() { return records::ui_renderers().size(); }
+    static const RendererRecord& record(int_t index) { return records::ui_renderers()[index]; }
 
     uint32_t id = 0;
 
 protected:
     void invalidateStyleInternal(int_t index);
 };
+struct RendererHandle;
 
 template<typename Impl, typename S, typename R = S>
 class Renderer : public RendererBase {
 public:
     using Style = S;
     using RData = R;
-
-    static int_t classIndex() { return &record - sections::renderer_records().data(); }
+    friend struct RendererHandle;
 
 private:
     static void updateStyleAndPrepareRender(RendererBase* base, void* renderDataOut) {
@@ -97,13 +97,17 @@ private:
         Impl::render(texture, *renderData);
     }
 
-    static_assert(alignof(RData) <= 8);
-    static constexpr IN_SECTION(renderer_records) RendererRecord record = {
-        .updateStyleAndPrepareRender = updateStyleAndPrepareRender,
-        .prepareRender = prepareRender,
-        .render = dispatchRender,
-        .renderDataSizeAlign8 = stx::alignmentCeil(8, sizeof(RData)),
-    };
+    static constexpr RendererRecord makeRecord() {
+        static_assert(alignof(RData) <= 8);
+        return {
+            .updateStyleAndPrepareRender = updateStyleAndPrepareRender,
+            .prepareRender = prepareRender,
+            .render = dispatchRender,
+            .renderDataSizeAlign8 = stx::alignmentCeil(8, sizeof(RData)),
+        };
+    }
+    RECORDED_CLASS_IMPL(const ui::RendererRecord, ui_renderers, makeRecord);
+
     Impl* impl() { return static_cast<Impl*>(this); }
     bool isDirty = false;
     BigStyleTable bigTable;

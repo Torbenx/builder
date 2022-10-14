@@ -5,7 +5,7 @@
 namespace ui {
 
 Ref<BigStyleTable> Ref<BigStyleTable>::allocate() {
-    auto section = sections::ui_style_keys();
+    auto section = records::ui_style_keys();
     log<Tag::Ui>("found {} style keys", section.size());
     void** data = new void*[section.size() + 1]();
     data[0] = nullptr;
@@ -18,7 +18,7 @@ Ref<BigStyleTable> Ref<BigStyleTable>::allocate() {
 }
 
 BigStyleTable Ref<BigStyleTable>::finalize() const {
-    auto section = sections::ui_style_keys();
+    auto section = records::ui_style_keys();
     void** output = new void*[section.size() + 1]();
     output[0] = nullptr;
     Resolver resolver { .table = *this };
