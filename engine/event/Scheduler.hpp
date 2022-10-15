@@ -1,7 +1,8 @@
 #pragma once
 
-#include "util/Callable.hpp"
 #include "Script.hpp"
+#include "containers/Owned.hpp"
+#include "util/Callable.hpp"
 #include "util/types.hpp"
 #include <atomic>
 
@@ -125,30 +126,8 @@ struct Source;
 struct Dependency {
     Source* source = nullptr;
     Signal signal = {};
-
-    Dependency() = default;
-    Dependency(Source* source, Signal signal)
-        : source(source), signal(signal) { }
-    Dependency(const Dependency&) = delete;
-    Dependency(Dependency&& other)
-        : source(other.source), signal(other.signal) {
-        other.source = nullptr;
-        other.signal = {};
-    }
-    ~Dependency() { destroy({}); }
-    Dependency& operator=(Dependency&& other) {
-        destroy({});
-        source = other.source;
-        signal = other.signal;
-        other.source = nullptr;
-        other.signal = {};
-        return *this;
-    }
+    void deallocate() { destroy({}); }
     void destroy(Scheduler);
-    void leak() {
-        source = nullptr;
-        signal = {};
-    }
 };
 
 struct Source {
@@ -159,11 +138,11 @@ struct Source {
         VERIFY(Event, targets.empty());
     }
 
-    [[nodiscard]] Dependency createDependency(Target& target, int_t tickShift);
-    [[nodiscard]] Dependency createDependency(Target& target) {
+    stx::Owned<Dependency> createDependency(Target& target, int_t tickShift);
+    stx::Owned<Dependency> createDependency(Target& target) {
         return createDependency(target, 0);
     }
-    [[nodiscard]] Dependency createNextTickDependency(Target& target) {
+    stx::Owned<Dependency> createNextTickDependency(Target& target) {
         return createDependency(target, 1);
     }
     void removeDependency(Scheduler scheduler, Target& target, int_t tickShift);

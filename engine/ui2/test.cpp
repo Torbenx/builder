@@ -261,7 +261,7 @@ evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromis
     relayedBackend->startRelay(instance.coreExe);
 
     PerformDrawTask performDraw { instance, relayedBackend->output<evt::ResizeEvent>(), window };
-    evt::dep::Dependency dependencies[] = {
+    stx::Owned<evt::dep::Dependency> dependencies[] = {
         instance.outputComplete.createDependency(performDraw),
         performDraw.createDependency(plt::tickComplete()),
         performDraw.createNextTickDependency(updateUi),

@@ -312,11 +312,11 @@ void Dependency::destroy(Scheduler scheduler) {
     }
 }
 
-[[nodiscard]] Dependency Source::createDependency(Target& target, int_t tickShift) {
+stx::Owned<Dependency> Source::createDependency(Target& target, int_t tickShift) {
     Signal signal { &target, tickShift };
     targets.push_back(signal);
     target.incrementDependencyCount(1, evt::tick() + tickShift);
-    return { this, signal };
+    return { { this, signal } };
 }
 
 void Source::removeDependency(Scheduler scheduler, Target& target, int_t tickShift) {
