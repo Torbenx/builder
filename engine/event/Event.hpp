@@ -34,6 +34,11 @@ struct ListReceiver {
     void reset() {
         events.clear();
     }
+    template<stx::BasicCallable<void, E> Callback>
+    void dispatchTo(const Callback& callback) {
+        for (const auto& event : events)
+            callback(event);
+    }
 };
 template<typename E>
 struct KeepLastReceiver {
@@ -58,6 +63,11 @@ struct KeepLastReceiver {
     bool hasEvent() const { return event.has_value(); }
     int_t count() const { return event.has_value(); }
     void reset() { event.reset(); }
+    template<stx::BasicCallable<void, E> Callback>
+    void dispatchTo(const Callback& callback) {
+        if (hasEvent())
+            callback(const_cast<const E&>(event.value()));
+    }
 };
 
 template<typename E>
@@ -110,7 +120,7 @@ struct SourceImpl {
             source.signals.erase(it, source.signals.end());
         }
     };
-    template<stx::BasicCallable<void, E> Callback>
+    template<typename Callback>
     struct DispatchContentNode : IgnoreContentNode {
         Callback callback;
         void cancel(Script script, typename IgnoreContentNode::ScratchSpace& scratch) const {
@@ -123,9 +133,6 @@ struct SourceImpl {
     mutable std::vector<Signal<E>> signals;
     SourceImpl() = default;
     SourceImpl(const SourceImpl&) = delete;
-    constexpr MoveContentNode operator>(Receiver<E>& rec) const {
-        return { {}, *this, rec };
-    }
     void sendEvent(const E& event) {
         for (const Signal<E>& signal : signals)
             signal.send(event);
@@ -140,6 +147,21 @@ struct SourceImpl {
         return { {}, *this };
     }
 };
+
+}
+
+template<typename E>
+constexpr typename evt::SourceImpl<E>::MoveContentNode operator>(const evt::SourceImpl<E>& source, evt::Receiver<E>& receiver) {
+    return { {}, source, receiver };
+}
+template<typename E, typename Callback>
+constexpr typename evt::SourceImpl<E>::template DispatchContentNode<Callback> operator>(const evt::SourceImpl<E>& source, const Callback& callback)
+    requires requires(Callback callback, evt::Receiver<E> receiver) { receiver.dispatchTo(callback); }
+{
+    return { { {}, source }, callback };
+}
+
+namespace evt {
 
 template<typename E>
 concept HasCustomReceiver = requires { typename E::EventReceiver; };

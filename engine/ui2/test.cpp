@@ -110,9 +110,9 @@ evt::Script uiTestInit() {
 
     while (!ui::destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;
-        await { ui::stateUpdate() > events };
-        for (auto update : events.events)
+        await { ui::stateUpdate() > [](evt::WindowStateUpdate update) {
             log("state change: {} -> {}", evt::WindowStateUtil(update.from).toString(), evt::WindowStateUtil(update.to).toString());
+        } };
     }
 }
 
