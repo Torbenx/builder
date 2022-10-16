@@ -1,12 +1,25 @@
 #pragma once
 
-#include "Script.hpp"
 #include "containers/Owned.hpp"
+#include "platform/thread_local_storage.hpp"
 #include "util/Callable.hpp"
 #include "util/types.hpp"
 #include <atomic>
 
-namespace evt {
+namespace Tag {
+struct Dependency {
+    static constexpr char tag[] = "depen";
+    static constexpr bool verifyEnabled = true;
+};
+}
+
+namespace dep {
+
+inline int_t tick() { return (uintptr_t)plt::getThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>(); }
+inline void setTick(int_t tick) {
+    // VERIFY(Dependency, tick >= 0);
+    plt::setThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>((void*)(uintptr_t)tick);
+}
 
 constexpr int_t MAX_CONCURRENT_TICKS = 7;
 
@@ -19,8 +32,8 @@ struct Scheduler {
     Scheduler() = default;
     Scheduler(SchedulerImpl* scheduler)
         : scheduler(scheduler) { }
-    void schedule(SchedulingItem, int_t tick = evt::tick());
-    void tickComplete(int_t tick = evt::tick());
+    void schedule(SchedulingItem, int_t tick = dep::tick());
+    void tickComplete(int_t tick = dep::tick());
     explicit operator bool() { return (bool)scheduler; }
 };
 
@@ -36,10 +49,6 @@ struct RingBuffer {
 };
 template<typename T>
 using TickRingBuffer = RingBuffer<T, MAX_CONCURRENT_TICKS + 1>;
-
-}
-
-namespace evt::dep {
 
 using cnt_t = int16_t;
 constexpr cnt_t READY_COUNT = std::numeric_limits<cnt_t>::max();
@@ -74,34 +83,34 @@ struct Target {
         });
     }
 
-    bool unlockForResult(int_t tick = evt::tick()) {
+    bool unlockForResult(int_t tick = dep::tick()) {
         return applySignalForResult(READY_COUNT - dependencyCount, tick);
     }
-    void unlock(Scheduler scheduler, int_t tick = evt::tick()) {
-        VERIFY(Event, (bool)scheduler);
+    void unlock(Scheduler scheduler, int_t tick = dep::tick()) {
+        VERIFY(Dependency, (bool)scheduler);
         if (unlockForResult(tick))
             scheduler.schedule(schedulingItem, tick);
     }
 
     void completeTick(Scheduler scheduler);
 
-    void incrementDependencyCount(cnt_t count = 1, int_t tick = evt::tick()) {
-        VERIFY(Event, count >= 0);
+    void incrementDependencyCount(cnt_t count = 1, int_t tick = dep::tick()) {
+        VERIFY(Dependency, count >= 0);
         auto& thisTick = perTick[tick];
         thisTick.countDiff.fetch_add(count, std::memory_order_relaxed);
         thisTick.counter.fetch_sub(count, std::memory_order_seq_cst);
     }
-    void decrementDependencyCount(Scheduler scheduler, cnt_t count = 1, int_t tick = evt::tick()) {
+    void decrementDependencyCount(Scheduler scheduler, cnt_t count = 1, int_t tick = dep::tick()) {
         perTick[tick].countDiff.fetch_sub(count, std::memory_order_relaxed);
         applySignal(scheduler, count, tick);
     }
 
-    bool applySignalForResult(cnt_t count = 1, int_t tick = evt::tick()) {
+    bool applySignalForResult(cnt_t count = 1, int_t tick = dep::tick()) {
         cnt_t i = perTick[tick].counter.fetch_add(count, std::memory_order_seq_cst);
         i += count;
         return i == READY_COUNT;
     }
-    void applySignal(Scheduler scheduler, cnt_t count = 1, int_t tick = evt::tick()) {
+    void applySignal(Scheduler scheduler, cnt_t count = 1, int_t tick = dep::tick()) {
         if (applySignalForResult(count, tick)) {
             if (scheduler)
                 scheduler.schedule(schedulingItem, tick);
@@ -113,7 +122,7 @@ struct Target {
         return perTick[tick].counter.load(std::memory_order_relaxed) == (cnt_t)(READY_COUNT + INVALID_SIGNAL_INCREMENT);
     }
     ~Target() {
-        VERIFY(Event, blockedFromInvalidSignal(evt::tick()));
+        VERIFY(Dependency, blockedFromInvalidSignal(dep::tick()));
     }
 };
 
@@ -135,7 +144,7 @@ struct Source {
     Source() = default;
     Source(const Source&) = delete;
     ~Source() {
-        VERIFY(Event, targets.empty());
+        VERIFY(Dependency, targets.empty());
     }
 
     stx::Owned<Dependency> createDependency(Target& target, int_t tickShift);
@@ -155,7 +164,7 @@ struct Source {
 
     void signalTargets(Scheduler scheduler) {
         for (auto target : targets)
-            target.target->applySignal(scheduler, 1, evt::tick() + target.tickShift);
+            target.target->applySignal(scheduler, 1, dep::tick() + target.tickShift);
     }
 };
 
@@ -172,10 +181,6 @@ struct SimpleTarget : Target {
         }
     }
 };
-
-}
-
-namespace evt {
 
 struct Task : dep::Source, dep::Target {
     template<stx::Callable<Task, void, Scheduler> Callback>

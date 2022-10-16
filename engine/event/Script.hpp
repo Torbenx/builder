@@ -1,8 +1,7 @@
 #pragma once
 
-#include "platform/thread_local_storage.hpp"
+#include "Scheduler.hpp"
 #include "util/coroutines.hpp"
-#include "util/types.hpp"
 #include <algorithm>
 #include <vector>
 
@@ -16,12 +15,6 @@ struct Event {
 namespace evt {
 
 struct ScriptPromise;
-
-inline int_t tick() { return (uintptr_t)plt::getThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>(); }
-inline void setTick(int_t tick) {
-    // VERIFY(Event, tick >= 0);
-    plt::setThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>((void*)(uintptr_t)tick);
-}
 
 template<typename T, typename Base>
 concept CompatibleCoroutinePromise = std::is_base_of_v<Base, T> && alignof(T) == alignof(Base) && sizeof(T) == sizeof(Base) && std::is_standard_layout_v<T>;
@@ -92,7 +85,7 @@ struct Signal<void> {
 
     bool operator==(const Script& script) const { return this->script == script; }
 
-    Signal<> operator~() const { return { script, (uint64_t)-(int64_t)mask }; }
+    Signal<> operator~() const { return { script, (uint64_t) - (int64_t)mask }; }
 };
 
 void test();

@@ -88,15 +88,15 @@ protected:
 };
 
 evt::ExecutorImpl* coreExe();
-evt::dep::Source& processedEvents();
-evt::dep::Target& tickComplete();
+dep::Source& processedEvents();
+dep::Target& tickComplete();
 void continueStartup(Window initialWindow);
-void processEvents(evt::Scheduler, stx::BasicCallback<>);
+void processEvents(dep::Scheduler, stx::BasicCallback<>);
 void processEventsImpl(stx::BasicCallback<>);
 
-void queueCallback(stx::BasicCallback<evt::Scheduler>);
+void queueCallback(stx::BasicCallback<dep::Scheduler>);
 
 }
 
-extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)(evt::Scheduler);
-extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window, evt::Scheduler);
+extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)(dep::Scheduler);
+extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window, dep::Scheduler);

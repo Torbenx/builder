@@ -117,7 +117,7 @@ evt::Script uiTestInit() {
     }
 }
 
-struct PerformDrawTask : evt::Task {
+struct PerformDrawTask : dep::Task {
     ui::Instance& instance;
     plt::Window nativeWindow;
     ui::TextureHandle atlas;
@@ -126,7 +126,7 @@ struct PerformDrawTask : evt::Task {
     evt::Relay<evt::ResizeEvent> resizeRelay;
 
     PerformDrawTask(ui::Instance& instance, evt::Source<evt::ResizeEvent>& resizeEvent, plt::Window nativeWindow)
-        : Task { stx::CallDerivedMember<&PerformDrawTask::draw>() }
+        : dep::Task { stx::CallDerivedMember<&PerformDrawTask::draw>() }
         , instance(instance)
         , nativeWindow(nativeWindow)
         , resizeRelay(evt::relayEvents(resizeEvent)) {
@@ -135,7 +135,7 @@ struct PerformDrawTask : evt::Task {
     uint64_t lastFrame = 0;
     int_t frames = 0;
     uint64_t totalDrawTime = 0;
-    void draw(evt::Scheduler) {
+    void draw(dep::Scheduler) {
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             log("FPS: {}, draw time: {}%", frames, totalDrawTime * 100.0f / (now - lastFrame));
@@ -241,16 +241,16 @@ struct PerformDrawTask : evt::Task {
     }
 };
 
-struct UpdateUiTask : evt::Task {
+struct UpdateUiTask : dep::Task {
     ui::Instance& instance;
     evt::ExecutorImpl* executor = nullptr;
 
     UpdateUiTask(ui::Instance& instance, evt::ExecutorImpl* exe)
-        : evt::Task { stx::CallDerivedMember<&UpdateUiTask::update>() }
+        : dep::Task { stx::CallDerivedMember<&UpdateUiTask::update>() }
         , instance(instance)
         , executor(exe) { }
 
-    void update(evt::Scheduler scheduler) {
+    void update(dep::Scheduler scheduler) {
         ui::setInstance(&instance);
         executor->execute();
         instance.doTick(scheduler);
@@ -258,11 +258,11 @@ struct UpdateUiTask : evt::Task {
 };
 
 struct ShutdownEvent { };
-evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, evt::Scheduler scheduler) {
+evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, dep::Scheduler scheduler) {
     relayedBackend->startRelay(instance.coreExe);
 
     PerformDrawTask performDraw { instance, relayedBackend->output<evt::ResizeEvent>(), window };
-    stx::Owned<evt::dep::Dependency> dependencies[] = {
+    stx::Owned<dep::Dependency> dependencies[] = {
         instance.outputComplete.createDependency(performDraw),
         performDraw.createDependency(plt::tickComplete()),
         performDraw.createNextTickDependency(updateUi),
@@ -275,14 +275,14 @@ evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromis
 
     plt::queueCallback({
         &shutdownSource,
-        [](evt::Source<ShutdownEvent>* shutdownSource, evt::Scheduler) {
+        [](evt::Source<ShutdownEvent>* shutdownSource, dep::Scheduler) {
             shutdownSource->sendEvent({});
         },
     });
-    updateUi.dependencyCount += evt::dep::INVALID_SIGNAL_INCREMENT;
+    updateUi.dependencyCount += dep::INVALID_SIGNAL_INCREMENT;
 }
 
-evt::Script uiTestWrapper1(plt::Window window, evt::Scheduler scheduler) {
+evt::Script uiTestWrapper1(plt::Window window, dep::Scheduler scheduler) {
     evt::Source<ShutdownEvent> shutdownSource;
 
     evt::ExecutorImpl uiExecutor;
@@ -304,7 +304,7 @@ evt::Script uiTestWrapper1(plt::Window window, evt::Scheduler scheduler) {
 
 namespace ui {
 
-void test(evt::Scheduler scheduler) {
+void test(dep::Scheduler scheduler) {
     /*sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
     lu.u.appendColumn(sparse::StaticVector({ { 0, 0.5f }, { 1, 1.0f } }).copy());

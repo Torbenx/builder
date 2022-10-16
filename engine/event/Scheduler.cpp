@@ -5,7 +5,7 @@
 #include <atomic>
 #include <thread>
 
-namespace evt {
+namespace dep {
 namespace {
 
     using Item = SchedulingItem;
@@ -131,13 +131,13 @@ struct SchedulerImpl {
     TickRingBuffer<LocalStack> localStackes = {};
 
     void schedule(Item item, int_t tick) {
-        VERIFY(Event, tick >= evt::tick());
+        VERIFY(Event, tick >= dep::tick());
         localStackes[tick].push(item);
     }
 
     void start(Item item, int_t startTick) {
         lowestActiveTick.store(startTick, std::memory_order_relaxed);
-        evt::setTick(startTick);
+        dep::setTick(startTick);
         if (item)
             item(this);
         runWithPlatformCheck();
@@ -198,7 +198,7 @@ struct SchedulerImpl {
                 nothingCounter = 0;
                 updateIdle(false);
                 do {
-                    evt::setTick(activeTick);
+                    dep::setTick(activeTick);
                     item(this);
                     volunteerNonActive();
                 } while ((item = localStackes[activeTick].tryPop()));
@@ -227,7 +227,7 @@ struct SchedulerImpl {
             const int_t nanosPerSecond = 1'000'000'000;
             const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
             uint64_t startTickAbsolute = getNanos() / nanosPerTick;
-            uint64_t absoluteTickShift = startTickAbsolute - evt::tick();
+            uint64_t absoluteTickShift = startTickAbsolute - dep::tick();
             uint64_t lastTickAbsolute = startTickAbsolute - 1;
 
             int_t operator()(Scheduler scheduler) {
@@ -243,7 +243,7 @@ struct SchedulerImpl {
                     }
                     // log("starting tick {}, lowest is {}, should be at {}", tickToStart, lowest, shouldBeTick);
 
-                    evt::setTick(tickToStart);
+                    dep::setTick(tickToStart);
                     plt::processEvents(scheduler, []() {});
 
                     lastTickAbsolute += 1;
@@ -284,23 +284,19 @@ void enterScheduler() {
     scheduler.enter();
 }
 
-}
-
-namespace evt::dep {
-
 void Target::completeTick(Scheduler scheduler) {
-    PerTick& thisTick = perTick[evt::tick()];
+    PerTick& thisTick = perTick[dep::tick()];
     VERIFY(Event, thisTick.counter.load(std::memory_order_relaxed) == READY_COUNT);
     dependencyCount += thisTick.countDiff.load(std::memory_order_relaxed);
     thisTick.counter.store(0, std::memory_order_relaxed);
     thisTick.countDiff.store(0, std::memory_order_relaxed);
 
     if (dependencyCount > 0) {
-        unlock(scheduler, evt::tick() + 1);
+        unlock(scheduler, dep::tick() + 1);
     } else {
         VERIFY(Event, dependencyCount == 0);
         // block it
-        applySignal({}, READY_COUNT, evt::tick());
+        applySignal({}, READY_COUNT, dep::tick());
     }
 }
 
@@ -315,7 +311,7 @@ void Dependency::destroy(Scheduler scheduler) {
 stx::Owned<Dependency> Source::createDependency(Target& target, int_t tickShift) {
     Signal signal { &target, tickShift };
     targets.push_back(signal);
-    target.incrementDependencyCount(1, evt::tick() + tickShift);
+    target.incrementDependencyCount(1, dep::tick() + tickShift);
     return { { this, signal } };
 }
 
@@ -324,7 +320,7 @@ void Source::removeDependency(Scheduler scheduler, Target& target, int_t tickShi
     auto it = std::find(targets.begin(), targets.end(), signal);
     VERIFY(Event, it != targets.end());
     targets.erase(it);
-    target.decrementDependencyCount(scheduler, 1, evt::tick() + tickShift);
+    target.decrementDependencyCount(scheduler, 1, dep::tick() + tickShift);
 }
 
 }

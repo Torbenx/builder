@@ -111,9 +111,9 @@ public:
     stx::DynArray<std::vector<StyleConsumerBase*>> styleConsumerUpdates;
 
     evt::ExecutorImpl* coreExe = nullptr;
-    evt::dep::Source outputComplete;
-    evt::dep::Source layoutComplete;
-    void doTick(evt::Scheduler);
+    dep::Source outputComplete;
+    dep::Source layoutComplete;
+    void doTick(dep::Scheduler);
 };
 
 inline Instance* instance() { return (Instance*)plt::getThreadLocalPtr<plt::TLS_UI_INSTANCE_INDEX>(); }

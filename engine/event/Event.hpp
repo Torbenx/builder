@@ -191,7 +191,7 @@ requires(HasCustomReceiver<E>&& HasCustomSource<E>) struct traits<E> {
 };
 
 template<typename E>
-using EventRingBuffer = TickRingBuffer<Receiver<E>>;
+using EventRingBuffer = dep::TickRingBuffer<Receiver<E>>;
 
 struct RelayPromise {
     Executor* executor = nullptr;
@@ -254,21 +254,21 @@ struct RelayOutputPromise : RelayPromise {
 
     template<typename E>
     Receiver<E> takeEvents() {
-        return std::move(buffer<E>()[tick()]);
+        return std::move(buffer<E>()[dep::tick()]);
     }
     template<typename E>
     Receiver<E> sendEvents() {
-        Receiver<E> events = std::move(buffer<E>()[tick()]);
+        Receiver<E> events = std::move(buffer<E>()[dep::tick()]);
         output<E>().sendEvents(events);
         return events;
     }
     template<int_t i>
     auto takeEvents() {
-        return std::move(buffer<i>()[tick()]);
+        return std::move(buffer<i>()[dep::tick()]);
     }
     template<int_t i>
     auto sendEvents() {
-        auto events = std::move(buffer<i>()[tick()]);
+        auto events = std::move(buffer<i>()[dep::tick()]);
         output<i>().sendEvents(events);
         return events;
     }
@@ -288,7 +288,7 @@ namespace detail {
         while (true) {
             stx::Tuple<Receiver<Es>...> receivers {};
             await { ((sources > stx::get<I>(receivers)) || ...) };
-            int_t tick = evt::tick();
+            int_t tick = dep::tick();
             ((output->template buffer<I>()[tick] = std::move(stx::get<I>(receivers))), ...);
         }
     }

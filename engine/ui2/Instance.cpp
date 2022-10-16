@@ -110,7 +110,7 @@ void Instance::dumpShiftSizes() {
     }
 }
 
-void Instance::doTick(evt::Scheduler scheduler) {
+void Instance::doTick(dep::Scheduler scheduler) {
     for (int_t i = 0; i < styleConsumerUpdates.size(); i++) {
         auto& updates = styleConsumerUpdates[i];
         const auto& record = StyleConsumerBase::record(i);
