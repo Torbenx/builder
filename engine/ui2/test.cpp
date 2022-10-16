@@ -13,6 +13,7 @@
 #include "util/LogTimer.hpp"
 #include <memory>
 #include <sstream>
+#include "graphics/wip.hpp"
 
 namespace {
 

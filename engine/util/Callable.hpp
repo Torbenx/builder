@@ -78,6 +78,10 @@ struct BasicCallback {
     BasicCallback(Data* data, const Callback& callback) {
         setCallback(data, callback);
     }
+    template<typename Data, BasicCallable<void, Data&, Args...> Callback>
+    BasicCallback(Data& data, const Callback& callback) {
+        setCallback(data, callback);
+    }
     template<BasicCallable<void, Args...> Callback>
     BasicCallback(const Callback& callback) {
         setCallback(callback);
@@ -91,6 +95,13 @@ struct BasicCallback {
         this->data = data;
         this->callback = [](void* data, Args... args) {
             Callback {}((Data*)data, args...);
+        };
+    }
+    template<typename Data, BasicCallable<void, Data&, Args...> Callback>
+    void setCallback(Data& data, const Callback&) {
+        this->data = &data;
+        this->callback = [](void* data, Args... args) {
+            Callback {}(*(Data*)data, args...);
         };
     }
     template<BasicCallable<void, Args...> Callback>
