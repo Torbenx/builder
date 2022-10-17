@@ -94,7 +94,8 @@ void continueStartup(Window initialWindow);
 void processEvents(dep::Scheduler, stx::BasicCallback<>);
 void processEventsImpl(stx::BasicCallback<>);
 
-void queueCallback(stx::BasicCallback<dep::Scheduler>);
+evt::Source<evt::CallbackEvent>& callbackHandler();
+void postCallback(evt::Source<evt::CallbackEvent>& postTo, stx::BasicCallback<>);
 
 }
 

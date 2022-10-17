@@ -7,4 +7,9 @@ evt::ExecutorImpl* coreExe() {
     return &exe;
 }
 
+evt::Source<evt::CallbackEvent>& callbackHandler() {
+    static evt::Source<evt::CallbackEvent> source = {};
+    return source;
+}
+
 }

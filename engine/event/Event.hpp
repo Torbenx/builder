@@ -10,11 +10,13 @@
 namespace evt {
 
 template<typename E>
-struct traits;
+struct receiver_traits;
 template<typename E>
-using Receiver = typename traits<E>::Receiver;
+using Receiver = typename receiver_traits<E>::type;
 template<typename E>
-using Source = typename traits<E>::Source;
+struct source_traits;
+template<typename E>
+using Source = typename source_traits<E>::type;
 
 template<typename E>
 struct ListReceiver {
@@ -155,8 +157,7 @@ constexpr typename evt::SourceImpl<E>::MoveContentNode operator>(const evt::Sour
     return { {}, source, receiver };
 }
 template<typename E, typename Callback>
-constexpr typename evt::SourceImpl<E>::template DispatchContentNode<Callback> operator>(const evt::SourceImpl<E>& source, const Callback& callback)
-    requires requires(Callback callback, evt::Receiver<E> receiver) { receiver.dispatchTo(callback); }
+constexpr typename evt::SourceImpl<E>::template DispatchContentNode<Callback> operator>(const evt::SourceImpl<E>& source, const Callback& callback) requires requires(Callback callback, evt::Receiver<E> receiver) { receiver.dispatchTo(callback); }
 {
     return { { {}, source }, callback };
 }
@@ -166,28 +167,22 @@ namespace evt {
 template<typename E>
 concept HasCustomReceiver = requires { typename E::EventReceiver; };
 template<typename E>
+struct receiver_traits {
+    using type = ListReceiver<E>;
+};
+template<HasCustomReceiver E>
+struct receiver_traits<E> {
+    using type = typename E::EventReceiver;
+};
+template<typename E>
 concept HasCustomSource = requires { typename E::EventSource; };
 template<typename E>
-struct traits;
-template<typename E>
-requires(!HasCustomReceiver<E> && !HasCustomSource<E>) struct traits<E> {
-    using Receiver = ListReceiver<E>;
-    using Source = SourceImpl<E>;
+struct source_traits {
+    using type = SourceImpl<E>;
 };
-template<typename E>
-requires(HasCustomReceiver<E> && !HasCustomSource<E>) struct traits<E> {
-    using Receiver = typename E::EventReceiver;
-    using Source = SourceImpl<E>;
-};
-template<typename E>
-requires(!HasCustomReceiver<E> && HasCustomSource<E>) struct traits<E> {
-    using Receiver = ListReceiver<E>;
-    using Source = typename E::EventSource;
-};
-template<typename E>
-requires(HasCustomReceiver<E>&& HasCustomSource<E>) struct traits<E> {
-    using Receiver = typename E::EventReceiver;
-    using Source = typename E::EventSource;
+template<HasCustomSource E>
+struct source_traits<E> {
+    using type = typename E::EventSource;
 };
 
 template<typename E>
@@ -310,5 +305,22 @@ template<typename... Es>
     Script input = detail::recordEvents(output, stx::int_sequence_for<Es...>(), sources...);
     return { input, output };
 }
+
+struct CallbackEvent {
+    struct EventSource : SourceImpl<CallbackEvent> {
+        void sendEvent(const CallbackEvent& event) {
+            if (signals.size() > 0)
+                return SourceImpl::sendEvent(event);
+            event.callback();
+        }
+        void sendEvents(const ListReceiver<CallbackEvent>& events) {
+            if (signals.size() > 0)
+                return SourceImpl::sendEvents(events);
+            for (const CallbackEvent& ev : events.events)
+                ev.callback();
+        }
+    };
+    stx::BasicCallback<> callback;
+};
 
 }

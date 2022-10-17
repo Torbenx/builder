@@ -4,6 +4,7 @@
 #include "event/Awaitable.hpp"
 #include "event/Event.hpp"
 #include "event/conditions.hpp"
+#include "graphics/wip.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
@@ -13,7 +14,6 @@
 #include "util/LogTimer.hpp"
 #include <memory>
 #include <sstream>
-#include "graphics/wip.hpp"
 
 namespace {
 
@@ -258,7 +258,7 @@ struct UpdateUiTask : dep::Task {
 };
 
 struct ShutdownEvent { };
-evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, dep::Scheduler scheduler) {
+evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent, evt::CallbackEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, dep::Scheduler scheduler) {
     relayedBackend->startRelay(instance.coreExe);
 
     PerformDrawTask performDraw { instance, relayedBackend->output<evt::ResizeEvent>(), window };
@@ -273,12 +273,14 @@ evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromis
     auto testScript = uiTestInit();
     await { evt::OnExecutor(ui::coreExecutor()) && evt::NextTick() && *testScript->completion };
 
-    plt::queueCallback({
-        &shutdownSource,
-        [](evt::Source<ShutdownEvent>* shutdownSource, dep::Scheduler) {
-            shutdownSource->sendEvent({});
-        },
-    });
+    plt::postCallback(
+        plt::callbackHandler(),
+        {
+            &shutdownSource,
+            [](evt::Source<ShutdownEvent>* shutdownSource) {
+                shutdownSource->sendEvent({});
+            },
+        });
     updateUi.dependencyCount += dep::INVALID_SIGNAL_INCREMENT;
 }
 
@@ -286,7 +288,8 @@ evt::Script uiTestWrapper1(plt::Window window, dep::Scheduler scheduler) {
     evt::Source<ShutdownEvent> shutdownSource;
 
     evt::ExecutorImpl uiExecutor;
-    evt::Relay windowRelay = evt::relayEvents(window.stateUpdate(), window.resizeEvent());
+    evt::Source<evt::CallbackEvent> callbacks;
+    evt::Relay windowRelay = evt::relayEvents(window.stateUpdate(), window.resizeEvent(), callbacks);
     BasicAtlasAllocator atlasAlloc;
     ui::Instance instance { windowRelay.output->output<evt::WindowStateUpdate>(), windowRelay.output->output<evt::ResizeEvent>(), &uiExecutor, &atlasAlloc };
 
