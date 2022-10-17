@@ -46,6 +46,7 @@ struct RingBuffer {
     int_t index(int_t i) const { return (size_t)i % N; }
     constexpr T& operator[](int_t i) { return storage[index(i)]; }
     constexpr const T& operator[](int_t i) const { return storage[index(i)]; }
+    constexpr int_t size() { return N; }
 };
 template<typename T>
 using TickRingBuffer = RingBuffer<T, MAX_CONCURRENT_TICKS + 1>;

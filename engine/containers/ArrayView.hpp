@@ -2,10 +2,10 @@
 
 #include "util/types.hpp"
 #include <array>
-#include <vector>
 #include <compare>
 #include <concepts>
 #include <type_traits>
+#include <vector>
 
 namespace Tag {
 struct Containers {
@@ -51,6 +51,7 @@ public:
     constexpr T& operator[](int_t i) const { return data()[i]; }
     constexpr T* begin() const { return data(); }
     constexpr T* end() const { return data() + size(); }
+    constexpr bool empty() const { return size() == 0; }
 
 private:
     T* m_data = nullptr;
