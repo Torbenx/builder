@@ -110,7 +110,7 @@ void Instance::dumpShiftSizes() {
     }
 }
 
-void Instance::doTick(dep::Scheduler scheduler) {
+void Instance::doTick() {
     for (int_t i = 0; i < styleConsumerUpdates.size(); i++) {
         auto& updates = styleConsumerUpdates[i];
         const auto& record = StyleConsumerBase::record(i);
@@ -129,7 +129,6 @@ void Instance::doTick(dep::Scheduler scheduler) {
         }
     }
     updateLayout(true);
-    layoutComplete.signalTargets(scheduler);
 
     for (int_t i = 0; i < rendererUpdates.size(); i++) {
         auto& updates = rendererUpdates[i];
@@ -143,7 +142,6 @@ void Instance::doTick(dep::Scheduler scheduler) {
         updates.clear();
     }
     rebuildOutput();
-    outputComplete.signalTargets(scheduler);
 }
 
 void Instance::resize() {

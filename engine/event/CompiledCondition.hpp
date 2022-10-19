@@ -15,6 +15,7 @@ static constexpr uint64_t UNBOUND_EVENT_COUNT = 1000;
 enum class LogicalOp {
     And,
     Or,
+    Comma,
 };
 
 struct TmplLeafLoc {
@@ -33,12 +34,11 @@ struct TmplLeafLoc {
 
 template<LogicalOp op, typename Left, typename Right>
 struct TmplBranchNode {
-    static constexpr bool IS_TMPL_TREE_NODE = true;
     Left left;
     Right right;
 };
 struct TmplLeafNode {
-    static constexpr bool IS_TMPL_TREE_NODE = true;
+    static constexpr bool IS_TMPL_LEAF_NODE = true;
 
     static constexpr uint64_t requiredEvents() { return 0; }
     static constexpr uint64_t maxEvents() { return 0; }
@@ -60,8 +60,20 @@ const auto& get(const TmplBranchNode<op, Left, Right>& node) {
         return get<(loc >> 1)>(node.left);
 }
 
+template<typename T>
+struct is_tmpl_branch_node {
+    static constexpr bool value = false;
+};
+template<LogicalOp op, typename Left, typename Right>
+struct is_tmpl_branch_node<TmplBranchNode<op, Left, Right>> {
+    static constexpr bool value = true;
+};
 template<typename Node>
-concept ActualTreeNode = Node::IS_TMPL_TREE_NODE;
+concept BranchTreeNode = is_tmpl_branch_node<Node>::value;
+template<typename Node>
+concept LeafTreeNode = Node::IS_TMPL_LEAF_NODE;
+template<typename Node>
+concept ActualTreeNode = BranchTreeNode<Node> || LeafTreeNode<Node>;
 template<typename Node>
 concept ConvertibleToTreeNode = !ActualTreeNode<Node> && requires {
     typename Node::NodeType;
@@ -83,11 +95,11 @@ struct converted_tree_node<Node> {
 template<typename Node>
 using converted_tree_node_t = typename converted_tree_node<Node>::type;
 template<ActualTreeNode Node>
-constexpr Node convertTreeNode(const Node& node) requires Node::IS_TMPL_TREE_NODE {
+constexpr Node convertTreeNode(const Node& node) {
     return node;
 }
 template<ConvertibleToTreeNode Node>
-constexpr typename Node::NodeType convertTreeNode(const Node& node) requires ConvertibleToTreeNode<Node> {
+constexpr typename Node::NodeType convertTreeNode(const Node& node) {
     return static_cast<typename Node::NodeType>(node);
 }
 
@@ -128,6 +140,12 @@ namespace compiled {
         std::vector<AndNode> anyOf;
     };
 
+    struct LeafNodeInfo {
+        TmplLeafLoc tmplLoc;
+        uint64_t mask = 0;
+        constexpr bool operator==(const TmplLeafLoc& loc) const { return tmplLoc == loc; }
+    };
+
     constexpr void deduplicate(std::vector<LeafNode>& leafs) {
         for (int_t i = 0; i < (int_t)leafs.size(); i++) {
             auto it = leafs.begin() + i;
@@ -136,7 +154,7 @@ namespace compiled {
         }
     }
     template<typename Node>
-    constexpr CanonicalTree buildFromTmpl(std::type_identity<Node>, TmplLeafLocBuilder loc) {
+    constexpr CanonicalTree buildFromTmpl(std::type_identity<Node>, TmplLeafLocBuilder loc, std::vector<LeafNodeInfo>& allLeafs) {
         CanonicalTree out;
         AndNode andNode;
         VERIFY(Event, Node::maxEvents() >= Node::requiredEvents());
@@ -147,6 +165,7 @@ namespace compiled {
             andNode.atLeast.upperBound += Node::maxEvents();
         }
         out.anyOf.push_back(std::move(andNode));
+        allLeafs.push_back({ loc.build() });
         return out;
     }
     constexpr AndNode mergeAndNodes(const AndNode& in1, const AndNode& in2) {
@@ -162,19 +181,21 @@ namespace compiled {
         return out;
     }
     template<LogicalOp op, typename Left, typename Right>
-    constexpr CanonicalTree buildFromTmpl(std::type_identity<TmplBranchNode<op, Left, Right>>, TmplLeafLocBuilder loc) {
-        CanonicalTree left = buildFromTmpl(std::type_identity<Left>(), loc.goLeft());
-        CanonicalTree right = buildFromTmpl(std::type_identity<Right>(), loc.goRight());
+    constexpr CanonicalTree buildFromTmpl(std::type_identity<TmplBranchNode<op, Left, Right>>, TmplLeafLocBuilder loc, std::vector<LeafNodeInfo>& allLeafs) {
+        CanonicalTree left = buildFromTmpl(std::type_identity<Left>(), loc.goLeft(), allLeafs);
+        CanonicalTree right = buildFromTmpl(std::type_identity<Right>(), loc.goRight(), allLeafs);
         CanonicalTree out;
         if (op == LogicalOp::Or) {
             out.anyOf.insert(out.anyOf.end(), left.anyOf.begin(), left.anyOf.end());
             out.anyOf.insert(out.anyOf.end(), right.anyOf.begin(), right.anyOf.end());
-        } else {
+        } else if (op == LogicalOp::And) {
             for (auto& leftNode : left.anyOf) {
                 for (auto& rightNode : right.anyOf) {
                     out.anyOf.emplace_back(mergeAndNodes(leftNode, rightNode));
                 }
             }
+        } else {
+            out = left;
         }
         return out;
     }
@@ -210,14 +231,8 @@ namespace compiled {
         return offset <= 64;
     }
 
-    struct LeafNodeInfo {
-        TmplLeafLoc tmplLoc;
-        uint64_t mask = 0;
-        constexpr bool operator==(const TmplLeafLoc& loc) const { return tmplLoc == loc; }
-    };
-    constexpr std::vector<LeafNodeInfo> accumulateMasks(ArrayView<const AndNode> nodes, ArrayView<const AndNodeInfo> infos) {
+    constexpr void accumulateMasks(std::vector<LeafNodeInfo>& out, ArrayView<const AndNode> nodes, ArrayView<const AndNodeInfo> infos) {
         VERIFY(Event, nodes.size() == infos.size());
-        std::vector<LeafNodeInfo> out;
         auto findOrInsert = [&](const LeafNode& node) -> LeafNodeInfo& {
             auto it = std::find(out.begin(), out.end(), node.tmplLoc);
             if (it != out.end())
@@ -233,7 +248,6 @@ namespace compiled {
             for (const LeafNode& leaf : node.atLeast.nodes)
                 findOrInsert(leaf).mask += (uint64_t)1 << info.offset;
         }
-        return out;
     }
 
     constexpr uint64_t buildStartMask(ArrayView<const AndNodeInfo> infos) {
@@ -257,17 +271,18 @@ namespace compiled {
 
     template<typename Node>
     constexpr Output compile() {
-        CanonicalTree tree = buildFromTmpl(std::type_identity<Node>(), {});
+        std::vector<LeafNodeInfo> allLeafs;
+        CanonicalTree tree = buildFromTmpl(std::type_identity<Node>(), {}, allLeafs);
         std::vector<AndNodeInfo> andInfos;
         for (auto& node : tree.anyOf)
             andInfos.push_back(processAndNode(node));
         bool ret = allocateSpace(andInfos);
         VERIFY(Event, ret);
-        std::vector<LeafNodeInfo> leafInfos = accumulateMasks(tree.anyOf, andInfos);
+        accumulateMasks(allLeafs, tree.anyOf, andInfos);
         return {
             .startMask = buildStartMask(andInfos),
             .keyMask = buildKeyMask(andInfos),
-            .leafs = leafInfos,
+            .leafs = allLeafs,
         };
     }
 
@@ -405,6 +420,10 @@ constexpr evt::TmplBranchNode<evt::LogicalOp::And, evt::converted_tree_node_t<Le
 }
 template<evt::TmplTreeNode Left, evt::TmplTreeNode Right>
 constexpr evt::TmplBranchNode<evt::LogicalOp::Or, evt::converted_tree_node_t<Left>, evt::converted_tree_node_t<Right>> operator||(const Left& left, const Right& right) {
+    return { evt::convertTreeNode(left), evt::convertTreeNode(right) };
+}
+template<evt::TmplTreeNode Left, evt::TmplTreeNode Right>
+constexpr evt::TmplBranchNode<evt::LogicalOp::Comma, evt::converted_tree_node_t<Left>, evt::converted_tree_node_t<Right>> operator,(const Left& left, const Right& right) {
     return { evt::convertTreeNode(left), evt::convertTreeNode(right) };
 }
 

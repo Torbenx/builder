@@ -1,4 +1,5 @@
-#include "ScriptPromise.hpp"
+#include "conditions.hpp"
+#include "platform/Window.hpp"
 
 namespace evt {
 
@@ -17,6 +18,39 @@ void Signal<>::send(int_t count) const {
         exe->schedule(script);
     else if (wasReady && !isReady)
         exe->unschedule(script);
+}
+
+ScriptPromise::ScriptPromise()
+    : executor(nullptr), completion(new Source<ScriptCompletionEvent>) { }
+
+ScriptPromise::~ScriptPromise() {
+    completion->sendEvent({});
+    delete completion;
+}
+
+void Ping::commit(Signal<> signal, ScratchSpace& scratch) const {
+    scratch.signal = signal;
+    scratch.sourceHandler = &sourceHandler;
+    targetHandler.sendEvent({
+        &scratch,
+        [](ScratchSpace* scratch) {
+            postCallback(
+                *scratch->sourceHandler,
+                {
+                    scratch,
+                    [](ScratchSpace* scratch) {
+                        Signal<> signal = scratch->signal;
+                        scratch->signal = {};
+                        signal.send();
+                    },
+                });
+            scratch->sourceHandler = nullptr;
+        },
+    });
+}
+
+void Ping::cancel(Script, ScratchSpace& scratch) const {
+    VERIFY(Event, scratch.signal.script == Script {});
 }
 
 }

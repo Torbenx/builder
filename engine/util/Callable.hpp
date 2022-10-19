@@ -9,18 +9,18 @@ concept BasicCallable = (requires(const Target& target, Args... args) {
     target(args...);
 } && std::is_void_v<Ret>)
     || requires(const Target& target, Args... args) {
-    { target(args...) } -> std::same_as<Ret>;
+    { target(std::forward<Args>(args)...) } -> std::same_as<Ret>;
 };
 template<typename Target, typename Source, typename Ret = void, typename... Args>
 concept Callable = BasicCallable<Target, Ret, Args...> || BasicCallable<Target, Ret, Source&, Args...>;
 
 template<typename Ret = void, typename... Args, typename Target, typename Source>
 constexpr Ret callWithSource(const Target& target, Source&, Args... args) requires BasicCallable<Target, Ret, Args...> {
-    return target(args...);
+    return target(std::forward<Args>(args)...);
 }
 template<typename Ret = void, typename... Args, typename Target, typename Source>
 constexpr Ret callWithSource(const Target& target, Source& source, Args... args) requires BasicCallable<Target, Ret, Source&, Args...> {
-    return target(source, args...);
+    return target(source, std::forward<Args>(args)...);
 }
 
 template<typename Derived, typename Callback>

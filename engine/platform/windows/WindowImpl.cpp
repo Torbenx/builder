@@ -104,19 +104,19 @@ void WindowImpl::exitSizeMove() {
 }
 
 namespace {
-    struct ScopedCoreExe {
+    struct ExecutorScope {
         bool active = true;
-        ScopedCoreExe() {
-            if (evt::currentExecutor() == coreExe()) {
+        ExecutorScope() {
+            if (evt::currentExecutor() == evt::mainExecutor()) {
                 active = false;
             } else {
                 VERIFY(Windows, evt::currentExecutor() == nullptr);
-                evt::setCurrentExecutor(coreExe());
+                evt::setCurrentExecutor(evt::mainExecutor());
             }
         }
-        ~ScopedCoreExe() {
+        ~ExecutorScope() {
             if (active) {
-                VERIFY(Windows, evt::currentExecutor() == coreExe());
+                VERIFY(Windows, evt::currentExecutor() == evt::mainExecutor());
                 evt::setCurrentExecutor(nullptr);
             }
         }
@@ -125,7 +125,7 @@ namespace {
 
 LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     using enum evt::WindowState;
-    ScopedCoreExe scopedExe;
+    ExecutorScope executorScope;
     if (msg == WM_CREATE) {
         log("WM_CREATE");
         CREATESTRUCT* initParams = (CREATESTRUCT*)lParam;
@@ -155,9 +155,8 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     case WM_PAINT: {
         VERIFY(Windows, (bool)processEventsCallback);
         evt::setCurrentExecutor(nullptr);
-        coreExe()->execute();
         processEventsCallback();
-        evt::setCurrentExecutor(coreExe());
+        evt::setCurrentExecutor(evt::mainExecutor());
         return 0;
     }
     case WM_WINDOWPOSCHANGED:

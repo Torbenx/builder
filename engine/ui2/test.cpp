@@ -4,6 +4,7 @@
 #include "event/Awaitable.hpp"
 #include "event/Event.hpp"
 #include "event/conditions.hpp"
+#include "event/remote.hpp"
 #include "graphics/wip.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
@@ -11,6 +12,7 @@
 #include "platform/windows/WindowImpl.hpp"
 #include "platform/windows/core.hpp"
 #include "platform/windows/glcore.hpp"
+#include "ui2/RemoteInstance.hpp"
 #include "util/LogTimer.hpp"
 #include <memory>
 #include <sstream>
@@ -117,7 +119,7 @@ evt::Script uiTestInit() {
     }
 }
 
-struct PerformDrawTask : dep::Task {
+/*struct PerformDrawTask : evt::Task {
     ui::Instance& instance;
     plt::Window nativeWindow;
     ui::TextureHandle atlas;
@@ -126,7 +128,7 @@ struct PerformDrawTask : dep::Task {
     evt::Relay<evt::ResizeEvent> resizeRelay;
 
     PerformDrawTask(ui::Instance& instance, evt::Source<evt::ResizeEvent>& resizeEvent, plt::Window nativeWindow)
-        : dep::Task { stx::CallDerivedMember<&PerformDrawTask::draw>() }
+        : evt::Task { stx::CallDerivedMember<&PerformDrawTask::draw>() }
         , instance(instance)
         , nativeWindow(nativeWindow)
         , resizeRelay(evt::relayEvents(resizeEvent)) {
@@ -135,7 +137,7 @@ struct PerformDrawTask : dep::Task {
     uint64_t lastFrame = 0;
     int_t frames = 0;
     uint64_t totalDrawTime = 0;
-    void draw(dep::Scheduler) {
+    void draw(evt::Scheduler) {
         uint64_t now = getNanos();
         if (now - lastFrame >= 1'000'000'000) {
             log("FPS: {}, draw time: {}%", frames, totalDrawTime * 100.0f / (now - lastFrame));
@@ -239,75 +241,27 @@ struct PerformDrawTask : dep::Task {
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed != 0);
     }
-};
+};*/
 
-struct UpdateUiTask : dep::Task {
-    ui::Instance& instance;
-    evt::ExecutorImpl* executor = nullptr;
+evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
+    await { evt::OnExecutor(evt::mainExecutor()) };
+    ui::RemoteInstance instance { window.stateUpdate(), window.resizeEvent() };
+    evt::Script script = evt::remoteRun(uiTestInit, evt::mainCallbackHandler(), instance.callbackHandler());
 
-    UpdateUiTask(ui::Instance& instance, evt::ExecutorImpl* exe)
-        : dep::Task { stx::CallDerivedMember<&UpdateUiTask::update>() }
-        , instance(instance)
-        , executor(exe) { }
-
-    void update(dep::Scheduler scheduler) {
-        ui::setInstance(&instance);
-        executor->execute();
-        instance.doTick(scheduler);
-    }
-};
-
-struct ShutdownEvent { };
-evt::Script uiTestWrapper2(plt::Window window, stx::Owned<evt::RelayOutputPromise<evt::WindowStateUpdate, evt::ResizeEvent, evt::CallbackEvent>*> relayedBackend, ui::Instance& instance, UpdateUiTask& updateUi, evt::Source<ShutdownEvent>& shutdownSource, dep::Scheduler scheduler) {
-    relayedBackend->startRelay(instance.coreExe);
-
-    PerformDrawTask performDraw { instance, relayedBackend->output<evt::ResizeEvent>(), window };
-    stx::Owned<dep::Dependency> dependencies[] = {
-        instance.outputComplete.createDependency(performDraw),
-        performDraw.createDependency(plt::tickComplete()),
-        performDraw.createNextTickDependency(updateUi),
+    evt::Receiver<evt::ScriptCompletionEvent> completionEv;
+    while(!completionEv.hasEvent()) {
+        instance.scheduleTick(scheduler);
+        await { (evt::NextTick(), *script->completion > completionEv) };
     };
-    performDraw.unlock(scheduler);
-
-    ui::setInstance(&instance);
-    auto testScript = uiTestInit();
-    await { evt::OnExecutor(ui::coreExecutor()) && evt::NextTick() && *testScript->completion };
-
-    plt::postCallback(
-        plt::callbackHandler(),
-        {
-            &shutdownSource,
-            [](evt::Source<ShutdownEvent>* shutdownSource) {
-                shutdownSource->sendEvent({});
-            },
-        });
-    updateUi.dependencyCount += dep::INVALID_SIGNAL_INCREMENT;
-}
-
-evt::Script uiTestWrapper1(plt::Window window, dep::Scheduler scheduler) {
-    evt::Source<ShutdownEvent> shutdownSource;
-
-    evt::ExecutorImpl uiExecutor;
-    evt::Source<evt::CallbackEvent> callbacks;
-    evt::Relay windowRelay = evt::relayEvents(window.stateUpdate(), window.resizeEvent(), callbacks);
-    BasicAtlasAllocator atlasAlloc;
-    ui::Instance instance { windowRelay.output->output<evt::WindowStateUpdate>(), windowRelay.output->output<evt::ResizeEvent>(), &uiExecutor, &atlasAlloc };
-
-    UpdateUiTask updateUi { instance, &uiExecutor };
-    auto inputDep = plt::processedEvents().createDependency(updateUi);
-    auto outputDep = updateUi.createDependency(plt::tickComplete());
-    updateUi.unlock(scheduler);
-
-    uiTestWrapper2(window, std::move(windowRelay.output), instance, updateUi, shutdownSource, scheduler);
-
-    await { shutdownSource };
+    instance.scheduleTick(scheduler);
+    await { evt::Ping(evt::mainCallbackHandler(), instance.callbackHandler()) };
 }
 
 }
 
 namespace ui {
 
-void test(dep::Scheduler scheduler) {
+void test(evt::Scheduler scheduler) {
     /*sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
     lu.u.appendColumn(sparse::StaticVector({ { 0, 0.5f }, { 1, 1.0f } }).copy());
@@ -322,7 +276,8 @@ void test(dep::Scheduler scheduler) {
     evt::test();
 
     plt::Window window = plt::Window::construct();
-    uiTestWrapper1(window, scheduler);
+    evt::setCurrentExecutor(evt::mainExecutor());
+    uiTestWrapper(window, scheduler);
     window.setDimensions({ 700, 700 });
     window.setTitle("UiTest");
     window.initialize();

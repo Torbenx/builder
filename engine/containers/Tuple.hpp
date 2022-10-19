@@ -8,19 +8,13 @@ namespace stx {
 namespace detail {
     struct tuple_storage_untyped { };
 
-    template<typename T>
-    struct tuple_storage_base /*: tuple_storage_untyped*/ {
-        T t;
-    };
-
     template<typename T, int_t i>
-    struct tuple_storage_indexed : tuple_storage_base<T> {
-        // tuple_storage_untyped* untyped_ptr() { return this; }
+    struct tuple_storage_indexed {
+        T t;
     };
     template<typename T, int_t i>
     requires std::is_empty_v<T>
-    struct tuple_storage_indexed<T, i> {
-    };
+    struct tuple_storage_indexed<T, i> { };
 
     template<typename... Storage>
     struct TupleImpl : Storage... { };
@@ -31,34 +25,36 @@ namespace detail {
     struct TupleIndirect<stx::int_sequence<I...>, Types...> {
         using type = TupleImpl<tuple_storage_indexed<Types, I>...>;
     };
+    template<typename... Types>
+    using TupleBase = typename detail::TupleIndirect<stx::int_sequence_for<Types...>, Types...>::type;
 }
 
 template<typename... Types>
-struct Tuple : detail::TupleIndirect<stx::make_int_sequence<sizeof...(Types)>, Types...>::type { };
+struct Tuple : detail::TupleBase<Types...> { };
 
 template<int_t i, typename T>
-T& get(detail::tuple_storage_indexed<T, i>& s) {
+constexpr T& get(detail::tuple_storage_indexed<T, i>& s) {
     return s.t;
 }
 template<int_t i, typename T>
-const T& get(const detail::tuple_storage_indexed<T, i>& s) {
+constexpr const T& get(const detail::tuple_storage_indexed<T, i>& s) {
     return s.t;
 }
-template<typename T>
-T& get(detail::tuple_storage_base<T>& s) {
+template<typename T, int_t i>
+constexpr T& get(detail::tuple_storage_indexed<T, i>& s) {
     return s.t;
 }
-template<typename T>
-const T& get(const detail::tuple_storage_base<T>& s) {
+template<typename T, int_t i>
+constexpr const T& get(const detail::tuple_storage_indexed<T, i>& s) {
     return s.t;
 }
 
 template<typename... Types, int_t... I, typename Callback>
-void forEachElement(detail::TupleImpl<detail::tuple_storage_indexed<Types, I>...>& tuple, Callback&& callback) {
+constexpr void forEachElement(detail::TupleImpl<detail::tuple_storage_indexed<Types, I>...>& tuple, Callback&& callback) {
     (callback(get<I>(tuple)), ...);
 }
 template<typename... Types, int_t... I, typename Callback>
-void forEachElementIndexed(detail::TupleImpl<detail::tuple_storage_indexed<Types, I>...>& tuple, Callback&& callback) {
+constexpr void forEachElementIndexed(detail::TupleImpl<detail::tuple_storage_indexed<Types, I>...>& tuple, Callback&& callback) {
     (callback(get<I>(tuple), stx::constant<I>()), ...);
 }
 

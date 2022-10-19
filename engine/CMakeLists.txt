@@ -117,7 +117,6 @@ if(MSVC)
 endif()
 add_executable(engine_test ${win32_executable}
     "platform/Window.cpp"
-    "platform/coreExe.cpp"
     "platform/windows/WindowImpl.cpp"
     "platform/windows/main.cpp"
     "platform/windows/glcore.cpp"
@@ -130,6 +129,7 @@ add_executable(engine_test ${win32_executable}
     "event/test.cpp"
     "event/Scheduler.cpp"
     "event/Script.cpp"
+    "event/mainExecutor.cpp"
     "util/log.cpp"
 )
 if(MSVC)

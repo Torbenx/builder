@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Scheduler.hpp"
+#include "platform/thread_local_storage.hpp"
 #include "util/coroutines.hpp"
 #include <algorithm>
 #include <vector>
@@ -13,6 +13,14 @@ struct Event {
 }
 
 namespace evt {
+
+constexpr int_t MAX_CONCURRENT_TICKS = 7;
+
+inline int_t tick() { return (uintptr_t)plt::getThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>(); }
+inline void setTick(int_t tick) {
+    // VERIFY(Dependency, tick >= 0);
+    plt::setThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>((void*)(uintptr_t)tick);
+}
 
 struct ScriptPromise;
 

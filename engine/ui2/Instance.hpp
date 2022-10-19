@@ -1,12 +1,12 @@
 #pragma once
 
+#include "Renderer.hpp"
 #include "containers/DynArray.hpp"
 #include "containers/IdAllocator.hpp"
 #include "event/Window.hpp"
 #include "handles.hpp"
 #include "math/sparse/Vector.hpp"
 #include "platform/thread_local_storage.hpp"
-#include "Renderer.hpp"
 #include "util/types.hpp"
 #include <memory>
 #include <vector>
@@ -111,9 +111,7 @@ public:
     stx::DynArray<std::vector<StyleConsumerBase*>> styleConsumerUpdates;
 
     evt::ExecutorImpl* coreExe = nullptr;
-    dep::Source outputComplete;
-    dep::Source layoutComplete;
-    void doTick(dep::Scheduler);
+    void doTick();
 };
 
 inline Instance* instance() { return (Instance*)plt::getThreadLocalPtr<plt::TLS_UI_INSTANCE_INDEX>(); }

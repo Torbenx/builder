@@ -8,28 +8,21 @@
 
 namespace plt {
 
-dep::Source& processedEvents() {
-    static dep::Source source = {};
-    return source;
-}
-
 void continueStartup(Window initialWindow) {
-    int_t extraThreadCount = 10;
+    int_t extraThreadCount = 0;
     std::vector<std::thread> threads;
     threads.reserve(extraThreadCount);
     for (int_t i = 0; i < extraThreadCount; i++)
-        threads.emplace_back(dep::enterScheduler);
+        threads.emplace_back(evt::enterScheduler);
 
-    dep::startScheduler(
+    evt::startScheduler(
         {
             &initialWindow,
-            [](Window* window, dep::Scheduler scheduler) {
+            [](Window* window, evt::Scheduler scheduler) {
                 if (*window)
                     onInitialWindowConstructed(*window, scheduler);
                 else
                     onNoInitialWindow(scheduler);
-
-                VERIFY(Platform, !tickComplete().unlockForResult(dep::tick()));
             },
         },
         0);
@@ -38,53 +31,19 @@ void continueStartup(Window initialWindow) {
         thread.join();
 }
 
-namespace {
-    struct CallbackItem {
-        evt::Source<evt::CallbackEvent>* postTo = nullptr;
-        evt::CallbackEvent event;
-    };
-    using CallbackQueue = AtomicArrayBuilder<CallbackItem>;
-    AtomicArrayBuilder<CallbackQueue::TakeReturnTypeView> callbacksForNextTick;
-    dep::TickRingBuffer<CallbackQueue> queuedCallbacks;
-}
-void postCallback(evt::Source<evt::CallbackEvent>& postTo, stx::BasicCallback<> callback) {
-    queuedCallbacks[dep::tick()].pushBack({ &postTo, { callback } });
-}
-
-dep::Target& tickComplete() {
-    static dep::Target target { [](dep::Scheduler scheduler) {
-        callbacksForNextTick.pushBack(queuedCallbacks[dep::tick()].take().take());
-        scheduler.tickComplete();
-    } };
-    return target;
-}
-
-void processEvents(dep::Scheduler scheduler, stx::BasicCallback<> callback) {
-    processEventsImpl(callback);
-    evt::setCurrentExecutor(coreExe());
-    auto callbacks = callbacksForNextTick.take();
-    for (auto& list : callbacks) {
-        for (CallbackItem c : list)
-            c.postTo->sendEvent(c.event);
-        list.deallocate();
-    }
-    coreExe()->execute();
-    processedEvents().signalTargets(scheduler);
-}
-
 }
 
 MAKE_WEAK_SYMBOL(onNoInitialWindow)
-extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)(dep::Scheduler scheduler) {
+extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)(evt::Scheduler scheduler) {
     onInitialWindowConstructed(plt::Window::construct(), scheduler);
 }
 
 namespace ui {
-void test(dep::Scheduler);
+void test(evt::Scheduler);
 }
 
 MAKE_WEAK_SYMBOL(onInitialWindowConstructed)
-extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window, dep::Scheduler scheduler) {
+extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window, evt::Scheduler scheduler) {
     // window->setDimensions(200, 200);
     // window->setTitle("Hello World!");
     ui::test(scheduler);

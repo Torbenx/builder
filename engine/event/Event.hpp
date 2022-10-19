@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Awaitable.hpp"
-#include "CompiledCondition.hpp"
-#include "Scheduler.hpp"
 #include "containers/Owned.hpp"
 #include "containers/Tuple.hpp"
 #include <optional>
@@ -87,7 +85,8 @@ struct Signal {
     bool operator==(const Script& script) const { return signal == script; }
 };
 
-template<typename E>
+// cleanUpInCancel=false is used by SciptCompletionEvent to avoid use after free
+template<typename E, bool cleanUpInCancel = true>
 struct SourceImpl {
     struct IgnoreContentNode : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
@@ -103,8 +102,10 @@ struct SourceImpl {
             source.signals.push_back({ signal, &scratch.receiver });
         }
         void cancel(Script script, ScratchSpace&) const {
-            auto it = std::remove(source.signals.begin(), source.signals.end(), script);
-            source.signals.erase(it, source.signals.end());
+            if constexpr (cleanUpInCancel) {
+                auto it = std::remove(source.signals.begin(), source.signals.end(), script);
+                source.signals.erase(it, source.signals.end());
+            }
         }
     };
     struct MoveContentNode : TmplLeafNode {
@@ -118,8 +119,10 @@ struct SourceImpl {
             source.signals.push_back({ signal, &receiver });
         }
         void cancel(Script script) const {
-            auto it = std::remove(source.signals.begin(), source.signals.end(), script);
-            source.signals.erase(it, source.signals.end());
+            if (cleanUpInCancel) {
+                auto it = std::remove(source.signals.begin(), source.signals.end(), script);
+                source.signals.erase(it, source.signals.end());
+            }
         }
     };
     template<typename Callback>
@@ -152,12 +155,12 @@ struct SourceImpl {
 
 }
 
-template<typename E>
-constexpr typename evt::SourceImpl<E>::MoveContentNode operator>(const evt::SourceImpl<E>& source, evt::Receiver<E>& receiver) {
+template<typename E, bool b>
+constexpr typename evt::SourceImpl<E, b>::MoveContentNode operator>(const evt::SourceImpl<E, b>& source, evt::Receiver<E>& receiver) {
     return { {}, source, receiver };
 }
-template<typename E, typename Callback>
-constexpr typename evt::SourceImpl<E>::template DispatchContentNode<Callback> operator>(const evt::SourceImpl<E>& source, const Callback& callback) requires requires(Callback callback, evt::Receiver<E> receiver) { receiver.dispatchTo(callback); }
+template<typename E, bool b, typename Callback>
+constexpr typename evt::SourceImpl<E, b>::template DispatchContentNode<Callback> operator>(const evt::SourceImpl<E, b>& source, const Callback& callback) requires requires(Callback callback, evt::Receiver<E> receiver) { receiver.dispatchTo(callback); }
 {
     return { { {}, source }, callback };
 }
@@ -185,8 +188,18 @@ struct source_traits<E> {
     using type = typename E::EventSource;
 };
 
+template<typename T, int_t N>
+struct RingBuffer {
+    T storage[N] = {};
+    int_t index(int_t i) const { return (size_t)i % N; }
+    constexpr T& operator[](int_t i) { return storage[index(i)]; }
+    constexpr const T& operator[](int_t i) const { return storage[index(i)]; }
+    constexpr int_t size() { return N; }
+};
+template<typename T>
+using TickRingBuffer = RingBuffer<T, MAX_CONCURRENT_TICKS + 1>;
 template<typename E>
-using EventRingBuffer = dep::TickRingBuffer<Receiver<E>>;
+using EventRingBuffer = TickRingBuffer<Receiver<E>>;
 
 struct RelayPromise {
     Executor* executor = nullptr;
@@ -249,21 +262,21 @@ struct RelayOutputPromise : RelayPromise {
 
     template<typename E>
     Receiver<E> takeEvents() {
-        return std::move(buffer<E>()[dep::tick()]);
+        return std::move(buffer<E>()[evt::tick()]);
     }
     template<typename E>
     Receiver<E> sendEvents() {
-        Receiver<E> events = std::move(buffer<E>()[dep::tick()]);
+        Receiver<E> events = std::move(buffer<E>()[evt::tick()]);
         output<E>().sendEvents(events);
         return events;
     }
     template<int_t i>
     auto takeEvents() {
-        return std::move(buffer<i>()[dep::tick()]);
+        return std::move(buffer<i>()[evt::tick()]);
     }
     template<int_t i>
     auto sendEvents() {
-        auto events = std::move(buffer<i>()[dep::tick()]);
+        auto events = std::move(buffer<i>()[evt::tick()]);
         output<i>().sendEvents(events);
         return events;
     }
@@ -283,7 +296,7 @@ namespace detail {
         while (true) {
             stx::Tuple<Receiver<Es>...> receivers {};
             await { ((sources > stx::get<I>(receivers)) || ...) };
-            int_t tick = dep::tick();
+            int_t tick = evt::tick();
             ((output->template buffer<I>()[tick] = std::move(stx::get<I>(receivers))), ...);
         }
     }
@@ -308,6 +321,9 @@ template<typename... Es>
 
 struct CallbackEvent {
     struct EventSource : SourceImpl<CallbackEvent> {
+        void sendEvent(stx::BasicCallback<> callback) {
+            sendEvent(CallbackEvent { callback });
+        }
         void sendEvent(const CallbackEvent& event) {
             if (signals.size() > 0)
                 return SourceImpl::sendEvent(event);
@@ -322,5 +338,11 @@ struct CallbackEvent {
     };
     stx::BasicCallback<> callback;
 };
+
+struct ScriptCompletionEvent {
+    using EventReceiver = KeepLastReceiver<ScriptCompletionEvent>;
+    using EventSource = ScriptCompletionEventSource;
+};
+struct ScriptCompletionEventSource : SourceImpl<ScriptCompletionEvent, false> { };
 
 }

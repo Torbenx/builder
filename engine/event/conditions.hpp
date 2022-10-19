@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ScriptPromise.hpp"
+#include "Event.hpp"
 
 namespace evt {
 
@@ -28,9 +28,10 @@ struct NextTick {
         ExecutorImpl* executor = nullptr;
         void commit(Signal<> signal) {
             executor = static_cast<ExecutorImpl*>(signal.script->executor);
-            if (!executor)
-                executor = static_cast<ExecutorImpl*>(evt::currentExecutor());
-            signal.script->executor = &executor->nextTick;
+            ExecutorImpl* exe = executor;
+            if (!exe)
+                exe = static_cast<ExecutorImpl*>(evt::currentExecutor());
+            signal.script->executor = &exe->nextTick;
             signal.send();
         }
         void cancel(Script script) {
@@ -97,6 +98,21 @@ struct SuspendAnd {
         callback(handle);
     }
     void await_resume() { }
+};
+
+struct Ping : TmplLeafNode {
+    static constexpr uint64_t requiredEvents() { return 1; }
+    static constexpr uint64_t maxEvents() { return 1; }
+    struct ScratchSpace {
+        Signal<> signal;
+        Source<CallbackEvent>* sourceHandler;
+    };
+    Source<CallbackEvent>& sourceHandler;
+    Source<CallbackEvent>& targetHandler;
+    Ping(Source<CallbackEvent>& source, Source<CallbackEvent>& target)
+        : sourceHandler(source), targetHandler(target) { }
+    void commit(Signal<>, ScratchSpace&) const;
+    void cancel(Script, ScratchSpace&) const;
 };
 
 }

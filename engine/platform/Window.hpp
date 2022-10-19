@@ -1,6 +1,7 @@
 #pragma once
 
 #include "event/Window.hpp"
+#include "event/Scheduler.hpp"
 #include "util/Callable.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
@@ -87,17 +88,10 @@ protected:
         : backend(backend) { }
 };
 
-evt::ExecutorImpl* coreExe();
-dep::Source& processedEvents();
-dep::Target& tickComplete();
 void continueStartup(Window initialWindow);
-void processEvents(dep::Scheduler, stx::BasicCallback<>);
 void processEventsImpl(stx::BasicCallback<>);
-
-evt::Source<evt::CallbackEvent>& callbackHandler();
-void postCallback(evt::Source<evt::CallbackEvent>& postTo, stx::BasicCallback<>);
 
 }
 
-extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)(dep::Scheduler);
-extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window, dep::Scheduler);
+extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)(evt::Scheduler);
+extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window, evt::Scheduler);

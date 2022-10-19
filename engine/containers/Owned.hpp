@@ -88,7 +88,7 @@ public:
     }
     Owned& operator=(const Owned&) = delete;
     constexpr Owned& operator=(Owned&& other) {
-        set(other.value);
+        set(other);
         other.assign({});
         return *this;
     }
