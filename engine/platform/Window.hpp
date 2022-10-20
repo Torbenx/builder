@@ -1,7 +1,7 @@
 #pragma once
 
 #include "event/Window.hpp"
-#include "event/Scheduler.hpp"
+#include "event/Timeline.hpp"
 #include "util/Callable.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
@@ -93,5 +93,5 @@ void processEventsImpl(stx::BasicCallback<>);
 
 }
 
-extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)(evt::Scheduler);
-extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window, evt::Scheduler);
+extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)();
+extern "C" void WEAK_SYMBOL_DECL(onInitialWindowConstructed)(plt::Window window);

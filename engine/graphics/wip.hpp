@@ -1,6 +1,6 @@
 #pragma once
 
-#include "event/Scheduler.hpp"
+#include "event/Timeline.hpp"
 #include "ui2/IntTypes.hpp"
 #include "util/Callable.hpp"
 #include <vector>
@@ -193,7 +193,7 @@ namespace sw {
 
             usages.clear();
         }
-        void paint(evt::Scheduler scheduler) {
+        void paint() {
 
             ui::TextureHandle atlas = instance->buffer(atlasChain);
             ui::TextureHandle framebuffer = instance->buffer(inputChain);
@@ -272,7 +272,7 @@ namespace sw {
                 }
             }
         }
-        void renderAtlas(evt::Scheduler scheduler) {
+        void renderAtlas() {
             applyRenderHistory();
 
             int_t chainIndex = instance->chainIndex();

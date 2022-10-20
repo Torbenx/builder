@@ -3,6 +3,7 @@
 #include "Renderer.hpp"
 #include "containers/DynArray.hpp"
 #include "containers/IdAllocator.hpp"
+#include "event/Timeline.hpp"
 #include "event/Window.hpp"
 #include "handles.hpp"
 #include "math/sparse/Vector.hpp"
@@ -35,9 +36,10 @@ struct RenderOutputUtil {
 
 class Instance {
 public:
-    Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc);
+    Instance(evt::Timeline* timeline, const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, AtlasAllocator* atlasAlloc);
     ~Instance();
 
+    evt::Timeline* timeline = nullptr;
     const evt::Source<evt::WindowStateUpdate>& windowState;
 
     IdAllocator<uint32_t> eqnIdAlloc;
@@ -110,12 +112,10 @@ public:
 
     stx::DynArray<std::vector<StyleConsumerBase*>> styleConsumerUpdates;
 
-    evt::ExecutorImpl* coreExe = nullptr;
     void doTick();
 };
 
-inline Instance* instance() { return (Instance*)plt::getThreadLocalPtr<plt::TLS_UI_INSTANCE_INDEX>(); }
-inline void setInstance(Instance* instance) { plt::setThreadLocalPtr<plt::TLS_UI_INSTANCE_INDEX>(instance); }
+DECLARE_THREAD_LOCAL_GETSET(Instance*, instance, setInstance, UI_INSTANCE)
 
 inline const evt::Source<evt::WindowStateUpdate>& stateUpdate() { return instance()->windowState; }
 inline evt::WindowState state() { return stateUpdate().currentState; }
@@ -125,7 +125,7 @@ inline const evt::BinaryState& foreground() { return stateUpdate().foreground; }
 inline const evt::BinaryState& destroyed() { return stateUpdate().destroyed; }
 
 inline RectVarHandle windowRect() { return instance()->windowRect; }
-inline evt::Executor* coreExecutor() { return instance()->coreExe; }
+inline evt::Executor* executor() { return instance()->timeline->executor(); }
 
 inline float VarHandle::value() const { return instance()->valueOf(*this); }
 

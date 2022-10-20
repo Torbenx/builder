@@ -5,18 +5,18 @@
 
 namespace ui {
 
-Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, evt::ExecutorImpl* coreExe, AtlasAllocator* atlasAlloc)
-    : windowState(stateUpdate)
+Instance::Instance(evt::Timeline* timeline, const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, AtlasAllocator* atlasAlloc)
+    : timeline(timeline)
+    , windowState(stateUpdate)
     , atlasAlloc(atlasAlloc)
     , rendererUpdates(RendererBase::recordCount())
     , incrementalRenderOutput(RendererBase::recordCount())
-    , styleConsumerUpdates(StyleConsumerBase::recordCount())
-    , coreExe(coreExe) {
+    , styleConsumerUpdates(StyleConsumerBase::recordCount()) {
 
     windowRect = newRect();
 
     [](Instance* instance, const evt::Source<evt::ResizeEvent>& resizeEvent) -> evt::Script {
-        await { evt::OnExecutor(instance->coreExe) };
+        co_await evt::onTimeline(instance->timeline);
         IntVec initialDim = resizeEvent.currentDimensions;
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();

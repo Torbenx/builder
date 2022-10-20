@@ -2,9 +2,8 @@
 #include "box.hpp"
 #include "equation_code.hpp"
 #include "event/Awaitable.hpp"
-#include "event/Event.hpp"
+#include "event/Timeline.hpp"
 #include "event/conditions.hpp"
-#include "event/remote.hpp"
 #include "graphics/wip.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
@@ -76,8 +75,6 @@ struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
     }
 };
 evt::Script uiTestInit() {
-    await { evt::OnExecutor(ui::coreExecutor()) };
-
     auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
     {
         ui::Ref<TestStyle>& testStyle = bigTable.get<DefaultTestStyle>();
@@ -243,25 +240,26 @@ evt::Script uiTestInit() {
     }
 };*/
 
-evt::Script uiTestWrapper(plt::Window window, evt::Scheduler scheduler) {
-    await { evt::OnExecutor(evt::mainExecutor()) };
+evt::Script uiTestWrapper(plt::Window window) {
+    await { evt::Defer() };
     ui::RemoteInstance instance { window.stateUpdate(), window.resizeEvent() };
-    evt::Script script = evt::remoteRun(uiTestInit, evt::mainCallbackHandler(), instance.callbackHandler());
+    evt::Script script = evt::remoteRun(instance.callbackHandler(), uiTestInit);
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
     while(!completionEv.hasEvent()) {
-        instance.scheduleTick(scheduler);
+        log("tick");
+        instance.asyncTick();
         await { (evt::NextTick(), *script->completion > completionEv) };
     };
-    instance.scheduleTick(scheduler);
-    await { evt::Ping(evt::mainCallbackHandler(), instance.callbackHandler()) };
+    instance.asyncTick();
+    await { evt::Ping(instance.callbackHandler()) };
 }
 
 }
 
 namespace ui {
 
-void test(evt::Scheduler scheduler) {
+void test() {
     /*sparse::LUDecomposition lu;
     lu.u.appendColumn(sparse::StaticVector({ { 1, 1.0f }, { 3, -0.5f } }).copy());
     lu.u.appendColumn(sparse::StaticVector({ { 0, 0.5f }, { 1, 1.0f } }).copy());
@@ -276,8 +274,7 @@ void test(evt::Scheduler scheduler) {
     evt::test();
 
     plt::Window window = plt::Window::construct();
-    evt::setCurrentExecutor(evt::mainExecutor());
-    uiTestWrapper(window, scheduler);
+    uiTestWrapper(window);
     window.setDimensions({ 700, 700 });
     window.setTitle("UiTest");
     window.initialize();

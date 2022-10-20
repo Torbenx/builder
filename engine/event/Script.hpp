@@ -16,11 +16,7 @@ namespace evt {
 
 constexpr int_t MAX_CONCURRENT_TICKS = 7;
 
-inline int_t tick() { return (uintptr_t)plt::getThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>(); }
-inline void setTick(int_t tick) {
-    // VERIFY(Dependency, tick >= 0);
-    plt::setThreadLocalPtr<plt::TLS_CURRENT_TICK_INDEX>((void*)(uintptr_t)tick);
-}
+DECLARE_THREAD_LOCAL_GETSET(int_t, mainTick, setMainTick, CURRENT_MAIN_TICK)
 
 struct ScriptPromise;
 
@@ -68,16 +64,12 @@ struct Executor {
         handles.erase(handles.rend() - it + handles.begin());
     }
 };
-inline Executor* currentExecutor() { return (Executor*)plt::getThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(); }
-inline void setCurrentExecutor(Executor* exe) { plt::setThreadLocalPtr<plt::TLS_CURRENT_EXECUTOR_INDEX>(exe); }
 struct ExecutorImpl : Executor {
     Executor nextTick;
     void execute() {
-        setCurrentExecutor(this);
         for (int_t i = 0; i < (int_t)handles.size(); i++)
             handles[i].resume();
         handles = std::move(nextTick.handles);
-        setCurrentExecutor(nullptr);
     }
 };
 
@@ -93,7 +85,7 @@ struct Signal<void> {
 
     bool operator==(const Script& script) const { return this->script == script; }
 
-    Signal<> operator~() const { return { script, (uint64_t) - (int64_t)mask }; }
+    Signal<> operator~() const { return { script, (uint64_t)(-(int64_t)mask) }; }
 };
 
 void test();

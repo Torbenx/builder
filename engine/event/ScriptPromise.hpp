@@ -21,7 +21,7 @@ struct ScriptPromise {
     ~ScriptPromise();
 
     AwaitableState state;
-    Executor* executor;
+    bool executeOnNextTick = false;
     ScriptCompletionEventSource* completion;
 };
 static_assert(std::is_standard_layout_v<ScriptPromise>);

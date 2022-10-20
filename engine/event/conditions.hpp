@@ -1,42 +1,30 @@
 #pragma once
 
-#include "Event.hpp"
+#include "Timeline.hpp"
 
 namespace evt {
 
-struct OnExecutor {
+struct Defer {
     struct NodeType : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
-        Executor* executor = nullptr;
         void commit(Signal<> signal) const {
-            signal.script->executor = executor;
             signal.send();
         }
     };
-    Executor* executor = nullptr;
-    OnExecutor() = default;
-    OnExecutor(Executor* executor)
-        : executor(executor) { }
-    constexpr operator NodeType() const { return { {}, executor }; }
+    constexpr operator NodeType() const { return {}; }
 };
 
 struct NextTick {
     struct NodeType : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return 1; }
-        ExecutorImpl* executor = nullptr;
         void commit(Signal<> signal) {
-            executor = static_cast<ExecutorImpl*>(signal.script->executor);
-            ExecutorImpl* exe = executor;
-            if (!exe)
-                exe = static_cast<ExecutorImpl*>(evt::currentExecutor());
-            signal.script->executor = &exe->nextTick;
+            signal.script->executeOnNextTick = true;
             signal.send();
         }
         void cancel(Script script) {
-            VERIFY(Event, script->executor == &executor->nextTick);
-            script->executor = executor;
+            script->executeOnNextTick = false;
         }
     };
     constexpr operator NodeType() const { return {}; }
@@ -100,6 +88,12 @@ struct SuspendAnd {
     void await_resume() { }
 };
 
+inline auto onTimeline(Timeline* timeline) {
+    return SuspendAnd([timeline](Script script) {
+        timeline->executor()->schedule(script.handle);
+    });
+}
+
 struct Ping : TmplLeafNode {
     static constexpr uint64_t requiredEvents() { return 1; }
     static constexpr uint64_t maxEvents() { return 1; }
@@ -107,12 +101,45 @@ struct Ping : TmplLeafNode {
         Signal<> signal;
         Source<CallbackEvent>* sourceHandler;
     };
-    Source<CallbackEvent>& sourceHandler;
     Source<CallbackEvent>& targetHandler;
-    Ping(Source<CallbackEvent>& source, Source<CallbackEvent>& target)
-        : sourceHandler(source), targetHandler(target) { }
+    Ping(Source<CallbackEvent>& target)
+        : targetHandler(target) { }
     void commit(Signal<>, ScratchSpace&) const;
     void cancel(Script, ScratchSpace&) const;
 };
+
+namespace detail {
+    template<typename... Args>
+    using RemoteInvTpl = stx::Tuple<Source<CallbackEvent>&, Script, Script (*)(Args...), Args...>;
+    template<typename... Args, int_t... I>
+    Script remoteRunInvoke(RemoteInvTpl<Args...>* tuple, stx::int_sequence<I...>) {
+        Source<CallbackEvent>& sourceHandler = stx::get<0>(*tuple);
+        Script sourceScript = stx::get<1>(*tuple);
+        Script targetScript = stx::get<2>(*tuple)(std::forward<Args>(stx::get<I + 3>(*tuple))...);
+        delete tuple;
+        await { *targetScript->completion };
+        postCallback(
+            sourceHandler,
+            {
+                sourceScript.address(),
+                [](void* address) {
+                    Script::fromAddress(address).handle.destroy();
+                },
+            });
+    }
+}
+template<typename... Args>
+Script remoteRun(Source<CallbackEvent>& targetHandler, Script (*func)(Args...), Args... args) {
+    co_await SuspendAnd([&](Script sourceScript) {
+        Source<CallbackEvent>& sourceHandler = evt::currentTimeline()->callbackHandler();
+        auto* tuple = new detail::RemoteInvTpl<Args...> { { { sourceHandler }, { sourceScript }, { func }, { std::forward<Args>(args) }... } };
+        targetHandler.sendEvent({
+            tuple,
+            [](detail::RemoteInvTpl<Args...>* tuple) {
+                detail::remoteRunInvoke(tuple, stx::int_sequence_for<Args...>());
+            },
+        });
+    });
+}
 
 }

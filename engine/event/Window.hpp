@@ -74,6 +74,5 @@ struct WindowStateUpdate {
     WindowState from;
     WindowState to;
 };
-static_assert(HasCustomSource<WindowStateUpdate>);
 
 }

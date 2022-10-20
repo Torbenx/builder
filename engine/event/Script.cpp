@@ -4,16 +4,16 @@
 namespace evt {
 
 void Signal<>::send(int_t count) const {
-    Executor* localExecutor = currentExecutor();
+    ExecutorImpl* exeImpl = currentTimeline()->executor();
+    VERIFY(Event, exeImpl);
+    Executor* exe = script->executeOnNextTick ? &exeImpl->nextTick : exeImpl;
+
     uint64_t oldState = script->state.state;
     uint64_t newState = oldState + mask * count;
     script->state.state = newState;
     uint64_t key = script->state.key;
     bool wasReady = (oldState & key) != 0;
     bool isReady = (newState & key) != 0;
-    Executor* exe = script->executor;
-    exe = exe ? exe : localExecutor;
-    VERIFY(Event, exe);
     if (isReady && !wasReady)
         exe->schedule(script);
     else if (wasReady && !isReady)
@@ -21,7 +21,7 @@ void Signal<>::send(int_t count) const {
 }
 
 ScriptPromise::ScriptPromise()
-    : executor(nullptr), completion(new Source<ScriptCompletionEvent>) { }
+    : completion(new Source<ScriptCompletionEvent>) { }
 
 ScriptPromise::~ScriptPromise() {
     completion->sendEvent({});
@@ -30,7 +30,7 @@ ScriptPromise::~ScriptPromise() {
 
 void Ping::commit(Signal<> signal, ScratchSpace& scratch) const {
     scratch.signal = signal;
-    scratch.sourceHandler = &sourceHandler;
+    scratch.sourceHandler = &currentTimeline()->callbackHandler();
     targetHandler.sendEvent({
         &scratch,
         [](ScratchSpace* scratch) {

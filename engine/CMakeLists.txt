@@ -129,7 +129,7 @@ add_executable(engine_test ${win32_executable}
     "event/test.cpp"
     "event/Scheduler.cpp"
     "event/Script.cpp"
-    "event/mainExecutor.cpp"
+    "event/Timeline.cpp"
     "util/log.cpp"
 )
 if(MSVC)

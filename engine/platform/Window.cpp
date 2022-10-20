@@ -9,44 +9,33 @@
 namespace plt {
 
 void continueStartup(Window initialWindow) {
-    int_t extraThreadCount = 0;
-    std::vector<std::thread> threads;
-    threads.reserve(extraThreadCount);
-    for (int_t i = 0; i < extraThreadCount; i++)
-        threads.emplace_back(evt::enterScheduler);
-
-    evt::startScheduler(
-        {
-            &initialWindow,
-            [](Window* window, evt::Scheduler scheduler) {
-                if (*window)
-                    onInitialWindowConstructed(*window, scheduler);
-                else
-                    onNoInitialWindow(scheduler);
-            },
+    evt::completeStartup({
+        &initialWindow,
+        [](Window* window) {
+            if (*window)
+                onInitialWindowConstructed(*window);
+            else
+                onNoInitialWindow();
         },
-        0);
-
-    for (std::thread& thread : threads)
-        thread.join();
+    });
 }
 
 }
 
 MAKE_WEAK_SYMBOL(onNoInitialWindow)
-extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)(evt::Scheduler scheduler) {
-    onInitialWindowConstructed(plt::Window::construct(), scheduler);
+extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)() {
+    onInitialWindowConstructed(plt::Window::construct());
 }
 
 namespace ui {
-void test(evt::Scheduler);
+void test();
 }
 
 MAKE_WEAK_SYMBOL(onInitialWindowConstructed)
-extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window, evt::Scheduler scheduler) {
+extern "C" void WEAK_SYMBOL_IMPL(onInitialWindowConstructed)(plt::Window) {
     // window->setDimensions(200, 200);
     // window->setTitle("Hello World!");
-    ui::test(scheduler);
+    ui::test();
 
     /*gl::initialize();
     gl::attachWindow(window.get());

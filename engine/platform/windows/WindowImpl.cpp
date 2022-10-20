@@ -104,7 +104,7 @@ void WindowImpl::exitSizeMove() {
 }
 
 namespace {
-    struct ExecutorScope {
+    /*struct ExecutorScope {
         bool active = true;
         ExecutorScope() {
             if (evt::currentExecutor() == evt::mainExecutor()) {
@@ -120,12 +120,12 @@ namespace {
                 evt::setCurrentExecutor(nullptr);
             }
         }
-    };
+    };*/
 }
 
 LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     using enum evt::WindowState;
-    ExecutorScope executorScope;
+    //ExecutorScope executorScope;
     if (msg == WM_CREATE) {
         log("WM_CREATE");
         CREATESTRUCT* initParams = (CREATESTRUCT*)lParam;
@@ -154,9 +154,9 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
         return 0;
     case WM_PAINT: {
         VERIFY(Windows, (bool)processEventsCallback);
-        evt::setCurrentExecutor(nullptr);
+        // evt::setCurrentExecutor(nullptr);
         processEventsCallback();
-        evt::setCurrentExecutor(evt::mainExecutor());
+        // evt::setCurrentExecutor(evt::mainExecutor());
         return 0;
     }
     case WM_WINDOWPOSCHANGED:
