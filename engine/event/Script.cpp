@@ -1,3 +1,4 @@
+#include "Awaitable.hpp"
 #include "conditions.hpp"
 #include "platform/Window.hpp"
 
@@ -20,12 +21,8 @@ void Signal<>::send(int_t count) const {
         exe->unschedule(script);
 }
 
-ScriptPromise::ScriptPromise()
-    : completion(new Source<ScriptCompletionEvent>) { }
-
 ScriptPromise::~ScriptPromise() {
-    completion->sendEvent({});
-    delete completion;
+    completion.sendEvent({});
 }
 
 void Ping::commit(Signal<> signal, ScratchSpace& scratch) const {
@@ -51,6 +48,21 @@ void Ping::commit(Signal<> signal, ScratchSpace& scratch) const {
 
 void Ping::cancel(Script, ScratchSpace& scratch) const {
     VERIFY(Event, scratch.signal.script == Script {});
+}
+
+Script detail::asyncInvoke(AsyncInvokeData* data) {
+    Source<CallbackEvent>& sourceHandler = data->sourceHandler;
+    Script sourceScript = data->sourceScript;
+    Script targetScript = data->func(data);
+    await { targetScript->completion };
+    postCallback(
+        sourceHandler,
+        {
+            sourceScript.address(),
+            [](void* address) {
+                Script::fromAddress(address).handle.destroy();
+            },
+        });
 }
 
 }

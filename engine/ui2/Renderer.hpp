@@ -4,7 +4,6 @@
 #include "Rect.hpp"
 #include "StyleConsumer.hpp"
 #include "ZIndex.hpp"
-#include "event/Script.hpp"
 
 namespace ui {
 

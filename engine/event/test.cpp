@@ -1,5 +1,6 @@
-#include "util/log.hpp"
+#include "CompiledCondition.hpp"
 #include "conditions.hpp"
+#include "util/log.hpp"
 
 namespace evt {
 

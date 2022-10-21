@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Instance.hpp"
-#include "platform/Window.hpp"
+#include "event/Window.hpp"
+#include "event/AsyncTimeline.hpp"
 
 namespace ui {
 

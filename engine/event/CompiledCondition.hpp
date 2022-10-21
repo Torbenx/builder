@@ -10,8 +10,6 @@
 
 namespace evt {
 
-static constexpr uint64_t UNBOUND_EVENT_COUNT = 1000;
-
 enum class LogicalOp {
     And,
     Or,
@@ -37,16 +35,6 @@ struct TmplBranchNode {
     Left left;
     Right right;
 };
-struct TmplLeafNode {
-    static constexpr bool IS_TMPL_LEAF_NODE = true;
-
-    static constexpr uint64_t requiredEvents() { return 0; }
-    static constexpr uint64_t maxEvents() { return 0; }
-
-    uint64_t state() const { return 0; }
-    void commit(Signal<>) const { }
-    void cancel(Script) const { }
-};
 template<TmplLeafLoc loc, std::derived_from<TmplLeafNode> Node>
 const Node& get(const Node& node) {
     static_assert(loc == TmplLeafLoc {});
@@ -71,7 +59,7 @@ struct is_tmpl_branch_node<TmplBranchNode<op, Left, Right>> {
 template<typename Node>
 concept BranchTreeNode = is_tmpl_branch_node<Node>::value;
 template<typename Node>
-concept LeafTreeNode = Node::IS_TMPL_LEAF_NODE;
+concept LeafTreeNode = std::derived_from<Node, TmplLeafNode>;
 template<typename Node>
 concept ActualTreeNode = BranchTreeNode<Node> || LeafTreeNode<Node>;
 template<typename Node>
@@ -429,3 +417,15 @@ constexpr evt::TmplBranchNode<evt::LogicalOp::Comma, evt::converted_tree_node_t<
 
 template<stx::FixedString name>
 constexpr evt::NamedCondition<name> operator"" _ev() { return {}; }
+
+namespace evt {
+
+using MonoConditionNamed = NamedCondition<"monoCondition">;
+struct MonoCondition : CompiledCondition<MonoConditionNamed::NodeType> {
+    using Base = CompiledCondition<MonoConditionNamed::NodeType>;
+    Signal<> signal(Script script) const { return Base::signal(script, MonoConditionNamed()); }
+    constexpr MonoCondition() = default;
+};
+constexpr MonoCondition monoCondition;
+
+}

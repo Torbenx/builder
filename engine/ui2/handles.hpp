@@ -2,7 +2,6 @@
 
 #include "Rect.hpp"
 #include "containers/ArrayView.hpp"
-#include "event/Event.hpp"
 
 namespace sparse {
 struct Entry;
@@ -181,9 +180,5 @@ struct RectEqn {
     constexpr Equation& top() { return y().high(); }
     constexpr const Equation& top() const { return y().high(); }
 };
-
-evt::Executor* coreExecutor();
-
-RectVarHandle windowRect();
 
 }

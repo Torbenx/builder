@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CompiledCondition.hpp"
 #include "ScriptPromise.hpp"
 #include "containers/Tuple.hpp"
 

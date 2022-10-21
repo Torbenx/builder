@@ -21,7 +21,7 @@ DECLARE_THREAD_LOCAL_GETSET(int_t, mainTick, setMainTick, CURRENT_MAIN_TICK)
 struct ScriptPromise;
 
 template<typename T, typename Base>
-concept CompatibleCoroutinePromise = std::is_base_of_v<Base, T> && alignof(T) == alignof(Base) && sizeof(T) == sizeof(Base) && std::is_standard_layout_v<T>;
+concept CompatibleCoroutinePromise = std::is_base_of_v<Base, T> && alignof(T) == alignof(Base) && sizeof(T) == sizeof(Base);
 struct Script {
     using promise_type = ScriptPromise;
     Script() = default;
@@ -38,9 +38,9 @@ struct Script {
     stdx::coroutine_handle<ScriptPromise> handle = {};
 
     void* address() const { return handle.address(); }
-    ScriptPromise* promise() const { return &handle.promise(); }
-    ScriptPromise* operator->() const { return promise(); }
-    ScriptPromise& operator*() const { return *promise(); }
+    ScriptPromise* promise() const;
+    ScriptPromise* operator->() const;
+    ScriptPromise& operator*() const;
     explicit operator bool() const { return (bool)handle; }
     operator stdx::coroutine_handle<>() const { return handle; }
     bool operator==(const Script&) const = default;
@@ -86,6 +86,17 @@ struct Signal<void> {
     bool operator==(const Script& script) const { return this->script == script; }
 
     Signal<> operator~() const { return { script, (uint64_t)(-(int64_t)mask) }; }
+};
+
+static constexpr uint64_t UNBOUND_EVENT_COUNT = 1000;
+
+struct TmplLeafNode {
+    static constexpr uint64_t requiredEvents() { return 0; }
+    static constexpr uint64_t maxEvents() { return 0; }
+
+    uint64_t state() const { return 0; }
+    void commit(Signal<>) const { }
+    void cancel(Script) const { }
 };
 
 void test();

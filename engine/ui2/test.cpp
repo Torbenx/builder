@@ -18,18 +18,6 @@
 
 namespace {
 
-struct BasicAtlasAllocator : ui::AtlasAllocator {
-    ui::IntVec nextAtlasSize(ui::IntVec size) override {
-        if (size.x() == 0)
-            size.x() = 4096;
-        if (size.y() == 0)
-            size.y() = 2048;
-        else
-            size.y() = size.y() * 2;
-        return size;
-    }
-};
-
 DECLARE_STYLE_KEY(DefaultBoxStyle, ui::PaddingStyle);
 
 enum class ColorChannel {
@@ -243,16 +231,15 @@ evt::Script uiTestInit() {
 evt::Script uiTestWrapper(plt::Window window) {
     await { evt::Defer() };
     ui::AsyncInstance instance { window.stateUpdate(), window.resizeEvent() };
-    evt::Script script = evt::asyncOn(instance.callbackHandler(), uiTestInit);
+    evt::Script script = evt::asyncScript(instance, uiTestInit);
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
     while(!completionEv.hasEvent()) {
-        log("tick");
         instance.asyncTick();
-        await { (evt::NextTick(), *script->completion > completionEv) };
+        await { (evt::NextTick(), script->completion > completionEv) };
     };
     instance.asyncTick();
-    await { evt::Ping(instance.callbackHandler()) };
+    await { evt::Ping(instance) };
 }
 
 }

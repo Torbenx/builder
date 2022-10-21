@@ -4,24 +4,32 @@
 
 namespace stx {
 
-template<typename Target, typename Ret = void, typename... Args>
-concept BasicCallable = (requires(const Target& target, Args... args) {
+template<typename Target, typename... Args>
+concept BasicCallable = requires(const Target& target, Args... args) {
     target(args...);
-} && std::is_void_v<Ret>)
-    || requires(const Target& target, Args... args) {
-    { target(std::forward<Args>(args)...) } -> std::same_as<Ret>;
 };
-template<typename Target, typename Source, typename Ret = void, typename... Args>
-concept Callable = BasicCallable<Target, Ret, Args...> || BasicCallable<Target, Ret, Source&, Args...>;
+template<typename Target, typename Source, typename... Args>
+concept Callable = BasicCallable<Target, Args...> || BasicCallable<Target, Source&, Args...>;
 
-template<typename Ret = void, typename... Args, typename Target, typename Source>
-constexpr Ret callWithSource(const Target& target, Source&, Args... args) requires BasicCallable<Target, Ret, Args...> {
+template<typename... Args, typename Target, typename Source>
+constexpr void callWithSource(const Target& target, Source&, Args... args) requires BasicCallable<Target, Args...> {
     return target(std::forward<Args>(args)...);
 }
-template<typename Ret = void, typename... Args, typename Target, typename Source>
-constexpr Ret callWithSource(const Target& target, Source& source, Args... args) requires BasicCallable<Target, Ret, Source&, Args...> {
+template<typename... Args, typename Target, typename Source>
+constexpr void callWithSource(const Target& target, Source& source, Args... args) requires BasicCallable<Target, Source&, Args...> {
     return target(source, std::forward<Args>(args)...);
 }
+
+template<typename T, T t>
+struct CallImpl;
+template<typename Ret, typename... Args, Ret (*func)(Args...)>
+struct CallImpl<Ret (*)(Args...), func> {
+    Ret operator()(Args... args) const {
+        return func(std::forward<Args>(args)...);
+    }
+};
+template<auto func>
+using Call = CallImpl<decltype(func), func>;
 
 template<typename Derived, typename Callback>
 struct WithDerived : Callback {
@@ -60,7 +68,7 @@ struct CallMemberImpl;
 template<typename Class, typename Ret, typename... Args, Ret (Class::*funcPtr)(Args...)>
 struct CallMemberImpl<Ret (Class::*)(Args...), funcPtr> {
     constexpr Ret operator()(Class& thiz, Args... args) const {
-        return (thiz.*funcPtr)(args...);
+        return (thiz.*funcPtr)(std::forward<Args>(args)...);
     }
 };
 template<auto funcPtr>
@@ -74,15 +82,15 @@ struct BasicCallback {
     void* data = nullptr;
 
     BasicCallback() = default;
-    template<typename Data, BasicCallable<void, Data*, Args...> Callback>
+    template<typename Data, BasicCallable<Data*, Args...> Callback>
     BasicCallback(Data* data, const Callback& callback) {
         setCallback(data, callback);
     }
-    template<typename Data, BasicCallable<void, Data&, Args...> Callback>
+    template<typename Data, BasicCallable<Data&, Args...> Callback>
     BasicCallback(Data& data, const Callback& callback) {
         setCallback(data, callback);
     }
-    template<BasicCallable<void, Args...> Callback>
+    template<BasicCallable<Args...> Callback>
     BasicCallback(const Callback& callback) {
         setCallback(callback);
     }
@@ -90,21 +98,21 @@ struct BasicCallback {
     void operator()(Args... args) const {
         callback(data, args...);
     }
-    template<typename Data, BasicCallable<void, Data*, Args...> Callback>
+    template<typename Data, BasicCallable<Data*, Args...> Callback>
     void setCallback(Data* data, const Callback&) {
         this->data = data;
         this->callback = [](void* data, Args... args) {
             Callback {}((Data*)data, args...);
         };
     }
-    template<typename Data, BasicCallable<void, Data&, Args...> Callback>
+    template<typename Data, BasicCallable<Data&, Args...> Callback>
     void setCallback(Data& data, const Callback&) {
         this->data = &data;
         this->callback = [](void* data, Args... args) {
             Callback {}(*(Data*)data, args...);
         };
     }
-    template<BasicCallable<void, Args...> Callback>
+    template<BasicCallable<Args...> Callback>
     void setCallback(const Callback&) {
         this->data = nullptr;
         this->callback = [](void*, Args... args) {

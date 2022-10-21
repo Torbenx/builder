@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Awaitable.hpp"
+#include "Script.hpp"
 #include "containers/Owned.hpp"
 #include "containers/Tuple.hpp"
 #include <optional>
@@ -34,7 +34,7 @@ struct ListReceiver {
     void reset() {
         events.clear();
     }
-    template<stx::BasicCallable<void, E> Callback>
+    template<stx::BasicCallable<E> Callback>
     void dispatchTo(const Callback& callback) {
         for (const auto& event : events)
             callback(event);
@@ -63,7 +63,7 @@ struct KeepLastReceiver {
     bool hasEvent() const { return event.has_value(); }
     int_t count() const { return event.has_value(); }
     void reset() { event.reset(); }
-    template<stx::BasicCallable<void, E> Callback>
+    template<stx::BasicCallable<E> Callback>
     void dispatchTo(const Callback& callback) {
         if (hasEvent())
             callback(const_cast<const E&>(event.value()));
@@ -214,12 +214,5 @@ struct CallbackEvent {
     };
     stx::BasicCallback<> callback;
 };
-
-struct ScriptCompletionEvent {
-    static constexpr bool NO_CLEANUP_IN_CANCEL = true;
-    using EventReceiver = KeepLastReceiver<ScriptCompletionEvent>;
-    using EventSource = ScriptCompletionEventSource;
-};
-struct ScriptCompletionEventSource : SourceImpl<ScriptCompletionEvent> { };
 
 }

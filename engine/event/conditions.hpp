@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ScriptPromise.hpp"
 #include "Timeline.hpp"
 
 namespace evt {
@@ -29,14 +30,6 @@ struct NextTick {
     };
     constexpr operator NodeType() const { return {}; }
 };
-
-using MonoConditionNamed = NamedCondition<"monoCondition">;
-struct MonoCondition : CompiledCondition<MonoConditionNamed::NodeType> {
-    using Base = CompiledCondition<MonoConditionNamed::NodeType>;
-    Signal<> signal(Script script) const { return Base::signal(script, MonoConditionNamed()); }
-    constexpr MonoCondition() = default;
-};
-constexpr MonoCondition monoCondition;
 
 struct BinaryState {
     bool state = false;
@@ -104,46 +97,57 @@ struct Ping : TmplLeafNode {
     Source<CallbackEvent>& targetHandler;
     Ping(Source<CallbackEvent>& target)
         : targetHandler(target) { }
+    template<typename TL>
+    Ping(AsyncTimeline<TL>& targetTimeline)
+        : Ping(targetTimeline.callbackHandler()) { }
     void commit(Signal<>, ScratchSpace&) const;
     void cancel(Script, ScratchSpace&) const;
 };
 
 namespace detail {
+    struct AsyncInvokeData {
+        Source<CallbackEvent>& sourceHandler;
+        Script sourceScript;
+        Script (*func)(AsyncInvokeData*);
+    };
+    Script asyncInvoke(AsyncInvokeData* data);
+
     template<typename... Args>
-    using AsyncInvTpl = stx::Tuple<Source<CallbackEvent>&, Script, Script (*)(Args...), Args...>;
-    template<typename... Args, int_t... I>
-    Script asyncInvoke(AsyncInvTpl<Args...>* tuple, stx::int_sequence<I...>) {
-        Source<CallbackEvent>& sourceHandler = stx::get<0>(*tuple);
-        Script sourceScript = stx::get<1>(*tuple);
-        Script targetScript = stx::get<2>(*tuple)(std::forward<Args>(stx::get<I + 3>(*tuple))...);
-        delete tuple;
-        await { *targetScript->completion };
-        postCallback(
-            sourceHandler,
-            {
-                sourceScript.address(),
-                [](void* address) {
-                    Script::fromAddress(address).handle.destroy();
-                },
-            });
-    }
+    struct AsyncScriptData : AsyncInvokeData {
+        Script (*func)(Args...);
+        stx::Tuple<Args...> args;
+
+        static Script invoke(AsyncInvokeData* data) {
+            return invokeImpl((AsyncScriptData*)data, stx::int_sequence_for<Args...>());
+        }
+        template<int_t... I>
+        static Script invokeImpl(AsyncScriptData* data, stx::int_sequence<I...>) {
+            Script script = data->func(std::forward<Args>(stx::get<I>(data->args))...);
+            delete data;
+            return script;
+        }
+        AsyncScriptData(Source<CallbackEvent>& sourceHandler, Script sourceScript, Script (*func)(Args...), Args&&... args)
+            : AsyncInvokeData { sourceHandler, sourceScript, invoke }
+            , func(func)
+            , args { { { std::forward<Args>(args) }... } } { }
+    };
 }
 template<typename... Args>
-Script asyncOn(Source<CallbackEvent>& targetHandler, Script (*func)(Args...), Args... args) {
+Script asyncScript(Source<CallbackEvent>& targetHandler, Script (*func)(Args...), Args... args) {
     co_await SuspendAnd([&](Script sourceScript) {
         Source<CallbackEvent>& sourceHandler = evt::currentTimeline()->callbackHandler();
-        auto* tuple = new detail::AsyncInvTpl<Args...> { { { sourceHandler }, { sourceScript }, { func }, { std::forward<Args>(args) }... } };
-        targetHandler.sendEvent({
-            tuple,
-            [](detail::AsyncInvTpl<Args...>* tuple) {
-                detail::asyncInvoke(tuple, stx::int_sequence_for<Args...>());
-            },
-        });
+        detail::AsyncInvokeData* data = new detail::AsyncScriptData<Args...> {
+            sourceHandler,
+            sourceScript,
+            func,
+            std::forward<Args>(args)...
+        };
+        targetHandler.sendEvent({ data, stx::Call<detail::asyncInvoke>() });
     });
 }
-template<typename... Args, typename TL>
-Script asyncOn(AsyncTimeline<TL>& targetTimeline, Script (*func)(Args...), Args... args) {
-    return asyncRun(targetTimeline.callbackHandler(), func, std::forward<Args>(args)...);
+template<typename TL, typename... Args>
+Script asyncScript(AsyncTimeline<TL>& targetTimeline, Script (*func)(Args...), Args... args) {
+    return asyncScript(targetTimeline.callbackHandler(), func, std::forward<Args>(args)...);
 }
 
 }

@@ -39,7 +39,7 @@ struct DefaultDestroyCall<T> {
 
 }
 
-template<typename T, evt::BasicCallable<void, T&> DestroyCall = typename detail::DefaultDestroyCall<T>::type>
+template<typename T, evt::BasicCallable<T&> DestroyCall = typename detail::DefaultDestroyCall<T>::type>
 class Owned {
 private:
     T value;

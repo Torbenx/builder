@@ -65,7 +65,7 @@ struct DeallocateCall {
     using type = typename detail::DefaultDeallocateCall<T>::type;
 };
 
-template<typename T, BasicCallable<void, T&> DeallocateCall = typename DeallocateCall<T>::type>
+template<typename T, BasicCallable<T&> DeallocateCall = typename DeallocateCall<T>::type>
 class Owned : public detail::TypeOrWrapper<T>::type {
 private:
     using Base = typename detail::TypeOrWrapper<T>::type;

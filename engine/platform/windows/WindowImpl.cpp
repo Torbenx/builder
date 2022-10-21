@@ -1,6 +1,6 @@
 #include "WindowImpl.hpp"
 #include "core.hpp"
-#include "event/Script.hpp"
+#include "util/Callable.hpp"
 
 namespace plt::windows {
 
