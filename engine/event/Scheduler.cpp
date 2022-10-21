@@ -153,10 +153,10 @@ namespace {
         void start(stx::BasicCallback<> callback) {
             lowestActiveTick.store(0, std::memory_order_relaxed);
             evt::setMainTick(0);
-            evt::setCurrentTimline(mainTimeline());
+            evt::setCurrentTimeline(mainTimeline());
             if (callback)
                 callback();
-            evt::setCurrentTimline(nullptr);
+            evt::setCurrentTimeline(nullptr);
             runWithPlatformCheck();
         }
 

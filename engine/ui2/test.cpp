@@ -11,7 +11,7 @@
 #include "platform/windows/WindowImpl.hpp"
 #include "platform/windows/core.hpp"
 #include "platform/windows/glcore.hpp"
-#include "ui2/RemoteInstance.hpp"
+#include "ui2/AsyncInstance.hpp"
 #include "util/LogTimer.hpp"
 #include <memory>
 #include <sstream>
@@ -242,8 +242,8 @@ evt::Script uiTestInit() {
 
 evt::Script uiTestWrapper(plt::Window window) {
     await { evt::Defer() };
-    ui::RemoteInstance instance { window.stateUpdate(), window.resizeEvent() };
-    evt::Script script = evt::remoteRun(instance.callbackHandler(), uiTestInit);
+    ui::AsyncInstance instance { window.stateUpdate(), window.resizeEvent() };
+    evt::Script script = evt::asyncOn(instance.callbackHandler(), uiTestInit);
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
     while(!completionEv.hasEvent()) {

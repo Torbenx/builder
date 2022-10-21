@@ -46,7 +46,7 @@ namespace detail {
 
             constexpr operator const T&() const { return value; }
             constexpr const T& operator->() const requires std::is_pointer_v<T> { return value; }
-            
+
             constexpr type& operator=(const T& in) {
                 value = in;
                 return *this;
@@ -116,5 +116,10 @@ private:
         *(Base*)this = newValue;
     }
 };
+
+template<typename T, typename DC>
+T& get(stx::Owned<T, DC>& owned) {
+    return owned;
+}
 
 }

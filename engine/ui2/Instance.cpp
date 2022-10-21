@@ -5,9 +5,8 @@
 
 namespace ui {
 
-Instance::Instance(evt::Timeline* timeline, const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, AtlasAllocator* atlasAlloc)
-    : timeline(timeline)
-    , windowState(stateUpdate)
+Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, AtlasAllocator* atlasAlloc)
+    : windowState(stateUpdate)
     , atlasAlloc(atlasAlloc)
     , rendererUpdates(RendererBase::recordCount())
     , incrementalRenderOutput(RendererBase::recordCount())
@@ -16,7 +15,7 @@ Instance::Instance(evt::Timeline* timeline, const evt::Source<evt::WindowStateUp
     windowRect = newRect();
 
     [](Instance* instance, const evt::Source<evt::ResizeEvent>& resizeEvent) -> evt::Script {
-        co_await evt::onTimeline(instance->timeline);
+        co_await evt::onTimeline(instance);
         IntVec initialDim = resizeEvent.currentDimensions;
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();

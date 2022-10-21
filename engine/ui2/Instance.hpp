@@ -34,12 +34,11 @@ struct RenderOutputUtil {
     }
 };
 
-class Instance {
+class Instance : public evt::Timeline {
 public:
-    Instance(evt::Timeline* timeline, const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, AtlasAllocator* atlasAlloc);
+    Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent, AtlasAllocator* atlasAlloc);
     ~Instance();
 
-    evt::Timeline* timeline = nullptr;
     const evt::Source<evt::WindowStateUpdate>& windowState;
 
     IdAllocator<uint32_t> eqnIdAlloc;
@@ -125,7 +124,7 @@ inline const evt::BinaryState& foreground() { return stateUpdate().foreground; }
 inline const evt::BinaryState& destroyed() { return stateUpdate().destroyed; }
 
 inline RectVarHandle windowRect() { return instance()->windowRect; }
-inline evt::Executor* executor() { return instance()->timeline->executor(); }
+inline evt::Executor* executor() { return instance()->executor(); }
 
 inline float VarHandle::value() const { return instance()->valueOf(*this); }
 

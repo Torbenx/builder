@@ -110,9 +110,9 @@ struct Ping : TmplLeafNode {
 
 namespace detail {
     template<typename... Args>
-    using RemoteInvTpl = stx::Tuple<Source<CallbackEvent>&, Script, Script (*)(Args...), Args...>;
+    using AsyncInvTpl = stx::Tuple<Source<CallbackEvent>&, Script, Script (*)(Args...), Args...>;
     template<typename... Args, int_t... I>
-    Script remoteRunInvoke(RemoteInvTpl<Args...>* tuple, stx::int_sequence<I...>) {
+    Script asyncInvoke(AsyncInvTpl<Args...>* tuple, stx::int_sequence<I...>) {
         Source<CallbackEvent>& sourceHandler = stx::get<0>(*tuple);
         Script sourceScript = stx::get<1>(*tuple);
         Script targetScript = stx::get<2>(*tuple)(std::forward<Args>(stx::get<I + 3>(*tuple))...);
@@ -129,17 +129,21 @@ namespace detail {
     }
 }
 template<typename... Args>
-Script remoteRun(Source<CallbackEvent>& targetHandler, Script (*func)(Args...), Args... args) {
+Script asyncOn(Source<CallbackEvent>& targetHandler, Script (*func)(Args...), Args... args) {
     co_await SuspendAnd([&](Script sourceScript) {
         Source<CallbackEvent>& sourceHandler = evt::currentTimeline()->callbackHandler();
-        auto* tuple = new detail::RemoteInvTpl<Args...> { { { sourceHandler }, { sourceScript }, { func }, { std::forward<Args>(args) }... } };
+        auto* tuple = new detail::AsyncInvTpl<Args...> { { { sourceHandler }, { sourceScript }, { func }, { std::forward<Args>(args) }... } };
         targetHandler.sendEvent({
             tuple,
-            [](detail::RemoteInvTpl<Args...>* tuple) {
-                detail::remoteRunInvoke(tuple, stx::int_sequence_for<Args...>());
+            [](detail::AsyncInvTpl<Args...>* tuple) {
+                detail::asyncInvoke(tuple, stx::int_sequence_for<Args...>());
             },
         });
     });
+}
+template<typename... Args, typename TL>
+Script asyncOn(AsyncTimeline<TL>& targetTimeline, Script (*func)(Args...), Args... args) {
+    return asyncRun(targetTimeline.callbackHandler(), func, std::forward<Args>(args)...);
 }
 
 }

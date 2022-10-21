@@ -5,7 +5,11 @@ namespace evt {
 void Timeline::beginTick() {
     lastStartedTick += 1;
     VERIFY(Event, evt::currentTimeline() == nullptr);
-    evt::setCurrentTimline(this);
+    evt::setCurrentTimeline(this);
+}
+
+void Timeline::clearTick() {
+    evt::setCurrentTimeline(nullptr);
 }
 
 void Timeline::endTick() {
@@ -22,15 +26,10 @@ Timeline* mainTimeline() {
     return &timeline;
 }
 
-RemoteTimeline::RemoteTimeline() {
-    VERIFY(Event, evt::currentTimeline() == evt::mainTimeline());
-    callbackRelay.output->startRelay(timeline()->executor());
-}
-
-void RemoteTimeline::asyncTick() {
-    timeline()->tickMapping[nextTickToSchedule] = mainTick();
-    if (timeline()->lastScheduledTick.exchange(nextTickToSchedule, std::memory_order_release) == Timeline::INVALID_TICK) {
-        async(timeline()->asyncCallback, mainTick());
+void detail::AsyncTimelineBase::scheduleAsyncTick(Timeline* timeline) {
+    timeline->tickMapping[nextTickToSchedule] = mainTick();
+    if (timeline->lastScheduledTick.exchange(nextTickToSchedule, std::memory_order_release) == Timeline::INVALID_TICK) {
+        async(timeline->asyncCallback, mainTick());
     }
     nextTickToSchedule += 1;
 }

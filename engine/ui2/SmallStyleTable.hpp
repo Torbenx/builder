@@ -95,7 +95,6 @@ struct Ptr<SmallStyleTableImpl<Keys...>> : PtrBase {
         const SmallStyleTableImpl<Keys2...>* inObject = nullptr;
         const auto* baseObject = (const SmallStyleTableStorage<FirstKey>*)inObject;
         return (std::byte*)baseObject - (std::byte*)inObject;
-
     }
 
     template<typename... Keys2>

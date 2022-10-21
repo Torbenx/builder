@@ -85,9 +85,13 @@ struct Signal {
     bool operator==(const Script& script) const { return signal == script; }
 };
 
-// cleanUpInCancel=false is used by SciptCompletionEvent to avoid use after free
-template<typename E, bool cleanUpInCancel = true>
+// used by SciptCompletionEvent to avoid use after free
+template<typename E>
+concept SkipCleanupInCancel = E::NO_CLEANUP_IN_CANCEL;
+
+template<typename E>
 struct SourceImpl {
+    using event_type = E;
     struct IgnoreContentNode : TmplLeafNode {
         static constexpr uint64_t requiredEvents() { return 1; }
         static constexpr uint64_t maxEvents() { return UNBOUND_EVENT_COUNT; }
@@ -102,7 +106,7 @@ struct SourceImpl {
             source.signals.push_back({ signal, &scratch.receiver });
         }
         void cancel(Script script, ScratchSpace&) const {
-            if constexpr (cleanUpInCancel) {
+            if constexpr (!SkipCleanupInCancel<E>) {
                 auto it = std::remove(source.signals.begin(), source.signals.end(), script);
                 source.signals.erase(it, source.signals.end());
             }
@@ -119,7 +123,7 @@ struct SourceImpl {
             source.signals.push_back({ signal, &receiver });
         }
         void cancel(Script script) const {
-            if (cleanUpInCancel) {
+            if constexpr (!SkipCleanupInCancel<E>) {
                 auto it = std::remove(source.signals.begin(), source.signals.end(), script);
                 source.signals.erase(it, source.signals.end());
             }
@@ -153,14 +157,17 @@ struct SourceImpl {
     }
 };
 
+template<typename S>
+concept IsSource = std::derived_from<S, SourceImpl<typename S::event_type>>;
+
 }
 
-template<typename E, bool b>
-constexpr typename evt::SourceImpl<E, b>::MoveContentNode operator>(const evt::SourceImpl<E, b>& source, evt::Receiver<E>& receiver) {
+template<typename E>
+constexpr typename evt::SourceImpl<E>::MoveContentNode operator>(const evt::SourceImpl<E>& source, evt::Receiver<E>& receiver) {
     return { {}, source, receiver };
 }
-template<typename E, bool b, typename Callback>
-constexpr typename evt::SourceImpl<E, b>::template DispatchContentNode<Callback> operator>(const evt::SourceImpl<E, b>& source, const Callback& callback) requires requires(Callback callback, evt::Receiver<E> receiver) { receiver.dispatchTo(callback); }
+template<typename E, typename Callback>
+constexpr typename evt::SourceImpl<E>::template DispatchContentNode<Callback> operator>(const evt::SourceImpl<E>& source, const Callback& callback) requires requires(Callback callback, evt::Receiver<E> receiver) { receiver.dispatchTo(callback); }
 {
     return { { {}, source }, callback };
 }
@@ -209,9 +216,10 @@ struct CallbackEvent {
 };
 
 struct ScriptCompletionEvent {
+    static constexpr bool NO_CLEANUP_IN_CANCEL = true;
     using EventReceiver = KeepLastReceiver<ScriptCompletionEvent>;
     using EventSource = ScriptCompletionEventSource;
 };
-struct ScriptCompletionEventSource : SourceImpl<ScriptCompletionEvent, false> { };
+struct ScriptCompletionEventSource : SourceImpl<ScriptCompletionEvent> { };
 
 }
