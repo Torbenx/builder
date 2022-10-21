@@ -75,23 +75,27 @@ struct RelayPromise : RelayPromiseBase {
     template<int_t i>
     const auto& buffer() const { return stx::get<i>(buffers); }
 
+    int_t tick() const {
+        return currentTimeline()->tick();
+    }
+
     template<typename E>
     Receiver<E> takeEvents() {
-        return std::move(buffer<E>()[evt::mainTick()]);
+        return std::move(buffer<E>()[tick()]);
     }
     template<typename E>
     Receiver<E> sendEvents() {
-        Receiver<E> events = std::move(buffer<E>()[evt::mainTick()]);
+        Receiver<E> events = std::move(buffer<E>()[tick()]);
         output<E>().sendEvents(events);
         return events;
     }
     template<int_t i>
     auto takeEvents() {
-        return std::move(buffer<i>()[evt::mainTick()]);
+        return std::move(buffer<i>()[tick()]);
     }
     template<int_t i>
     auto sendEvents() {
-        auto events = std::move(buffer<i>()[evt::mainTick()]);
+        auto events = std::move(buffer<i>()[tick()]);
         output<i>().sendEvents(events);
         return events;
     }
@@ -112,12 +116,13 @@ private:
 };
 
 namespace detail {
-    template<typename... Es, int_t... I>
-    Script recordEvents(RelayPromise<Es...>* output, stx::Tuple<const SourceImpl<Es>*...> sources, stx::int_sequence<I...>) {
+    template<typename... Es, typename TL, int_t... I>
+    Script recordEvents(RelayPromise<Es...>* output, AsyncTimeline<TL>* timeline, stx::Tuple<const SourceImpl<Es>*...> sources, stx::int_sequence<I...>) {
         while (true) {
             stx::Tuple<Receiver<Es>...> receivers {};
             await { ((*stx::get<I>(sources) > stx::get<I>(receivers)) || ...) };
-            int_t tick = evt::mainTick();
+            
+            int_t tick = timeline->tick();
             ((output->template buffer<I>()[tick] = std::move(stx::get<I>(receivers))), ...);
         }
     }
@@ -173,6 +178,7 @@ namespace detail {
     struct AsyncTimelineBase {
         int_t nextTickToSchedule = 0;
         void scheduleAsyncTick(Timeline*);
+        int_t computeTick(const Timeline* timeline) const;
     };
 }
 template<std::derived_from<Timeline> TL>
@@ -217,6 +223,7 @@ private:
 
 protected:
     TL* timeline() { return &m_timeline; }
+    const TL* timeline() const { return &m_timeline; }
 
 public:
     template<typename... Args>
@@ -231,11 +238,12 @@ public:
         with_pack_t<SourceTuple, EventPack<Args...>> sourceTuple {};
         writeIfSource(sourceTuple, callbackHandler());
         (writeIfSource(sourceTuple, args), ...);
-        eventRecorder = detail::recordEvents(relayPromise<Args...>(), sourceTuple, stx::make_int_sequence<EventPack<Args...>::size>());
+        eventRecorder = detail::recordEvents(relayPromise<Args...>(), this, sourceTuple, stx::make_int_sequence<EventPack<Args...>::size>());
     }
     void asyncTick() {
         scheduleAsyncTick(timeline());
     }
+    int_t tick() const { return computeTick(timeline()); }
 
     Source<CallbackEvent>& callbackHandler() { return timeline()->callbackHandler(); }
 };

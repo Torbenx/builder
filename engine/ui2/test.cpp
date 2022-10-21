@@ -234,7 +234,7 @@ evt::Script uiTestWrapper(plt::Window window) {
     evt::Script script = evt::asyncScript(instance, uiTestInit);
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
-    while(!completionEv.hasEvent()) {
+    while (!completionEv.hasEvent()) {
         instance.asyncTick();
         await { (evt::NextTick(), script->completion > completionEv) };
     };
