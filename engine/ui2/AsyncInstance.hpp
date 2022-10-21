@@ -24,11 +24,9 @@ private:
 
     void doTick() {
         timeline()->beginTick();
-        ui::setInstance(timeline());
         log("doTick");
         timeline()->executeScripts();
         timeline()->doTick();
-        ui::setInstance(nullptr);
         timeline()->endTick();
     }
 

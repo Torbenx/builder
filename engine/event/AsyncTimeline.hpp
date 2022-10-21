@@ -195,7 +195,7 @@ private:
     template<typename S>
     using toEventType = typename std::remove_cvref_t<S>::event_type;
     template<typename... Args>
-    using EventPack = pack_cat_t<Pack<CallbackEvent>, transform_pack_t<toEventType, pack_select_t<IsEventArg, Pack<Args...>>>>;
+    using EventPack = pack_cat_t<transform_pack_t<toEventType, pack_select_t<IsEventArg, Pack<Args...>>>, Pack<CallbackEvent>>;
     template<typename... Args>
     using relay_promise = with_pack_t<RelayPromise, EventPack<Args...>>;
     template<typename... Args>

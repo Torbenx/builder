@@ -115,7 +115,7 @@ public:
     void doTick();
 };
 
-DECLARE_THREAD_LOCAL_GETSET(Instance*, instance, setInstance, UI_INSTANCE)
+inline Instance* instance() { return (Instance*)evt::currentTimeline(); }
 
 inline const evt::Source<evt::WindowStateUpdate>& stateUpdate() { return instance()->windowState; }
 inline evt::WindowState state() { return stateUpdate().currentState; }

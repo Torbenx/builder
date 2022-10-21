@@ -7,8 +7,7 @@ namespace plt {
 constexpr uint32_t TLS_CURRENT_MAIN_TICK_INDEX = 0;
 constexpr uint32_t TLS_SCHEDULER_INDEX = 1;
 constexpr uint32_t TLS_CURRENT_TIMELINE_INDEX = 2;
-constexpr uint32_t TLS_UI_INSTANCE_INDEX = 3;
-constexpr int_t TLS_INDICES_COUNT = 4;
+constexpr int_t TLS_INDICES_COUNT = 3;
 
 }
 
