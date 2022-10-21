@@ -40,6 +40,7 @@ public:
     ~Instance();
 
     const evt::Source<evt::WindowStateUpdate>& windowState;
+    stx::Owned<evt::Script> resizeEventScript;
 
     IdAllocator<uint32_t> eqnIdAlloc;
     std::vector<Size> inhomTyped;

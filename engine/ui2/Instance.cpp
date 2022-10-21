@@ -14,15 +14,13 @@ Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const
 
     windowRect = newRect();
 
-    [](Instance* instance, const evt::Source<evt::ResizeEvent>& resizeEvent) -> evt::Script {
+    resizeEventScript = [](Instance* instance, const evt::Source<evt::ResizeEvent>& resizeEvent) -> evt::Script {
         co_await evt::onTimeline(instance);
         IntVec initialDim = resizeEvent.currentDimensions;
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();
         while (true) {
-            await { resizeEvent || instance->windowState.destroyed };
-            if (instance->windowState.destroyed)
-                break;
+            await { resizeEvent };
             instance->windowDimensions = resizeEvent.currentDimensions;
             instance->resize();
         }
