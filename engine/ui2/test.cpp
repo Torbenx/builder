@@ -4,7 +4,6 @@
 #include "event/Awaitable.hpp"
 #include "event/Timeline.hpp"
 #include "event/conditions.hpp"
-#include "graphics/wip.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "opengl/core.hpp"
 #include "platform/Window.hpp"
@@ -32,7 +31,7 @@ using TestStyle = ui::SmallStyleTable<Channel1, Channel2>;
 DECLARE_STYLE_KEY(DefaultTestStyle, TestStyle);
 
 struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
-    static void render(const ui::TextureState& texture, const TestStyle& style) {
+    static void render(sw::TextureView texture, const TestStyle& style) {
         auto channelToShift = [](ColorChannel channel) -> int {
             switch (channel) {
             case ColorChannel::Red:
@@ -48,7 +47,6 @@ struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
         };
         int shift1 = channelToShift(style.get<Channel1>());
         int shift2 = channelToShift(style.get<Channel2>());
-        ui::TextureView view = texture.texture;
         ui::IntVec dim = texture.dimensions;
         for (int_t j = 0; j < dim.y(); j++) {
             for (int_t i = 0; i < dim.x(); i++) {
@@ -57,7 +55,7 @@ struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
                 uint32_t c1 = fracX * 255;
                 uint32_t c2 = 255 - c1;
                 uint32_t c3 = fracY * fracY * 255;
-                view[j][i] = 0xff'00'00'00 | (c3 << 24) | (c1 << shift1) | (c2 << shift2);
+                texture.pos()[j][i] = 0xff'00'00'00 | (c3 << 24) | (c1 << shift1) | (c2 << shift2);
             }
         }
     }
@@ -104,112 +102,34 @@ evt::Script uiTestInit() {
     }
 }
 
-/*struct PerformDrawTask : evt::Task {
-    ui::Instance& instance;
-    plt::Window nativeWindow;
-    ui::TextureHandle atlas;
-    std::unique_ptr<uint32_t[]> framebuffer;
-    ui::IntVec frameSize;
-    evt::Relay<evt::ResizeEvent> resizeRelay;
+struct ClearJob {
+    sw::TextureView texture;
+    sw::Semaphore signal;
+    uint32_t color = 0;
 
-    PerformDrawTask(ui::Instance& instance, evt::Source<evt::ResizeEvent>& resizeEvent, plt::Window nativeWindow)
-        : evt::Task { stx::CallDerivedMember<&PerformDrawTask::draw>() }
-        , instance(instance)
-        , nativeWindow(nativeWindow)
-        , resizeRelay(evt::relayEvents(resizeEvent)) {
+    void clear() {
+        log("clear");
+        for (int_t j = 0; j < texture.dimensions.y(); j++) {
+            for (int_t i = 0; i < texture.dimensions.x(); i++) {
+                texture.pos()[j][i] = color;
+            }
+        }
+        signal.signal();
+        delete this;
     }
+};
 
-    uint64_t lastFrame = 0;
-    int_t frames = 0;
-    uint64_t totalDrawTime = 0;
-    void draw(evt::Scheduler) {
-        uint64_t now = getNanos();
-        if (now - lastFrame >= 1'000'000'000) {
-            log("FPS: {}, draw time: {}%", frames, totalDrawTime * 100.0f / (now - lastFrame));
-            lastFrame = now;
-            totalDrawTime = 0;
-            frames = 0;
-        }
-        frames += 1;
-
-        auto resizeEvents = resizeRelay.output->takeEvents<evt::ResizeEvent>();
-        if (resizeEvents.hasEvent()) {
-            ui::IntVec windowBlockSize = (resizeEvents.event.value().newDimensions + 15) / 16;
-            frameSize = windowBlockSize * 16;
-            framebuffer = std::make_unique<uint32_t[]>(frameSize.x() * frameSize.y());
-        }
-
-        if (atlas.dimensions != instance.atlasDimensions) {
-            std::allocator<uint32_t> alloc;
-            alloc.deallocate(atlas.data, atlas.dimensions.x() * atlas.dimensions.y());
-            atlas.dimensions = instance.atlasDimensions;
-            atlas.data = alloc.allocate(atlas.dimensions.x() * atlas.dimensions.y());
-        }
-
-        for (int_t i = 0; i < instance.incrementalRenderOutput.size(); i++) {
-            auto& outputs = instance.incrementalRenderOutput[i];
-            const ui::RendererRecord& record = ui::RendererBase::record(i);
-            int_t stride = ui::RenderOutputUtil::outputSize(i);
-            for (auto it = outputs.begin(); it != outputs.end(); it += stride) {
-                ui::RenderOutputUtil output(&*it);
-                ui::TextureState texture { atlas.view() + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
-                ui::TextureState paddedTexture { texture.texture - 16, texture.dimensions + 32 };
-                for (int_t j = 0; j < paddedTexture.dimensions.y(); j++) {
-                    for (int_t i = 0; i < paddedTexture.dimensions.x(); i++) {
-                        paddedTexture.texture[j][i] = 0;
-                    }
-                }
-                record.render(texture, output.renderDataPtr());
-            }
-            outputs.clear();
-        }
-        instance.outputGeneration += 1;
-
-        drawToFramebuffer();
-        totalDrawTime += getNanos() - now;
-    };
-
-    void drawToFramebuffer() {
-        if (!framebuffer || nativeWindow.destroyed())
-            return;
-        ui::TextureView frameView { framebuffer.get(), frameSize.x() };
-        uint32_t background_color = 0xff'ff'ff'ff;
-        ui::IntVec windowSize = instance.windowDimensions;
-        for (int_t j = 0; j < windowSize.y(); j++) {
-            for (int_t i = 0; i < windowSize.x(); i++) {
-                frameView[j][i] = background_color >> 8;
-            }
-        }
-        auto multiply = [](uint32_t in, uint32_t alpha) {
-            return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
-        };
-        int_t blockCount = instance.outputOffsets.size() / (instance.outputLayers + 1);
-        for (int_t k = 0; k < blockCount; k++) {
-            ui::IntVec* block = instance.outputOffsets.data() + k * (instance.outputLayers + 1);
-            ui::IntVec screenPos = block[0];
-            for (int_t j = 0; j < 16; j++) {
-                for (int_t i = 0; i < 16; i++) {
-                    uint32_t color = (frameView + screenPos)[j][i];
-                    for (int_t layer = 0; layer < instance.outputLayers; layer++) {
-                        ui::IntVec layerPos = block[layer + 1];
-                        if (layerPos == ui::IntVec {})
-                            break;
-                        uint32_t in = (atlas.view() + layerPos)[j][i];
-                        uint32_t alpha = in >> 24;
-                        color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
-                        // color = in & 0xff'ff'ff;
-                    }
-                    (frameView + screenPos)[j][i] = color;
-                }
-            }
-        }
-
-        auto* impl = plt::windows::windowImpl(nativeWindow);
+struct PresentJob {
+    plt::Window window;
+    sw::TextureView framebuffer;
+    void present() {
+        log("present");
+        auto* impl = plt::windows::windowImpl(window);
         BITMAPINFO bitmapInfo {
             .bmiHeader = {
                 .biSize = sizeof(BITMAPINFOHEADER),
-                .biWidth = frameSize.x(),
-                .biHeight = frameSize.y(),
+                .biWidth = (int)framebuffer.pos().stride,
+                .biHeight = framebuffer.dimensions.y(),
                 .biPlanes = 1,
                 .biBitCount = 32,
                 .biCompression = BI_RGB,
@@ -222,21 +142,58 @@ evt::Script uiTestInit() {
             .bmiColors = {},
         };
         auto dc = impl->deviceContext();
-        ui::IntVec dim = instance.windowDimensions;
-        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.get(), &bitmapInfo, DIB_RGB_COLORS);
-        WIN_VERIFY(linesProcessed != 0);
+        sw::IntVec dim = framebuffer.dimensions;
+        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.pos().data, &bitmapInfo, DIB_RGB_COLORS);
+        WIN_VERIFY(linesProcessed > 0);
+        delete this;
     }
-};*/
+};
 
 evt::Script uiTestWrapper(plt::Window window) {
     await { evt::Defer() };
     ui::AsyncInstance instance { window.stateUpdate(), window.resizeEvent() };
     evt::Script script = evt::asyncScript(instance, uiTestInit);
+    window.initialize();
+
+    stx::Owned<sw::TextureView> framebuffer;
+
+    auto resize = [&]() {
+        if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
+            framebuffer = sw::TextureView {};
+        else
+            framebuffer = sw::allocateTexture(window.dimensions());
+    };
+    resize();
+
+    auto paint = [&]() {
+        if (framebuffer.dimensions.y() == 0)
+            return;
+        log("beginPaint");
+
+        sw::Semaphore clearComplete = sw::Semaphore::create();
+        {
+            ClearJob* job = new ClearJob;
+            job->texture = framebuffer;
+            job->signal = clearComplete.fork();
+            job->color = 0xff'ff'ff'ff;
+            evt::async({ *job, stx::CallMember<&ClearJob::clear>() });
+        }
+
+        sw::Semaphore present = sw::Semaphore::create();
+        instance.asyncPaint(framebuffer, std::move(clearComplete), present.fork());
+        {
+            PresentJob* job = new PresentJob;
+            job->framebuffer = framebuffer;
+            job->window = window;
+            present.thenAsync({ *job, stx::CallMember<&PresentJob::present>() });
+        }
+    };
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
     while (!completionEv.hasEvent()) {
         instance.asyncTick();
-        await { (evt::NextTick(), script->completion > completionEv) };
+        paint();
+        await { (evt::NextTick(), script->completion > completionEv, window.resizeEvent() > resize) };
     };
     instance.asyncTick();
     await { evt::Ping(instance) };
@@ -264,7 +221,6 @@ void test() {
     uiTestWrapper(window);
     window.setDimensions({ 700, 700 });
     window.setTitle("UiTest");
-    window.initialize();
 }
 
 }

@@ -68,6 +68,11 @@ struct KeepLastReceiver {
         if (hasEvent())
             callback(const_cast<const E&>(event.value()));
     }
+    template<stx::BasicCallable<> Callback>
+    void dispatchTo(const Callback& callback) {
+        if (hasEvent())
+            callback();
+    }
 };
 
 template<typename E>

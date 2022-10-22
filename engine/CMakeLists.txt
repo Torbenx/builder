@@ -131,6 +131,7 @@ add_executable(engine_test ${win32_executable}
     "event/Script.cpp"
     "event/Timeline.cpp"
     "util/log.cpp"
+    "software/Semaphore.cpp"
 )
 if(MSVC)
     target_compile_options(engine_test PRIVATE "/W3;/wd4244;/wd4267")

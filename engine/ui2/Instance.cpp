@@ -1,4 +1,4 @@
-#include "Instance.hpp"
+#include "AsyncInstance.hpp"
 #include "event/Awaitable.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
@@ -17,10 +17,12 @@ Instance::Instance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const
     resizeEventScript = [](Instance* instance, const evt::Source<evt::ResizeEvent>& resizeEvent) -> evt::Script {
         co_await evt::onTimeline(instance);
         IntVec initialDim = resizeEvent.currentDimensions;
+        log("initialDim: {} x {}", initialDim.x(), initialDim.y());
         if (initialDim.x() > 0 && initialDim.y() > 0)
             instance->resize();
         while (true) {
             await { resizeEvent };
+            log("resize!");
             instance->windowDimensions = resizeEvent.currentDimensions;
             instance->resize();
         }
@@ -41,6 +43,7 @@ Instance::~Instance() {
     for (int_t i = 0; i < 4; i++)
         removeEqn(windowEquations[i]);
     deleteVariable(windowRect);
+    atlasUse.destroy();
 }
 
 uint32_t Instance::allocateVariableIds(int_t count) {
@@ -107,7 +110,87 @@ void Instance::dumpShiftSizes() {
     }
 }
 
+namespace {
+    struct PaintJob {
+        Instance::Blocks blocks;
+        PaintEvent event;
+        Instance* instance = nullptr;
+        IntVec atlasDimensions;
+        stx::DynArray<std::vector<std::byte>> atlasUpdates;
+        sw::Semaphore atlasUse;
+
+        void paint() {
+            log("paint");
+            sw::TextureView atlas = instance->atlas;
+            sw::TextureView framebuffer = event.output;
+
+            auto multiply = [](uint32_t in, uint32_t alpha) {
+                return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
+            };
+            int_t blockCount = blocks.blockOffsets.size() / (blocks.blockLayers + 1);
+            for (int_t k = 0; k < blockCount; k++) {
+                ui::IntVec* block = blocks.blockOffsets.data() + k * (blocks.blockLayers + 1);
+                ui::IntVec screenPos = block[0];
+                int_t h = std::min(16, framebuffer.dimensions.y() - screenPos.y());
+                for (int_t j = 0; j < h; j++) {
+                    for (int_t i = 0; i < 16; i++) {
+                        uint32_t color = (framebuffer.pos() + screenPos)[j][i];
+                        for (int_t layer = 0; layer < blocks.blockLayers; layer++) {
+                            ui::IntVec layerPos = block[layer + 1];
+                            if (layerPos == ui::IntVec {})
+                                break;
+                            uint32_t in = (atlas.pos() + layerPos)[j][i];
+                            uint32_t alpha = in >> 24;
+                            color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
+                            // color = in & 0xff'ff'ff;
+                        }
+                        (framebuffer.pos() + screenPos)[j][i] = color;
+                    }
+                }
+            }
+
+            atlasUse.signal();
+            event.signal.signal();
+            delete this;
+        }
+
+        void updateAtlas() {
+            log("updateAtlas");
+            sw::TextureView atlas = instance->atlas;
+            if (atlasDimensions != atlas.dimensions)
+                atlas = instance->atlas = sw::allocateTexture(atlasDimensions);
+
+            for (int_t i = 0; i < atlasUpdates.size(); i++) {
+                auto& updates = atlasUpdates[i];
+                const ui::RendererRecord& record = ui::RendererBase::record(i);
+                int_t stride = ui::RenderOutputUtil::outputSize(i);
+                for (auto it = updates.begin(); it != updates.end(); it += stride) {
+                    ui::RenderOutputUtil output(&*it);
+                    ui::IntRect paddedRect {
+                        ui::BottomLeft(output.atlasRect().bottomLeft() - 16),
+                        ui::TopRight(output.atlasRect().topRight() + 16),
+                    };
+                    sw::TextureView texture { atlas.pos() + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
+                    sw::TextureView paddedTexture { atlas.pos() + paddedRect.bottomLeft(), paddedRect.dimensions() };
+                    for (int_t j = 0; j < paddedTexture.dimensions.y(); j++) {
+                        for (int_t i = 0; i < paddedTexture.dimensions.x(); i++) {
+                            paddedTexture.pos()[j][i] = 0;
+                        }
+                    }
+                    record.render(texture, output.renderDataPtr());
+                }
+            }
+            atlasUpdates.clear();
+
+            event.waitFor.thenAsync({ *this, stx::CallMember<&PaintJob::paint>() });
+        }
+    };
+}
+
 void Instance::doTick() {
+    beginTick();
+    executeScripts();
+
     for (int_t i = 0; i < styleConsumerUpdates.size(); i++) {
         auto& updates = styleConsumerUpdates[i];
         const auto& record = StyleConsumerBase::record(i);
@@ -125,6 +208,7 @@ void Instance::doTick() {
             toUpdateUint = (uintptr_t)toUpdate->id;
         }
     }
+
     updateLayout(true);
 
     for (int_t i = 0; i < rendererUpdates.size(); i++) {
@@ -138,7 +222,24 @@ void Instance::doTick() {
         }
         updates.clear();
     }
-    rebuildOutput();
+
+    if (paintEvent().has_value()) {
+        PaintJob* job = new PaintJob;
+        job->atlasUpdates = std::move(incrementalRenderOutput);
+        incrementalRenderOutput = stx::DynArray<std::vector<std::byte>> { RendererBase::recordCount() };
+        outputGeneration += 1;
+        job->blocks = buildBlocks();
+        job->instance = this;
+        job->atlasDimensions = atlasDimensions;
+        job->event = std::move(paintEvent().value());
+        paintEvent().reset();
+
+        atlasUse.thenAsync({ *job, stx::CallMember<&PaintJob::updateAtlas>() });
+        atlasUse = sw::Semaphore::create();
+        job->atlasUse = atlasUse.fork();
+    }
+
+    endTick();
 }
 
 void Instance::resize() {
@@ -146,8 +247,8 @@ void Instance::resize() {
     updateInhom(windowEquations[3], windowDimensions.y() * 1_px);
 
     IntVec windowBlocks = (windowDimensions + 15) / 16;
-    outputBlockMap.clear();
-    outputBlockMap.resize(windowBlocks.x() * windowBlocks.y());
+    blockMap.clear();
+    blockMap.resize(windowBlocks.x() * windowBlocks.y());
 }
 
 void Instance::updateLayout(bool clearTextures) {
@@ -206,10 +307,11 @@ void Instance::updateLayout(bool clearTextures) {
     varValues = std::move(newVarValues);
 }
 
-void Instance::rebuildOutput() {
-    outputOffsets.clear();
+Instance::Blocks Instance::buildBlocks() {
+    std::vector<IntVec> blockOffsets;
+    int_t blockLayers = 1;
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
-    for (uint32_t& u : outputBlockMap)
+    for (uint32_t& u : blockMap)
         u = INVALID_BLOCK_ID;
     IntVec blockDimensions = (windowDimensions + 15) / 16;
     for (int_t k = 1; k < (int_t)renders.size(); k++) {
@@ -225,29 +327,30 @@ void Instance::rebuildOutput() {
                 IntVec block = blockRect.bottomLeft() + IntVec { i, j };
                 if (!IntRect(blockDimensions).contains(block))
                     continue;
-                uint32_t& blockId = outputBlockMap[block.y() * blockDimensions.x() + block.x()];
+                uint32_t& blockId = blockMap[block.y() * blockDimensions.x() + block.x()];
                 // log("block: ({}, {}), id = {:#x}", block.x(), block.y(), blockId);
                 if (blockId == INVALID_BLOCK_ID) {
-                    blockId = outputOffsets.size() / (outputLayers + 1);
-                    VERIFY(Ui, outputOffsets.size() % (outputLayers + 1) == 0);
-                    outputOffsets.push_back(block * 16);
-                    outputOffsets.resize(outputOffsets.size() + outputLayers);
+                    blockId = blockOffsets.size() / (blockLayers + 1);
+                    VERIFY(Ui, blockOffsets.size() % (blockLayers + 1) == 0);
+                    blockOffsets.push_back(block * 16);
+                    blockOffsets.resize(blockOffsets.size() + blockLayers);
                 }
-                uint32_t blockIndex = blockId * (outputLayers + 1);
+                uint32_t blockIndex = blockId * (blockLayers + 1);
                 int_t layer = 0;
-                for (; layer < outputLayers; layer++) {
-                    if (outputOffsets[blockIndex + 1 + layer] == IntVec {})
+                for (; layer < blockLayers; layer++) {
+                    if (blockOffsets[blockIndex + 1 + layer] == IntVec {})
                         break;
-                    log("layer {} used: ({}, {})", layer, outputOffsets[blockIndex + 1 + layer].x(), outputOffsets[blockIndex + 1 + layer].y());
+                    log("layer {} used: ({}, {})", layer, blockOffsets[blockIndex + 1 + layer].x(), blockOffsets[blockIndex + 1 + layer].y());
                 }
-                if (layer == outputLayers) {
+                if (layer == blockLayers) {
                     VERIFY_NOT_REACHED(Ui);
                     continue;
                 }
-                outputOffsets[blockIndex + 1 + layer] = render.allocPosition - rect.bottomLeft() + block * 16;
+                blockOffsets[blockIndex + 1 + layer] = render.allocPosition - rect.bottomLeft() + block * 16;
             }
         }
     }
+    return { blockOffsets, blockLayers };
 }
 
 std::byte* Instance::findRenderOutput(const Render& render) {
@@ -309,6 +412,14 @@ void StyleConsumerBase::invalidateStyleInternal(int_t index) {
 }
 void RendererBase::invalidateStyleInternal(int_t index) {
     instance()->rendererUpdates[index].push_back((uintptr_t)this);
+}
+
+void AsyncInstance::doTick() {
+    timeline()->doTick();
+}
+
+void AsyncInstance::asyncPaint(sw::TextureView output, sw::Semaphore waitFor, sw::Semaphore signal) {
+    timeline()->paintRing[tick()] = PaintEvent { output, std::move(waitFor), std::move(signal) };
 }
 
 }

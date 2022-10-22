@@ -22,19 +22,15 @@ private:
 
     BasicAtlasAllocator atlasAllocator;
 
-    void doTick() {
-        timeline()->beginTick();
-        log("doTick");
-        timeline()->executeScripts();
-        timeline()->doTick();
-        timeline()->endTick();
-    }
+    void doTick();
 
 public:
     AsyncInstance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent)
         : AsyncTimeline(stateUpdate, resizeEvent, &atlasAllocator) {
         timeline()->asyncCallback = { *this, stx::CallMember<&AsyncInstance::doTick>() };
     }
+
+    void asyncPaint(sw::TextureView output, sw::Semaphore waitFor, sw::Semaphore signal);
 };
 
 }

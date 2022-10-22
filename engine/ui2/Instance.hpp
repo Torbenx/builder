@@ -8,6 +8,7 @@
 #include "handles.hpp"
 #include "math/sparse/Vector.hpp"
 #include "platform/thread_local_storage.hpp"
+#include "software/Semaphore.hpp"
 #include "util/types.hpp"
 #include <memory>
 #include <vector>
@@ -32,6 +33,13 @@ struct RenderOutputUtil {
     IntRect& atlasRect() {
         return *(IntRect*)output;
     }
+};
+
+struct PaintEvent {
+    using EventReceiver = evt::KeepLastReceiver<PaintEvent>;
+    sw::TextureView output;
+    sw::Semaphore waitFor;
+    sw::Semaphore signal;
 };
 
 class Instance : public evt::Timeline {
@@ -63,7 +71,6 @@ public:
 
     void resize();
     void updateLayout(bool clearTextures);
-    void rebuildOutput();
 
     float valueOf(VarHandle var) const { return varValues[var.id]; }
     void dumpVarValues();
@@ -90,9 +97,12 @@ public:
     void deallocateTexture(IntRect region);
     void deallocateAllTextures();
 
-    int_t outputLayers = 1;
-    std::vector<uint32_t> outputBlockMap;
-    std::vector<IntVec> outputOffsets;
+    struct Blocks {
+        std::vector<IntVec> blockOffsets;
+        int_t blockLayers = 0;
+    };
+    std::vector<uint32_t> blockMap;
+    Blocks buildBlocks();
 
     struct Render {
         RendererHandle handle;
@@ -113,6 +123,14 @@ public:
     stx::DynArray<std::vector<StyleConsumerBase*>> styleConsumerUpdates;
 
     void doTick();
+
+    std::optional<PaintEvent>& paintEvent() { return paintRing[tick()]; }
+    evt::TickRingBuffer<std::optional<PaintEvent>> paintRing;
+
+    sw::Semaphore atlasUse = sw::Semaphore::create();
+
+    // only access from updateAtlas()
+    stx::Owned<sw::TextureView> atlas;
 };
 
 inline Instance* instance() { return (Instance*)evt::currentTimeline(); }
