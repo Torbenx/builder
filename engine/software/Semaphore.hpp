@@ -1,5 +1,6 @@
 #pragma once
 
+#include "event/Script.hpp"
 #include "util/Callable.hpp"
 #include "util/log.hpp"
 #include <atomic>
@@ -19,6 +20,7 @@ private:
         std::atomic<int> waitCount = 0;
         bool asyncCallback = false;
         stx::BasicCallback<> callback;
+        int_t mainTick = 0;
     };
 
     Storage* storage = nullptr;
@@ -56,11 +58,13 @@ public:
         VERIFY(Software, (bool)storage);
         storage->callback = callback;
         storage->asyncCallback = false;
+        storage->mainTick = evt::mainTick();
     }
     void setAsyncCallback(stx::BasicCallback<> callback) {
         VERIFY(Software, (bool)storage);
         storage->callback = callback;
         storage->asyncCallback = true;
+        storage->mainTick = evt::mainTick();
     }
     void thenSync(stx::BasicCallback<> callback) {
         setSyncCallback(callback);

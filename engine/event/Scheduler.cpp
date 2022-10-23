@@ -70,6 +70,13 @@ namespace {
             setData({});
             return data;
         }
+        Block splitBack(int_t newSize) {
+            Block newBlock(std::bit_ceil((size_t)newSize));
+            int_t myNewSize = size() - newSize;
+            std::copy_n(data() + myNewSize, newSize, newBlock.acquireBack(newSize));
+            m_size = myNewSize;
+            return newBlock;
+        }
         ~Block() {
             VERIFY(Event, empty());
             maybeDeallocate();
@@ -137,7 +144,7 @@ namespace {
     struct Scheduler {
         static int_t lowestTick() { return lowestActiveTick.load(std::memory_order_relaxed); }
 
-        TickRingBuffer<LocalStack> localStackes = {};
+        TickRingBuffer<LocalStack> localStacks = {};
 
         void schedule(Item item, int_t tick) {
             if (!item) {
@@ -147,7 +154,7 @@ namespace {
             VERIFY(Event, tick >= evt::mainTick());
             VERIFY(Event, tick < lowestTick() + MAX_CONCURRENT_TICKS);
             globalItemsAlive[tick].fetch_add(1, std::memory_order_relaxed);
-            localStackes[tick].push(item);
+            localStacks[tick].push(item);
         }
 
         void start(stx::BasicCallback<> callback) {
@@ -166,7 +173,7 @@ namespace {
 
         template<typename AdditionalCheck>
         void run(AdditionalCheck additionalCheck) {
-            // localStackes valid for [lowestTick, lowestTick + MAX_CONCURRENT_TICKS)
+            // localStacks valid for [lowestTick, lowestTick + MAX_CONCURRENT_TICKS)
             // and empty for [lowestTick, activeTick)
             int_t activeTick = lowestTick();
             auto checkForBetter = [&]() {
@@ -175,16 +182,22 @@ namespace {
                     if (newBlock.empty())
                         continue;
 
-                    VERIFY(Event, localStackes[i].empty());
-                    localStackes[i].setBlock(std::move(newBlock));
+                    VERIFY(Event, localStacks[i].empty());
+                    localStacks[i].setBlock(std::move(newBlock));
                     activeTick = i;
                     break;
                 }
             };
             auto volunteerNonActive = [&]() {
                 int_t lowest = lowestTick();
+                if (localStacks[activeTick].size() >= 6) {
+                    Block block = localStacks[activeTick].takeBlock();
+                    Block newBlock = block.splitBack(3);
+                    globalQueues[activeTick].queue(std::move(block));
+                    localStacks[activeTick].setBlock(std::move(newBlock));
+                }
                 for (int_t i = activeTick + 1; i < lowest + MAX_CONCURRENT_TICKS; i++) {
-                    Block block = localStackes[i].takeBlock();
+                    Block block = localStacks[i].takeBlock();
                     if (!block.empty()) {
                         globalQueues[i].queue(std::move(block));
                     }
@@ -208,9 +221,9 @@ namespace {
                     int_t lowest = lowestTick();
                     log<Tag::Event>("lowest = {}, active = {}", lowest, activeTick);
                     for (int_t i = lowest; i < lowest + MAX_CONCURRENT_TICKS; i++)
-                        log<Tag::Event>("{}: {} item(s) waiting", i, localStackes[i].size());
+                        log<Tag::Event>("{}: {} item(s) waiting", i, localStacks[i].size());
                 }*/
-                Item item = localStackes[activeTick].tryPop();
+                Item item = localStacks[activeTick].tryPop();
                 if (item) {
                     nothingCounter = 0;
                     updateIdle(false);
@@ -218,8 +231,8 @@ namespace {
                         evt::setMainTick(activeTick);
                         item();
                         globalItemsAlive[activeTick].fetch_sub(1, std::memory_order_relaxed);
-                        // volunteerNonActive();
-                    } while ((item = localStackes[activeTick].tryPop()));
+                        volunteerNonActive();
+                    } while ((item = localStacks[activeTick].tryPop()));
                 } else {
                     if (++nothingCounter >= nothingsBeforeIdle) {
                         int_t nonIdle = updateIdle(true);
@@ -228,6 +241,7 @@ namespace {
                         }
                         using namespace std::chrono_literals;
                         std::this_thread::sleep_for(1ms);
+                        nothingCounter = 0;
                     }
                 }
                 // having activeTick = lowestTick + MAX_CONCURRENT_TICKS should be fine since
@@ -241,7 +255,7 @@ namespace {
 
         void runWithPlatformCheck() {
             struct Check {
-                const int_t ticksPerSecond = 100;
+                const int_t ticksPerSecond = 10000;
                 const int_t nanosPerSecond = 1'000'000'000;
                 const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
                 int_t nextTickToStart = 0;
@@ -323,7 +337,7 @@ void enterScheduler() {
 }
 
 void completeStartup(stx::BasicCallback<> callback) {
-    int_t extraThreadCount = 0;
+    int_t extraThreadCount = 1;
     std::vector<std::thread> threads;
     threads.reserve(extraThreadCount);
     for (int_t i = 0; i < extraThreadCount; i++)

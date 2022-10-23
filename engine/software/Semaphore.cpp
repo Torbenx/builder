@@ -16,12 +16,17 @@ void Semaphore::signal() {
     }
     stx::BasicCallback copy = storage->callback;
     bool async = storage->asyncCallback;
+    int_t mainTick = storage->mainTick;
     delete storage;
     storage = nullptr;
-    if (async)
-        evt::async(copy);
-    else
+    if (async) {
+        evt::async(copy, mainTick);
+    } else {
+        int_t restoreTick = evt::mainTick();
+        evt::setMainTick(mainTick);
         copy();
+        evt::setMainTick(restoreTick);
+    }
 }
 
 void Semaphore::destroy() {

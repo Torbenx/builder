@@ -1,5 +1,6 @@
 #include "Instance.hpp"
 #include "box.hpp"
+#include "containers/AtomicQueue.hpp"
 #include "equation_code.hpp"
 #include "event/Awaitable.hpp"
 #include "event/Timeline.hpp"
@@ -108,12 +109,7 @@ struct ClearJob {
     uint32_t color = 0;
 
     void clear() {
-        log("clear");
-        for (int_t j = 0; j < texture.dimensions.y(); j++) {
-            for (int_t i = 0; i < texture.dimensions.x(); i++) {
-                texture.pos()[j][i] = color;
-            }
-        }
+        std::fill_n(texture.pos().data, texture.pos().stride * texture.dimensions.y(), color);
         signal.signal();
         delete this;
     }
@@ -122,8 +118,17 @@ struct ClearJob {
 struct PresentJob {
     plt::Window window;
     sw::TextureView framebuffer;
+    AtomicQueue<sw::TextureView>* queue = nullptr;
+    static inline int_t frames = 0;
+    static inline uint64_t lastFrame = 0;
     void present() {
-        log("present");
+        uint64_t now = getNanos();
+        if (now - lastFrame >= 1'000'000'000) {
+            lastFrame = now;
+            log("FPS: {}", frames);
+            frames = 0;
+        }
+        frames += 1;
         auto* impl = plt::windows::windowImpl(window);
         BITMAPINFO bitmapInfo {
             .bmiHeader = {
@@ -145,6 +150,7 @@ struct PresentJob {
         sw::IntVec dim = framebuffer.dimensions;
         int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.pos().data, &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed > 0);
+        queue->pushBack(framebuffer);
         delete this;
     }
 };
@@ -157,34 +163,38 @@ evt::Script uiTestWrapper(plt::Window window) {
 
     stx::Owned<sw::TextureView> framebuffer;
 
-    auto resize = [&]() {
-        if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
-            framebuffer = sw::TextureView {};
-        else
-            framebuffer = sw::allocateTexture(window.dimensions());
-    };
-    resize();
+    AtomicQueue<sw::TextureView> framebufferQueue;
 
     auto paint = [&]() {
-        if (framebuffer.dimensions.y() == 0)
+        if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
             return;
-        log("beginPaint");
 
-        sw::Semaphore clearComplete = sw::Semaphore::create();
+        std::optional<stx::Owned<sw::TextureView>> opt;
+        do {
+            opt = framebufferQueue.tryPopFront();
+        } while (opt.has_value() && opt->dimensions != window.dimensions());
+        if (!opt.has_value()) {
+            log("made a framebuffer");
+            opt = sw::allocateTexture(window.dimensions());
+        }
+        sw::TextureView framebuffer = opt.value().take();
+
+        sw::Semaphore paintUi = sw::Semaphore::create();
         {
             ClearJob* job = new ClearJob;
             job->texture = framebuffer;
-            job->signal = clearComplete.fork();
+            job->signal = paintUi.fork();
             job->color = 0xff'ff'ff'ff;
             evt::async({ *job, stx::CallMember<&ClearJob::clear>() });
         }
 
         sw::Semaphore present = sw::Semaphore::create();
-        instance.asyncPaint(framebuffer, std::move(clearComplete), present.fork());
+        instance.asyncPaint(framebuffer, std::move(paintUi), present.fork());
         {
             PresentJob* job = new PresentJob;
             job->framebuffer = framebuffer;
             job->window = window;
+            job->queue = &framebufferQueue;
             present.thenAsync({ *job, stx::CallMember<&PresentJob::present>() });
         }
     };
@@ -193,7 +203,7 @@ evt::Script uiTestWrapper(plt::Window window) {
     while (!completionEv.hasEvent()) {
         instance.asyncTick();
         paint();
-        await { (evt::NextTick(), script->completion > completionEv, window.resizeEvent() > resize) };
+        await { (evt::NextTick(), script->completion > completionEv) };
     };
     instance.asyncTick();
     await { evt::Ping(instance) };
