@@ -161,23 +161,28 @@ evt::Script uiTestWrapper(plt::Window window) {
     evt::Script script = evt::asyncScript(instance, uiTestInit);
     window.initialize();
 
-    stx::Owned<sw::TextureView> framebuffer;
-
+    int_t framebuffersAlive = 0;
     AtomicQueue<sw::TextureView> framebufferQueue;
 
     auto paint = [&]() {
         if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
             return;
 
-        std::optional<stx::Owned<sw::TextureView>> opt;
-        do {
+        std::optional<sw::TextureView> opt;
+        while (true) {
             opt = framebufferQueue.tryPopFront();
-        } while (opt.has_value() && opt->dimensions != window.dimensions());
-        if (!opt.has_value()) {
-            log("made a framebuffer");
-            opt = sw::allocateTexture(window.dimensions());
+            if (!opt.has_value()) {
+                framebuffersAlive += 1;
+                log("made a framebuffer");
+                opt = sw::allocateTexture(window.dimensions());
+                break;
+            } else if (opt->dimensions == window.dimensions()) {
+                break;
+            }
+            framebuffersAlive -= 1;
+            opt->deallocate();
         }
-        sw::TextureView framebuffer = opt.value().take();
+        sw::TextureView framebuffer = opt.value();
 
         sw::Semaphore paintUi = sw::Semaphore::create();
         {
@@ -207,6 +212,19 @@ evt::Script uiTestWrapper(plt::Window window) {
     };
     instance.asyncTick();
     await { evt::Ping(instance) };
+
+    while (true) {
+        while (true) {
+            std::optional<sw::TextureView>opt = framebufferQueue.tryPopFront();
+            if (!opt.has_value())
+                break;
+            framebuffersAlive -= 1;
+            opt->deallocate();
+        }
+        if (framebuffersAlive == 0)
+            break;
+        await { evt::NextTick() };
+    }
 }
 
 }

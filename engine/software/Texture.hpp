@@ -27,10 +27,10 @@ struct TextureView {
     TexturePosition pos() const { return position; }
 };
 
-inline stx::Owned<TextureView> allocateTexture(IntVec dimensions) {
+inline TextureView allocateTexture(IntVec dimensions) {
     int_t stride = stx::alignmentCeil(16, dimensions.x());
     uint32_t* data = std::allocator<uint32_t>().allocate(stride * dimensions.y());
-    return TextureView { { data, stride }, dimensions };
+    return { { data, stride }, dimensions };
 }
 
 }

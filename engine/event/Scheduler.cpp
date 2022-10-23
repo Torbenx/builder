@@ -245,7 +245,10 @@ namespace {
             } else {
                 // having activeTick = lowestTick + MAX_CONCURRENT_TICKS should be fine since
                 // the ring buffer has an extra element that should always be empty
-                activeTick = std::min(activeTick + 1, lowestTick() + MAX_CONCURRENT_TICKS);
+                int_t lowest = lowestTick();
+                activeTick = std::min(activeTick + 1, lowest + MAX_CONCURRENT_TICKS);
+                if (activeTick == lowest + MAX_CONCURRENT_TICKS)
+                    hasNonActiveTicks = false;
             }
             check();
         }
@@ -259,7 +262,7 @@ namespace {
     DECLARE_THREAD_LOCAL_GETSET(Scheduler*, scheduler, setScheduler, SCHEDULER)
 
     struct MainScheduler : Scheduler {
-        const int_t ticksPerSecond = 100;
+        const int_t ticksPerSecond = 10;
         const int_t nanosPerSecond = 1'000'000'000;
         const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
         int_t nextTickToStart = 0;
@@ -292,13 +295,13 @@ namespace {
                 return false;
 
             if (nextTickToStart - lowestTick >= MAX_CONCURRENT_TICKS) {
-                log<Tag::Event>("failed to start tick {}, lowest is {} waiting for {} items, should be at {}",
-                    nextTickToStart, lowestTick, globalItemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
+                // log<Tag::Event>("failed to start tick {}, lowest is {} waiting for {} items, should be at {}",
+                //     nextTickToStart, lowestTick, globalItemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
                 return false;
             }
 
-            log<Tag::Event>("starting tick {}, lowest is {} waiting for {} items, should be at {}",
-                nextTickToStart, lowestTick, globalItemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
+            // log<Tag::Event>("starting tick {}, lowest is {} waiting for {} items, should be at {}",
+            //     nextTickToStart, lowestTick, globalItemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
 
             if (nextTickToStart < activeTick) {
                 activeTick = nextTickToStart;
