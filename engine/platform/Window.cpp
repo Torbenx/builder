@@ -6,22 +6,6 @@
 #include "util/target.hpp"
 #include <thread>
 
-namespace plt {
-
-void continueStartup(Window initialWindow) {
-    evt::completeStartup({
-        &initialWindow,
-        [](Window* window) {
-            if (*window)
-                onInitialWindowConstructed(*window);
-            else
-                onNoInitialWindow();
-        },
-    });
-}
-
-}
-
 MAKE_WEAK_SYMBOL(onNoInitialWindow)
 extern "C" void WEAK_SYMBOL_IMPL(onNoInitialWindow)() {
     onInitialWindowConstructed(plt::Window::construct());

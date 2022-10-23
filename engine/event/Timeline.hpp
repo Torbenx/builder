@@ -5,10 +5,17 @@
 
 namespace evt {
 
-void completeStartup(stx::BasicCallback<> callback);
+namespace detail {
+    struct StaticInitDummy {
+        void* data = nullptr;
+        StaticInitDummy();
+        ~StaticInitDummy();
+    };
+    inline StaticInitDummy staticInitDummy;
+}
 
+void runScheduler();
 void async(stx::BasicCallback<>, int_t tick = evt::mainTick());
-
 void postCallback(Source<CallbackEvent>& postTo, stx::BasicCallback<>);
 
 template<typename T, int_t N>
@@ -49,7 +56,6 @@ public:
     Source<CallbackEvent>& callbackHandler() { return m_callbackHandler; }
     int_t tick() const { return lastStartedTick; }
 };
-Timeline* mainTimeline();
 DECLARE_THREAD_LOCAL_GETSET(Timeline*, currentTimeline, setCurrentTimeline, CURRENT_TIMELINE)
 
 template<std::derived_from<Timeline> TL>

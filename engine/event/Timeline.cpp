@@ -21,11 +21,6 @@ void Timeline::endTick() {
     }
 }
 
-Timeline* mainTimeline() {
-    static Timeline timeline = {};
-    return &timeline;
-}
-
 void detail::AsyncTimelineBase::scheduleAsyncTick(Timeline* timeline) {
     timeline->tickMapping[nextTickToSchedule] = mainTick();
     if (timeline->lastScheduledTick.exchange(nextTickToSchedule, std::memory_order_release) == Timeline::INVALID_TICK) {

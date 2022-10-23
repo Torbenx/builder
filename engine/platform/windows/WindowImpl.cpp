@@ -4,10 +4,6 @@
 
 namespace plt::windows {
 
-namespace {
-    stx::BasicCallback<> processEventsCallback;
-}
-
 ui::IntVec WindowImpl::calculateWindowSize() {
     RECT rect { 0, 0, currentDimensions.x(), currentDimensions.y() };
     bool ret = AdjustWindowRectEx(&rect, mainWindowStyle, false, mainWindowExStyle);
@@ -103,29 +99,8 @@ void WindowImpl::exitSizeMove() {
     inSizeMove = false;
 }
 
-namespace {
-    /*struct ExecutorScope {
-        bool active = true;
-        ExecutorScope() {
-            if (evt::currentExecutor() == evt::mainExecutor()) {
-                active = false;
-            } else {
-                VERIFY(Windows, evt::currentExecutor() == nullptr);
-                evt::setCurrentExecutor(evt::mainExecutor());
-            }
-        }
-        ~ExecutorScope() {
-            if (active) {
-                VERIFY(Windows, evt::currentExecutor() == evt::mainExecutor());
-                evt::setCurrentExecutor(nullptr);
-            }
-        }
-    };*/
-}
-
 LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     using enum evt::WindowState;
-    //ExecutorScope executorScope;
     if (msg == WM_CREATE) {
         log("WM_CREATE");
         CREATESTRUCT* initParams = (CREATESTRUCT*)lParam;
@@ -153,10 +128,7 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
         window->exitSizeMove();
         return 0;
     case WM_PAINT: {
-        VERIFY(Windows, (bool)processEventsCallback);
-        // evt::setCurrentExecutor(nullptr);
-        processEventsCallback();
-        // evt::setCurrentExecutor(evt::mainExecutor());
+        evt::runScheduler();
         return 0;
     }
     case WM_WINDOWPOSCHANGED:
@@ -189,26 +161,89 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     VERIFY_NOT_REACHED(Windows);
 }
 
-}
-
-namespace plt {
-
-void processEventsImpl(stx::BasicCallback<> callback) {
-    windows::processEventsCallback = std::move(callback);
+void processEvents() {
     MSG msg;
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_PAINT)
             break;
         DispatchMessage(&msg);
     }
-    windows::processEventsCallback = {};
 }
+
+}
+
+namespace plt {
 
 Window Window::construct() {
     auto* window = new windows::WindowImpl;
     return Window(window);
 }
 
+void earlyInitialize() {
+    // setup thread local storage
+    std::vector<uint32_t> ununsedIndices;
+    int_t usedIndices = 0;
+    while (usedIndices < TLS_INDICES_COUNT) {
+        uint32_t tlsIndex = TlsAlloc();
+        if (tlsIndex >= TLS_INDICES_BASE && tlsIndex < TLS_INDICES_BASE + TLS_INDICES_COUNT)
+            usedIndices += 1;
+        else
+            ununsedIndices.push_back(tlsIndex);
+        if (tlsIndex >= 63)
+            break;
+    }
+    EXPECT(Windows, usedIndices, TLS_INDICES_COUNT);
+    for (uint32_t index : ununsedIndices)
+        TlsFree(index);
+}
+
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    using namespace plt::windows;
+    mainHInstance = hInstance;
+
+    // register window class
+    WNDCLASSEX wc;
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_OWNDC;
+    wc.lpfnWndProc = mainWindowCallback;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = hInstance;
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszMenuName = NULL;
+    wc.lpszClassName = mainWindowClassName;
+    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+    ATOM clazz = RegisterClassEx(&wc);
+    WIN_VERIFY(clazz != 0);
+
+    onNoInitialWindow();
+    while (true) {
+        processEvents();
+        evt::runScheduler();
+    }
+
+    return 0;
+}
+
+uint64_t getNanos() {
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+    LARGE_INTEGER t;
+    QueryPerformanceCounter(&t);
+    return t.QuadPart * 1'000'000'000 / frequency.QuadPart;
+}
+
+void log_print(const std::string& tag, const std::string& msg) {
+    std::string str = '[' + tag + "] " + msg + '\n';
+    if constexpr (platform::hasMSVCCompilerInterface()) {
+        OutputDebugStringA(str.c_str());
+    } else {
+        printf("%s", str.c_str());
+    }
 }
 
 #define TO_WINDOW_IMPL plt::windows::windowImpl

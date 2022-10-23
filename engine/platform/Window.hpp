@@ -88,8 +88,7 @@ protected:
         : backend(backend) { }
 };
 
-void continueStartup(Window initialWindow);
-void processEventsImpl(stx::BasicCallback<>);
+void earlyInitialize();
 
 }
 

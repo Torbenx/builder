@@ -231,8 +231,6 @@ public:
         : m_relayPromise(relay_promise<Args...>::make()->handle())
         , m_timeline(forwardOrRelay<Args>(relayPromise<Args...>(), args)...) {
 
-        VERIFY(Event, evt::currentTimeline() == evt::mainTimeline());
-
         relayPromise<Args...>()->startRelay(timeline()->executor());
 
         with_pack_t<SourceTuple, EventPack<Args...>> sourceTuple {};
