@@ -1,8 +1,7 @@
 #pragma once
 
 #include "containers/DirectedAcyclicGraph.hpp"
-#include "graphics/shadergen/BuildDriver.hpp"
-#include "graphics/shadergen/GLSLGenerator.hpp"
+#include "graphics/shadergen/compute.hpp"
 #include "renderer.hpp"
 #include <unordered_map>
 
@@ -27,44 +26,6 @@ struct EffectHandle {
     constexpr EffectHandle(const EffectDescriptor* desc, const void* effect)
         : descriptor(desc), effect(effect) { }
 };
-
-template<typename T, int_t N>
-struct OversizedArray {
-    using value_type = T;
-    T data[N] = {};
-    int_t m_size = 0;
-
-    constexpr T* begin() { return data; }
-    constexpr T* end() { return begin() + size(); }
-    constexpr const T* begin() const { return data; }
-    constexpr const T* end() const { return begin() + size(); }
-    constexpr int_t size() const { return m_size; }
-    constexpr int_t capacity() const { return N; }
-    constexpr T* acquireEnd(int_t size = 1) {
-        T* end = this->end();
-        m_size += size;
-        return end;
-    }
-    constexpr T& pushBack(T item) {
-        return *acquireEnd() = item;
-    }
-    constexpr operator PseudoVector<T>() { return { data, &m_size }; }
-    constexpr operator ArrayView<T>() { return { data, size() }; }
-    constexpr operator ArrayView<const T>() const { return { data, size() }; }
-};
-template<auto oversized>
-constexpr auto shrinkToFit() {
-    using T = typename decltype(oversized)::value_type;
-    OversizedArray<T, oversized.size()> shrunk;
-    std::copy(oversized.begin(), oversized.end(), shrunk.acquireEnd(oversized.size()));
-    return shrunk;
-}
-template<auto oversized>
-constexpr ArrayView<const typename decltype(oversized)::value_type> staticView() {
-    if constexpr (oversized.size() == oversized.capacity())
-        return oversized;
-    return staticView<shrinkToFit<oversized>()>();
-}
 
 template<typename T, typename E>
 inline int_t offsetOfMemberPtr(T E::*ptr) {

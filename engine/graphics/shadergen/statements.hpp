@@ -341,9 +341,6 @@ struct VarDeclModifier : ASTNode {
     constexpr VarDeclModifier(std::string_view name, bool temporary = false)
         : name(name), temporary(temporary) { }
 };
-inline constexpr VarDeclModifier uniformIndicator { "uniform" };
-inline constexpr VarDeclModifier inputIndicator { "input" };
-inline constexpr VarDeclModifier outputIndicator { "output" };
 struct VarDecl : ASTNode {
     std::string_view name = {};
     const Type* type = nullptr;

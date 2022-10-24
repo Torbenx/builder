@@ -15,14 +15,12 @@ namespace code {
 // Storage
 template<int_t N, int_t S>
 struct BasicASTStorage {
-    ASTNodeStorage nodeStorage[N];
-    char messageStorage[S] = {};
-    int_t nodeCount = 0;
-    int_t messageSize = 0;
+    OversizedArray<ASTNodeStorage, N> nodeStorage;
+    OversizedArray<char, S> messageStorage;
 
     constexpr BasicASTStorage() = default;
     constexpr BasicASTStorage(const BasicASTStorage&) = delete;
-    constexpr operator ASTStorage() { return { { nodeStorage, &nodeCount }, { messageStorage, &messageSize } }; }
+    constexpr operator ASTStorage() { return { nodeStorage, messageStorage }; }
 };
 
 template<typename T, int_t N = 0>
@@ -140,104 +138,6 @@ struct StageDriver : BlockDriver {
     template<typename T, int_t N = 0>
     constexpr auto declareGlobal(std::string_view name, ArrayView<const VarDeclModifier* const> mods = {}) {
         return declareVariable<T, N>(name, &stageDecl()->globals, mods);
-    }
-};
-
-namespace code {
-    enum MemQual : uint32_t {
-        CanAlias = 1,
-        NoRead = 2,
-        NoWrite = 4,
-    };
-}
-inline constexpr VarDeclModifier memoryCanAlias { "can-alias" };
-inline constexpr VarDeclModifier memoryNoRead { "no-read" };
-inline constexpr VarDeclModifier memoryNoWrite { "no-write" };
-inline constexpr VarDeclModifier uniformImageIndicator { "uniform-image" };
-inline constexpr VarDeclModifier arrayBufferIndicator { "array-buffer" };
-
-struct ComputeDriver : StageDriver {
-    constexpr ComputeDriver(ASTStorage storage)
-        : StageDriver(storage) { }
-
-    template<typename T>
-    constexpr auto uniformBlock(std::string_view name) {
-        return declareGlobal<T, 1>(name, { &uniformIndicator });
-    }
-    template<typename T>
-    constexpr auto uniformImage(std::string_view name, code::MemQual qual) {
-        const VarDeclModifier* mods[4] = { &uniformImageIndicator };
-        int_t offset = 1;
-        if (qual & code::MemQual::CanAlias)
-            mods[offset++] = &memoryCanAlias;
-        if (qual & code::MemQual::NoRead)
-            mods[offset++] = &memoryNoRead;
-        if (qual & code::MemQual::NoWrite)
-            mods[offset++] = &memoryNoWrite;
-        return declareGlobal<T, 4>(name, { mods, offset });
-    }
-    template<typename T>
-    constexpr auto arrayBuffer(std::string_view name, code::MemQual qual) {
-        const VarDeclModifier* mods[4] = { &arrayBufferIndicator };
-        int_t offset = 1;
-        if (qual & code::MemQual::CanAlias)
-            mods[offset++] = &memoryCanAlias;
-        if (qual & code::MemQual::NoRead)
-            mods[offset++] = &memoryNoRead;
-        if (qual & code::MemQual::NoWrite)
-            mods[offset++] = &memoryNoWrite;
-        return declareGlobal<T[], 4>(name, { mods, offset });
-    }
-};
-
-struct GraphicsStageDriver : StageDriver {
-    constexpr GraphicsStageDriver(ASTStorage storage)
-        : StageDriver(storage) { }
-
-    template<typename T>
-    constexpr auto uniform(std::string_view name) {
-        return declareGlobal<T, 1>(name, { &uniformIndicator });
-    }
-    template<typename T>
-    constexpr auto input(std::string_view name) {
-        return declareGlobal<T, 1>(name, { &inputIndicator });
-    }
-    template<typename T>
-    constexpr auto output(std::string_view name) {
-        return declareGlobal<T, 1>(name, { &outputIndicator });
-    }
-    template<typename T>
-    constexpr auto builtin(std::string_view name) {
-        return declareGlobal<T, 1>(name);
-    }
-};
-
-template<typename T>
-struct VaryingReturnType {
-    DriverVariable<T, 1> in;
-    DriverVariable<T, 1> out;
-    constexpr VaryingReturnType(std::string_view name, GraphicsStageDriver& inStage, GraphicsStageDriver& outStage)
-        : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
-};
-
-struct GraphicsDriver {
-    using Storage = BasicASTStorage<1000, 10000>;
-    Storage storage;
-    StageDriver vert { storage };
-    StageDriver frag { storage };
-
-    constexpr GraphicsDriver() = default;
-    template<typename Callback>
-    constexpr GraphicsDriver(Callback&& callback) {
-        callback(*this);
-        PrevDeclStripper stripper;
-        stripper.visitStageDecl(vert.stageDecl());
-        stripper.visitStageDecl(frag.stageDecl());
-    }
-
-    template<typename T>
-    constexpr VaryingReturnType<T> varying(std::string_view name) {
-        return { name, vert, frag };
     }
 };
 }

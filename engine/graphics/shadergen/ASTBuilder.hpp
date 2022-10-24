@@ -247,8 +247,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         if (e->type->isScalar)
             return asScalarType(e->type);
 
-        auto err = error();
-        err << "expected scalar type, got " << e->type;
+        error() << "expected scalar type, got " << e->type;
         return nullptr;
     }
 
@@ -456,7 +455,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         if (!func) {
             e->type = &ErrorType;
             return;
-        } 
+        }
         e->function = func;
         if (func->returnType.isDynamic) {
             if (dynamicSize > 0)
@@ -537,13 +536,10 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         if (currentError.hasError()) {
             auto* err = this->storage.template allocateStmt<ErrorExpr>({ currentError });
             err->subExpr = expr;
-            if (expr->type) {
-                err->type = expr->type;
-                err->valueKind = expr->valueKind;
-            } else {
-                err->type = &ErrorType;
-                err->valueKind = ValueKind::RVALUE;
-            }
+            if (!expr->type)
+                expr->type = &ErrorType;
+            err->type = expr->type;
+            err->valueKind = expr->valueKind;
             expr = err;
             currentError.clear();
         }

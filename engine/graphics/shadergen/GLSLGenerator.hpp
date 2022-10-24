@@ -131,7 +131,7 @@ struct GeneratorBase {
     constexpr GeneratorBase(PseudoVector<char> buffer)
         : buffer(buffer) { }
     template<typename T>
-    static Impl fork(const GeneratorBase<T>& base) {
+    static constexpr Impl fork(const GeneratorBase<T>& base) {
         Impl impl { base.buffer };
         impl.indent = base.indent;
         return impl;
@@ -175,11 +175,13 @@ struct GeneratorBase {
 
     constexpr void emitScalarTypeName(const ScalarType* type) {
         std::string_view typeName = "invalid_scalar_type";
-        if (type->scalarType == &BoolType)
+        if (type == &BoolType)
             typeName = "bool";
-        if (type->scalarType == &IntType)
+        if (type == &IntType)
             typeName = "int";
-        if (type->scalarType == &FloatType)
+        if (type == &UIntType)
+            typeName = "uint";
+        if (type == &FloatType)
             typeName = "float";
         out() << typeName;
     }
@@ -193,6 +195,8 @@ struct GeneratorBase {
             typeName = "bvec";
         if (type->scalarType == &IntType)
             typeName = "ivec";
+        if (type->scalarType == &UIntType)
+            typeName = "uvec";
         if (type->scalarType == &FloatType)
             typeName = "vec";
         char sizeChar = '0' + type->vectorSize;
@@ -208,6 +212,8 @@ struct GeneratorBase {
             typeName = "bmat";
         if (type->scalarType == &IntType)
             typeName = "imat";
+        if (type->scalarType == &UIntType)
+            typeName = "umat";
         if (type->scalarType == &FloatType)
             typeName = "mat";
         char sizeBuf[3];
@@ -224,6 +230,8 @@ struct GeneratorBase {
             emitMatrixTypeName(asMatrixType(type));
         else if (type->isUser)
             emitUserTypeName(asUserType(type));
+        else if (type == &VoidType)
+            out() << "void";
         else
             out() << "invalid_type";
     }
@@ -302,6 +310,12 @@ struct StmtGenerator : GeneratorBase<Impl>, ASTVisitor<Impl> {
             out() << Indentation() << stmt << ";\n";
         });
     }
+    constexpr void visitMemberAccessExpr(const MemberAccessExpr* e) {
+        out() << e->base << "." << asUserType(e->base->type)->members[e->memberIndex].name;
+    }
+    constexpr void visitArraySubscriptExpr(const ArraySubscriptExpr* e) {
+        out() << e->base << "[" << e->index << "]";
+    }
     constexpr void visitVectorComponentExpr(const VectorComponentExpr* e) {
         constexpr char comps[] = { 'x', 'y', 'z', 'w' };
         out() << e->base << ".";
@@ -315,9 +329,6 @@ struct StmtGenerator : GeneratorBase<Impl>, ASTVisitor<Impl> {
         for (int_t i = 1; i < e->componentCount; i++)
             out() << ", " << e->components[i];
         out() << ")";
-    }
-    constexpr void visitMemberAccessExpr(const MemberAccessExpr* e) {
-        out() << e->base << "." << asUserType(e->base->type)->members[e->memberIndex].name;
     }
     constexpr void visitCallExpr(const CallExpr* e) {
         out() << e->function->name << "(";
@@ -368,33 +379,6 @@ struct TypeGenerator : GeneratorBase<TypeGenerator> {
         emitMembers(type);
         indent -= 1;
         out() << "};\n";
-    }
-};
-
-struct ComputeStageGenerator : StmtGenerator<ComputeStageGenerator> {
-    using Base = StmtGenerator<ComputeStageGenerator>;
-    using Base::Base;
-
-    constexpr void emitUserTypes(const StageDecl* stage) {
-        const UserType* userTypes[1000] = {};
-        int_t userTypeCount = 0;
-        UserTypeRecorder recorder { { userTypes, &userTypeCount } };
-        recorder.visitStageDecl(stage);
-        TypeGenerator typeGenerator(buffer);
-        for (int_t i = 0; i < userTypeCount; i++)
-            typeGenerator.visitType(userTypes[i]);
-    }
-
-    constexpr void emitGlobals(const VarDeclContext* declContext) {
-        declContext->decls.forEachEntry([&](const VarDecl* decl) {
-
-        });
-    }
-
-    constexpr void visitStageDecl(const StageDecl* stage) {
-        emitUserTypes(stage);
-        emitGlobals(&stage->globals);
-        out() << "void main() " << stage->entryPoint << "\n";
     }
 };
 
