@@ -7,7 +7,7 @@ namespace shadergen {
 
 struct ScalarType;
 
-struct MatrixType : Type {
+struct MatrixType : NonArrayType {
     const ScalarType* scalarType;
     int_t vectorSize;
     int_t covectorSize;
@@ -17,7 +17,7 @@ struct MatrixType : Type {
     constexpr const MatrixType* transposedType() const;
 
     constexpr MatrixType(const ScalarType* scalarType, int_t vectorSize, int_t covectorSize, bool isArithmetic, bool isLogical, bool isScalar = false, bool isVector = false)
-        : Type(false, isScalar, isVector, true, false)
+        : NonArrayType(false, isScalar, isVector, true, false)
         , scalarType(scalarType)
         , vectorSize(vectorSize)
         , covectorSize(covectorSize)
@@ -76,6 +76,10 @@ constexpr const MatrixType* MatrixType::transposedType() const {
     return scalarType->matrixType(covectorSize, vectorSize);
 }
 
+constexpr const ArrayType* asArrayType(const Type* type) {
+    VERIFY(ShaderGen, type->isArray);
+    return static_cast<const ArrayType*>(type);
+}
 constexpr const ScalarType* asScalarType(const Type* type) {
     VERIFY(ShaderGen, type->isScalar);
     return static_cast<const ScalarType*>(type);
@@ -89,14 +93,18 @@ constexpr const MatrixType* asMatrixType(const Type* type) {
     return static_cast<const MatrixType*>(type);
 }
 
+constexpr Type VoidType { false, false, false, false, false, false };
 constexpr ScalarType BoolType { "bool", false, true };
 constexpr ScalarType IntType { "int", true, false };
+constexpr ScalarType UIntType { "uint", true, false };
 constexpr ScalarType FloatType { "float", true, false };
 
 template<>
 constexpr const Type* typeFromCXX<bool> = &BoolType;
 template<>
 constexpr const Type* typeFromCXX<int> = &IntType;
+template<>
+constexpr const Type* typeFromCXX<unsigned> = &UIntType;
 template<>
 constexpr const Type* typeFromCXX<float> = &FloatType;
 template<>
@@ -111,6 +119,8 @@ constexpr const Type* typeFromCXX<Mat4x4> = FloatType.matrixType(4, 4);
 struct wrapped_untyped {
     const Expr* wrappedExpr;
 };
+
+// Scalars
 struct wrapped_scalar : wrapped_untyped {
     template<typename E>
     struct impl;
@@ -128,6 +138,31 @@ struct wrapped_scalar::impl : E, wrapped_scalar {
     }
 };
 
+// Arrays
+struct ArraySubscriptExpr : Expr {
+    const Expr* base;
+    const Expr* index;
+    constexpr ArraySubscriptExpr(const Expr* base, const Expr* index)
+        : Expr(StmtKind::ArraySubscriptExpr), base(base), index(index) { }
+};
+
+template<typename next_wrapper>
+struct wrapped_array : wrapped_untyped {
+    template<typename E>
+    struct impl;
+};
+template<typename next_wrapper>
+template<typename E>
+struct wrapped_array<next_wrapper>::impl : E, wrapped_array {
+    constexpr impl(const E& e)
+        : E(e), wrapped_array { (Expr*)this } { }
+
+    constexpr typename next_wrapper::template impl<ArraySubscriptExpr> operator[](const wrapped_scalar& index) const {
+        return { { this, index.wrappedExpr } };
+    }
+};
+
+// Matrices
 struct wrapped_matrix : wrapped_untyped {
     template<typename E>
     struct impl;
@@ -145,7 +180,7 @@ struct wrapped_matrix::impl : E, wrapped_matrix {
     }
 };
 
-// Vector components
+// Vectors
 struct VectorComponentExpr : Expr {
     const Expr* base;
     int32_t componentCount;

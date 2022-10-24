@@ -65,13 +65,32 @@ struct Type {
     bool isScalar;
     bool isVector;
     bool isMatrix;
+    bool isArray;
     bool isError;
-    constexpr Type(bool isUser, bool isScalar, bool isVector, bool isMatrix, bool isError)
-        : isUser(isUser), isScalar(isScalar), isVector(isVector), isMatrix(isMatrix), isError(isError) { }
+    constexpr Type(bool isUser, bool isScalar, bool isVector, bool isMatrix, bool isArray, bool isError)
+        : isUser(isUser), isScalar(isScalar), isVector(isVector), isMatrix(isMatrix), isArray(isArray), isError(isError) { }
+};
+struct NonArrayType;
+struct ArrayType : Type {
+    const NonArrayType* baseType;
+    constexpr ArrayType(const NonArrayType* baseType)
+        : Type(false, false, false, false, true, false)
+        , baseType(baseType) { }
+};
+struct NonArrayType : Type {
+    ArrayType m_arrayType;
+    constexpr const ArrayType* arrayType() const { return &m_arrayType; }
+    constexpr NonArrayType(bool isUser, bool isScalar, bool isVector, bool isMatrix, bool isError)
+        : Type(isUser, isScalar, isVector, isMatrix, false, isError)
+        , m_arrayType(this) { }
+    constexpr NonArrayType(const NonArrayType& other)
+        : Type(other), m_arrayType(this) { }
 };
 
 template<typename T>
 constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
+template<typename T>
+constexpr const Type* typeFromCXX<T[]> = static_cast<const NonArrayType*>(typeFromCXX<T>)->arrayType();
 
 // Statements
 // clang-format off
@@ -81,6 +100,7 @@ constexpr const Type* typeFromCXX = &T::SHADERGEN_TYPE;
     callback(VarRefExpr)                 \
     callback(UnaryOperatorExpr)          \
     callback(MemberAccessExpr)           \
+    callback(ArraySubscriptExpr)         \
     callback(ElementwiseOperatorExpr)    \
     callback(VectorByScalarOperatorExpr) \
     callback(MatrixMultiplicationExpr)   \
@@ -287,7 +307,7 @@ struct ParenExpr : Expr {
 };
 
 // Errors
-constexpr Type ErrorType = Type(false, false, false, false, true);
+constexpr Type ErrorType = Type(false, false, false, false, false, true);
 struct ErrorNote : ASTNode {
     std::string_view message;
 };
@@ -321,17 +341,17 @@ struct VarDeclModifier : ASTNode {
     constexpr VarDeclModifier(std::string_view name, bool temporary = false)
         : name(name), temporary(temporary) { }
 };
-static constexpr VarDeclModifier uniformIndicator { "uniform" };
-static constexpr VarDeclModifier inputIndicator { "input" };
-static constexpr VarDeclModifier outputIndicator { "output" };
+inline constexpr VarDeclModifier uniformIndicator { "uniform" };
+inline constexpr VarDeclModifier inputIndicator { "input" };
+inline constexpr VarDeclModifier outputIndicator { "output" };
 struct VarDecl : ASTNode {
     std::string_view name = {};
     const Type* type = nullptr;
     const VarDeclContext* declContext = nullptr;
     const VarDecl* prevDecl = nullptr;
     ASTList<const VarDeclModifier> modifiers;
-    //FixedBitset initMask = 0;
-    //FixedBitset usedMask = 0;
+    // FixedBitset initMask = 0;
+    // FixedBitset usedMask = 0;
     constexpr VarDecl() = default;
     constexpr VarDecl(std::string_view name, const Type* type, const VarDeclContext* declContext)
         : name(name), type(type), declContext(declContext) { }

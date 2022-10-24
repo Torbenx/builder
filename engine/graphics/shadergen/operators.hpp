@@ -206,6 +206,8 @@ constexpr int_t resolveOperatorPrecedence(const Stmt* e) {
         return operatorPrecedence(castStmt<VectorByScalarOperatorExpr>(e)->op);
     if (e->stmtKind == StmtKind::MatrixMultiplicationExpr)
         return operatorPrecedence(BinaryOperator::MULTIPLY);
+    if (e->stmtKind == StmtKind::UnaryOperatorExpr)
+        return 2;
     return 1;
 }
 

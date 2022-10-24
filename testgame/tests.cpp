@@ -9,6 +9,27 @@
 using namespace shadergen;
 using namespace shadergen::code;
 
+template<void (*func)(ComputeDriver&)>
+struct MakeComputeStorage {
+    BasicASTStorage<10000, 10000> storage;
+    const StageDecl* stageDecl = nullptr;
+    constexpr MakeComputeStorage() {
+        ComputeDriver driver(storage);
+        func(driver);
+        PrevDeclStripper stripper;
+        stripper.visitStageDecl(driver.stageDecl());
+        stageDecl = driver.stageDecl();
+    }
+};
+
+template<void (*func)(ComputeDriver&)>
+static constexpr MakeComputeStorage<func> makeComputeInstance {};
+
+template<void (*func)(ComputeDriver&)>
+constexpr const StageDecl* makeCompute() {
+    return makeComputeInstance<func>.stageDecl;
+}
+
 struct A {
     struct B {
         BEGIN_GEN_STRUCT(B);
@@ -23,23 +44,24 @@ struct A {
     END_GEN_STRUCT();
 };
 
-static constexpr void createAST(GraphicsDriver& prog) {
-    auto& ast = prog.vert;
-    auto scale = ast.uniform<float>("scale"_v);
+static constexpr void createAST(ComputeDriver& ast) {
+    auto scale = ast.variable<float>("scale"_v);
     auto foo = ast.variable<float>("foo"_v);
     auto bar = ast.variable<Vec4>("bar"_v);
     auto baz = ast.variable<Vec4>("baz"_v);
-    auto a = ast.variable<A>("a"_v);
+    auto a = ast.uniformBlock<A>("u_a"_v);
     auto res = ast.variable<bool>("res"_v);
+    auto image = ast.uniformImage<uImage2D>("u_image", MemQual::CanAlias);
+    auto buffer = ast.arrayBuffer<float>("u_buffer", MemQual::NoWrite);
 
     ast.block([&]() {
-        ast, a.b1.i = constant(1);
-        ast, a.b1.f = constant(2.5f);
+        ast, a.b1.i = imageLoad(image, constant(1.f, 2.f)).x;
+        ast, a.b1.f = buffer[constant(1)];
         ast, a.f = constant(3.0f);
-        ast, foo = a.b1.i;
+        ast, foo = (-bar).x;
         ast, bar.xz() = compose(scale, constant(1.0f));
         ast, bar.yw() = compose(scale, constant(2.0f));
-        ast, bar.x = floor(a.b1.i);
+        ast, bar.x = floor(a.b1.f);
         ast, baz = compose(foo, bar.xy(), foo);
         ast, res = all(!(foo * foo * bar < bar + baz) || constant(true, false, false, true));
         ast.branch(
@@ -50,23 +72,6 @@ static constexpr void createAST(GraphicsDriver& prog) {
             [&]() {
                 ast, foo -= constant(1.3f);
             });
-    });
-}
-
-static constexpr auto toGLSL(const GraphicsDriver& prog) {
-    shadergen::effect::OversizedArray<char, 10000> buffer = {};
-    GLSLStageGenerator glsl { buffer };
-    glsl.visitStage(prog.vert);
-    glsl.out() << "\n------------------\n";
-    glsl.visitStage(prog.frag);
-    return buffer;
-}
-
-static constexpr auto transformAST(const GraphicsDriver& in) {
-    return GraphicsDriver([&](GraphicsDriver& out) {
-        GLSLStmtTransform transform { out.storage };
-        out.vert.m_stageDecl = transform.createStageDecl(*in.vert.stageDecl());
-        out.frag.m_stageDecl = transform.createStageDecl(*in.frag.stageDecl());
     });
 }
 
@@ -103,17 +108,17 @@ DEFINE_EFFECT(Reflection)
 void runShadergenTest() {
     ASTDumper dumper;
 
-    static constexpr auto ast = GraphicsDriver(createAST);
-    static constexpr const StageDecl* astCompressed = compressStage<ast.vert.stageDecl()>();
-    dumper.dump(ast.vert.stageDecl());
+    static constexpr auto ast = makeCompute<createAST>();
+    static constexpr const StageDecl* astCompressed = compressStage<ast>();
+    dumper.dump(ast);
     log("-----------------------------------");
     dumper.dump(astCompressed);
-    const auto& compressed = compressed::CompressedStageHolder<ast.vert.stageDecl()>::compressedStage;
+    const auto& compressed = compressed::CompressedStageHolder<ast>::compressedStage;
     VDUMP(sizeof(compressed));
     VDUMP(sizeof(ast));
-    static constexpr auto astTransformed = transformAST(ast);
-    static constexpr auto glsl = toGLSL(astTransformed);
-    log("{}", glsl.data);
+    // static constexpr auto astTransformed = transformAST(ast);
+    // static constexpr auto glsl = toGLSL(astTransformed);
+    // log("{}", glsl.data);
 
     const shadergen::effect::EffectDescriptor* handles[] = {
         &shadergen::effect::descriptorStore<shadergen::effect::BuiltinPositionEffect>,

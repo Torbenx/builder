@@ -104,6 +104,19 @@ namespace impls {
     constexpr wrapped_vector::impl<UnresolvedCall<2>> texture(const wrapped_user<code::Sampler2D>& sampler, const wrapped_vector& coord) { return { { &texture2DFunc, { sampler.wrappedExpr, coord.wrappedExpr } } }; }
 }
 
+constexpr BuiltinFunctionInstance imageLoadFuncI { "imageLoad", { FP::fixed(typeFromCXX<code::iImage2D>), FP::fixed(IntType.vectorType(2)) }, FP::fixed(IntType.vectorType(4)) };
+constexpr BuiltinFunctionInstance imageLoadFuncU { "imageLoad", { FP::fixed(typeFromCXX<code::uImage2D>), FP::fixed(IntType.vectorType(2)) }, FP::fixed(UIntType.vectorType(4)) };
+constexpr BuiltinFunctionInstance imageLoadFuncF { "imageLoad", { FP::fixed(typeFromCXX<code::fImage2D>), FP::fixed(IntType.vectorType(2)) }, FP::fixed(FloatType.vectorType(4)) };
+constexpr BuiltinFunctionGroup<3> imageLoadFunc { "imageLoad", { &imageLoadFuncI, &imageLoadFuncU, &imageLoadFuncF } };
+constexpr BuiltinFunctionInstance imageStoreFuncI { "imageStore", { FP::fixed(typeFromCXX<code::iImage2D>), FP::fixed(IntType.vectorType(2)), FP::fixed(IntType.vectorType(4)) }, FP::fixed(&VoidType) };
+constexpr BuiltinFunctionInstance imageStoreFuncU { "imageStore", { FP::fixed(typeFromCXX<code::uImage2D>), FP::fixed(IntType.vectorType(2)), FP::fixed(UIntType.vectorType(4)) }, FP::fixed(&VoidType) };
+constexpr BuiltinFunctionInstance imageStoreFuncF { "imageStore", { FP::fixed(typeFromCXX<code::fImage2D>), FP::fixed(IntType.vectorType(2)), FP::fixed(FloatType.vectorType(4)) }, FP::fixed(&VoidType) };
+constexpr BuiltinFunctionGroup<3> imageStoreFunc { "imageStore", { &imageStoreFuncI, &imageStoreFuncU, &imageStoreFuncF } };
+namespace impls {
+    constexpr wrapped_vector::impl<UnresolvedCall<2>> imageLoad(const wrapped_user_untyped& image, const wrapped_vector& coord) { return { { &imageLoadFunc, { image.wrappedExpr, coord.wrappedExpr } } }; }
+    constexpr UnresolvedCall<3> imageStore(const wrapped_user_untyped& image, const wrapped_vector& coord, const wrapped_vector& value) { return { &imageStoreFunc, { image.wrappedExpr, coord.wrappedExpr, value.wrappedExpr } }; }
+}
+
 constexpr BuiltinFunctionInstance floorFunc { "floor", { FP::dynamic(&FloatType) }, FP::dynamic(&FloatType) };
 constexpr BuiltinFunctionInstance allFunc { "all", { FP::dynamic(&BoolType) }, FP::fixed(&BoolType) };
 namespace impls {

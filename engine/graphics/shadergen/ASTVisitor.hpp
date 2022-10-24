@@ -9,7 +9,9 @@ namespace shadergen {
 
 template<typename Stream>
 constexpr void formatType(const Type* type, Stream& out) {
-    if (type->isScalar) {
+    if (!type) {
+        out << "null";
+    } else if (type->isScalar) {
         out << asScalarType(type)->name;
     } else if (type->isVector) {
         const auto* vType = asVectorType(type);
@@ -19,6 +21,9 @@ constexpr void formatType(const Type* type, Stream& out) {
         out << mType->scalarType->name << mType->vectorSize << "x" << mType->covectorSize;
     } else if (type->isUser) {
         out << asUserType(type)->name;
+    } else if (type->isArray) {
+        formatType<Stream>(asArrayType(type)->baseType, out);
+        out << "[]";
     } else if (type->isError) {
         out << "error";
     } else {
@@ -154,6 +159,13 @@ struct ASTVisitor {
     constexpr RetT visitMemberAccessExpr(const MemberAccessExpr* e, Args... args) {
         helper h([&]() {
             impl()->dispatchVisit(e->base, args...);
+        });
+        return impl()->visitExpr(e, args...);
+    }
+    constexpr RetT visitArraySubscriptExpr(const ArraySubscriptExpr* e, Args... args) {
+        helper h([&]() {
+            impl()->dispatchVisit(e->base, args...);
+            impl()->dispatchVisit(e->index, args...);
         });
         return impl()->visitExpr(e, args...);
     }
@@ -414,6 +426,11 @@ struct ASTTransform {
     constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
         impl()->transformExpr(e);
         e->base = castStmt<Expr>(impl()->dispatchTransform(e->base));
+    }
+    constexpr void transformArraySubscriptExpr(ArraySubscriptExpr* e) {
+        impl()->transformExpr(e);
+        e->base = castStmt<Expr>(impl()->dispatchTransform(e->base));
+        e->index = castStmt<Expr>(impl()->dispatchTransform(e->index));
     }
     constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
         impl()->transformExpr(e);

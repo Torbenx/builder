@@ -87,7 +87,7 @@ struct CXXTypeFromGraphicsPtr<GraphicsPtr<T> E::*> {
 };
 
 // Driver
-struct EffectStageDriver : StageDriver {
+struct EffectStageDriver : GraphicsStageDriver {
     struct EffectVariableOffset {
         const VarDecl* decl = nullptr;
         const int_t* offsetPtr = nullptr;
@@ -105,7 +105,7 @@ struct EffectStageDriver : StageDriver {
     static constexpr VarDeclModifier subpassIndicator { "subpass" };
 
     constexpr EffectStageDriver(ASTStorage storage)
-        : StageDriver(storage) { }
+        : GraphicsStageDriver(storage) { }
 
     constexpr const int_t* findOffsetFromVarDecl(const VarDecl* decl) const {
         for (auto offsetEntry : offsets) {

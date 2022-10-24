@@ -144,6 +144,9 @@ struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
         impl()->dispatchVisit(e->base, mask << e->member().leafFieldOffset);
         impl()->visitExpr(e, mask);
     }
+    constexpr void visitArraySubscriptExpr(const ArraySubscriptExpr* e, FixedBitset mask) {
+        impl()->dispatchVisitWithFullMask(e->index);
+    }
     constexpr void visitVectorComponentExpr(const VectorComponentExpr* e, FixedBitset mask) {
         FixedBitset baseMask = 0;
         for (int_t i = 0; i < e->componentCount; i++) {
@@ -260,6 +263,13 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         check(e->memberIndex < type->members.size()) << "member index out of range, " << e->memberIndex << " out of " << type->members.size();
         const MemberInfo& member = type->members[e->memberIndex];
         e->type = member.type;
+        e->valueKind = e->base->valueKind;
+    }
+    constexpr void transformArraySubscriptExpr(ArraySubscriptExpr* e) {
+        Base::transformArraySubscriptExpr(e);
+        const auto* type = asArrayType(e->base->type);
+        checkSameType(e->index->type, &IntType, "arrays must be indexed by ints");
+        e->type = type->baseType;
         e->valueKind = e->base->valueKind;
     }
     constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
@@ -443,6 +453,10 @@ struct CheckedASTTransform : ASTTransform<Impl> {
                 }
             }
         }
+        if (!func) {
+            e->type = &ErrorType;
+            return;
+        } 
         e->function = func;
         if (func->returnType.isDynamic) {
             if (dynamicSize > 0)

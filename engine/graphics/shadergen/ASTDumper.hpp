@@ -102,6 +102,10 @@ private:
         info("MemberAccessExpr", fmt::format("'.{}'", e->member().name));
         Base::visitMemberAccessExpr(e);
     }
+    void visitArraySubscriptExpr(const ArraySubscriptExpr* e) {
+        info("ArraySubscriptExpr");
+        Base::visitArraySubscriptExpr(e);
+    }
     void visitVectorComponentExpr(const VectorComponentExpr* e) {
         if (e->componentCount == 0) {
             info("VectorComponentExpr", "'?'");

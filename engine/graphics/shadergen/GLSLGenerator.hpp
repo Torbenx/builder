@@ -4,10 +4,22 @@
 
 namespace shadergen {
 
-struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform> {
-    using Base = CheckedASTTransform<GLSLStmtTransform>;
-    constexpr GLSLStmtTransform() = default;
-    constexpr GLSLStmtTransform(ASTStorage storage)
+struct SourceReplacement {
+    int_t offset = -1;
+    int_t length = 0;
+    constexpr SourceReplacement() = default;
+    constexpr SourceReplacement(int_t length)
+        : length(length) { }
+};
+
+}
+
+namespace shadergen::glsl {
+
+struct StmtTransform : CheckedASTTransform<StmtTransform> {
+    using Base = CheckedASTTransform<StmtTransform>;
+    constexpr StmtTransform() = default;
+    constexpr StmtTransform(ASTStorage storage)
         : Base(storage) { }
 
     constexpr Expr* wrapWithParenExpr(const Expr* e) {
@@ -44,17 +56,26 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform> {
     }
     constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
         Base::transformUnaryOperatorExpr(e);
-        if (1 < resolveOperatorPrecedence(e->subExpr))
+        int_t myPrecedence = 2;
+        if (myPrecedence < resolveOperatorPrecedence(e->subExpr))
             e->subExpr = wrapWithParenExpr(e->subExpr);
     }
     constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
         Base::transformMemberAccessExpr(e);
-        if (1 < resolveOperatorPrecedence(e->base))
+        int_t myPrecedence = 1;
+        if (myPrecedence < resolveOperatorPrecedence(e->base))
             e->base = wrapWithParenExpr(e->base);
+    }
+    constexpr void transformArraySubscriptExpr(ArraySubscriptExpr* e) {
+        Base::transformArraySubscriptExpr(e);
+        int_t myPrecedence = 1;
+        if (myPrecedence < resolveOperatorPrecedence(e->base))
+            e->base = wrapWithParenExpr(e);
     }
     constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
         Base::transformVectorComponentExpr(e);
-        if (1 < resolveOperatorPrecedence(e->base))
+        int_t myPrecedence = 1;
+        if (myPrecedence < resolveOperatorPrecedence(e->base))
             e->base = wrapWithParenExpr(e->base);
     }
 
@@ -100,17 +121,17 @@ struct GLSLStmtTransform : CheckedASTTransform<GLSLStmtTransform> {
 };
 
 template<typename Impl>
-struct GLSLGeneratorBase {
+struct GeneratorBase {
     struct Indentation { };
     using OutRet = Impl;
 
     PseudoVector<char> buffer;
     int_t indent = 0;
-    constexpr GLSLGeneratorBase() = default;
-    constexpr GLSLGeneratorBase(PseudoVector<char> buffer)
+    constexpr GeneratorBase() = default;
+    constexpr GeneratorBase(PseudoVector<char> buffer)
         : buffer(buffer) { }
     template<typename T>
-    static Impl fork(const GLSLGeneratorBase<T>& base) {
+    static Impl fork(const GeneratorBase<T>& base) {
         Impl impl { base.buffer };
         impl.indent = base.indent;
         return impl;
@@ -215,22 +236,13 @@ struct GLSLGeneratorBase {
     }
 };
 
-struct SourceReplacement {
-    int_t offset = -1;
-    int_t length = 0;
-    constexpr SourceReplacement() = default;
-    constexpr SourceReplacement(int_t length)
-        : length(length) { }
-};
-
 template<typename Impl>
-struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
-    using Base = ASTVisitor<Impl>;
-    using GLSLBase = GLSLGeneratorBase<Impl>;
-    using GLSLBase::GLSLBase;
-    using GLSLBase::operator<<;
-    using Indentation = typename GLSLBase::Indentation;
-    using OutRet = typename GLSLBase::OutRet;
+struct StmtGenerator : GeneratorBase<Impl>, ASTVisitor<Impl> {
+    using Base = GeneratorBase<Impl>;
+    using Base::Base;
+    using Base::operator<<;
+    using Indentation = typename Base::Indentation;
+    using OutRet = typename Base::OutRet;
 
     constexpr OutRet& operator<<(const Stmt* stmt) {
         this->dispatchVisit(stmt);
@@ -242,10 +254,10 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
             out() << "X";
         return out();
     }
-    constexpr OutRet& out() { return GLSLBase::out(); }
+    constexpr OutRet& out() { return Base::out(); }
 
     constexpr void visitVarRefExpr(const VarRefExpr* e) {
-        GLSLBase::impl()->emitVarName(e->decl);
+        Base::impl()->emitVarName(e->decl);
     }
     constexpr void visitElementwiseOperatorExpr(const ElementwiseOperatorExpr* e) {
         out() << e->left << " " << toString(e->op) << " " << e->right;
@@ -325,16 +337,7 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
     }
     constexpr void emitDecls(const VarDeclContext* declContext) {
         declContext->decls.forEachEntry([&](const VarDecl* decl) {
-            out() << Indentation();
-            decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) {
-                if (mod == &uniformIndicator)
-                    out() << "uniform ";
-                if (mod == &inputIndicator)
-                    out() << "in ";
-                if (mod == &outputIndicator)
-                    out() << "out ";
-            });
-            out() << decl << ";\n";
+            out() << Indentation() << decl << ";\n";
         });
     }
     constexpr void visitBlockStmt(const BlockStmt* e) {
@@ -348,15 +351,11 @@ struct GLSLStmtGenerator : GLSLGeneratorBase<Impl>, ASTVisitor<Impl> {
     constexpr void visitParenExpr(const ParenExpr* e) {
         out() << "(" << e->subExpr << ")";
     }
-    constexpr void visitStageDecl(const StageDecl* stage) {
-        emitDecls(&stage->globals);
-        out() << "void main() " << stage->entryPoint << "\n";
-    }
 };
 
-struct GLSLTypeGenerator : GLSLGeneratorBase<GLSLTypeGenerator> {
-    using GLSLGeneratorBase::GLSLGeneratorBase;
-    using GLSLGeneratorBase::operator<<;
+struct TypeGenerator : GeneratorBase<TypeGenerator> {
+    using GeneratorBase::GeneratorBase;
+    using GeneratorBase::operator<<;
 
     constexpr void emitMembers(const UserType* type) {
         for (auto member : type->members)
@@ -372,12 +371,30 @@ struct GLSLTypeGenerator : GLSLGeneratorBase<GLSLTypeGenerator> {
     }
 };
 
-struct GLSLStageGenerator : GLSLStmtGenerator<GLSLStageGenerator> {
-    using Base = GLSLStmtGenerator<GLSLStageGenerator>;
+struct ComputeStageGenerator : StmtGenerator<ComputeStageGenerator> {
+    using Base = StmtGenerator<ComputeStageGenerator>;
     using Base::Base;
 
-    constexpr void visitStage(const StageDriver& stage) {
-        visitStageDecl(stage.stageDecl());
+    constexpr void emitUserTypes(const StageDecl* stage) {
+        const UserType* userTypes[1000] = {};
+        int_t userTypeCount = 0;
+        UserTypeRecorder recorder { { userTypes, &userTypeCount } };
+        recorder.visitStageDecl(stage);
+        TypeGenerator typeGenerator(buffer);
+        for (int_t i = 0; i < userTypeCount; i++)
+            typeGenerator.visitType(userTypes[i]);
+    }
+
+    constexpr void emitGlobals(const VarDeclContext* declContext) {
+        declContext->decls.forEachEntry([&](const VarDecl* decl) {
+
+        });
+    }
+
+    constexpr void visitStageDecl(const StageDecl* stage) {
+        emitUserTypes(stage);
+        emitGlobals(&stage->globals);
+        out() << "void main() " << stage->entryPoint << "\n";
     }
 };
 

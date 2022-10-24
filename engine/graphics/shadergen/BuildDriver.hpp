@@ -29,11 +29,12 @@ template<typename T, int_t N = 0>
 struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
     using Base = typename get_wrapper<T>::template impl<VarRefExpr>;
     VarDecl driverDecl;
-    stx::Array<const VarDeclModifier*, N> modifierStorage;
+    stx::Array<const VarDeclModifier*, N> modifierStorage = {};
     template<typename Callback>
-    constexpr DriverVariable(std::string_view name, stx::Array<const VarDeclModifier*, N> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
-        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, declContext), modifierStorage(mods) {
-        driverDecl.modifiers.setArray(modifierStorage.data(), N);
+    constexpr DriverVariable(std::string_view name, ArrayView<const VarDeclModifier* const> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
+        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, declContext) {
+        std::copy_n(mods.data(), mods.size(), modifierStorage.data());
+        driverDecl.modifiers.setArray(modifierStorage.data(), mods.size());
         callback(&driverDecl);
     }
     DriverVariable(const DriverVariable&) = delete;
@@ -86,7 +87,7 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
     }
 
     template<typename T, int_t N = 0>
-    constexpr auto declareVariable(std::string_view name, VarDeclContext* declContext, stx::Array<const VarDeclModifier*, N> mods = {}) {
+    constexpr auto declareVariable(std::string_view name, VarDeclContext* declContext, ArrayView<const VarDeclModifier* const> mods = {}) {
         return DriverVariable<T, N>(
             name, mods, [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
@@ -137,9 +138,61 @@ struct StageDriver : BlockDriver {
     }
     constexpr StageDecl* stageDecl() const { return m_stageDecl; }
     template<typename T, int_t N = 0>
-    constexpr auto declareGlobal(std::string_view name, stx::Array<const VarDeclModifier*, N> mods = {}) {
+    constexpr auto declareGlobal(std::string_view name, ArrayView<const VarDeclModifier* const> mods = {}) {
         return declareVariable<T, N>(name, &stageDecl()->globals, mods);
     }
+};
+
+namespace code {
+    enum MemQual : uint32_t {
+        CanAlias = 1,
+        NoRead = 2,
+        NoWrite = 4,
+    };
+}
+inline constexpr VarDeclModifier memoryCanAlias { "can-alias" };
+inline constexpr VarDeclModifier memoryNoRead { "no-read" };
+inline constexpr VarDeclModifier memoryNoWrite { "no-write" };
+inline constexpr VarDeclModifier uniformImageIndicator { "uniform-image" };
+inline constexpr VarDeclModifier arrayBufferIndicator { "array-buffer" };
+
+struct ComputeDriver : StageDriver {
+    constexpr ComputeDriver(ASTStorage storage)
+        : StageDriver(storage) { }
+
+    template<typename T>
+    constexpr auto uniformBlock(std::string_view name) {
+        return declareGlobal<T, 1>(name, { &uniformIndicator });
+    }
+    template<typename T>
+    constexpr auto uniformImage(std::string_view name, code::MemQual qual) {
+        const VarDeclModifier* mods[4] = { &uniformImageIndicator };
+        int_t offset = 1;
+        if (qual & code::MemQual::CanAlias)
+            mods[offset++] = &memoryCanAlias;
+        if (qual & code::MemQual::NoRead)
+            mods[offset++] = &memoryNoRead;
+        if (qual & code::MemQual::NoWrite)
+            mods[offset++] = &memoryNoWrite;
+        return declareGlobal<T, 4>(name, { mods, offset });
+    }
+    template<typename T>
+    constexpr auto arrayBuffer(std::string_view name, code::MemQual qual) {
+        const VarDeclModifier* mods[4] = { &arrayBufferIndicator };
+        int_t offset = 1;
+        if (qual & code::MemQual::CanAlias)
+            mods[offset++] = &memoryCanAlias;
+        if (qual & code::MemQual::NoRead)
+            mods[offset++] = &memoryNoRead;
+        if (qual & code::MemQual::NoWrite)
+            mods[offset++] = &memoryNoWrite;
+        return declareGlobal<T[], 4>(name, { mods, offset });
+    }
+};
+
+struct GraphicsStageDriver : StageDriver {
+    constexpr GraphicsStageDriver(ASTStorage storage)
+        : StageDriver(storage) { }
 
     template<typename T>
     constexpr auto uniform(std::string_view name) {
@@ -163,7 +216,7 @@ template<typename T>
 struct VaryingReturnType {
     DriverVariable<T, 1> in;
     DriverVariable<T, 1> out;
-    constexpr VaryingReturnType(std::string_view name, StageDriver& inStage, StageDriver& outStage)
+    constexpr VaryingReturnType(std::string_view name, GraphicsStageDriver& inStage, GraphicsStageDriver& outStage)
         : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
 };
 

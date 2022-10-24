@@ -19,8 +19,8 @@ namespace OpenGL {
         constexpr SubpassInputReplacement(int_t subpassIndex)
             : SourceReplacement(3), subpassIndex(subpassIndex) { }
     };
-    struct StmtGenerator : GLSLStmtGenerator<StmtGenerator> {
-        using Base = GLSLStmtGenerator<StmtGenerator>;
+    struct StmtGenerator : glsl::StmtGenerator<StmtGenerator> {
+        using Base = glsl::StmtGenerator<StmtGenerator>;
 
         PseudoVector<SubpassInputReplacement> subpassReplacements;
 
@@ -175,7 +175,7 @@ struct ConstexprEffectDescriptor {
 
             BasicASTStorage<1000, 10000> storage;
             OpenGL::Transform transform1 { storage };
-            GLSLStmtTransform transform2 { storage };
+            glsl::StmtTransform transform2 { storage };
             OpenGL::StmtGenerator generator { source, subpassReplacements };
             StageDecl* transformed = transform2.createStageDecl(*transform1.createStageDecl(*stage.stageDecl()));
             generator.dispatchVisit(transformed->entryPoint);
@@ -352,14 +352,14 @@ DEFINE_EFFECT(shadergen::effect::BuiltinColorEffect);
 
 namespace shadergen::effect {
 
-struct SourceGenerator : GLSLGeneratorBase<SourceGenerator> {
-    using Base = GLSLGeneratorBase<SourceGenerator>;
+struct SourceGenerator : glsl::GeneratorBase<SourceGenerator> {
+    using Base = glsl::GeneratorBase<SourceGenerator>;
     SourceGenerator(PseudoVector<char> sourceBuffer)
         : Base(sourceBuffer) { }
     void emitUniformBlock(int_t binding, const UserType* type, std::string_view name = {}) {
         out() << "layout(std140, binding=" << binding << ") uniform " << type->name << " {\n";
         indent += 1;
-        auto typeGenerator = GLSLTypeGenerator::fork(*this);
+        auto typeGenerator = glsl::TypeGenerator::fork(*this);
         typeGenerator.emitMembers(type);
         indent -= 1;
         out() << "} " << name << ";\n";
