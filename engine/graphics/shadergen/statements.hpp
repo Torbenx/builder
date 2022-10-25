@@ -114,6 +114,7 @@ constexpr const Type* typeFromCXX<T[]> = static_cast<const NonArrayType*>(typeFr
     callback(ErrorStmt)                  \
     callback(CompositionExpr)            \
     callback(IfStmt)                     \
+    callback(RangeStmt)                  \
     callback(UpdateStmt)                 \
     callback(ParenExpr)
 
@@ -205,6 +206,16 @@ struct ASTList {
             return (T*)linked.last->node;
         else
             return array.begin[entryCount - 1];
+    }
+    constexpr T* get(int_t index) const {
+        if (isLinked) {
+            ASTListEntry* entry = linked.first;
+            for (; index > 0; index--)
+                entry = entry->next;
+            return (T*)entry->node;
+        } else {
+            return array.begin[index];
+        }
     }
     constexpr void initArray(T** begin, int_t cap) {
         isLinked = false;
@@ -391,6 +402,16 @@ struct IfStmt : Stmt {
     Stmt* whenFalse = nullptr;
     constexpr IfStmt(const Expr* condition)
         : Stmt(StmtKind::IfStmt), condition(condition) { }
+};
+
+struct RangeStmt : Stmt {
+    const Expr* begin;
+    const Expr* end;
+    Stmt* body = nullptr;
+    VarDeclContext iteratorDeclContext;
+    VarDecl* iteratorDecl = nullptr;
+    constexpr RangeStmt(const Expr* begin, const Expr* end)
+        : Stmt(StmtKind::RangeStmt), begin(begin), end(end) { }
 };
 
 // Shader Stages

@@ -118,6 +118,12 @@ struct StmtTransform : CheckedASTTransform<StmtTransform> {
             return this->createCallExpr(UnresolvedCall<1> { unaryToFunction(e.op), { e.subExpr } });
         return Base::createUnaryOperatorExpr(e);
     }
+
+    constexpr void transformRangeStmt(RangeStmt* e) {
+        Base::transformRangeStmt(e);
+        if (operatorPrecedence(BinaryOperator::CMP_L) < resolveOperatorPrecedence(e->end))
+            e->end = wrapWithParenExpr(e->end);
+    }
 };
 
 template<typename Impl>
@@ -173,6 +179,9 @@ struct GeneratorBase {
         return out();
     }
 
+    constexpr void emitArrayTypeName(const ArrayType* type) {
+        out() << type->baseType << "[]";
+    }
     constexpr void emitScalarTypeName(const ScalarType* type) {
         std::string_view typeName = "invalid_scalar_type";
         if (type == &BoolType)
@@ -187,7 +196,7 @@ struct GeneratorBase {
     }
     constexpr void emitVectorTypeName(const VectorType* type) {
         if (type->isScalar) {
-            emitScalarTypeName(asScalarType(type));
+            impl()->emitScalarTypeName(asScalarType(type));
             return;
         }
         std::string_view typeName = "invalid_vector_type";
@@ -204,7 +213,7 @@ struct GeneratorBase {
     }
     constexpr void emitMatrixTypeName(const MatrixType* type) {
         if (type->isVector) {
-            emitVectorTypeName(asVectorType(type));
+            impl()->emitVectorTypeName(asVectorType(type));
             return;
         }
         std::string_view typeName = "invalid_matrix_type";
@@ -226,10 +235,12 @@ struct GeneratorBase {
         out() << type->name;
     }
     constexpr void emitTypeName(const Type* type) {
-        if (type->isMatrix)
-            emitMatrixTypeName(asMatrixType(type));
+        if (type->isArray)
+            impl()->emitArrayTypeName(asArrayType(type));
+        else if (type->isMatrix)
+            impl()->emitMatrixTypeName(asMatrixType(type));
         else if (type->isUser)
-            emitUserTypeName(asUserType(type));
+            impl()->emitUserTypeName(asUserType(type));
         else if (type == &VoidType)
             out() << "void";
         else
@@ -298,6 +309,11 @@ struct StmtGenerator : GeneratorBase<Impl>, ASTVisitor<Impl> {
             for (int_t i = 1; i < type->vectorSize; i++)
                 out() << ", " << (int_t)e->literal.ints[i];
         }
+        if (type->scalarType == &UIntType) {
+            out() << (int_t)e->literal.uints[0];
+            for (int_t i = 1; i < type->vectorSize; i++)
+                out() << ", " << (int_t)e->literal.uints[i];
+        }
         if (type->scalarType == &BoolType) {
             out() << e->literal.bools[0];
             for (int_t i = 1; i < type->vectorSize; i++)
@@ -345,6 +361,13 @@ struct StmtGenerator : GeneratorBase<Impl>, ASTVisitor<Impl> {
         out() << "if (" << e->condition << ") " << e->whenTrue;
         if (e->whenFalse)
             out() << " else " << e->whenFalse;
+    }
+    constexpr void visitRangeStmt(const RangeStmt* e) {
+        out() << "for ("
+              << e->iteratorDecl << " = " << e->begin << "; "
+              << e->iteratorDecl->name << " < " << e->end << "; "
+              << e->iteratorDecl->name << "++) "
+              << e->body;
     }
     constexpr void emitDecls(const VarDeclContext* declContext) {
         declContext->decls.forEachEntry([&](const VarDecl* decl) {

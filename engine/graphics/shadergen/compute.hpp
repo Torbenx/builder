@@ -34,8 +34,8 @@ struct ComputeDriver : StageDriver {
     int_t bufferIndex = 0;
     PseudoVector<BindingModifier> bindings;
 
-    DriverVariable<iVec3, 1> localIndex;
-    DriverVariable<iVec3, 1> globalIndex;
+    DriverVariableImpl<wrapped_vector, 1> localIndex;
+    DriverVariableImpl<wrapped_vector, 1> globalIndex;
 
     template<typename T>
     constexpr auto builtin(std::string_view name) {
@@ -157,8 +157,8 @@ struct GraphicsStageDriver : StageDriver {
 
 template<typename T>
 struct VaryingReturnType {
-    DriverVariable<T, 1> in;
-    DriverVariable<T, 1> out;
+    DriverVariableImpl<get_wrapper<T>, 1> in;
+    DriverVariableImpl<get_wrapper<T>, 1> out;
     constexpr VaryingReturnType(std::string_view name, GraphicsStageDriver& inStage, GraphicsStageDriver& outStage)
         : in { inStage.output<T>(name) }, out { outStage.input<T>(name) } { }
 };

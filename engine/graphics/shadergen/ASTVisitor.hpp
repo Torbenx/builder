@@ -532,7 +532,7 @@ struct ASTTransform {
         impl()->transformDeclContext(&e->iteratorDeclContext);
         DeclContextScope scope { impl(), &e->iteratorDeclContext };
         e->iteratorDecl = lookupPrevDecl(e->iteratorDecl);
-        impl()->dispatchTransform(e->body);
+        e->body = impl()->dispatchTransform(e->body);
     }
     constexpr void transformUpdateStmt(UpdateStmt* e) {
         impl()->transformStmt(e);

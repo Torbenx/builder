@@ -25,25 +25,29 @@ struct BasicASTStorage {
     constexpr operator ASTStorage() { return { nodeStorage, messageStorage }; }
 };
 
-template<typename T, int_t N = 0>
-struct DriverVariable : get_wrapper<T>::template impl<VarRefExpr> {
-    using Base = typename get_wrapper<T>::template impl<VarRefExpr>;
+template<typename wrapper, int_t N = 0>
+struct DriverVariableImpl : wrapper::template impl<VarRefExpr> {
+    using Base = typename wrapper::template impl<VarRefExpr>;
     VarDecl driverDecl;
     stx::Array<const VarDeclModifier*, N> modifierStorage = {};
     template<typename Callback>
-    constexpr DriverVariable(std::string_view name, ArrayView<const VarDeclModifier* const> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
-        : Base { { &driverDecl } }, driverDecl(name, typeFromCXX<T>, declContext) {
+    constexpr DriverVariableImpl(std::string_view name, const Type* type, ArrayView<const VarDeclModifier* const> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
+        : Base { { &driverDecl } }, driverDecl(name, type, declContext) {
         std::copy_n(mods.data(), mods.size(), modifierStorage.data());
         driverDecl.modifiers.setArray(modifierStorage.data(), mods.size());
         callback(&driverDecl);
     }
-    DriverVariable(const DriverVariable&) = delete;
+    DriverVariableImpl(const DriverVariableImpl&) = delete;
 
     using Base::operator=;
-    constexpr AssignmentStmt operator=(const DriverVariable& right) const {
+    constexpr AssignmentStmt operator=(const DriverVariableImpl& right) const {
         return { this, right.wrappedExpr };
     }
 };
+template<typename T, int_t N = 0, typename Callback>
+constexpr auto makeDriverVariable(std::string_view name, ArrayView<const VarDeclModifier* const> mods, Callback&& callback, const VarDeclContext* declContext = nullptr) {
+    return DriverVariableImpl<get_wrapper<T>, N>(name, typeFromCXX<T>, mods, std::forward<Callback>(callback), declContext);
+}
 
 // Driver
 struct BlockDriver : CheckedASTTransform<BlockDriver> {
@@ -88,7 +92,7 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
 
     template<typename T, int_t N = 0>
     constexpr auto declareVariable(std::string_view name, VarDeclContext* declContext, ArrayView<const VarDeclModifier* const> mods = {}) {
-        return DriverVariable<T, N>(
+        return makeDriverVariable<T, N>(
             name, mods, [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, declContext);
             });
@@ -96,6 +100,21 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
     template<typename T>
     constexpr auto variable(std::string_view name) {
         return declareVariable<T>(name, currentDeclContext);
+    }
+    template<typename wrapper_impl>
+    constexpr auto variableWithInit(std::string_view name, const wrapper_impl& initIn) {
+        Expr* init = castStmt<Expr>(dispatchTransform((const Expr*)&initIn));
+        return DriverVariableImpl<typename wrapper_impl::wrapper_base>(
+            name, init->type, {}, [&](const VarDecl* driverDecl) constexpr {
+                VarDecl* decl = createVarDecl(driverDecl, currentDeclContext);
+
+                VarRefExpr* ref = storage.allocateStmt<VarRefExpr>({ decl });
+                ref->type = init->type;
+                ref->valueKind = ValueKind::LVALUE;
+
+                AssignmentStmt* assignment = storage.allocateStmt<AssignmentStmt>({ ref, init });
+                emitStmt(assignment);
+            });
     }
 
     template<typename Block>
@@ -145,6 +164,19 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
         emitStmt(stmt);
     }
 };
+
+struct VariableInitHelper {
+    BlockDriver& driver;
+    std::string_view name;
+    constexpr VariableInitHelper(BlockDriver& driver, std::string_view name)
+        : driver(driver), name(name) { }
+
+    template<typename wrapper_impl>
+    constexpr auto operator=(const wrapper_impl& init) const {
+        return driver.variableWithInit(name, init);
+    }
+};
+#define AUTO_VARIABLE(driver, name) auto name = ::shadergen::VariableInitHelper(driver, ::shadergen::varName<#name>())
 
 struct StageDriver : BlockDriver {
     StageDecl* m_stageDecl = nullptr;

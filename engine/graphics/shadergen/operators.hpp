@@ -99,12 +99,12 @@ constexpr std::string_view toString(BinaryOperator op) {
 }
 constexpr int_t operatorPrecedence(BinaryOperator op) {
     switch (op) {
-    case BinaryOperator::PLUS:
-    case BinaryOperator::MINUS:
-        return 6;
     case BinaryOperator::MULTIPLY:
     case BinaryOperator::DIVIDE:
         return 5;
+    case BinaryOperator::PLUS:
+    case BinaryOperator::MINUS:
+        return 6;
     case BinaryOperator::CMP_LE:
     case BinaryOperator::CMP_L:
     case BinaryOperator::CMP_GE:
@@ -118,6 +118,7 @@ constexpr int_t operatorPrecedence(BinaryOperator op) {
     case BinaryOperator::OR:
         return 15;
     default:
+        VERIFY_NOT_REACHED(ShaderGen);
         return 1;
     }
 }

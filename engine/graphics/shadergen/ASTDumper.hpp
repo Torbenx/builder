@@ -68,6 +68,9 @@ private:
         } else if (vType->scalarType == &IntType) {
             for (int_t i = 0; i < vType->vectorSize; i++)
                 literal << fmt::format("{:,^{}} {}", "", (int)(i > 0), e->literal.ints[i]);
+        } else if (vType->scalarType == &UIntType) {
+            for (int_t i = 0; i < vType->vectorSize; i++)
+                literal << fmt::format("{:,^{}} {}", "", (int)(i > 0), e->literal.uints[i]);
         } else if (vType->scalarType == &FloatType) {
             for (int_t i = 0; i < vType->vectorSize; i++)
                 literal << fmt::format("{:,^{}} {:.2f}", "", (int)(i > 0), e->literal.floats[i]);

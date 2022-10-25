@@ -99,6 +99,13 @@ constexpr ScalarType IntType { "int", true, false };
 constexpr ScalarType UIntType { "uint", true, false };
 constexpr ScalarType FloatType { "float", true, false };
 
+struct iVec2 { };
+struct iVec3 { };
+struct iVec4 { };
+struct uVec2 { };
+struct uVec3 { };
+struct uVec4 { };
+
 template<>
 constexpr const Type* typeFromCXX<bool> = &BoolType;
 template<>
@@ -115,6 +122,18 @@ template<>
 constexpr const Type* typeFromCXX<Vec4> = FloatType.vectorType(4);
 template<>
 constexpr const Type* typeFromCXX<Mat4x4> = FloatType.matrixType(4, 4);
+template<>
+constexpr const Type* typeFromCXX<iVec2> = IntType.vectorType(2);
+template<>
+constexpr const Type* typeFromCXX<iVec3> = IntType.vectorType(3);
+template<>
+constexpr const Type* typeFromCXX<iVec4> = IntType.vectorType(4);
+template<>
+constexpr const Type* typeFromCXX<uVec2> = UIntType.vectorType(2);
+template<>
+constexpr const Type* typeFromCXX<uVec3> = UIntType.vectorType(3);
+template<>
+constexpr const Type* typeFromCXX<uVec4> = UIntType.vectorType(4);
 
 struct wrapped_untyped {
     const Expr* wrappedExpr;
@@ -127,6 +146,7 @@ struct wrapped_scalar : wrapped_untyped {
 };
 template<typename E>
 struct wrapped_scalar::impl : E, wrapped_scalar {
+    using wrapper_base = wrapped_scalar;
     constexpr impl(const E& e)
         : E(e), wrapped_scalar { (Expr*)this } { }
 
@@ -154,6 +174,7 @@ struct wrapped_array : wrapped_untyped {
 template<typename next_wrapper>
 template<typename E>
 struct wrapped_array<next_wrapper>::impl : E, wrapped_array {
+    using wrapper_base = wrapped_array;
     constexpr impl(const E& e)
         : E(e), wrapped_array { (Expr*)this } { }
 
@@ -169,6 +190,7 @@ struct wrapped_matrix : wrapped_untyped {
 };
 template<typename E>
 struct wrapped_matrix::impl : E, wrapped_matrix {
+    using wrapper_base = wrapped_matrix;
     constexpr impl(const E& e)
         : E(e), wrapped_matrix { (Expr*)this } { }
 
@@ -303,6 +325,7 @@ struct wrapped_vector : wrapped_untyped {
 };
 template<typename E>
 struct wrapped_vector::impl : E, wrapped_vector {
+    using wrapper_base = wrapped_vector;
     constexpr impl(const E& e)
         : E(e), wrapped_vector { (E*)this } { }
 
@@ -419,6 +442,7 @@ union LiteralStorage {
     bool bools[4];
     int ints[4];
     float floats[4];
+    unsigned uints[4];
 
     constexpr LiteralStorage() { }
     template<int_t N>
@@ -427,6 +451,9 @@ union LiteralStorage {
     template<int_t N>
     constexpr LiteralStorage(const int (&in)[N])
         : ints() { std::copy_n(in, N, ints); }
+    template<int_t N>
+    constexpr LiteralStorage(const unsigned (&in)[N])
+        : uints() { std::copy_n(in, N, uints); }
     template<int_t N>
     constexpr LiteralStorage(const float (&in)[N])
         : floats() { std::copy_n(in, N, floats); }

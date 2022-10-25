@@ -78,7 +78,7 @@ struct EffectStageDriver : GraphicsStageDriver {
     }
     template<auto memberPtr, typename CXXType, int_t N>
     constexpr auto declareEffectVariable(std::string_view name, stx::Array<const VarDeclModifier*, N> mods) {
-        return DriverVariable<CXXType, N>(
+        return makeDriverVariable<CXXType, N>(
             name, mods,
             [&](const VarDecl* driverDecl) constexpr {
                 createVarDecl(driverDecl, &stageDecl()->globals);
@@ -144,11 +144,11 @@ enum class CumulativeUpdateOp {
 };
 static constexpr VarDeclModifier crossEffectIndicator { "cross_effect" };
 template<typename T>
-struct CrossEffectVariable : DriverVariable<T, 1> {
-    using Base = DriverVariable<T, 1>;
+struct CrossEffectVariable : DriverVariableImpl<get_wrapper<T>, 1> {
+    using Base = DriverVariableImpl<get_wrapper<T>, 1>;
     CumulativeUpdateOp cumOp;
     constexpr CrossEffectVariable(std::string_view name, CumulativeUpdateOp cumOp = CumulativeUpdateOp::NONE)
-        : DriverVariable<T, 1>(name, { &crossEffectIndicator }, [](const VarDecl*) constexpr {}, &globalPseudoVarDeclContext), cumOp(cumOp) { }
+        : Base(name, typeFromCXX<T>, { &crossEffectIndicator }, [](const VarDecl*) constexpr {}, &globalPseudoVarDeclContext), cumOp(cumOp) { }
     constexpr void update(const get_wrapper<T>& value) {
         using namespace shadergen::code;
         switch (cumOp) {

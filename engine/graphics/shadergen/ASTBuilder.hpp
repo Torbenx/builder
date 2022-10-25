@@ -15,13 +15,18 @@ constexpr int_t formatInt(PseudoVector<char> storage, int_t in) {
         length += 1;
         in = -in;
     }
+    int_t digits = 0;
+    char* digitsBegin = storage.end();
     while (in != 0) {
         int_t mod = in % 10;
         int_t div = in / 10;
         *storage.acquireEnd() = '0' + mod;
-        length += 1;
+        digits += 1;
         in = div;
     }
+    for (int_t i = 0; i < digits / 2; i++)
+        std::swap(digitsBegin[i], digitsBegin[digits - 1 - i]);
+    length += digits;
     return length;
 }
 constexpr int_t formatFloat(PseudoVector<char> storage, float in) {
