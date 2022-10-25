@@ -237,4 +237,18 @@ namespace code {
     constexpr UpdateStmt operator/=(const wrapped_vector& left, const wrapped_vector& right) { return { BinaryOperator::DIVIDE, left.wrappedExpr, right.wrappedExpr }; }
 }
 
+// Casts
+struct CastExpr : Expr {
+    const Type* toType;
+    const Expr* base;
+    constexpr CastExpr(const Type* toType, const Expr* base)
+        : Expr(StmtKind::CastExpr), toType(toType), base(base) { }
+};
+namespace code {
+    template<typename T>
+    constexpr typename get_wrapper<T>::template impl<CastExpr> cast(const wrapped_untyped& in) {
+        return { { typeFromCXX<T>, in.wrappedExpr } };
+    }
+}
+
 }

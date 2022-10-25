@@ -234,25 +234,25 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     constexpr void checkSameType(const Type* left, const Type* right, std::string_view message) {
         check(left == right) << message << ", got " << left << " and " << right;
     }
-    constexpr const MatrixType* checkMatrixExpr(const Expr* e) {
-        if (e->type->isMatrix)
-            return asMatrixType(e->type);
+    constexpr const MatrixType* checkMatrixType(const Type* type) {
+        if (type->isMatrix)
+            return asMatrixType(type);
 
-        error() << "expected matrix type, got " << e->type;
+        error() << "expected matrix type, got " << type;
         return nullptr;
     }
-    constexpr const VectorType* checkVectorExpr(const Expr* e) {
-        if (e->type->isVector)
-            return asVectorType(e->type);
+    constexpr const VectorType* checkVectorType(const Type* type) {
+        if (type->isVector)
+            return asVectorType(type);
 
-        error() << "expected vector type, got " << e->type;
+        error() << "expected vector type, got " << type;
         return nullptr;
     }
-    constexpr const ScalarType* checkScalarExpr(const Expr* e) {
-        if (e->type->isScalar)
-            return asScalarType(e->type);
+    constexpr const ScalarType* checkScalarType(const Type* type) {
+        if (type->isScalar)
+            return asScalarType(type);
 
-        error() << "expected scalar type, got " << e->type;
+        error() << "expected scalar type, got " << type;
         return nullptr;
     }
 
@@ -278,7 +278,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     }
     constexpr void transformVectorComponentExpr(VectorComponentExpr* e) {
         Base::transformVectorComponentExpr(e);
-        const auto* baseType = checkVectorExpr(e->base);
+        const auto* baseType = checkVectorType(e->base->type);
         if (!baseType)
             return;
         check(!baseType->isScalar) << "taking vector components of a scalar";
@@ -296,7 +296,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     }
     constexpr void transformUnaryOperatorExpr(UnaryOperatorExpr* e) {
         Base::transformUnaryOperatorExpr(e);
-        const auto* type = checkVectorExpr(e->subExpr);
+        const auto* type = checkVectorType(e->subExpr->type);
         if (!type)
             return;
         if (isLogicalOp(e->op))
@@ -308,8 +308,8 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     }
     constexpr void transformElementwiseOperatorExpr(ElementwiseOperatorExpr* e) {
         Base::transformElementwiseOperatorExpr(e);
-        const auto* lType = checkMatrixExpr(e->left);
-        const auto* rType = checkMatrixExpr(e->right);
+        const auto* lType = checkMatrixType(e->left->type);
+        const auto* rType = checkMatrixType(e->right->type);
         if (!lType || !rType)
             return;
         checkSameType(lType, rType, "operands must have the same type");
@@ -328,8 +328,8 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     }
     constexpr void transformVectorByScalarOperatorExpr(VectorByScalarOperatorExpr* e) {
         Base::transformVectorByScalarOperatorExpr(e);
-        const auto* vType = checkVectorExpr(e->vector);
-        const auto* sType = checkScalarExpr(e->scalar);
+        const auto* vType = checkVectorType(e->vector->type);
+        const auto* sType = checkScalarType(e->scalar->type);
         if (!vType || !sType)
             return;
         check(isArithmeticOp(e->op)) << "only arithmetic operations are allowed for vector by scalar operations, got '" << toString(e->op) << "'";
@@ -340,8 +340,8 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     }
     constexpr void transformMatrixMultiplicationExpr(MatrixMultiplicationExpr* e) {
         Base::transformMatrixMultiplicationExpr(e);
-        const auto* lType = checkMatrixExpr(e->left);
-        const auto* rType = checkMatrixExpr(e->right);
+        const auto* lType = checkMatrixType(e->left->type);
+        const auto* rType = checkMatrixType(e->right->type);
         if (!lType || !rType)
             return;
         checkSameType(lType->scalarType, rType->scalarType, "operands must have the same base type");
@@ -405,7 +405,8 @@ struct CheckedASTTransform : ASTTransform<Impl> {
             }
             const auto* vType = asVectorType(arg->type);
             if (vType->scalarType != parm.u.dynamic.scalarType) {
-                note() << "parameter " << i << " expects vector of base type " << parm.u.dynamic.scalarType << " but got base type " << vType->scalarType;
+                note() << "parameter " << i << " expects vector of base type " << parm.u.dynamic.scalarType
+                       << " but got base type " << vType->scalarType;
                 isMatch = false;
                 return;
             }
@@ -416,7 +417,8 @@ struct CheckedASTTransform : ASTTransform<Impl> {
             }
             if (dynamicSize == vType->vectorSize)
                 return;
-            note() << "deduced vector size inconsistent, argument " << dynamicSizeOrigin << " decuced " << dynamicSize << " but argument " << i << " deduced " << vType->vectorSize;
+            note() << "deduced vector size inconsistent, argument " << dynamicSizeOrigin << " decuced " << dynamicSize
+                   << " but argument " << i << " deduced " << vType->vectorSize;
             isMatch = false;
         });
         if (dynamicSize == 1 && !func->dynamicScalarAllowed)
@@ -481,7 +483,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         const ScalarType* resultType = nullptr;
         for (int_t i = 0; i < e->componentCount; i++) {
             const Expr* comp = e->components[i];
-            const auto* type = checkVectorExpr(comp);
+            const auto* type = checkVectorType(comp->type);
             if (!type)
                 continue;
             if (resultType == nullptr)
@@ -500,12 +502,24 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     constexpr void transformUpdateStmt(UpdateStmt* e) {
         Base::transformUpdateStmt(e);
         check(e->left->valueKind == ValueKind::LVALUE) << "left hand side of update must be an lvalue";
-        const auto* lType = checkVectorExpr(e->left);
-        const auto* rType = checkVectorExpr(e->right);
+        const auto* lType = checkVectorType(e->left->type);
+        const auto* rType = checkVectorType(e->right->type);
         if (!lType || !rType)
             return;
         checkSameType(lType->scalarType, rType->scalarType, "operands must have the same base type");
-        check(rType->isScalar || rType->vectorSize == lType->vectorSize) << "the right operand must either be a scalar or a vector of same size as the left operand";
+        check(rType->isScalar || rType->vectorSize == lType->vectorSize)
+            << "the right operand must either be a scalar or a vector of same size as the left operand";
+    }
+    constexpr void transformCastExpr(CastExpr* e) {
+        Base::transformCastExpr(e);
+        auto* targetType = checkMatrixType(e->toType);
+        auto* sourceType = checkMatrixType(e->base->type);
+        if (!targetType || !sourceType)
+            return;
+        check(targetType->vectorSize == sourceType->vectorSize && targetType->covectorSize == sourceType->covectorSize)
+            << "cast between types with incompatible shapes " << sourceType << " and " << targetType;
+        e->type = e->toType;
+        e->valueKind = ValueKind::RVALUE;
     }
     constexpr void checkCompleteBlock(BlockStmt* block) {
         /*block->declContext.decls.forEachEntry([&](const VarDecl* decl) {

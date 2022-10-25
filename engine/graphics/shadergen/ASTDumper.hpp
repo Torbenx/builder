@@ -144,6 +144,10 @@ private:
         info("UpdateStmt", fmt::format("'{}='", toString(e->op)));
         Base::visitUpdateStmt(e);
     }
+    void visitCastExpr(const CastExpr* e) {
+        info("CastExpr", fmt::format("'{}'", *e->toType));
+        Base::visitCastExpr(e);
+    }
     void visitParenExpr(const ParenExpr* e) {
         info("ParenExpr");
         visitExpr(e);

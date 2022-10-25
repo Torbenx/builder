@@ -12,9 +12,17 @@ struct SourceReplacement {
         : length(length) { }
 };
 
+struct TypePtr {
+    const Type* type = nullptr;
+    constexpr TypePtr(const Type* type)
+        : type(type) { }
+};
+
 }
 
 namespace shadergen::glsl {
+
+constexpr VarDeclModifier needsCast { "needsCast" };
 
 struct StmtTransform : CheckedASTTransform<StmtTransform> {
     using Base = CheckedASTTransform<StmtTransform>;
@@ -79,6 +87,23 @@ struct StmtTransform : CheckedASTTransform<StmtTransform> {
             e->base = wrapWithParenExpr(e->base);
     }
 
+    constexpr Stmt* createVarRefExpr(const VarRefExpr& in) {
+        VarRefExpr* e = castStmt<VarRefExpr>(Base::createVarRefExpr(in));
+        bool castRequired = false;
+        e->decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) constexpr {
+            if (mod == &needsCast)
+                castRequired = true;
+        });
+        if (castRequired) {
+            CastExpr* cast = storage.allocateStmt<CastExpr>({ e->type, e });
+            cast->type = e->type;
+            cast->valueKind = ValueKind::RVALUE;
+            return cast;
+        } else {
+            return e;
+        }
+    }
+
     constexpr const Function* binaryToFuntion(BinaryOperator op) {
         using namespace functions;
         switch (op) {
@@ -105,7 +130,7 @@ struct StmtTransform : CheckedASTTransform<StmtTransform> {
     }
     constexpr Stmt* createElementwiseOperatorExpr(const ElementwiseOperatorExpr& e) {
         if ((isComparisonOp(e.op) || isLogicalOp(e.op)) && !e.type->isScalar)
-            return this->createCallExpr(UnresolvedCall<2> { binaryToFuntion(e.op), { e.left, e.right } });
+            return createCallExpr(UnresolvedCall<2> { binaryToFuntion(e.op), { e.left, e.right } });
         return Base::createElementwiseOperatorExpr(e);
     }
     constexpr const Function* unaryToFunction(UnaryOperator e) {
@@ -115,7 +140,7 @@ struct StmtTransform : CheckedASTTransform<StmtTransform> {
     }
     constexpr Stmt* createUnaryOperatorExpr(const UnaryOperatorExpr& e) {
         if (isLogicalOp(e.op) && !e.type->isScalar)
-            return this->createCallExpr(UnresolvedCall<1> { unaryToFunction(e.op), { e.subExpr } });
+            return createCallExpr(UnresolvedCall<1> { unaryToFunction(e.op), { e.subExpr } });
         return Base::createUnaryOperatorExpr(e);
     }
 
@@ -356,6 +381,9 @@ struct StmtGenerator : GeneratorBase<Impl>, ASTVisitor<Impl> {
             out() << expr;
         });
         out() << ")";
+    }
+    constexpr void visitCastExpr(const CastExpr* e) {
+        out() << e->toType << "(" << e->base << ")";
     }
     constexpr void visitIfStmt(const IfStmt* e) {
         out() << "if (" << e->condition << ") " << e->whenTrue;

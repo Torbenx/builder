@@ -252,6 +252,12 @@ struct ASTVisitor {
         });
         return impl()->visitStmt(e, args...);
     }
+    constexpr RetT visitCastExpr(const CastExpr* e, Args... args) {
+        helper h([&]() {
+            impl()->dispatchVisit(e->base, args...);
+        });
+        return impl()->visitExpr(e, args...);
+    }
 
     constexpr RetT visitParenExpr(const ParenExpr* e, Args... args) {
         impl()->visitExpr(e, args...);
@@ -538,6 +544,10 @@ struct ASTTransform {
         impl()->transformStmt(e);
         e->left = castStmt<Expr>(impl()->dispatchTransform(e->left));
         e->right = castStmt<Expr>(impl()->dispatchTransform(e->right));
+    }
+    constexpr void transformCastExpr(CastExpr* e) {
+        impl()->transformExpr(e);
+        e->base = castStmt<Expr>(impl()->dispatchTransform(e->base));
     }
     constexpr void transformParenExpr(ParenExpr* e) {
         impl()->transformExpr(e);

@@ -34,19 +34,21 @@ struct ComputeDriver : StageDriver {
     int_t bufferIndex = 0;
     PseudoVector<BindingModifier> bindings;
 
-    DriverVariableImpl<wrapped_vector, 1> localIndex;
-    DriverVariableImpl<wrapped_vector, 1> globalIndex;
+    DriverVariableImpl<wrapped_vector, 2> localIndex;
+    DriverVariableImpl<wrapped_vector, 2> globalIndex;
 
-    template<typename T>
-    constexpr auto builtin(std::string_view name) {
-        return declareGlobal<T, 1>(name, { &builtinIndicator });
+    template<typename T, int_t N = 0>
+    constexpr auto builtin(std::string_view name, ArrayView<const VarDeclModifier* const> modsIn = {}) {
+        stx::Array<const VarDeclModifier*, N + 1> mods = { &builtinIndicator };
+        std::copy_n(modsIn.data(), modsIn.size(), mods.data() + 1);
+        return declareGlobal<T, N + 1>(name, { mods.data(), modsIn.size() + 1 });
     }
 
     constexpr ComputeDriver(ASTStorage storage, PseudoVector<BindingModifier> bindings)
         : StageDriver(storage)
         , bindings(bindings)
-        , localIndex(builtin<iVec3>(varName<"localIndex">()))
-        , globalIndex(builtin<iVec3>(varName<"globalIndex">())) { }
+        , localIndex(builtin<iVec3, 1>(varName<"gl_LocalInvocationID">(), { &glsl::needsCast }))
+        , globalIndex(builtin<iVec3, 1>(varName<"gl_WorkGroupID">(), { &glsl::needsCast })) { }
 
     template<typename T>
     constexpr auto uniformBlock(std::string_view name) {

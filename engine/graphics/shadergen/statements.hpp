@@ -116,6 +116,7 @@ constexpr const Type* typeFromCXX<T[]> = static_cast<const NonArrayType*>(typeFr
     callback(IfStmt)                     \
     callback(RangeStmt)                  \
     callback(UpdateStmt)                 \
+    callback(CastExpr)                   \
     callback(ParenExpr)
 
 #define ENUMERATE_AST_NODES(callback) \
