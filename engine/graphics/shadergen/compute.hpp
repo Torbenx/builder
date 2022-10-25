@@ -16,6 +16,7 @@ inline constexpr VarDeclModifier memoryCanAlias { "can-alias" };
 inline constexpr VarDeclModifier memoryNoRead { "no-read" };
 inline constexpr VarDeclModifier memoryNoWrite { "no-write" };
 
+inline constexpr VarDeclModifier builtinIndicator { "builtin" };
 inline constexpr VarDeclModifier uniformIndicator { "uniform" };
 inline constexpr VarDeclModifier uniformImageIndicator { "uniform-image" };
 inline constexpr VarDeclModifier arrayBufferIndicator { "array-buffer" };
@@ -23,8 +24,8 @@ inline constexpr VarDeclModifier arrayBufferIndicator { "array-buffer" };
 struct BindingModifier : VarDeclModifier {
     int_t binding = -1;
     constexpr BindingModifier() = default;
-    constexpr BindingModifier(int_t binging)
-        : VarDeclModifier("binding", true) { }
+    constexpr BindingModifier(int_t binding)
+        : VarDeclModifier("binding", true), binding(binding) { }
 };
 
 struct ComputeDriver : StageDriver {
@@ -33,8 +34,19 @@ struct ComputeDriver : StageDriver {
     int_t bufferIndex = 0;
     PseudoVector<BindingModifier> bindings;
 
+    DriverVariable<iVec3, 1> localIndex;
+    DriverVariable<iVec3, 1> globalIndex;
+
+    template<typename T>
+    constexpr auto builtin(std::string_view name) {
+        return declareGlobal<T, 1>(name, { &builtinIndicator });
+    }
+
     constexpr ComputeDriver(ASTStorage storage, PseudoVector<BindingModifier> bindings)
-        : StageDriver(storage), bindings(bindings) { }
+        : StageDriver(storage)
+        , bindings(bindings)
+        , localIndex(builtin<iVec3>(varName<"localIndex">()))
+        , globalIndex(builtin<iVec3>(varName<"globalIndex">())) { }
 
     template<typename T>
     constexpr auto uniformBlock(std::string_view name) {
@@ -86,11 +98,25 @@ namespace glsl {
         constexpr void emitGlobals(const VarDeclContext* declContext) {
             declContext->decls.forEachEntry([&](const VarDecl* decl) {
                 VERIFY(ShaderGen, decl->modifiers.entryCount >= 1);
+                if (decl->modifiers.front() == &builtinIndicator)
+                    return;
+                int_t binding = static_cast<const BindingModifier*>(decl->modifiers.get(1))->binding;
                 if (decl->modifiers.front() == &uniformIndicator) {
-
+                    out() << Indentation() << "layout(std140, binding=" << binding << ") uniform _uniform_block" << binding << " {\n";
+                    indent += 1;
+                    out() << Indentation() << decl << ";\n";
+                    indent -= 1;
+                    out() << Indentation() << "};\n";
                 } else if (decl->modifiers.front() == &uniformImageIndicator) {
-
+                    out() << Indentation() << "layout(rgba8ui, binding=" << binding << ") uniform " << decl->type << " " << decl->name << ";\n";
                 } else if (decl->modifiers.front() == &arrayBufferIndicator) {
+                    out() << Indentation() << "layout(std140, binding=" << binding << ") buffer _buffer_block" << binding << " {\n";
+                    indent += 1;
+                    out() << Indentation() << decl << ";\n";
+                    indent -= 1;
+                    out() << Indentation() << "};\n";
+                } else {
+                    VERIFY_NOT_REACHED(ShaderGen);
                 }
             });
         }

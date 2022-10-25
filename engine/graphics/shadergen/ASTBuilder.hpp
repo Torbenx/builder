@@ -267,7 +267,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     constexpr void transformArraySubscriptExpr(ArraySubscriptExpr* e) {
         Base::transformArraySubscriptExpr(e);
         const auto* type = asArrayType(e->base->type);
-        checkSameType(e->index->type, &IntType, "arrays must be indexed by ints");
+        check(e->index->type == &IntType) << "arrays must be indexed by scalar ints, got " << e->index->type;
         e->type = type->baseType;
         e->valueKind = e->base->valueKind;
     }
@@ -519,6 +519,14 @@ struct CheckedASTTransform : ASTTransform<Impl> {
     constexpr void transformIfStmt(IfStmt* e) {
         Base::transformIfStmt(e);
         checkBranchCondtion(e->condition);
+    }
+    constexpr void checkRangeArgument(const Expr* arg) {
+        check(arg->type == &IntType) << "range argument must be scalar ints, got " << arg->type;
+    }
+    constexpr void transformRangeStmt(RangeStmt* e) {
+        Base::transformRangeStmt(e);
+        checkRangeArgument(e->begin);
+        checkRangeArgument(e->end);
     }
     constexpr void transformParenExpr(ParenExpr* e) {
         Base::transformParenExpr(e);

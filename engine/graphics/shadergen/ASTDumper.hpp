@@ -133,6 +133,10 @@ private:
         info("IfStmt");
         Base::visitIfStmt(e);
     }
+    void visitRangeStmt(const RangeStmt* e) {
+        info("RangeStmt");
+        Base::visitRangeStmt(e);
+    }
     void visitUpdateStmt(const UpdateStmt* e) {
         info("UpdateStmt", fmt::format("'{}='", toString(e->op)));
         Base::visitUpdateStmt(e);

@@ -236,6 +236,15 @@ struct ASTVisitor {
         });
         return impl()->visitStmt(e, args...);
     }
+    constexpr RetT visitRangeStmt(const RangeStmt* e, Args... args) {
+        helper h([&]() {
+            impl()->dispatchVisit(e->begin, args...);
+            impl()->dispatchVisit(e->end, args...);
+            impl()->visitDeclContext(&e->iteratorDeclContext, args...);
+            impl()->dispatchVisit(e->body, args...);
+        });
+        return impl()->visitStmt(e, args...);
+    }
     constexpr RetT visitUpdateStmt(const UpdateStmt* e, Args... args) {
         helper h([&]() {
             impl()->dispatchVisit(e->left, args...);
@@ -384,6 +393,25 @@ struct ASTStorage {
 
 template<typename Impl, typename Storage = ASTStorage>
 struct ASTTransform {
+    struct DeclContextScope {
+        Impl* thiz;
+        VarDeclContext* prevContext;
+        constexpr DeclContextScope(Impl* thiz, VarDeclContext* newContext)
+            : thiz(thiz), prevContext(thiz->currentDeclContext) {
+            if (!newContext->parent)
+                newContext->parent = prevContext;
+            thiz->currentDeclContext = newContext;
+        }
+        constexpr void pop() {
+            thiz->currentDeclContext = prevContext;
+            prevContext = nullptr;
+        }
+        constexpr ~DeclContextScope() {
+            if (prevContext)
+                pop();
+        }
+    };
+
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
     VarDeclContext* currentDeclContext = nullptr;
@@ -397,23 +425,27 @@ struct ASTTransform {
     constexpr void transformExpr(Expr* e) {
         impl()->transformStmt(e);
     }
+    constexpr VarDecl* lookupPrevDecl(VarDecl* prevDecl) {
+        VarDecl* foundDecl = nullptr;
+        VarDeclContext* declContext = currentDeclContext;
+        while (declContext && !foundDecl) {
+            declContext->decls.forEachEntry([&](VarDecl* decl) {
+                if (decl->prevDecl == prevDecl) {
+                    VERIFY(ShaderGen, !foundDecl);
+                    foundDecl = decl;
+                }
+            });
+            declContext = declContext->parent;
+        }
+        return foundDecl;
+    }
     constexpr void transformVarRefExpr(VarRefExpr* e) {
         VarDecl* oldDecl = e->decl;
         VarDecl* newDecl = nullptr;
-        if (oldDecl->declContext == &globalPseudoVarDeclContext) {
+        if (oldDecl->declContext == &globalPseudoVarDeclContext)
             newDecl = oldDecl;
-        } else {
-            VarDeclContext* declContext = currentDeclContext;
-            while (declContext && !newDecl) {
-                declContext->decls.forEachEntry([&](VarDecl* decl) {
-                    if (decl->prevDecl == oldDecl) {
-                        VERIFY(ShaderGen, !newDecl);
-                        newDecl = decl;
-                    }
-                });
-                declContext = declContext->parent;
-            }
-        }
+        else
+            newDecl = lookupPrevDecl(oldDecl);
         VERIFY(ShaderGen, newDecl);
         e->decl = newDecl;
     }
@@ -451,6 +483,7 @@ struct ASTTransform {
         });
     }
     constexpr void transformDeclContext(VarDeclContext* declContext) {
+        declContext->parent = currentDeclContext;
         declContext->decls.consumeEntries([&](const VarDecl* oldDecl) {
             VarDecl* newDecl = impl()->createVarDecl(oldDecl, declContext);
         });
@@ -458,10 +491,8 @@ struct ASTTransform {
     constexpr void transformBlockStmt(BlockStmt* e) {
         impl()->transformStmt(e);
         impl()->transformDeclContext(&e->declContext);
-        e->declContext.parent = currentDeclContext;
-        currentDeclContext = &e->declContext;
+        DeclContextScope scope { impl(), &e->declContext };
         e->body = castStmt<CompoundStmt>(impl()->dispatchTransform(e->body));
-        currentDeclContext = e->declContext.parent;
     }
     constexpr void transformMemberAccessExpr(MemberAccessExpr* e) {
         impl()->transformExpr(e);
@@ -493,6 +524,15 @@ struct ASTTransform {
         e->whenTrue = impl()->dispatchTransform(e->whenTrue);
         if (e->whenFalse)
             e->whenFalse = impl()->dispatchTransform(e->whenFalse);
+    }
+    constexpr void transformRangeStmt(RangeStmt* e) {
+        impl()->transformStmt(e);
+        e->begin = castStmt<Expr>(impl()->dispatchTransform(e->begin));
+        e->end = castStmt<Expr>(impl()->dispatchTransform(e->end));
+        impl()->transformDeclContext(&e->iteratorDeclContext);
+        DeclContextScope scope { impl(), &e->iteratorDeclContext };
+        e->iteratorDecl = lookupPrevDecl(e->iteratorDecl);
+        impl()->dispatchTransform(e->body);
     }
     constexpr void transformUpdateStmt(UpdateStmt* e) {
         impl()->transformStmt(e);

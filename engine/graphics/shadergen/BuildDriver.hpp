@@ -11,6 +11,8 @@ namespace code {
         return str;
     }
 }
+template<stx::FixedString str>
+constexpr std::string_view varName() { return str; }
 
 // Storage
 template<int_t N, int_t S>
@@ -49,19 +51,19 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
 
     BlockStmt* currentBlock = nullptr;
 
-    struct BlockScope {
-        BlockDriver* thiz;
+    struct BlockScope : DeclContextScope {
         BlockStmt* prevBlock;
         constexpr BlockScope(BlockDriver* thiz)
-            : thiz(thiz), prevBlock(thiz->currentBlock) {
-            thiz->currentBlock = thiz->newBlock(thiz->currentDeclContext);
-            thiz->currentDeclContext = &thiz->currentBlock->declContext;
+            : BlockScope(thiz, thiz->newBlock()) { }
+        constexpr BlockScope(BlockDriver* thiz, BlockStmt* newBlock)
+            : DeclContextScope(thiz, &newBlock->declContext), prevBlock(thiz->currentBlock) {
+            thiz->currentBlock = newBlock;
         }
         constexpr Stmt* pop() {
             thiz->checkCompleteBlock(thiz->currentBlock);
             Stmt* stmt = thiz->wrapStmtWithError(thiz->currentBlock);
             thiz->currentBlock = prevBlock;
-            thiz->currentDeclContext = thiz->currentDeclContext->parent;
+            DeclContextScope::pop();
             prevBlock = nullptr;
             return stmt;
         }
@@ -104,7 +106,6 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
     template<typename WhenTrue, typename WhenFalse = std::nullptr_t>
     constexpr void branch(const Expr& conditionIn, WhenTrue&& whenTrue, WhenFalse&& whenFalse = {}) {
         Expr* condition = castStmt<Expr>(dispatchTransform(&conditionIn));
-        checkBranchCondtion(condition);
         auto* ifStmt = storage.allocateStmt<IfStmt>({ condition });
         {
             BlockScope scope { this };
@@ -116,7 +117,27 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
             whenFalse();
             ifStmt->whenFalse = scope.pop();
         }
+        checkBranchCondtion(condition);
         emitStmt(wrapStmtWithError(ifStmt));
+    }
+    template<typename Body>
+    constexpr void range(const Expr& beginIn, const Expr& endIn, Body&& body) {
+        Expr* begin = castStmt<Expr>(dispatchTransform(&beginIn));
+        Expr* end = castStmt<Expr>(dispatchTransform(&endIn));
+        auto* rangeStmt = storage.allocateStmt<RangeStmt>({ begin, end });
+        {
+            DeclContextScope scope { this, &rangeStmt->iteratorDeclContext };
+            auto iterator = variable<int>(varName<"range_iterator">());
+            rangeStmt->iteratorDecl = lookupPrevDecl(iterator.decl);
+            {
+                BlockScope scope { this };
+                body(iterator);
+                rangeStmt->body = scope.pop();
+            }
+        }
+        checkRangeArgument(begin);
+        checkRangeArgument(end);
+        emitStmt(wrapStmtWithError(rangeStmt));
     }
 
     constexpr void operator,(const Stmt& in) {
