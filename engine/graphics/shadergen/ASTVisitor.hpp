@@ -11,6 +11,8 @@ template<typename Stream>
 constexpr void formatType(const Type* type, Stream& out) {
     if (!type) {
         out << "null";
+    } else if (type == &VoidType) {
+        out << "void";
     } else if (type->isScalar) {
         out << asScalarType(type)->name;
     } else if (type->isVector) {
@@ -325,6 +327,8 @@ struct UserTypeRecorder : ASTVisitor<UserTypeRecorder> {
         if (!type->isUser)
             return;
         const auto* userType = asUserType(type);
+        if (userType->builtin)
+            return;
         if (std::find(buffer.begin(), buffer.end(), userType) != buffer.end())
             return;
         for (const MemberInfo& member : userType->members)

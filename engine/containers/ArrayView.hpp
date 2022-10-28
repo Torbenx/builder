@@ -4,6 +4,7 @@
 #include <array>
 #include <compare>
 #include <concepts>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -44,7 +45,7 @@ public:
         : m_data(data.data()), m_size(data.size()) { }
 
     constexpr ArrayView(const std::initializer_list<T>& data)
-        : m_data(std::data(data)), m_size(data.size()) { }
+        : m_data(data.begin()), m_size(data.size()) { }
 
     constexpr T* data() const { return m_data; }
     constexpr int_t size() const { return m_size; }
@@ -52,6 +53,11 @@ public:
     constexpr T* begin() const { return data(); }
     constexpr T* end() const { return data() + size(); }
     constexpr bool empty() const { return size() == 0; }
+
+    constexpr operator std::string_view() const
+        requires(std::is_same_v<T, char> || std::is_same_v<T, const char>) {
+        return { data(), (size_t)size() };
+    }
 
 private:
     T* m_data = nullptr;

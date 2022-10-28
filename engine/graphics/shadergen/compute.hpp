@@ -27,15 +27,46 @@ struct BindingModifier : VarDeclModifier {
     constexpr BindingModifier(int_t binding)
         : VarDeclModifier("binding", true), binding(binding) { }
 };
+enum class BindingType {
+    Uniform,
+    UniformBlock,
+    Buffer,
+};
+struct NamedBinding {
+    int_t binding = -1;
+    const char* name = nullptr;
+    BindingType type = (BindingType)0;
+};
 
 struct ComputeDriver : StageDriver {
     int_t uniformIndex = 0;
     int_t imageIndex = 0;
     int_t bufferIndex = 0;
-    PseudoVector<BindingModifier> bindings;
+    PseudoVector<NamedBinding> bindings;
+    PseudoVector<BindingModifier> bindingModifiers;
 
     DriverVariableImpl<wrapped_vector, 2> localIndex;
     DriverVariableImpl<wrapped_vector, 2> globalIndex;
+
+    constexpr const BindingModifier* makeBinding(BindingType type, const char* name) {
+        int_t binding = -1;
+        using enum BindingType;
+        switch (type) {
+        case Uniform:
+            binding = imageIndex++;
+            break;
+        case UniformBlock:
+            binding = uniformIndex++;
+            break;
+        case Buffer:
+            binding = bufferIndex++;
+            break;
+        default:
+            VERIFY_NOT_REACHED(ShaderGen);
+        }
+        bindings.pushBack({ binding, name, type });
+        return &bindingModifiers.pushBack({ binding });
+    }
 
     template<typename T, int_t N = 0>
     constexpr auto builtin(std::string_view name, ArrayView<const VarDeclModifier* const> modsIn = {}) {
@@ -44,20 +75,20 @@ struct ComputeDriver : StageDriver {
         return declareGlobal<T, N + 1>(name, { mods.data(), modsIn.size() + 1 });
     }
 
-    constexpr ComputeDriver(ASTStorage storage, PseudoVector<BindingModifier> bindings)
+    constexpr ComputeDriver(ASTStorage storage, PseudoVector<NamedBinding> bindings, PseudoVector<BindingModifier> bindingModifiers)
         : StageDriver(storage)
         , bindings(bindings)
+        , bindingModifiers(bindingModifiers)
         , localIndex(builtin<iVec3, 1>(varName<"gl_LocalInvocationID">(), { &glsl::needsCast }))
         , globalIndex(builtin<iVec3, 1>(varName<"gl_WorkGroupID">(), { &glsl::needsCast })) { }
 
     template<typename T>
-    constexpr auto uniformBlock(std::string_view name) {
-        return declareGlobal<T, 2>(name, { &uniformIndicator, &bindings.pushBack({ uniformIndex++ }) });
+    constexpr auto uniformBlock(const char* name) {
+        return declareGlobal<T, 2>(name, { &uniformIndicator, makeBinding(BindingType::UniformBlock, name) });
     }
     template<typename T>
-    constexpr auto uniformImage(std::string_view name, code::MemQual qual) {
-        bindings.pushBack({ 1 });
-        const VarDeclModifier* mods[5] = { &uniformImageIndicator, &bindings.pushBack({ imageIndex++ }) };
+    constexpr auto uniformImage(const char* name, code::MemQual qual) {
+        const VarDeclModifier* mods[5] = { &uniformImageIndicator, makeBinding(BindingType::Uniform, name) };
         int_t offset = 2;
         if (qual & code::MemQual::CanAlias)
             mods[offset++] = &memoryCanAlias;
@@ -68,8 +99,8 @@ struct ComputeDriver : StageDriver {
         return declareGlobal<T, 4>(name, { mods, offset });
     }
     template<typename T>
-    constexpr auto arrayBuffer(std::string_view name, code::MemQual qual) {
-        const VarDeclModifier* mods[5] = { &arrayBufferIndicator, &bindings.pushBack({ bufferIndex++ }) };
+    constexpr auto arrayBuffer(const char* name, code::MemQual qual) {
+        const VarDeclModifier* mods[5] = { &arrayBufferIndicator, makeBinding(BindingType::Buffer, name) };
         int_t offset = 2;
         if (qual & code::MemQual::CanAlias)
             mods[offset++] = &memoryCanAlias;
@@ -103,16 +134,39 @@ namespace glsl {
                 if (decl->modifiers.front() == &builtinIndicator)
                     return;
                 int_t binding = static_cast<const BindingModifier*>(decl->modifiers.get(1))->binding;
+                uint32_t qual = 0;
+                using enum code::MemQual;
+                decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) constexpr {
+                    if (mod == &memoryCanAlias)
+                        qual |= CanAlias;
+                    if (mod == &memoryNoRead)
+                        qual |= NoRead;
+                    if (mod == &memoryNoWrite)
+                        qual |= NoWrite;
+                });
+                auto emitQual = [&]() {
+                    if ((qual & CanAlias) == 0)
+                        out() << "restrict ";
+                    if (qual & NoRead)
+                        out() << "writeonly ";
+                    if (qual & NoWrite)
+                        out() << "readonly ";
+                };
                 if (decl->modifiers.front() == &uniformIndicator) {
-                    out() << Indentation() << "layout(std140, binding=" << binding << ") uniform _uniform_block" << binding << " {\n";
+                    out() << Indentation() << "layout(std140, binding=" << binding << ") ";
+                    out() << "uniform _uniform_block" << binding << " {\n";
                     indent += 1;
                     out() << Indentation() << decl << ";\n";
                     indent -= 1;
                     out() << Indentation() << "};\n";
                 } else if (decl->modifiers.front() == &uniformImageIndicator) {
-                    out() << Indentation() << "layout(rgba8ui, binding=" << binding << ") uniform " << decl->type << " " << decl->name << ";\n";
+                    out() << Indentation() << "layout(rgba8ui, binding=" << binding << ") ";
+                    emitQual();
+                    out() << "uniform " << decl->type << " " << decl->name << ";\n";
                 } else if (decl->modifiers.front() == &arrayBufferIndicator) {
-                    out() << Indentation() << "layout(std140, binding=" << binding << ") buffer _buffer_block" << binding << " {\n";
+                    out() << Indentation() << "layout(std140, binding=" << binding << ") ";
+                    emitQual();
+                    out() << "buffer _buffer_block" << binding << " {\n";
                     indent += 1;
                     out() << Indentation() << decl << ";\n";
                     indent -= 1;

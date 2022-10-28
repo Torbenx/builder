@@ -21,6 +21,7 @@ struct FixedString {
     constexpr const char* begin() const { return data(); }
     constexpr const char* end() const { return begin() + size(); }
     constexpr operator std::string_view() const { return { data(), length() }; }
+    constexpr operator const char*() const { return data(); }
 
     template<int_t M>
     constexpr bool operator==(const FixedString<M>& other) const {

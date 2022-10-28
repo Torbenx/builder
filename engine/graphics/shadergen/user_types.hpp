@@ -14,8 +14,9 @@ struct UserType : NonArrayType {
     std::string_view name;
     ArrayView<const MemberInfo> members;
     int_t leafFieldCount = 0;
-    constexpr UserType(std::string_view name, ArrayView<const MemberInfo> members)
-        : NonArrayType(true, false, false, false, false), name(name), members(members) { }
+    bool builtin;
+    constexpr UserType(std::string_view name, ArrayView<const MemberInfo> members, bool builtin = false)
+        : NonArrayType(true, false, false, false, false), name(name), members(members), builtin(builtin) { }
 };
 constexpr const UserType* asUserType(const Type* type) {
     VERIFY(ShaderGen, type->isUser);
@@ -162,30 +163,34 @@ template<typename T>
 using get_wrapper = std::conditional_t<typeFromCXX<T>->isArray, wrapped_array<get_non_array_wrapper<std::remove_extent_t<T>>>, get_non_array_wrapper<T>>;
 
 // opaque sampler types
-struct OpaqueBuiltinType {
+struct BuiltinCXXType {
     struct _gen_fields_final_ : wrapped_user_untyped { };
 };
+struct BuiltinUserType : UserType {
+    constexpr BuiltinUserType(std::string_view name, ArrayView<const MemberInfo> members = {})
+        : UserType(name, members, true) { }
+};
 namespace code {
-    struct Sampler2D : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "sampler2D", {} };
+    struct Sampler2D : BuiltinCXXType {
+        static constexpr BuiltinUserType SHADERGEN_TYPE { "sampler2D" };
     };
-    struct SamplerCube : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "samplerCube", {} };
+    struct SamplerCube : BuiltinCXXType {
+        static constexpr BuiltinUserType SHADERGEN_TYPE { "samplerCube" };
     };
-    struct Sampler2DShadow : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "sampler2DShadow", {} };
+    struct Sampler2DShadow : BuiltinCXXType {
+        static constexpr BuiltinUserType SHADERGEN_TYPE { "sampler2DShadow" };
     };
-    struct SamplerCubeShadow : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "samplerCubeShadow", {} };
+    struct SamplerCubeShadow : BuiltinCXXType {
+        static constexpr BuiltinUserType SHADERGEN_TYPE { "samplerCubeShadow" };
     };
-    struct iImage2D : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "iimage2D", {} };
+    struct iImage2D : BuiltinCXXType {
+        static constexpr BuiltinUserType SHADERGEN_TYPE { "iimage2D" };
     };
-    struct uImage2D : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "uimage2D", {} };
+    struct uImage2D : BuiltinCXXType {
+        static constexpr BuiltinUserType SHADERGEN_TYPE { "uimage2D" };
     };
-    struct fImage2D : OpaqueBuiltinType {
-        static constexpr UserType SHADERGEN_TYPE { "fimage2D", {} };
+    struct fImage2D : BuiltinCXXType {
+        static constexpr BuiltinUserType SHADERGEN_TYPE { "fimage2D" };
     };
 }
 

@@ -7,7 +7,7 @@ namespace shadergen {
 
 namespace code {
     template<stx::FixedString str>
-    constexpr std::string_view operator"" _v() {
+    constexpr const stx::FixedString<str.size()>& operator"" _v() {
         return str;
     }
 }
