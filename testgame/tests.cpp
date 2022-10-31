@@ -1,5 +1,5 @@
 
-#include "graphics/render3d/EffectDescriptor.hpp"
+//#include "graphics/render3d/EffectDescriptor.hpp"
 #include "graphics/shadergen/ASTDumper.hpp"
 #include "graphics/shadergen/BuildDriver.hpp"
 #include "graphics/shadergen/CompressedAST.hpp"
@@ -9,31 +9,6 @@
 
 using namespace shadergen;
 using namespace shadergen::code;
-
-template<void (*func)(ComputeDriver&)>
-struct MakeComputeStorage {
-    BasicASTStorage<10000, 10000> storage;
-    OversizedArray<BindingModifier, 1000> bindingStorage;
-    OversizedArray<char, 10000> source;
-    const StageDecl* stageDecl = nullptr;
-    const StageDecl* transformedStageDecl = nullptr;
-    constexpr MakeComputeStorage() {
-        ComputeDriver driver(storage, bindingStorage);
-        stageDecl = driver.stageDecl();
-        func(driver);
-        PrevDeclStripper stripper;
-        stripper.visitStageDecl(stageDecl);
-
-        glsl::StmtTransform transform(storage);
-        transformedStageDecl = transform.createStageDecl(*stageDecl);
-
-        glsl::ComputeStageGenerator generator(source);
-        generator.visitStageDecl(transformedStageDecl);
-    }
-};
-
-template<void (*func)(ComputeDriver&)>
-static constexpr MakeComputeStorage<func> makeCompute {};
 
 struct A {
     struct B {
@@ -54,11 +29,11 @@ static constexpr void createAST(ComputeDriver& ast) {
     auto foo = ast.variable<float>("foo"_v);
     auto bar = ast.variable<Vec4>("bar"_v);
     auto baz = ast.variable<Vec4>("baz"_v);
-    auto ua = ast.uniformBlock<A>("u_a"_v);
+    auto ua = ast.uniformBuffer<A>("u_a"_v);
     auto a = ast.variable<A>("a"_v);
     auto res = ast.variable<bool>("res"_v);
-    auto image = ast.uniformImage<uImage2D>("u_image", MemQual::CanAlias);
-    auto buffer = ast.arrayBuffer<float>("u_buffer", MemQual::NoWrite);
+    auto image = ast.storageImage<uImage2D>("u_image", MemQual::CanAlias);
+    auto buffer = ast.storageBuffer<float>("u_buffer", MemQual::NoWrite);
 
     ast.block([&]() {
         ast, a = ua;
@@ -88,23 +63,23 @@ struct UiData {
     END_GEN_STRUCT();
 };
 static constexpr void createUiShader(ComputeDriver& prog) {
-    auto data = prog.uniformBlock<UiData>("data"_v);
-    auto positions = prog.arrayBuffer<iVec2>("positions"_v, MemQual::NoWrite);
-    auto screen = prog.uniformImage<uImage2D>("output"_v, (MemQual)0);
-    auto atlas = prog.uniformImage<uImage2D>("atlas"_v, MemQual::NoWrite);
+    auto data = prog.uniformBuffer<UiData>("data"_v);
+    auto positions = prog.storageBuffer<iVec2>("positions"_v, MemQual::NoWrite);
+    auto screen = prog.storageImage<uImage2D>("screen"_v, (MemQual)0);
+    auto atlas = prog.storageImage<uImage2D>("atlas"_v, MemQual::NoWrite);
 
-    auto offset = prog.variable<int>("offset"_v);
-    prog, offset = prog.globalIndex.x * (data.maxLayers + constant(1));
-    auto screenPos = prog.variable<iVec2>("screenPos"_v);
-    prog, screenPos = positions[offset];
-    auto color = prog.variable<uVec4>("color"_v);
+    AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
+    AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
+    AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
     prog.range(constant(0), data.maxLayers, [&](auto& i) {
-        auto atlasPos = prog.variable<iVec2>("atlasPos"_v);
-        prog, atlasPos = positions[i + constant(1)];
+        AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
+        AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
+        prog, color = (inColor.xyz() * inColor.w + color * (constant(255u) - inColor.w)) / constant(255u);
     });
+    prog, imageStore(screen, screenPos, compose(color, constant(255u)));
 }
 
-constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
+/*constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
 
 struct PositionInput {
     GraphicsPtr<Vec3[]> positionAttribute;
@@ -132,23 +107,23 @@ struct Reflection {
         prog.frag, fragmentColor = compose(params.baseColor + subpassInput.xyz(), constant(1.0f));
     }
 };
-DEFINE_EFFECT(Reflection)
+DEFINE_EFFECT(Reflection)*/
 
 void runShadergenTest() {
     ASTDumper dumper;
 
-    static constexpr auto& ast = makeCompute<createUiShader>;
-    dumper.dump(ast.stageDecl);
+    static constexpr Shader shader = generate<createUiShader>();
+    dumper.dump(shader.shaderDecl);
+    for (Stage stage : shader.stages) {
     log("-----------------------------------");
-    dumper.dump(ast.transformedStageDecl);
-    log("-----------------------------------");
-    log("{}", ast.source.data);
-    
+        log("{}", stage.source);
+    }
+
     // static constexpr auto astTransformed = transformAST(ast);
     // static constexpr auto glsl = toGLSL(astTransformed);
     // log("{}", glsl.data);
 
-    const shadergen::effect::EffectDescriptor* handles[] = {
+    /*const shadergen::effect::EffectDescriptor* handles[] = {
         &shadergen::effect::descriptorStore<shadergen::effect::BuiltinPositionEffect>,
         &shadergen::effect::descriptorStore<shadergen::effect::BuiltinColorEffect>,
         &shadergen::effect::descriptorStore<PositionInput>,

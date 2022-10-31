@@ -282,6 +282,17 @@ struct ASTVisitor {
     }
     constexpr void visitNote(const ErrorNote* n, Args... args) { }
 
+    constexpr void visitStageDecl(const StageDecl* e, Args... args) {
+        impl()->visitDeclContext(&e->globals, args...);
+        impl()->dispatchVisit(e->entryPoint, args...);
+    }
+    constexpr void visitShaderDecl(const ShaderDecl* e, Args... args) {
+        impl()->visitDeclContext(&e->uniforms, args...);
+        e->stages.forEachEntry([&](const StageDecl* stage) {
+            impl()->visitStageDecl(stage, args...);
+        });
+    }
+
     constexpr RetT dispatchVisit(const Stmt* stmt, Args... args) {
         switch (stmt->stmtKind) {
 #define STMT_KIND(S)  \
@@ -294,10 +305,11 @@ struct ASTVisitor {
             VERIFY_NOT_REACHED(ShaderGen);
         }
     }
-
-    constexpr void visitStageDecl(const StageDecl* e) {
-        impl()->visitDeclContext(&e->globals);
-        impl()->dispatchVisit(e->entryPoint);
+    constexpr void dispatchVisit(const StageDecl* stage, Args... args) {
+        impl()->visitStageDecl(stage, args...);
+    }
+    constexpr void dispatchVisit(const ShaderDecl* shader, Args... args) {
+        impl()->visitShaderDecl(shader, args...);
     }
 };
 
@@ -375,6 +387,9 @@ union ASTNodeStorage {
     constexpr StageDecl* setStageDecl(const StageDecl& stage) {
         return std::construct_at(&StageDecl_, stage);
     }
+    constexpr ShaderDecl* setShaderDecl(const ShaderDecl& shader) {
+        return std::construct_at(&ShaderDecl_, shader);
+    }
 
     constexpr ASTNodeStorage() { }
 };
@@ -399,7 +414,22 @@ struct ASTStorage {
     constexpr StageDecl* allocateStageDecl(const StageDecl& stage) {
         return nodeStorage.acquireEnd()->setStageDecl(stage);
     }
+    constexpr ShaderDecl* allocateShaderDecl(const ShaderDecl& shader) {
+        return nodeStorage.acquireEnd()->setShaderDecl(shader);
+    }
 };
+
+template<typename Storage = ASTStorage>
+constexpr VarDecl* createVarDecl(Storage storage, const VarDecl* in, VarDeclContext* declContext) {
+    VarDecl* out = storage.allocateVarDecl(*in);
+    out->declContext = declContext;
+    out->prevDecl = in;
+    out->modifiers.consumeEntries([&](const VarDeclModifier* mod) {
+        storage.pushBackOnList(out->modifiers, mod);
+    });
+    storage.pushBackOnList(declContext->decls, out);
+    return out;
+}
 
 template<typename Impl, typename Storage = ASTStorage>
 struct ASTTransform {
@@ -580,12 +610,34 @@ struct ASTTransform {
 
     constexpr void transformStageDecl(StageDecl* e) {
         impl()->transformDeclContext(&e->globals);
-        currentDeclContext = &e->globals;
+        DeclContextScope scope { impl(), &e->globals };
         e->entryPoint = impl()->dispatchTransform(e->entryPoint);
     }
     constexpr StageDecl* createStageDecl(const StageDecl& in) {
         StageDecl* out = storage.allocateStageDecl(in);
         impl()->transformStageDecl(out);
+        return out;
+    }
+
+    constexpr void transformShaderDecl(ShaderDecl* e) {
+        impl()->transformDeclContext(&e->uniforms);
+        DeclContextScope scope { impl(), &e->uniforms };
+        e->stages.consumeEntries([&](const StageDecl* stage) {
+            storage.pushBackOnList(e->stages, impl()->createStageDecl(*stage));
+        });
+    }
+    constexpr ShaderDecl* createShaderDecl(const ShaderDecl& in) {
+        ShaderDecl* out = storage.allocateShaderDecl(in);
+        impl()->transformShaderDecl(out);
+        return out;
+    }
+
+    constexpr VarDecl* createVarDecl(const VarDecl* in, VarDeclContext* declContext) {
+        return shadergen::createVarDecl(storage, in, declContext);
+    }
+    constexpr ErrorNote* createNote(const ErrorNote& in) {
+        ErrorNote* out = storage.allocateNote(in);
+        impl()->transformNote(out);
         return out;
     }
 
@@ -611,20 +663,12 @@ struct ASTTransform {
 
 #undef STMT_KIND
     }
-    constexpr VarDecl* createVarDecl(const VarDecl* in, VarDeclContext* declContext) {
-        VarDecl* out = storage.allocateVarDecl(*in);
-        out->declContext = declContext;
-        out->prevDecl = in;
-        out->modifiers.consumeEntries([&](const VarDeclModifier* mod) {
-            storage.pushBackOnList(out->modifiers, mod);
-        });
-        storage.pushBackOnList(declContext->decls, out);
-        return out;
+    constexpr StageDecl* dispatchTransform(const StageDecl* stage) {
+        return impl()->createStageDecl(*stage);
     }
-    constexpr ErrorNote* createNote(const ErrorNote& in) {
-        ErrorNote* out = storage.allocateNote(in);
-        impl()->transformNote(out);
-        return out;
+    constexpr ShaderDecl* dispatchTransform(const ShaderDecl* shader) {
+        return impl()->createShaderDecl(*shader);
     }
 };
+
 }

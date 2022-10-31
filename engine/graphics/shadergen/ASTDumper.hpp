@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ASTVisitor.hpp"
+#include "containers/BitSet.hpp"
 
 namespace shadergen {
 
@@ -179,9 +180,14 @@ private:
     }
     void visitStageDecl(const StageDecl* e) {
         beginNode();
-        info("StageDecl");
-        visitDeclContext(&e->globals);
-        dispatchVisit(e->entryPoint);
+        info("StageDecl", fmt::format("'{}'", toString(e->kind)));
+        Base::visitStageDecl(e);
+        endNode();
+    }
+    void visitShaderDecl(const ShaderDecl* e) {
+        beginNode();
+        info("ShaderDecl");
+        Base::visitShaderDecl(e);
         endNode();
     }
 
@@ -236,6 +242,10 @@ public:
     }
     void dump(const StageDecl* stage) {
         visitStageDecl(stage);
+        print();
+    }
+    void dump(const ShaderDecl* shader) {
+        visitShaderDecl(shader);
         print();
     }
 };

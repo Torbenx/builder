@@ -168,6 +168,14 @@ struct GeneratorBase {
         return impl;
     }
 
+    constexpr const char* beginSegment() const {
+        return buffer.end();
+    }
+    constexpr std::string_view completeSegment(const char* begin) const {
+        size_t size = buffer.end() - begin;
+        return { begin, size };
+    }
+
     constexpr Impl* impl() { return static_cast<Impl*>(this); }
 
     constexpr int_t pos() { return buffer.size(); }
@@ -412,6 +420,10 @@ struct StmtGenerator : GeneratorBase<Impl>, ASTVisitor<Impl> {
     }
     constexpr void visitParenExpr(const ParenExpr* e) {
         out() << "(" << e->subExpr << ")";
+    }
+    
+    constexpr void emitEntryPoint(Stmt* entryPoint) {
+        out() << Indentation() << "void main() " << entryPoint << "\n";
     }
 };
 

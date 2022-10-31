@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shader.hpp"
 #include "containers/ArrayView.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
@@ -7,13 +8,6 @@
 #include <concepts>
 #include <string_view>
 #include <type_traits>
-
-namespace Tag {
-struct ShaderGen {
-    static constexpr char tag[] = "shadergen";
-    static constexpr bool verifyEnabled = true;
-};
-}
 
 namespace shadergen {
 
@@ -124,7 +118,8 @@ constexpr const Type* typeFromCXX<T[]> = static_cast<const NonArrayType*>(typeFr
     callback(ASTListEntry)            \
     callback(VarDecl)                 \
     callback(ErrorNote)               \
-    callback(StageDecl)
+    callback(StageDecl)               \
+    callback(ShaderDecl)
 // clang-format on
 
 struct ASTNode { };
@@ -417,8 +412,27 @@ struct RangeStmt : Stmt {
 
 // Shader Stages
 struct StageDecl : ASTNode {
+    StageKind kind;
     VarDeclContext globals;
     Stmt* entryPoint = nullptr;
+    constexpr StageDecl(StageKind kind)
+        : kind(kind) { }
 };
+struct ShaderDecl : ASTNode {
+    VarDeclContext uniforms;
+    ASTList<StageDecl> stages;
+};
+constexpr std::string_view toString(StageKind kind) {
+    switch (kind) {
+    case StageKind::Compute:
+        return "compute";
+    case StageKind::Vertex:
+        return "vertex";
+    case StageKind::Fragment:
+        return "fragment";
+    default:
+        return "??";
+    }
+}
 
 }

@@ -144,8 +144,8 @@ enum class CumulativeUpdateOp {
 };
 static constexpr VarDeclModifier crossEffectIndicator { "cross_effect" };
 template<typename T>
-struct CrossEffectVariable : DriverVariableImpl<get_wrapper<T>, 1> {
-    using Base = DriverVariableImpl<get_wrapper<T>, 1>;
+struct CrossEffectVariable : DriverVariable<get_wrapper<T>, 1> {
+    using Base = DriverVariable<get_wrapper<T>, 1>;
     CumulativeUpdateOp cumOp;
     constexpr CrossEffectVariable(std::string_view name, CumulativeUpdateOp cumOp = CumulativeUpdateOp::NONE)
         : Base(name, typeFromCXX<T>, { &crossEffectIndicator }, [](const VarDecl*) constexpr {}, &globalPseudoVarDeclContext), cumOp(cumOp) { }

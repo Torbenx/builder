@@ -26,27 +26,34 @@ struct BasicASTStorage {
 };
 
 template<typename wrapper, int_t N = 0>
-struct DriverVariableImpl : wrapper::template impl<VarRefExpr> {
+struct DriverVariable : wrapper::template impl<VarRefExpr> {
     using Base = typename wrapper::template impl<VarRefExpr>;
     VarDecl driverDecl;
     stx::Array<const VarDeclModifier*, N> modifierStorage = {};
     template<typename Callback>
-    constexpr DriverVariableImpl(std::string_view name, const Type* type, ArrayView<const VarDeclModifier* const> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
+    constexpr DriverVariable(std::string_view name, const Type* type, ArrayView<const VarDeclModifier* const> mods, Callback&& callback, const VarDeclContext* declContext = nullptr)
         : Base { { &driverDecl } }, driverDecl(name, type, declContext) {
         std::copy_n(mods.data(), mods.size(), modifierStorage.data());
         driverDecl.modifiers.setArray(modifierStorage.data(), mods.size());
         callback(&driverDecl);
     }
-    DriverVariableImpl(const DriverVariableImpl&) = delete;
+    DriverVariable(const DriverVariable&) = delete;
 
     using Base::operator=;
-    constexpr AssignmentStmt operator=(const DriverVariableImpl& right) const {
+    constexpr AssignmentStmt operator=(const DriverVariable& right) const {
         return { this, right.wrappedExpr };
     }
 };
 template<typename T, int_t N = 0, typename Callback>
 constexpr auto makeDriverVariable(std::string_view name, ArrayView<const VarDeclModifier* const> mods, Callback&& callback, const VarDeclContext* declContext = nullptr) {
-    return DriverVariableImpl<get_wrapper<T>, N>(name, typeFromCXX<T>, mods, std::forward<Callback>(callback), declContext);
+    return DriverVariable<get_wrapper<T>, N>(name, typeFromCXX<T>, mods, std::forward<Callback>(callback), declContext);
+}
+template<typename T, int_t N = 0>
+constexpr auto declareVariable(ASTStorage storage, std::string_view name, VarDeclContext* declContext, ArrayView<const VarDeclModifier* const> mods = {}) {
+    return makeDriverVariable<T, N>(
+        name, mods, [&](const VarDecl* driverDecl) constexpr {
+            createVarDecl(storage, driverDecl, declContext);
+        });
 }
 
 // Driver
@@ -90,21 +97,14 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
         return block;
     }
 
-    template<typename T, int_t N = 0>
-    constexpr auto declareVariable(std::string_view name, VarDeclContext* declContext, ArrayView<const VarDeclModifier* const> mods = {}) {
-        return makeDriverVariable<T, N>(
-            name, mods, [&](const VarDecl* driverDecl) constexpr {
-                createVarDecl(driverDecl, declContext);
-            });
-    }
     template<typename T>
     constexpr auto variable(std::string_view name) {
-        return declareVariable<T>(name, currentDeclContext);
+        return declareVariable<T>(storage, name, currentDeclContext);
     }
     template<typename wrapper_impl>
     constexpr auto variableWithInit(std::string_view name, const wrapper_impl& initIn) {
         Expr* init = castStmt<Expr>(dispatchTransform((const Expr*)&initIn));
-        return DriverVariableImpl<typename wrapper_impl::wrapper_base>(
+        return DriverVariable<typename wrapper_impl::wrapper_base>(
             name, init->type, {}, [&](const VarDecl* driverDecl) constexpr {
                 VarDecl* decl = createVarDecl(driverDecl, currentDeclContext);
 
@@ -178,11 +178,12 @@ struct VariableInitHelper {
 };
 #define AUTO_VARIABLE(driver, name) auto name = ::shadergen::VariableInitHelper(driver, ::shadergen::varName<#name>())
 
-struct StageDriver : BlockDriver {
+struct StageDeclDriver : BlockDriver {
     StageDecl* m_stageDecl = nullptr;
 
-    constexpr StageDriver(ASTStorage storage)
-        : BlockDriver(storage), m_stageDecl(storage.allocateStageDecl({})) {
+    constexpr StageDeclDriver(ASTStorage storage, StageKind stageKind, VarDeclContext* parentDeclContext = nullptr)
+        : BlockDriver(storage), m_stageDecl(storage.allocateStageDecl({ stageKind })) {
+        stageDecl()->globals.parent = parentDeclContext;
         currentBlock = newBlock(&stageDecl()->globals);
         stageDecl()->entryPoint = currentBlock;
         currentDeclContext = &currentBlock->declContext;
@@ -190,7 +191,27 @@ struct StageDriver : BlockDriver {
     constexpr StageDecl* stageDecl() const { return m_stageDecl; }
     template<typename T, int_t N = 0>
     constexpr auto declareGlobal(std::string_view name, ArrayView<const VarDeclModifier* const> mods = {}) {
-        return declareVariable<T, N>(name, &stageDecl()->globals, mods);
+        return declareVariable<T, N>(storage, name, &stageDecl()->globals, mods);
     }
 };
+
+struct ShaderDeclDriver {
+    ASTStorage storage;
+    ShaderDecl* m_shaderDecl = nullptr;
+
+    constexpr ShaderDeclDriver(ASTStorage storage)
+        : storage(storage), m_shaderDecl(storage.allocateShaderDecl({})) { }
+
+    constexpr ShaderDecl* shaderDecl() const { return m_shaderDecl; }
+
+    template<typename T, int_t N = 0>
+    constexpr auto declareUniform(std::string_view name, ArrayView<const VarDeclModifier* const> mods) {
+        return declareVariable<T, N>(storage, name, &shaderDecl()->uniforms, mods);
+    }
+
+    constexpr void addStage(StageDecl* stage) {
+        storage.pushBackOnList(shaderDecl()->stages, stage);
+    }
+};
+
 }
