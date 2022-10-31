@@ -5,8 +5,10 @@
 #include "containers/IdAllocator.hpp"
 #include "event/Timeline.hpp"
 #include "event/Window.hpp"
+#include "graphics/api.hpp"
 #include "handles.hpp"
 #include "math/sparse/Vector.hpp"
+#include "opengl/core.hpp"
 #include "platform/thread_local_storage.hpp"
 #include "software/Semaphore.hpp"
 #include "util/types.hpp"
@@ -35,12 +37,19 @@ struct RenderOutputUtil {
     }
 };
 
-struct PaintEvent {
-    using EventReceiver = evt::KeepLastReceiver<PaintEvent>;
+struct SWPaintData {
     sw::TextureView output;
     sw::Semaphore waitFor;
     sw::Semaphore signal;
 };
+struct GLPaintData {
+    gl::Image output;
+    gl::CommandSlot commandSlot;
+    sw::Semaphore signal;
+};
+struct VKPaintData { };
+MAKE_API_TEMPLATE_PREFIXED(PaintData)
+using PaintEvent = gfx::Variant<PaintData>;
 
 class Instance : public evt::Timeline {
 public:
@@ -124,8 +133,8 @@ public:
 
     void doTick();
 
-    std::optional<PaintEvent>& paintEvent() { return paintRing[tick()]; }
-    evt::TickRingBuffer<std::optional<PaintEvent>> paintRing;
+    PaintEvent& paintEvent() { return paintRing[tick()]; }
+    evt::TickRingBuffer<PaintEvent> paintRing;
 
     sw::Semaphore atlasUse = sw::Semaphore::create();
 

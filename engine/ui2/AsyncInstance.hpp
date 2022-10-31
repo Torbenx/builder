@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Instance.hpp"
-#include "event/Window.hpp"
 #include "event/AsyncTimeline.hpp"
+#include "event/Window.hpp"
 
 namespace ui {
 
@@ -31,6 +31,7 @@ public:
     }
 
     void asyncPaint(sw::TextureView output, sw::Semaphore waitFor, sw::Semaphore signal);
+    void asyncPaint(gl::Texture output, gl::CommandSlot commandSlot, sw::Semaphore signal);
 };
 
 }

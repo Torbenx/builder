@@ -1,5 +1,6 @@
 #include "AsyncInstance.hpp"
 #include "event/Awaitable.hpp"
+#include "graphics/shadergen/compute.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
 
@@ -121,8 +122,6 @@ namespace {
         sw::Semaphore signal;
 
         void paint() {
-            // log("paint on {:#x}", std::hash<std::thread::id>()(std::this_thread::get_id()));
-
             auto multiply = [](uint32_t in, uint32_t alpha) {
                 return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
             };
@@ -211,6 +210,31 @@ namespace {
             delete this;
         }
     };
+
+    struct UiData {
+        BEGIN_GEN_STRUCT(UiData);
+        int GEN_FIELD(maxLayers);
+        END_GEN_STRUCT();
+    };
+    constexpr void defUiShader(shadergen::ComputeDriver& prog) {
+        using namespace shadergen::code;
+        auto data = prog.uniformBuffer<UiData>("data"_v);
+        auto positions = prog.storageBuffer<shadergen::iVec2>("positions"_v, MemQual::NoWrite);
+        auto screen = prog.storageImage<uImage2D>("screen"_v, (MemQual)0);
+        auto atlas = prog.storageImage<uImage2D>("atlas"_v, MemQual::NoWrite);
+
+        AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
+        AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
+        AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
+        prog.range(constant(0), data.maxLayers, [&](auto& i) {
+            AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
+            AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
+            prog, color = (inColor.xyz() * inColor.w + color * (constant(255u) - inColor.w)) / constant(255u);
+        });
+        prog, imageStore(screen, screenPos, compose(color, constant(255u)));
+    }
+    constexpr shadergen::Shader uiShader = shadergen::generate<defUiShader>();
+
     struct AtlasJob {
         Instance::Blocks blocks;
         PaintEvent event;
@@ -246,9 +270,37 @@ namespace {
             }
             atlasUpdates.clear();
 
-            event.waitFor.thenSync({ *this, stx::CallMember<&AtlasJob::startPaint>() });
+            using enum gfx::Api;
+            switch (event.api()) {
+            case Software: {
+                gfx::get<Software>(event).waitFor.thenSync({ *this, stx::CallMember<&AtlasJob::startSWPaint>() });
+                break;
+            }
+            case OpenGL: {
+                auto& event = gfx::get<OpenGL>(this->event);
+                event.commandSlot.set({ *this, stx::CallMember<&AtlasJob::GLPaint>() });
+                event.signal.signal();
+                break;
+            }
+            default:
+                VERIFY_NOT_REACHED(Ui);
+                break;
+            }
         }
-        void startPaint() {
+
+        void GLPaint() {
+            auto& event = gfx::get<gfx::Api::OpenGL>(this->event);
+            gl::Texture atlasTexture;
+            gl::Image atlasImage = atlasTexture;
+            gl::imageData(atlasImage, IntVec { 0, 0 }, instance->atlas);
+            gl::bind(gl::binding<uiShader, "screen">, atlasImage);
+            gl::bind(gl::binding<uiShader, "atlas">, event.output);
+            //gl::bind(gl::binding<uiShader, "positions">, );
+            //gl::bind(gl::binding<uiShader, "data">, );
+        }
+
+        void startSWPaint() {
+            auto& event = gfx::get<gfx::Api::Software>(this->event);
             int_t offset = 0;
             int_t blockCount = blocks.blockOffsets.size() / (blocks.blockLayers + 1);
             sw::Semaphore paintComplete = sw::Semaphore::create();
@@ -266,10 +318,10 @@ namespace {
                 offset += size;
                 evt::async({ *job, stx::CallMember<&PaintJob::paint>() });
             }
-            paintComplete.thenSync({ *this, stx::CallMember<&AtlasJob::paintComplete>() });
+            paintComplete.thenSync({ *this, stx::CallMember<&AtlasJob::SWPaintComplete>() });
         }
-
-        void paintComplete() {
+        void SWPaintComplete() {
+            auto& event = gfx::get<gfx::Api::Software>(this->event);
             atlasUse.signal();
             event.signal.signal();
             delete this;
@@ -313,7 +365,7 @@ void Instance::doTick() {
         updates.clear();
     }
 
-    if (paintEvent().has_value()) {
+    if (paintEvent().api() != gfx::Api::Invalid) {
         AtlasJob* job = new AtlasJob;
         job->atlasUpdates = std::move(incrementalRenderOutput);
         incrementalRenderOutput = stx::DynArray<std::vector<std::byte>> { RendererBase::recordCount() };
@@ -321,7 +373,7 @@ void Instance::doTick() {
         job->blocks = buildBlocks();
         job->instance = this;
         job->atlasDimensions = atlasDimensions;
-        job->event = std::move(paintEvent().value());
+        job->event = std::move(paintEvent());
         paintEvent().reset();
 
         atlasUse.thenAsync({ *job, stx::CallMember<&AtlasJob::updateAtlas>() });
@@ -509,7 +561,10 @@ void AsyncInstance::doTick() {
 }
 
 void AsyncInstance::asyncPaint(sw::TextureView output, sw::Semaphore waitFor, sw::Semaphore signal) {
-    timeline()->paintRing[tick()] = PaintEvent { output, std::move(waitFor), std::move(signal) };
+    timeline()->paintRing[tick()] = SWPaintData { output, std::move(waitFor), std::move(signal) };
+}
+void AsyncInstance::asyncPaint(gl::Texture output, gl::CommandSlot commandSlot, sw::Semaphore signal) {
+    timeline()->paintRing[tick()] = GLPaintData { output, commandSlot, std::move(signal) };
 }
 
 }
