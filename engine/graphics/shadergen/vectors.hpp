@@ -148,7 +148,7 @@ template<typename E>
 struct wrapped_scalar::impl : E, wrapped_scalar {
     using wrapper_base = wrapped_scalar;
     constexpr impl(const E& e)
-        : E(e), wrapped_scalar { (Expr*)this } { }
+        : E(e), wrapped_scalar { { (Expr*)this } } { }
 
     constexpr AssignmentStmt operator=(const wrapped_scalar::impl<E>& right) const {
         return { this, right.wrappedExpr };
@@ -176,7 +176,7 @@ template<typename E>
 struct wrapped_array<next_wrapper>::impl : E, wrapped_array {
     using wrapper_base = wrapped_array;
     constexpr impl(const E& e)
-        : E(e), wrapped_array { (Expr*)this } { }
+        : E(e), wrapped_array { { (Expr*)this } } { }
 
     constexpr typename next_wrapper::template impl<ArraySubscriptExpr> operator[](const wrapped_scalar& index) const {
         return { { this, index.wrappedExpr } };
@@ -192,7 +192,7 @@ template<typename E>
 struct wrapped_matrix::impl : E, wrapped_matrix {
     using wrapper_base = wrapped_matrix;
     constexpr impl(const E& e)
-        : E(e), wrapped_matrix { (Expr*)this } { }
+        : E(e), wrapped_matrix { { (Expr*)this } } { }
 
     constexpr AssignmentStmt operator=(const wrapped_matrix::impl<E>& right) const {
         return { this, right.wrappedExpr };
@@ -327,7 +327,7 @@ template<typename E>
 struct wrapped_vector::impl : E, wrapped_vector {
     using wrapper_base = wrapped_vector;
     constexpr impl(const E& e)
-        : E(e), wrapped_vector { (E*)this } { }
+        : E(e), wrapped_vector { { (E*)this } } { }
 
     constexpr AssignmentStmt operator=(const impl<E>& right) const {
         return { this, right.wrappedExpr };

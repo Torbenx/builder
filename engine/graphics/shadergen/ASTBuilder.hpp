@@ -149,7 +149,7 @@ struct AccessMaskVisitor : ASTVisitor<Impl, void, FixedBitset> {
         impl()->dispatchVisit(e->base, mask << e->member().leafFieldOffset);
         impl()->visitExpr(e, mask);
     }
-    constexpr void visitArraySubscriptExpr(const ArraySubscriptExpr* e, FixedBitset mask) {
+    constexpr void visitArraySubscriptExpr(const ArraySubscriptExpr* e, FixedBitset) {
         impl()->dispatchVisitWithFullMask(e->index);
     }
     constexpr void visitVectorComponentExpr(const VectorComponentExpr* e, FixedBitset mask) {
@@ -521,7 +521,7 @@ struct CheckedASTTransform : ASTTransform<Impl> {
         e->type = e->toType;
         e->valueKind = ValueKind::RVALUE;
     }
-    constexpr void checkCompleteBlock(BlockStmt* block) {
+    constexpr void checkCompleteBlock(BlockStmt*) {
         /*block->declContext.decls.forEachEntry([&](const VarDecl* decl) {
             check(decl->usedMask != 0) << "variable " << decl << " not used";
         });*/

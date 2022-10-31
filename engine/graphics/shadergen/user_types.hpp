@@ -141,7 +141,7 @@ template<typename E>
 struct wrapped_user<T>::impl : E, wrapped_user {
     using wrapper_base = wrapped_user;
     constexpr impl(const E& e)
-        : E(e), wrapped_user { (Expr*)this } { }
+        : E(e), wrapped_user { { { (Expr*)this } } } { }
     constexpr AssignmentStmt operator=(const impl& right) const {
         return { this, right.wrappedExpr };
     }

@@ -133,7 +133,7 @@ struct ASTVisitor {
     template<typename Callback>
     helper(Callback&&) -> helper<Callback>;
 
-    constexpr RetT visitStmt(const Stmt*, Args... args) {
+    constexpr RetT visitStmt(const Stmt*, Args...) {
         return void();
     }
     constexpr RetT visitExpr(const Expr* e, Args... args) {
@@ -187,7 +187,7 @@ struct ASTVisitor {
         });
         return impl()->visitStmt(e, args...);
     }
-    constexpr void visitDeclContext(const VarDeclContext* declContext, Args... args) { }
+    constexpr void visitDeclContext(const VarDeclContext*, Args...) { }
     constexpr RetT visitBlockStmt(const BlockStmt* e, Args... args) {
         helper h([&]() {
             impl()->visitDeclContext(&e->declContext, args...);
@@ -280,7 +280,7 @@ struct ASTVisitor {
             impl()->visitNote(n, args...);
         });
     }
-    constexpr void visitNote(const ErrorNote* n, Args... args) { }
+    constexpr void visitNote(const ErrorNote*, Args...) { }
 
     constexpr void visitStageDecl(const StageDecl* e, Args... args) {
         impl()->visitDeclContext(&e->globals, args...);
@@ -461,7 +461,7 @@ struct ASTTransform {
     constexpr ASTTransform(Storage storage)
         : storage(storage) { }
 
-    constexpr void transformStmt(Stmt* e) { }
+    constexpr void transformStmt(Stmt*) { }
     constexpr void transformExpr(Expr* e) {
         impl()->transformStmt(e);
     }
@@ -525,7 +525,7 @@ struct ASTTransform {
     constexpr void transformDeclContext(VarDeclContext* declContext) {
         declContext->parent = currentDeclContext;
         declContext->decls.consumeEntries([&](const VarDecl* oldDecl) {
-            VarDecl* newDecl = impl()->createVarDecl(oldDecl, declContext);
+            impl()->createVarDecl(oldDecl, declContext);
         });
     }
     constexpr void transformBlockStmt(BlockStmt* e) {
