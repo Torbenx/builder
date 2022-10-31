@@ -1,6 +1,5 @@
 #pragma once
 
-#include "resource/Owned.hpp"
 #include "util/log.hpp"
 #include "util/types.hpp"
 
@@ -117,11 +116,7 @@ private:
         }
     }
 
-    void do_release() requires Releasable<T> {
-        const_cast<T&>(value).release();
-    }
-
-    void do_release() requires(!Releasable<T>) {
+    void do_release() {
         log("monitor::release() returned true but T is not Releaseable, resource might be leaked!");
     }
 

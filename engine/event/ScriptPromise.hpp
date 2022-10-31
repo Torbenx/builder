@@ -5,6 +5,7 @@
 namespace evt {
 
 struct ScriptCompletionEvent {
+    // FIXME: this is broken
     static constexpr bool NO_CLEANUP_IN_CANCEL = true;
     using EventReceiver = KeepLastReceiver<ScriptCompletionEvent>;
 };

@@ -5,7 +5,7 @@ namespace plt::windows {
 
 #define GL_FUNCTION(type, name) name = (type)(void*)wglGetProcAddress(#name);
 void initializeGLFunctions(HDC dc) {
-    static bool initialized = false;
+    static constinit bool initialized = false;
     if (initialized)
         return;
     initialized = true;
@@ -38,28 +38,37 @@ struct GLWindowSurface : WindowSurfaceCallback {
     HGLRC renderingContext = nullptr;
     void initialize(HDC dc) {
         PIXELFORMATDESCRIPTOR pfd = {
-            sizeof(PIXELFORMATDESCRIPTOR),
-            1,
-            PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE, // Flags
-            PFD_TYPE_RGBA, // The kind of framebuffer. RGBA or palette.
-            32, // Colordepth of the framebuffer.
-            0, 0, 0, 0, 0, 0,
-            0,
-            0,
-            0,
-            0, 0, 0, 0,
-            16, // Number of bits for the depthbuffer
-            0, // Number of bits for the stencilbuffer
-            0, // Number of Aux buffers in the framebuffer.
-            PFD_MAIN_PLANE,
-            0,
-            0, 0, 0
+            .nSize = sizeof(PIXELFORMATDESCRIPTOR),
+            .nVersion = 1,
+            .dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE,
+            .iPixelType = PFD_TYPE_RGBA,
+            .cColorBits = 32,
+            .cRedBits = 0,
+            .cRedShift = 0,
+            .cGreenBits = 0,
+            .cGreenShift = 0,
+            .cBlueBits = 0,
+            .cBlueShift = 0,
+            .cAlphaBits = 0,
+            .cAlphaShift = 0,
+            .cAccumRedBits = 0,
+            .cAccumGreenBits = 0,
+            .cAccumBlueBits = 0,
+            .cAccumAlphaBits = 0,
+            .cDepthBits = 16,
+            .cStencilBits = 0,
+            .cAuxBuffers = 0,
+            .iLayerType = PFD_MAIN_PLANE,
+            .bReserved = 0,
+            .dwLayerMask = 0,
+            .dwVisibleMask = 0,
+            .dwDamageMask = 0,
         };
         int format = ChoosePixelFormat(dc, &pfd);
         WIN_VERIFY(format != 0);
         bool ret = SetPixelFormat(dc, format, &pfd);
         WIN_VERIFY(ret);
-        
+
         initializeGLFunctions(dc);
         int context_attribs[] = {
             WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB, 0

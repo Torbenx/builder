@@ -215,7 +215,7 @@ evt::Script uiTestWrapper(plt::Window window) {
 
     while (true) {
         while (true) {
-            std::optional<sw::TextureView>opt = framebufferQueue.tryPopFront();
+            std::optional<sw::TextureView> opt = framebufferQueue.tryPopFront();
             if (!opt.has_value())
                 break;
             framebuffersAlive -= 1;

@@ -7,9 +7,6 @@
 
 namespace stx {
 
-template<typename T, int_t N>
-class InlineVector;
-
 template<typename T>
 class Vector {
 protected:
@@ -62,15 +59,13 @@ protected:
 
 public:
     constexpr Vector() = default;
-    constexpr Vector(int_t size, const T& init) {
-        resize(size, init);
-    }
-    explicit constexpr Vector(int_t size) {
-        resize(size);
-    }
     constexpr Vector(const Vector& other) { copyFrom(other); }
     constexpr Vector(Vector&& other) { moveFrom(std::move(other)); }
+
     constexpr Vector(std::initializer_list<T> init) { copyFrom(init); }
+    constexpr Vector(int_t size, const T& init) { resize(size, init); }
+    explicit constexpr Vector(int_t size) { resize(size); }
+
     constexpr Vector(T* data, int_t size, int_t capacity, bool cantMove, bool cantDealloc)
         : m_data(data), m_size(size), m_cantMove(cantMove), m_capacity(capacity), m_cantDealloc(cantDealloc) { }
 
@@ -111,7 +106,7 @@ public:
         T* newStorage = alloc.allocate(newCap);
         // std::uninitialized_move_n(data(), size(), newStorage);
         std::copy_n(data(), size(), newStorage);
-        std::destroy_n(data(), size());
+        // std::destroy_n(data(), size());
         maybeDeallocateStorage();
         m_data = newStorage;
         m_capacity = newCap;
@@ -138,18 +133,53 @@ public:
 
     constexpr void append(const T& value, int_t count) {
         reserve(size() + count);
-        std::uninitialized_fill_n(end(), count, value);
+        // std::uninitialized_fill_n(end(), count, value);
+        std::fill_n(end(), count, value);
         m_size += count;
     }
 
     constexpr void pushBack(const T& value) {
         reserve(size() + 1);
-        std::construct_at(end(), value);
+        // std::construct_at(end(), value);
+        *end() = value;
         m_size += 1;
     }
 
     constexpr operator ArrayView<T>() { return { data(), size() }; }
     constexpr operator ArrayView<const T>() const { return { data(), size() }; }
+};
+
+template<typename T, int_t N>
+class InlineVector : public Vector<T> {
+private:
+    using Base = Vector<T>;
+
+protected:
+    T storage[N] = {};
+
+public:
+    constexpr InlineVector()
+        : Base(storage, 0, N, true, true) { static_assert(N > 0); }
+    constexpr InlineVector(const Vector& other)
+        : InlineVector() { copyFrom(other); }
+    constexpr InlineVector(Vector&& other)
+        : InlineVector() { moveFrom(std::move(other)); }
+
+    constexpr InlineVector(std::initializer_list<T> init)
+        : InlineVector() { copyFrom(init); }
+    constexpr InlineVector(int_t size, const T& init)
+        : InlineVector() { resize(size, init); }
+    explicit constexpr InlineVector(int_t size)
+        : InlineVector() { resize(size); }
+
+    constexpr InlineVector& operator=(const Vector<T>& other) {
+        copyForm(other);
+        return *this;
+    }
+    constexpr InlineVector& operator=(const Vector<T>&& other) {
+        moveFrom(std::move(other));
+        return *this;
+    }
 };
 
 }
