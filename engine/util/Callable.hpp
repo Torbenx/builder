@@ -6,7 +6,7 @@ namespace stx {
 
 template<typename Target, typename... Args>
 concept BasicCallable = requires(const Target& target, Args... args) {
-    target(args...);
+    target(std::forward<Args>(args)...);
 };
 template<typename Target, typename Source, typename... Args>
 concept Callable = BasicCallable<Target, Args...> || BasicCallable<Target, Source&, Args...>;
@@ -96,27 +96,27 @@ struct BasicCallback {
     }
     explicit operator bool() const { return (bool)callback; }
     void operator()(Args... args) const {
-        callback(data, args...);
+        callback(data, std::forward<Args>(args)...);
     }
     template<typename Data, BasicCallable<Data*, Args...> Callback>
     void setCallback(Data* data, const Callback&) {
         this->data = data;
         this->callback = [](void* data, Args... args) {
-            Callback {}((Data*)data, args...);
+            Callback {}((Data*)data, std::forward<Args>(args)...);
         };
     }
     template<typename Data, BasicCallable<Data&, Args...> Callback>
     void setCallback(Data& data, const Callback&) {
         this->data = &data;
         this->callback = [](void* data, Args... args) {
-            Callback {}(*(Data*)data, args...);
+            Callback {}(*(Data*)data, std::forward<Args...>(args)...);
         };
     }
     template<BasicCallable<Args...> Callback>
     void setCallback(const Callback&) {
         this->data = nullptr;
         this->callback = [](void*, Args... args) {
-            Callback {}(args...);
+            Callback {}(std::forward<Args>(args)...);
         };
     }
 };
