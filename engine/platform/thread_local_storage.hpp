@@ -4,10 +4,11 @@
 
 namespace plt {
 
-constexpr uint32_t TLS_CURRENT_MAIN_TICK_INDEX = 0;
-constexpr uint32_t TLS_SCHEDULER_INDEX = 1;
-constexpr uint32_t TLS_CURRENT_TIMELINE_INDEX = 2;
-constexpr int_t TLS_INDICES_COUNT = 3;
+inline constexpr uint32_t TLS_MAIN_TICK_INDEX = 0;
+inline constexpr uint32_t TLS_SCHEDULER_INDEX = 1;
+inline constexpr uint32_t TLS_TIMELINE_INDEX = 2;
+inline constexpr uint32_t TLS_GRAPHICS_BUFFER_MANAGER_INDEX = 3;
+inline constexpr int_t TLS_INDICES_COUNT = 4;
 
 }
 
@@ -42,7 +43,7 @@ inline uint64_t read_segment_register(uint32_t offset) {
 }
 #endif
 
-constexpr uint32_t TLS_INDICES_BASE = 20;
+inline constexpr uint32_t TLS_INDICES_BASE = 20;
 template<uint32_t index>
 uintptr_t getThreadLocalValue() {
     // return NtCurrentTeb()->TlsSlots[TLS_INDICES_BASE + index];

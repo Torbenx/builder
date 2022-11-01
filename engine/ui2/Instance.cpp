@@ -293,6 +293,7 @@ namespace {
             gl::Texture atlasTexture;
             gl::Image atlasImage = atlasTexture;
             gl::imageData(atlasImage, IntVec { 0, 0 }, instance->atlas);
+            atlasUse.signal();
             gl::bind(gl::binding<uiShader, "screen">, atlasImage);
             gl::bind(gl::binding<uiShader, "atlas">, event.output);
             //gl::bind(gl::binding<uiShader, "positions">, );

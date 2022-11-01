@@ -16,7 +16,7 @@ namespace evt {
 
 constexpr int_t MAX_CONCURRENT_TICKS = 7;
 
-DECLARE_THREAD_LOCAL_GETSET(int_t, mainTick, setMainTick, CURRENT_MAIN_TICK)
+DECLARE_THREAD_LOCAL_GETSET(int_t, mainTick, setMainTick, MAIN_TICK)
 
 struct ScriptPromise;
 

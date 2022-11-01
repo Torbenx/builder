@@ -1,5 +1,6 @@
 #pragma once
 
+#include "graphics/Buffer.hpp"
 #include "graphics/shadergen/Shader.hpp"
 #include "platform/Window.hpp"
 #include "software/Semaphore.hpp"
@@ -92,61 +93,6 @@ struct Image {
     }
 };
 
-class Buffer {
-public:
-    static Buffer makeStatic(int_t size) { return make(nullptr, size, 0); }
-    static Buffer makeWriteOnly(int_t size) { return make(nullptr, size, GL_MAP_WRITE_BIT); }
-    static Buffer makeReadOnly(int_t size) { return make(nullptr, size, GL_MAP_READ_BIT); }
-    static Buffer makeReadWrite(int_t size) { return make(nullptr, size, GL_MAP_WRITE_BIT | GL_MAP_READ_BIT); }
-    static Buffer make(int_t size, bool read, bool write) { return make(nullptr, size, (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0)); }
-    static Buffer makeStatic(void* data, int_t size) { return make(data, size, 0); }
-    static Buffer makeWriteOnly(void* data, int_t size) { return make(data, size, GL_MAP_WRITE_BIT); }
-    static Buffer makeReadOnly(void* data, int_t size) { return make(data, size, GL_MAP_READ_BIT); }
-    static Buffer makeReadWrite(void* data, int_t size) { return make(data, size, GL_MAP_WRITE_BIT | GL_MAP_READ_BIT); }
-    static Buffer make(void* data, int_t size, bool read, bool write) { return make(data, size, (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0)); }
-
-    void* mapReadable(int_t offset, int_t size) const { return map(offset, size, GL_MAP_READ_BIT); }
-    void* mapWritable(int_t offset, int_t size) const { return map(offset, size, GL_MAP_WRITE_BIT); }
-    void* mapReadWritable(int_t offset, int_t size) const { return map(offset, size, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT); }
-    void* map(int_t offset, int_t size, bool read, bool write) const { return map(offset, size, (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0)); }
-
-    void unmap() const {
-        glBindBuffer(TEMP_BUFFER_TARGET, glId);
-        glUnmapBuffer(TEMP_BUFFER_TARGET);
-    }
-
-    void bind(GLenum target) const {
-        glBindBuffer(target, glId);
-    }
-
-    void deallocate() {
-        if (glId != 0)
-            glDeleteBuffers(1, &glId);
-        glId = 0;
-    }
-
-    uint32_t glId = 0;
-
-private:
-    static constexpr GLenum TEMP_BUFFER_TARGET = GL_COPY_WRITE_BUFFER;
-
-    static Buffer make(void* data, int_t size, GLbitfield flags) {
-        if (flags != 0) {
-            flags |= GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
-        }
-        Buffer ret;
-        glGenBuffers(1, &ret.glId);
-        glBindBuffer(TEMP_BUFFER_TARGET, ret.glId);
-        glBufferStorage(TEMP_BUFFER_TARGET, size, data, flags);
-        return ret;
-    }
-
-    void* map(int_t offset, int_t size, GLbitfield flags) const {
-        glBindBuffer(TEMP_BUFFER_TARGET, glId);
-        return glMapBufferRange(TEMP_BUFFER_TARGET, offset, size, flags | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-    }
-};
-
 struct Texture {
     uint32_t glId = 0;
     explicit operator bool() const { return glId != 0; }
@@ -207,12 +153,12 @@ inline void bind(shadergen::Binding binding, Texture texture) {
     glActiveTexture(GL_TEXTURE0 + binding.index);
     texture.bind();
 }
-inline void bind(shadergen::Binding binding, Buffer buffer, int_t offset, int_t size) {
+/*inline void bind(shadergen::Binding binding, gfx::Buffer buffer, int_t size) {
     using enum shadergen::Binding::Type;
     VERIFY(OpenGL, binding.type == UniformBuffer || binding.type == StorageBuffer);
     GLenum target = binding.type == UniformBuffer ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
-    glBindBufferRange(target, binding.index, buffer.glId, offset, size);
-}
+    glBindBufferRange(target, binding.index, buffer.glId, buffer.offsetInBytes(), size);
+}*/
 template<const shadergen::Shader& shader, stx::FixedString name>
 constexpr shadergen::Binding binding = shadergen::getBinding<shader, name>;
 

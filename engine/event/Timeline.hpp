@@ -56,7 +56,7 @@ public:
     Source<CallbackEvent>& callbackHandler() { return m_callbackHandler; }
     int_t tick() const { return lastStartedTick; }
 };
-DECLARE_THREAD_LOCAL_GETSET(Timeline*, currentTimeline, setCurrentTimeline, CURRENT_TIMELINE)
+DECLARE_THREAD_LOCAL_GETSET(Timeline*, currentTimeline, setCurrentTimeline, TIMELINE)
 
 template<std::derived_from<Timeline> TL>
 class AsyncTimeline;
