@@ -239,7 +239,7 @@ struct ShaderGenInput {
             auto begin = generator.beginSegment();
             generator.emitStage(newShader, stage);
             std::string_view source = generator.completeSegment(begin);
-            sources.pushBack({ source.data() - sourceStorage.data, (int_t)source.size() });
+            sources.pushBack({ source.data() - sourceStorage.data(), (int_t)source.size() });
         });
     }
 

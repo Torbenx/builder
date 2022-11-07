@@ -83,15 +83,19 @@ struct PseudoVector {
 template<typename T, int_t N>
 struct OversizedArray {
     using value_type = T;
-    T data[N] = {};
+    T storage[N] = {};
     int_t m_size = 0;
 
-    constexpr T* begin() { return data; }
+    constexpr T* data() { return storage; }
+    constexpr const T* data() const { return storage; }
+    constexpr T* begin() { return data(); }
     constexpr T* end() { return begin() + size(); }
-    constexpr const T* begin() const { return data; }
+    constexpr const T* begin() const { return data(); }
     constexpr const T* end() const { return begin() + size(); }
     constexpr int_t size() const { return m_size; }
     constexpr int_t capacity() const { return N; }
+    constexpr T& operator[](int_t i) { return data()[i]; }
+    constexpr const T& operator[](int_t i) const { return data()[i]; }
     constexpr T* acquireEnd(int_t size = 1) {
         T* end = this->end();
         m_size += size;
@@ -100,9 +104,9 @@ struct OversizedArray {
     constexpr T& pushBack(T item) {
         return *acquireEnd() = item;
     }
-    constexpr operator PseudoVector<T>() { return { data, &m_size }; }
-    constexpr operator ArrayView<T>() { return { data, size() }; }
-    constexpr operator ArrayView<const T>() const { return { data, size() }; }
+    constexpr operator PseudoVector<T>() { return { data(), &m_size }; }
+    constexpr operator ArrayView<T>() { return { data(), size() }; }
+    constexpr operator ArrayView<const T>() const { return { data(), size() }; }
 };
 template<auto oversized>
 constexpr auto shrinkToFit() {
