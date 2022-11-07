@@ -4,16 +4,6 @@
 #include "containers/FixedString.hpp"
 
 namespace shadergen {
-
-namespace code {
-    template<stx::FixedString str>
-    constexpr const stx::FixedString<str.size()>& operator"" _v() {
-        return str;
-    }
-}
-template<stx::FixedString str>
-constexpr std::string_view varName() { return str; }
-
 // Storage
 template<int_t N, int_t S>
 struct BasicASTStorage {
@@ -146,7 +136,7 @@ struct BlockDriver : CheckedASTTransform<BlockDriver> {
         auto* rangeStmt = storage.allocateStmt<RangeStmt>({ begin, end });
         {
             DeclContextScope scope { this, &rangeStmt->iteratorDeclContext };
-            auto iterator = variable<int>(varName<"range_iterator">());
+            auto iterator = variable<int>("range_iterator");
             rangeStmt->iteratorDecl = lookupPrevDecl(iterator.decl);
             {
                 BlockScope scope { this };
@@ -176,7 +166,7 @@ struct VariableInitHelper {
         return driver.variableWithInit(name, init);
     }
 };
-#define AUTO_VARIABLE(driver, name) auto name = ::shadergen::VariableInitHelper(driver, ::shadergen::varName<#name>())
+#define AUTO_VARIABLE(driver, name) auto name = ::shadergen::VariableInitHelper(driver, #name)
 
 struct StageDeclDriver : BlockDriver {
     StageDecl* m_stageDecl = nullptr;
