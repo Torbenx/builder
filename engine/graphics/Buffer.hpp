@@ -1,16 +1,18 @@
 #pragma once
 
 #include "platform/thread_local_storage.hpp"
+#include "util/Callable.hpp"
 #include "util/types.hpp"
 
 namespace gfx {
 
 inline constexpr size_t BUFFER_CPU_ALLOCATION_ALIGNMENT = 16;
 
+template<typename T = void>
 class Buffer;
 
 struct BufferInfo {
-    Buffer* buffer = nullptr;
+    Buffer<>* buffer = nullptr;
 };
 struct BufferMapping {
     uint32_t location = 0;
@@ -56,9 +58,9 @@ struct BufferManager {
     stx::BasicCallback<BufferManager&, uint32_t> allocBumpCallback;
     BufferMapping allocate(uint32_t id, AllocationKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping) {
         uint32_t requiredSize = sizeof(Header) + stx::alignmentCeil(BUFFER_CPU_ALLOCATION_ALIGNMENT, size);
-        while (allocBump.offset + requiredSize >= allocBumpSize) [[unlikely]] {
-            allocBumpCallback(*this, requiredSize);
-        }
+        while (allocBump.offset + requiredSize >= allocBumpSize) {
+                allocBumpCallback(*this, requiredSize);
+            }
         new (get(allocBump)) Header {
             .id = (uint16_t)id,
             .kind = kind,
@@ -77,8 +79,14 @@ struct BufferManager {
 };
 DECLARE_THREAD_LOCAL_GETSET(BufferManager*, bufferManager, setBufferManager, GRAPHICS_BUFFER_MANAGER)
 
-class Buffer {
-private:
+template<typename T = void>
+struct BufferView {
+    uint32_t id = 0;
+};
+
+template<>
+class Buffer<void> {
+protected:
     uint16_t m_id = 0;
     uint16_t m_loc = 0;
     uint32_t m_offset = 0;
@@ -169,6 +177,25 @@ public:
     }
 
     explicit operator bool() const { return id() != 0; }
+    operator BufferView<>() const { return { id() }; }
+};
+
+template<typename T>
+class Buffer : public Buffer<> {
+private:
+    using Base = Buffer<>;
+
+public:
+    operator BufferView<T>() const { return { id() }; }
+    void* staticUpdate() {
+        return Base::staticUpdate(alignof(T), sizeof(T));
+    }
+    void* beginDynamicUpdates() {
+        return Base::beginDynamicUpdates(alignof(T), sizeof(T));
+    }
+    T* mapping() const {
+        return static_cast<T*>(Base::mapping());
+    }
 };
 
 }

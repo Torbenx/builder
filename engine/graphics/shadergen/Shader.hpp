@@ -18,7 +18,7 @@ enum class StageKind {
     Fragment,
 };
 
-struct Binding {
+struct BindingBase {
     enum class Type {
         UniformBuffer,
         StorageBuffer,
@@ -37,27 +37,24 @@ struct Binding {
     Access access = (Access)0;
     uint32_t stageMask = 0;
 };
+struct Binding : BindingBase {
+    int_t offset = 0;
+};
 
 struct ShaderDecl;
-struct Stage {
+struct StageRecord {
     StageKind kind;
     std::string_view source;
 };
 
-struct Shader {
+struct ShaderRecord {
     const ShaderDecl* shaderDecl = nullptr;
     ArrayView<const Binding> bindings;
-    ArrayView<const Stage> stages;
-    constexpr Binding findBinding(std::string_view name) const {
-        for (auto& binding : bindings) {
-            if (name == binding.name)
-                return binding;
-        }
-        VERIFY_NOT_REACHED(ShaderGen);
-        return {};
-    }
+    ArrayView<const StageRecord> stages;
 };
-template<const Shader& shader, stx::FixedString name>
-constexpr Binding getBinding = shader.findBinding(name);
+template<typename Impl>
+struct ShaderRecordHolder {
+    static constinit const ShaderRecord value;
+};
 
 }
