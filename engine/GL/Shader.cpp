@@ -99,8 +99,8 @@ void Shader::initialize(ShaderBuilder& builder) {
         }
     };
 
-    constexpr const char* shaderName[] = { "Vertex", "Fragment", "Compute" };
-    constexpr GLenum shaderGLEnum[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER, GL_COMPUTE_SHADER };
+    static constexpr const char* shaderName[] = { "Vertex", "Fragment", "Compute" };
+    static constexpr GLenum shaderGLEnum[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER, GL_COMPUTE_SHADER };
 
     auto compileShader = [&](int shaderType, const char* source) {
         GLuint shader = glCreateShader(shaderGLEnum[shaderType]);

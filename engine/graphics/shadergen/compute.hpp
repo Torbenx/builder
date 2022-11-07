@@ -147,11 +147,11 @@ struct ComputeDriver : ShaderDriver, StageDriver {
     constexpr ComputeDriver(ASTStorage storage, PseudoVector<CBinding> bindings, PseudoVector<BindingModifier> bindingModifiers)
         : ShaderDriver(storage, bindings, bindingModifiers)
         , StageDriver(storage, StageKind::Compute, &shaderDecl()->uniforms)
-        , localIndex(builtin<iVec3, 1>(varName<"gl_LocalInvocationID">(), { &glsl::needsCast }))
-        , globalIndex(builtin<iVec3, 1>(varName<"gl_WorkGroupID">(), { &glsl::needsCast })) {
+        , localIndex(builtin<iVec3, 1>("gl_LocalInvocationID", { &glsl::needsCast }))
+        , globalIndex(builtin<iVec3, 1>("gl_WorkGroupID", { &glsl::needsCast })) {
         addStage(stageDecl());
         {
-            VarDecl decl { varName<"">(), &VoidType, nullptr };
+            VarDecl decl { "", &VoidType, nullptr };
             VarDecl* newDecl = createVarDecl(&decl, &stageDecl()->globals);
             newDecl->prevDecl = nullptr;
             storage.pushBackOnList(newDecl->modifiers, &builtinIndicator);

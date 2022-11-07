@@ -295,7 +295,7 @@ constexpr CNumber operator-(float l, const CNumber& r) { return { l - r.r, -r.i 
 constexpr CNumber operator-(const CNumber& l, float r) { return { l.r - r, l.i }; }
 constexpr CNumber operator-(const CNumber& z) { return { -z.r, -z.i }; }
 constexpr CNumber conjugate(const CNumber& z) { return { z.r, -z.i }; }
-constexpr float length(const CNumber& z) { return std::sqrt(lengthSq(z)); }
+constexpr float length(const CNumber& z) { return sqrt(lengthSq(z)); }
 constexpr float lengthSq(const CNumber& z) { return z.r * z.r + z.i * z.i; }
 constexpr float invLength(const CNumber& z) { return 1.0f / length(z); }
 constexpr float invLengthSq(const CNumber& z) { return 1.0f / lengthSq(z); }
@@ -318,7 +318,7 @@ constexpr Vec2 operator/(const Vec2& v, float f) { return { v.x / f, v.y / f }; 
 constexpr Vec2 operator+(const Vec2& l, const Vec2& r) { return { l.x + r.x, l.y + r.y }; }
 constexpr Vec2 operator-(const Vec2& l, const Vec2& r) { return { l.x - r.x, l.y - r.y }; }
 constexpr Vec2 operator-(const Vec2& v) { return { -v.x, -v.y }; }
-constexpr float length(const Vec2& v) { return std::sqrt(lengthSq(v)); }
+constexpr float length(const Vec2& v) { return sqrt(lengthSq(v)); }
 constexpr float lengthSq(const Vec2& v) { return v.x * v.x + v.y * v.y; }
 constexpr float invLength(const Vec2& v) { return 1.0f / length(v); }
 constexpr float invLengthSq(const Vec2& v) { return 1.0f / lengthSq(v); }
@@ -341,7 +341,7 @@ constexpr Vec3 operator/(const Vec3& v, float f) { return { v.x / f, v.y / f, v.
 constexpr Vec3 operator+(const Vec3& l, const Vec3& r) { return { l.x + r.x, l.y + r.y, l.z + r.z }; }
 constexpr Vec3 operator-(const Vec3& l, const Vec3& r) { return { l.x - r.x, l.y - r.y, l.z - r.z }; }
 constexpr Vec3 operator-(const Vec3& v) { return { -v.x, -v.y, -v.z }; }
-constexpr float length(const Vec3& v) { return std::sqrt(lengthSq(v)); }
+constexpr float length(const Vec3& v) { return sqrt(lengthSq(v)); }
 constexpr float lengthSq(const Vec3& v) { return v.x * v.x + v.y * v.y + v.z * v.z; }
 constexpr float invLength(const Vec3& v) { return 1.0f / length(v); }
 constexpr float invLengthSq(const Vec3& v) { return 1.0f / lengthSq(v); }

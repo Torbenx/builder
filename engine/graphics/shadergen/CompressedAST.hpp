@@ -206,12 +206,15 @@ struct NodePtr {
 template<typename Node, NodePtr<Node> node>
 struct CompressedASTHolder {
     template<ResolvedNodes nodes, int_t... I>
-    static constexpr auto generateCompressedAST_helper(stx::int_sequence<I...>) {
+    static constexpr auto generateCompressedAST_helper2(stx::int_sequence<I...>) {
         return CompressedAST<Node, nodes.totalMessageLength, storage_t<typename NodeTypeLookup<nodes.nodes[I]>::type, I>...>(node.node);
     }
+    template<ResolvedNodes nodes>
+    static constexpr auto generateCompressedAST_helper1() {
+        return generateCompressedAST_helper2<nodes>(stx::make_int_sequence<nodes.nodeCount>());
+    }
     static constexpr auto generateCompressedAST() {
-        constexpr auto nodes = NodeResolver::resolve<Node>(node.node);
-        return generateCompressedAST_helper<nodes>(stx::make_int_sequence<nodes.nodeCount>());
+        return generateCompressedAST_helper1<NodeResolver::resolve(node.node)>();
     }
     static constexpr auto compressedAST = generateCompressedAST();
 };
