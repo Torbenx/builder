@@ -221,10 +221,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     WIN_VERIFY(clazz != 0);
 
     onNoInitialWindow();
-    while (true) {
+    do {
         processEvents();
-        evt::runScheduler();
-    }
+    } while(evt::runScheduler());
 
     return 0;
 }

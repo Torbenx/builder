@@ -66,10 +66,12 @@ struct Executor {
 };
 struct ExecutorImpl : Executor {
     Executor nextTick;
-    void execute() {
-        for (int_t i = 0; i < (int_t)handles.size(); i++)
+    int_t execute() {
+        int_t i = 0;
+        for (; i < (int_t)handles.size(); i++)
             handles[i].resume();
         handles = std::move(nextTick.handles);
+        return i;
     }
 };
 

@@ -14,7 +14,7 @@ namespace detail {
     inline StaticInitDummy staticInitDummy;
 }
 
-void runScheduler();
+bool runScheduler();
 void async(stx::BasicCallback<>, int_t tick = evt::mainTick());
 void postCallback(Source<CallbackEvent>& postTo, stx::BasicCallback<>);
 
@@ -39,7 +39,7 @@ public:
     int_t lastStartedTick = -1;
 
     void beginTick();
-    void executeScripts() { executor()->execute(); }
+    int_t executeScripts() { return executor()->execute(); }
     void clearTick();
     void endTick();
 

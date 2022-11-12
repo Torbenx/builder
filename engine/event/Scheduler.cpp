@@ -312,12 +312,14 @@ namespace {
             return true;
         }
 
-        void run() {
+        bool run() {
             for (auto& queue : callbackQueues)
                 for (auto callback : queue)
                     callback.postTo->sendEvent(callback.event);
             callbackQueues.clear();
-            timeline.executeScripts();
+            int_t scriptsExecuted = timeline.executeScripts();
+            if (scriptsExecuted == 0 && lowestTick() == nextTickToStart)
+                return false;
             timeline.clearTick();
 
             nextTickToStart += 1;
@@ -330,6 +332,7 @@ namespace {
             evt::setMainTick(nextTickToStart);
             timeline.beginTick();
             EXPECT(Event, timeline.tick(), nextTickToStart);
+            return true;
         }
     };
 }
@@ -350,8 +353,8 @@ detail::StaticInitDummy::~StaticInitDummy() {
     delete scheduler;
 }
 
-void runScheduler() {
-    static_cast<MainScheduler*>(scheduler())->run();
+bool runScheduler() {
+    return static_cast<MainScheduler*>(scheduler())->run();
 }
 
 void async(Item item, int_t tick) {
