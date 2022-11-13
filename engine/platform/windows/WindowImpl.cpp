@@ -128,7 +128,7 @@ LRESULT CALLBACK mainWindowCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
         window->exitSizeMove();
         return 0;
     case WM_PAINT: {
-        evt::runScheduler();
+        evt::EngineScope::run();
         return 0;
     }
     case WM_WINDOWPOSCHANGED:
@@ -179,24 +179,6 @@ Window Window::construct() {
     return Window(window);
 }
 
-void earlyInitialize() {
-    // setup thread local storage
-    std::vector<uint32_t> ununsedIndices;
-    int_t usedIndices = 0;
-    while (usedIndices < TLS_INDICES_COUNT) {
-        uint32_t tlsIndex = TlsAlloc();
-        if (tlsIndex >= TLS_INDICES_BASE && tlsIndex < TLS_INDICES_BASE + TLS_INDICES_COUNT)
-            usedIndices += 1;
-        else
-            ununsedIndices.push_back(tlsIndex);
-        if (tlsIndex >= 63)
-            break;
-    }
-    EXPECT(Windows, usedIndices, TLS_INDICES_COUNT);
-    for (uint32_t index : ununsedIndices)
-        TlsFree(index);
-}
-
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
@@ -220,10 +202,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     ATOM clazz = RegisterClassEx(&wc);
     WIN_VERIFY(clazz != 0);
 
+    // setup thread local storage
+    std::vector<uint32_t> ununsedIndices;
+    int_t usedIndices = 0;
+    while (usedIndices < plt::TLS_INDICES_COUNT) {
+        uint32_t tlsIndex = TlsAlloc();
+        if (tlsIndex >= plt::TLS_INDICES_BASE && tlsIndex < plt::TLS_INDICES_BASE + plt::TLS_INDICES_COUNT)
+            usedIndices += 1;
+        else
+            ununsedIndices.push_back(tlsIndex);
+        if (tlsIndex >= 63)
+            break;
+    }
+    EXPECT(Windows, usedIndices, plt::TLS_INDICES_COUNT);
+    for (uint32_t index : ununsedIndices)
+        TlsFree(index);
+
+    evt::EngineScope engine;
     onNoInitialWindow();
     do {
         processEvents();
-    } while(evt::runScheduler());
+    } while(evt::EngineScope::run());
 
     return 0;
 }

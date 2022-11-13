@@ -129,20 +129,21 @@ namespace {
         }
     };
 
-    TickRingBuffer<GlobalQueue> globalQueues = {};
-    constinit TickRingBuffer<std::atomic<int_t>> globalItemsAlive = {};
-    constinit std::atomic<int_t> lowestActiveTick = 0;
-
     struct CallbackItem {
         Source<CallbackEvent>* postTo = nullptr;
         CallbackEvent event;
     };
     using CallbackQueue = AtomicArrayBuilder<CallbackItem>;
-    TickRingBuffer<CallbackQueue> queuedCallbacks;
+
+    struct GlobalData {
+        TickRingBuffer<GlobalQueue> queues = {};
+        TickRingBuffer<std::atomic<int_t>> itemsAlive = {};
+        std::atomic<int_t> lowestActiveTick = 0;
+        TickRingBuffer<CallbackQueue> queuedCallbacks;
+    };
 
     struct Scheduler {
-        static int_t lowestTick() { return lowestActiveTick.load(std::memory_order_relaxed); }
-
+        GlobalData* global;
         TickRingBuffer<LocalStack> localStacks = {};
         int_t checkIndex = 0;
         int_t activeTick = lowestTick();
@@ -153,10 +154,12 @@ namespace {
         const int_t checksBeforeSleep = 30;
         int_t checksSinceLastSchedule = 0;
 
-        Scheduler() {
+        Scheduler(GlobalData* global)
+            : global(global) {
             checks.push_back([](Scheduler* scheduler) { return scheduler->checkForBetter(); });
             checks.push_back([](Scheduler* scheduler) { return scheduler->checkForSleep(); });
         }
+        int_t lowestTick() { return global->lowestActiveTick.load(std::memory_order_relaxed); }
 
         void schedule(Item item, int_t tick) {
             if (!item) {
@@ -165,7 +168,7 @@ namespace {
             }
             VERIFY(Event, tick >= evt::mainTick());
             VERIFY(Event, tick < lowestTick() + MAX_CONCURRENT_TICKS);
-            globalItemsAlive[tick].fetch_add(1, std::memory_order_relaxed);
+            global->itemsAlive[tick].fetch_add(1, std::memory_order_relaxed);
             localStacks[tick].push(item);
             if (tick > activeTick)
                 hasNonActiveTicks = true;
@@ -173,7 +176,7 @@ namespace {
 
         bool checkForBetter() {
             for (int_t i = lowestTick(); i < activeTick; i++) {
-                Block newBlock = globalQueues[i].tryPop();
+                Block newBlock = global->queues[i].tryPop();
                 if (newBlock.empty())
                     continue;
 
@@ -212,7 +215,7 @@ namespace {
             for (int_t i = activeTick + 1; i < lowest + MAX_CONCURRENT_TICKS; i++) {
                 Block block = localStacks[i].takeBlock();
                 if (!block.empty()) {
-                    globalQueues[i].queue(std::move(block));
+                    global->queues[i].queue(std::move(block));
                 }
             }
             hasNonActiveTicks = false;
@@ -241,7 +244,7 @@ namespace {
                 executingItem = true;
                 item();
                 executingItem = false;
-                globalItemsAlive[activeTick].fetch_sub(1, std::memory_order_relaxed);
+                global->itemsAlive[activeTick].fetch_sub(1, std::memory_order_relaxed);
             } else {
                 // having activeTick = lowestTick + MAX_CONCURRENT_TICKS should be fine since
                 // the ring buffer has an extra element that should always be empty
@@ -271,7 +274,8 @@ namespace {
         std::vector<CallbackQueue::TakeReturnType> callbackQueues;
         Timeline timeline;
 
-        MainScheduler() {
+        MainScheduler(GlobalData* global)
+            : Scheduler(global) {
             checks.push_back([](Scheduler* scheduler) {
                 return static_cast<MainScheduler*>(scheduler)->checkTickLifetime();
             });
@@ -281,12 +285,12 @@ namespace {
             // end ticks
             int_t currentLowestTick = lowestTick();
             int_t lowestTick = currentLowestTick;
-            while (globalItemsAlive[lowestTick].load(std::memory_order_relaxed) == 0 && lowestTick < nextTickToStart) {
-                callbackQueues.push_back(queuedCallbacks[lowestTick].take());
+            while (global->itemsAlive[lowestTick].load(std::memory_order_relaxed) == 0 && lowestTick < nextTickToStart) {
+                callbackQueues.push_back(global->queuedCallbacks[lowestTick].take());
                 lowestTick += 1;
             }
             if (lowestTick != currentLowestTick)
-                lowestActiveTick.store(lowestTick, std::memory_order_relaxed);
+                global->lowestActiveTick.store(lowestTick, std::memory_order_relaxed);
 
             // start tick
             int_t nowTickAbsolute = getNanos() / nanosPerTick;
@@ -335,26 +339,11 @@ namespace {
             return true;
         }
     };
-}
 
-detail::StaticInitDummy::StaticInitDummy() {
-    plt::earlyInitialize();
-    MainScheduler* scheduler = new MainScheduler;
-    VDUMP(mainTick());
-    setScheduler(scheduler);
-    setMainTick(0);
-    scheduler->timeline.beginTick();
-    data = scheduler;
-}
-detail::StaticInitDummy::~StaticInitDummy() {
-    MainScheduler* scheduler = (MainScheduler*)data;
-    setScheduler(nullptr);
-    data = nullptr;
-    delete scheduler;
-}
-
-bool runScheduler() {
-    return static_cast<MainScheduler*>(scheduler())->run();
+    struct EngineImpl {
+        GlobalData global;
+        MainScheduler mainScheduler { &global };
+    };
 }
 
 void async(Item item, int_t tick) {
@@ -362,7 +351,37 @@ void async(Item item, int_t tick) {
 }
 
 void postCallback(Source<CallbackEvent>& postTo, stx::BasicCallback<> callback) {
-    queuedCallbacks[evt::mainTick()].pushBack({ &postTo, { callback } });
+    scheduler()->global->queuedCallbacks[evt::mainTick()].pushBack({ &postTo, { callback } });
+}
+
+EngineScope::EngineScope()
+    : data(new EngineImpl {}) {
+    EngineImpl* impl = (EngineImpl*)data;
+
+    VERIFY(Event, scheduler() == nullptr);
+    VERIFY(Event, mainTick() == 0);
+    VERIFY(Event, currentTimeline() == nullptr);
+
+    setScheduler(&impl->mainScheduler);
+    setMainTick(0);
+    impl->mainScheduler.timeline.beginTick();
+}
+bool EngineScope::run() {
+    return static_cast<MainScheduler*>(scheduler())->run();
+}
+EngineScope::~EngineScope() {
+    EngineImpl* impl = (EngineImpl*)data;
+
+    VERIFY(Event, scheduler() == &impl->mainScheduler);
+    VERIFY(Event, mainTick() == impl->mainScheduler.nextTickToStart);
+    VERIFY(Event, currentTimeline() == &impl->mainScheduler.timeline);
+
+    impl->mainScheduler.timeline.clearTick();
+    setMainTick(0);
+    setScheduler(nullptr);
+
+    delete impl;
+    data = nullptr;
 }
 
 }

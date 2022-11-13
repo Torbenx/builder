@@ -88,8 +88,6 @@ protected:
         : backend(backend) { }
 };
 
-void earlyInitialize();
-
 }
 
 extern "C" void WEAK_SYMBOL_DECL(onNoInitialWindow)();

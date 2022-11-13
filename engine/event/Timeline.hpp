@@ -5,18 +5,18 @@
 
 namespace evt {
 
-namespace detail {
-    struct StaticInitDummy {
-        void* data = nullptr;
-        StaticInitDummy();
-        ~StaticInitDummy();
-    };
-    inline StaticInitDummy staticInitDummy;
-}
-
-bool runScheduler();
 void async(stx::BasicCallback<>, int_t tick = evt::mainTick());
 void postCallback(Source<CallbackEvent>& postTo, stx::BasicCallback<>);
+
+class EngineScope {
+private:
+    void* data = nullptr;
+
+public:
+    EngineScope();
+    ~EngineScope();
+    static bool run();
+};
 
 template<typename T, int_t N>
 struct RingBuffer {
