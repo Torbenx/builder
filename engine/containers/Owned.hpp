@@ -27,6 +27,15 @@ namespace detail {
     struct DefaultDeallocateCall<T> {
         using type = CallMember<&T::deallocate>;
     };
+    template<typename T>
+    struct DefaultDeallocateCall<T*> {
+        struct type {
+            constexpr void operator()(T*& value) const {
+                delete value;
+                value = nullptr;
+            }
+        };
+    };
 
     template<typename T>
     struct TypeOrWrapper {

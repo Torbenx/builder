@@ -63,28 +63,30 @@ struct UiData {
     END_GEN_STRUCT();
 };
 struct UiShader {
-    gfx::BufferView<UiData> data;
-    gfx::BufferView<iVec2> positions;
+    gfx::BufferHandle<UiData> data;
+    gfx::BufferHandle<iVec2[]> positions;
+    gfx::ImageHandle<gfx::FormatQual::RGBA8> screen;
+    gfx::ImageHandle<gfx::FormatQual::RGBA8> atlas;
 
     static constexpr void defineShader(ComputeDriver&);
 };
 constexpr void UiShader::defineShader(ComputeDriver& prog) {
     auto data = prog.uniformBuffer<&UiShader::data>("data");
     auto positions = prog.storageBuffer<&UiShader::positions>("positions", MemQual::NoWrite);
-    // auto screen = prog.storageImage<uImage2D>("screen"_v, (MemQual)0);
-    // auto atlas = prog.storageImage<uImage2D>("atlas"_v, MemQual::NoWrite);
+    auto screen = prog.storageImage<&UiShader::screen>("screen", (MemQual)0);
+    auto atlas = prog.storageImage<&UiShader::atlas>("atlas", MemQual::NoWrite);
 
     AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
     AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
-    /*AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
+    AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
     prog.range(constant(0), data.maxLayers, [&](auto& i) {
         AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
         AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
-        prog, color = (inColor.xyz() * inColor.w + color * (constant(255u) - inColor.w)) / constant(255u);
+        prog, color = inColor.xyz() * inColor.w + color * (constant(1.0f) - inColor.w);
     });
-    prog, imageStore(screen, screenPos, compose(color, constant(255u)));*/
+    prog, imageStore(screen, screenPos, compose(color, constant(1.0f)));
 }
-DEFINE_SHADER(UiShader)
+DEFINE_SHADER(UiShader);
 
 /*constexpr shadergen::effect::CrossEffectVariable<float> myVar { "myVar" };
 

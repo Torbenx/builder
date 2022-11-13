@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Instance.hpp"
+#include "containers/Owned.hpp"
 #include "event/AsyncTimeline.hpp"
 #include "event/Window.hpp"
 
@@ -23,6 +24,7 @@ private:
     BasicAtlasAllocator atlasAllocator;
 
     void doTick();
+    friend class Instance::SWPainter;
 
 public:
     AsyncInstance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent)
@@ -30,8 +32,9 @@ public:
         timeline()->asyncCallback = { *this, stx::CallMember<&AsyncInstance::doTick>() };
     }
 
-    void asyncPaint(sw::TextureView output, sw::Semaphore waitFor, sw::Semaphore signal);
-    void asyncPaint(gl::Texture output, gl::CommandSlot commandSlot, sw::Semaphore signal);
+    stx::Owned<Instance::SWPainter*> createSWPainter() {
+        return new Instance::SWPainter(this);
+    }
 };
 
 }

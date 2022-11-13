@@ -32,7 +32,7 @@ using TestStyle = ui::SmallStyleTable<Channel1, Channel2>;
 DECLARE_STYLE_KEY(DefaultTestStyle, TestStyle);
 
 struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
-    static void render(sw::TextureView texture, const TestStyle& style) {
+    static void render(ui::ImageView image, const TestStyle& style) {
         auto channelToShift = [](ColorChannel channel) -> int {
             switch (channel) {
             case ColorChannel::Red:
@@ -48,15 +48,15 @@ struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
         };
         int shift1 = channelToShift(style.get<Channel1>());
         int shift2 = channelToShift(style.get<Channel2>());
-        ui::IntVec dim = texture.dimensions;
-        for (int_t j = 0; j < dim.y(); j++) {
-            for (int_t i = 0; i < dim.x(); i++) {
+        ui::IntVec dim = image.dimensions();
+        for (int j = 0; j < dim.y(); j++) {
+            for (int i = 0; i < dim.x(); i++) {
                 float fracX = i / (float)(dim.x() - 1);
                 float fracY = j / (float)(dim.y() - 1);
                 uint32_t c1 = fracX * 255;
                 uint32_t c2 = 255 - c1;
                 uint32_t c3 = fracY * fracY * 255;
-                texture.pos()[j][i] = 0xff'00'00'00 | (c3 << 24) | (c1 << shift1) | (c2 << shift2);
+                image[{ i, j }] = 0xff'00'00'00 | (c3 << 24) | (c1 << shift1) | (c2 << shift2);
             }
         }
     }
@@ -104,12 +104,12 @@ evt::Script uiTestInit() {
 }
 
 struct ClearJob {
-    sw::TextureView texture;
+    ui::ImageView image;
     sw::Semaphore signal;
     uint32_t color = 0;
 
     void clear() {
-        std::fill_n(texture.pos().data, texture.pos().stride * texture.dimensions.y(), color);
+        std::fill_n(image.data(), image.stride() * image.dimensions().y(), color);
         signal.signal();
         delete this;
     }
@@ -117,8 +117,8 @@ struct ClearJob {
 
 struct PresentJob {
     plt::Window window;
-    sw::TextureView framebuffer;
-    AtomicQueue<sw::TextureView>* queue = nullptr;
+    ui::ImageView framebuffer;
+    AtomicQueue<ui::ImageView>* queue = nullptr;
     static inline int_t frames = 0;
     static inline uint64_t lastFrame = 0;
     void present() {
@@ -133,8 +133,8 @@ struct PresentJob {
         BITMAPINFO bitmapInfo {
             .bmiHeader = {
                 .biSize = sizeof(BITMAPINFOHEADER),
-                .biWidth = (int)framebuffer.pos().stride,
-                .biHeight = framebuffer.dimensions.y(),
+                .biWidth = (int)framebuffer.stride(),
+                .biHeight = framebuffer.dimensions().y(),
                 .biPlanes = 1,
                 .biBitCount = 32,
                 .biCompression = BI_RGB,
@@ -147,8 +147,8 @@ struct PresentJob {
             .bmiColors = {},
         };
         auto dc = impl->deviceContext();
-        sw::IntVec dim = framebuffer.dimensions;
-        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.pos().data, &bitmapInfo, DIB_RGB_COLORS);
+        ui::IntVec dim = framebuffer.dimensions();
+        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.data(), &bitmapInfo, DIB_RGB_COLORS);
         WIN_VERIFY(linesProcessed > 0);
         queue->pushBack(framebuffer);
         delete this;
@@ -162,39 +162,43 @@ evt::Script uiTestWrapper(plt::Window window) {
     window.initialize();
 
     int_t framebuffersAlive = 0;
-    AtomicQueue<sw::TextureView> framebufferQueue;
+    AtomicQueue<ui::ImageView> framebufferQueue;
+    stx::Owned<ui::Instance::SWPainter*> uiPainter = instance.createSWPainter();
+
+    gfx::SWImageHandle<gfx::TexelLayout::BGRA8> framebufferImage;
 
     auto paint = [&]() {
         if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
             return;
 
-        std::optional<sw::TextureView> opt;
+        std::optional<ui::ImageView> opt;
         while (true) {
             opt = framebufferQueue.tryPopFront();
             if (!opt.has_value()) {
                 framebuffersAlive += 1;
                 log("made a framebuffer");
-                opt = sw::allocateTexture(window.dimensions());
+                opt = ui::ImageView::allocate(window.dimensions());
                 break;
-            } else if (opt->dimensions == window.dimensions()) {
+            } else if (opt->dimensions() == window.dimensions()) {
                 break;
             }
             framebuffersAlive -= 1;
             opt->deallocate();
         }
-        sw::TextureView framebuffer = opt.value();
+        ui::ImageView framebuffer = opt.value();
+        //ui::ImageView framebuffer = framebufferImage.get();
 
         sw::Semaphore paintUi = sw::Semaphore::create();
         {
             ClearJob* job = new ClearJob;
-            job->texture = framebuffer;
+            job->image = framebuffer;
             job->signal = paintUi.fork();
             job->color = 0xff'ff'ff'ff;
             evt::async({ *job, stx::CallMember<&ClearJob::clear>() });
         }
 
         sw::Semaphore present = sw::Semaphore::create();
-        instance.asyncPaint(framebuffer, std::move(paintUi), present.fork());
+        uiPainter->paint(framebuffer, std::move(paintUi), present.fork());
         {
             PresentJob* job = new PresentJob;
             job->framebuffer = framebuffer;
@@ -215,7 +219,7 @@ evt::Script uiTestWrapper(plt::Window window) {
 
     while (true) {
         while (true) {
-            std::optional<sw::TextureView> opt = framebufferQueue.tryPopFront();
+            std::optional<ui::ImageView> opt = framebufferQueue.tryPopFront();
             if (!opt.has_value())
                 break;
             framebuffersAlive -= 1;

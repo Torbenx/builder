@@ -4,15 +4,18 @@
 #include "Rect.hpp"
 #include "StyleConsumer.hpp"
 #include "ZIndex.hpp"
-#include "software/Texture.hpp"
+#include "software/Image.hpp"
 
 namespace ui {
+
+using ImagePtr = sw::ImagePtr<sw::TexelLayout::BGRA8>;
+using ImageView = sw::ImageView<sw::TexelLayout::BGRA8>;
 
 class RendererBase;
 struct RendererRecord {
     void (*updateStyleAndPrepareRender)(RendererBase*, void*) = nullptr;
     void (*prepareRender)(RendererBase*, void*) = nullptr;
-    void (*render)(sw::TextureView, const void*) = nullptr;
+    void (*render)(ImageView, const void*) = nullptr;
     int_t renderDataSizeAlign8 = 0;
 };
 
@@ -55,9 +58,9 @@ private:
         RData* renderData = (RData*)renderDataOut;
         thiz->impl()->getRenderData(*renderData);
     }
-    static void dispatchRender(sw::TextureView texture, const void* renderDataIn) {
+    static void dispatchRender(ImageView image, const void* renderDataIn) {
         const RData* renderData = (const RData*)renderDataIn;
-        Impl::render(texture, *renderData);
+        Impl::render(image, *renderData);
     }
 
     static constexpr RendererRecord makeRecord() {

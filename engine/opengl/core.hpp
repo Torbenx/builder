@@ -4,7 +4,6 @@
 #include "graphics/shadergen/Shader.hpp"
 #include "platform/Window.hpp"
 #include "software/Semaphore.hpp"
-#include "software/Texture.hpp"
 #include "util/Callable.hpp"
 #include "util/target.hpp"
 
@@ -153,16 +152,8 @@ inline void bind(shadergen::Binding binding, Texture texture) {
     glActiveTexture(GL_TEXTURE0 + binding.index);
     texture.bind();
 }
-/*inline void bind(shadergen::Binding binding, gfx::Buffer buffer, int_t size) {
-    using enum shadergen::Binding::Type;
-    VERIFY(OpenGL, binding.type == UniformBuffer || binding.type == StorageBuffer);
-    GLenum target = binding.type == UniformBuffer ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
-    glBindBufferRange(target, binding.index, buffer.glId, buffer.offsetInBytes(), size);
-}*/
-template<const shadergen::Shader& shader, stx::FixedString name>
-constexpr shadergen::Binding binding = shadergen::getBinding<shader, name>;
 
-inline void imageData(Image image, ui::IntRect rect, sw::TexturePosition data) {
+/*inline void imageData(Image image, ui::IntRect rect, sw::TexturePosition data) {
     image.bindTexture();
     glPixelStorei(GL_UNPACK_ROW_LENGTH, data.stride);
     glTexSubImage2D(image.glTarget(), image.mipLevel,
@@ -172,6 +163,6 @@ inline void imageData(Image image, ui::IntRect rect, sw::TexturePosition data) {
 }
 inline void imageData(Image image, sw::IntVec offset, sw::TextureView data) {
     imageData(image, ui::IntRect { ui::BottomLeft(offset), ui::Dimensions(data.dimensions) }, data.pos());
-}
+}*/
 
 }

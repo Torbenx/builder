@@ -1,8 +1,10 @@
 #pragma once
 
 #include "platform/thread_local_storage.hpp"
+#include "software/Image.hpp"
 #include "util/Callable.hpp"
 #include "util/types.hpp"
+#include <bit>
 
 namespace gfx {
 
@@ -35,52 +37,55 @@ inline BufferMapping operator-(const BufferMapping& m, int32_t shift) {
     return { m.location, m.offset - shift };
 }
 
-struct BufferManager {
-    enum class AllocationKind : uint16_t {
-        Dynamic,
-        Static,
-        Freeze,
-        Destroy,
-    };
-    struct alignas(BUFFER_CPU_ALLOCATION_ALIGNMENT) Header {
-        uint16_t id = 0;
-        AllocationKind kind : 2 = (AllocationKind)0;
-        uint16_t alignment : 14 = 0;
-        uint32_t size = 0;
-        BufferMapping prevMapping;
-    };
-
-    std::byte* const* mappingLocations = nullptr;
-    BufferInfo* infos = nullptr;
-
-    BufferMapping allocBump;
-    uint32_t allocBumpSize = 0;
-    stx::BasicCallback<BufferManager&, uint32_t> allocBumpCallback;
-    BufferMapping allocate(uint32_t id, AllocationKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping) {
-        uint32_t requiredSize = sizeof(Header) + stx::alignmentCeil(BUFFER_CPU_ALLOCATION_ALIGNMENT, size);
-        while (allocBump.offset + requiredSize >= allocBumpSize) {
-                allocBumpCallback(*this, requiredSize);
-            }
-        new (get(allocBump)) Header {
-            .id = (uint16_t)id,
-            .kind = kind,
-            .alignment = (uint16_t)gpuAlignment,
-            .size = size,
-            .prevMapping = prevMapping,
-        };
-        BufferMapping ret = allocBump + sizeof(Header);
-        allocBump += requiredSize;
-        return ret;
-    }
-
-    std::byte* get(BufferMapping buffer) const {
-        return mappingLocations[buffer.location] + buffer.offset;
-    }
+enum class BufferAllocKind : uint16_t {
+    Dynamic,
+    Static,
+    Freeze,
+    Destroy,
 };
-DECLARE_THREAD_LOCAL_GETSET(BufferManager*, bufferManager, setBufferManager, GRAPHICS_BUFFER_MANAGER)
+struct alignas(BUFFER_CPU_ALLOCATION_ALIGNMENT) BufferAllocHeader {
+    uint16_t id = 0;
+    BufferAllocKind kind : 2 = (BufferAllocKind)0;
+    uint16_t alignment : 14 = 0;
+    uint32_t size = 0;
+    BufferMapping prevMapping;
+};
+
+struct Frame {
+    std::byte** bufferMappingLocations = nullptr;
+    std::byte* get(BufferMapping buffer) const {
+        return bufferMappingLocations[buffer.location] + buffer.offset;
+    }
+
+    BufferMapping bufferAllocBump;
+    uint32_t bufferAllocBumpSize = 0;
+    void growBufferAllocBump(uint32_t requiredSize);
+    BufferMapping allocateBuffer(uint32_t id, BufferAllocKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping);
+
+    sw::ImageView<>* softwareImages = nullptr;
+};
+
+inline constexpr int_t MAX_CONCURRENT_FRAMES = 4;
+inline constexpr size_t INSTANCE_ALIGNMENT = std::bit_ceil(sizeof(Frame) * MAX_CONCURRENT_FRAMES);
+
+struct alignas(INSTANCE_ALIGNMENT) Instance {
+    Frame frames[MAX_CONCURRENT_FRAMES] = {};
+
+    BufferInfo* bufferInfos = nullptr;
+};
+static_assert(offsetof(Instance, frames[0]) == 0);
+
+DECLARE_THREAD_LOCAL_GETSET(Frame*, frame, setFrame, GRAPHICS_FRAME)
+inline Instance* toInstance(Frame* frame) {
+    return (Instance*)stx::alignmentFloor(INSTANCE_ALIGNMENT, (uintptr_t)frame);
+}
+inline int_t toFrameIndex(Frame* frame) {
+    return frame - (Frame*)toInstance(frame);
+}
+inline Instance* instance() { return toInstance(frame()); }
 
 template<typename T = void>
-struct BufferView {
+struct BufferHandle {
     uint32_t id = 0;
 };
 
@@ -107,7 +112,7 @@ protected:
     }
 
     BufferInfo* info() const {
-        return bufferManager()->infos + id();
+        return instance()->bufferInfos + id();
     }
 
     BufferMapping bufferMapping() const { return { loc(), offset() }; }
@@ -126,15 +131,14 @@ protected:
         other.clearFields();
     }
 
-    using AllocationKind = BufferManager::AllocationKind;
-    void* allocate(AllocationKind kind, uint32_t alignment, uint32_t size) {
-        BufferManager* manager = bufferManager();
-        BufferMapping mapping = manager->allocate(id(), kind, alignment, size, bufferMapping());
+    void* allocate(BufferAllocKind kind, uint32_t alignment, uint32_t size) {
+        Frame* frame = gfx::frame();
+        BufferMapping mapping = frame->allocateBuffer(id(), kind, alignment, size, bufferMapping());
         setMapping(mapping);
-        return manager->get(mapping);
+        return frame->get(mapping);
     }
     void deallocateInternal() {
-        allocate(AllocationKind::Destroy, 0, 0);
+        allocate(BufferAllocKind::Destroy, 0, 0);
     }
 
 public:
@@ -152,7 +156,7 @@ public:
     }
 
     void* mapping() const {
-        return bufferManager()->get(bufferMapping());
+        return frame()->get(bufferMapping());
     }
 
     ~Buffer() {
@@ -167,26 +171,25 @@ public:
     }
 
     void* staticUpdate(uint32_t alignment, uint32_t size) {
-        return allocate(AllocationKind::Static, alignment, size);
+        return allocate(BufferAllocKind::Static, alignment, size);
     }
     void* beginDynamicUpdates(uint32_t alignment, uint32_t size) {
-        return allocate(AllocationKind::Dynamic, alignment, size);
+        return allocate(BufferAllocKind::Dynamic, alignment, size);
     }
     void endDynamicUpdates() {
-        allocate(AllocationKind::Freeze, 0, 0);
+        allocate(BufferAllocKind::Freeze, 0, 0);
     }
 
     explicit operator bool() const { return id() != 0; }
-    operator BufferView<>() const { return { id() }; }
+    operator BufferHandle<>() const { return { id() }; }
 };
 
 template<typename T>
 class Buffer : public Buffer<> {
-private:
     using Base = Buffer<>;
 
 public:
-    operator BufferView<T>() const { return { id() }; }
+    operator BufferHandle<T>() const { return { id() }; }
     void* staticUpdate() {
         return Base::staticUpdate(alignof(T), sizeof(T));
     }
@@ -196,6 +199,88 @@ public:
     T* mapping() const {
         return static_cast<T*>(Base::mapping());
     }
+};
+template<typename T>
+class Buffer<T[]> : public Buffer<> {
+    using Base = Buffer<>;
+
+public:
+    operator BufferHandle<T[]>() const { return { id() }; }
+    void* staticUpdate(int_t size) {
+        return Base::staticUpdate(alignof(T), sizeof(T) * size);
+    }
+    void* beginDynamicUpdates(int_t size) {
+        return Base::beginDynamicUpdates(alignof(T), sizeof(T) * size);
+    }
+    T* mapping() const {
+        return static_cast<T*>(Base::mapping());
+    }
+};
+
+template<TexelLayout layout>
+class SWImageHandle {
+protected:
+    uint32_t id = 0;
+
+public:
+    sw::ImageView<layout> get() const {
+        return (sw::ImageView<layout>)frame()->softwareImages[id];
+    }
+};
+
+enum class TexelComponents {
+    D16,
+    RGBA8,
+};
+
+enum class ImageType : uint32_t {
+    Texture,
+    Renderbuffer,
+    CubeFacePosX,
+    CubeFaceNegX,
+    CubeFacePosY,
+    CubeFaceNegY,
+    CubeFacePosZ,
+    CubeFaceNegZ,
+};
+
+template<TexelLayout layout = TexelLayout::Unknown>
+struct Image;
+
+template<>
+struct Image<TexelLayout::Unknown> {
+    uint32_t baseId : 24 = 0;
+    uint32_t mipLevel : 4 = 0;
+    ImageType type : 4 = (ImageType)0;
+};
+
+template<TexelLayout layout>
+struct Image : Image<> {
+    using Base = Image<>;
+};
+
+template<TexelComponents comps>
+struct ImageHandle : Image<> { };
+
+template<TexelLayout layout>
+struct Texture {
+    uint32_t id = 0;
+    Image<layout> image(int_t level = 0) const {
+        return {
+            .baseId = id,
+            .mipLevel = (uint32_t)level,
+            .type = ImageType::Texture,
+        };
+    }
+    operator Image<layout>() const { return image(); }
+};
+
+template<typename S>
+class ShaderInstance {
+private:
+public:
+    const S& shader();
+    S& mutate();
 };
 
 }

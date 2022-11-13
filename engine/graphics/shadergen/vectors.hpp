@@ -2,6 +2,7 @@
 
 #include "math/Vec4.hpp"
 #include "statements.hpp"
+#include "ui2/IntTypes.hpp"
 
 namespace shadergen {
 
@@ -99,7 +100,7 @@ constexpr ScalarType IntType { "int", true, false };
 constexpr ScalarType UIntType { "uint", true, false };
 constexpr ScalarType FloatType { "float", true, false };
 
-struct iVec2 { };
+using iVec2 = ui::IntVec;
 struct iVec3 { };
 struct iVec4 { };
 struct uVec2 { };

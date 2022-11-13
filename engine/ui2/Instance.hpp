@@ -37,19 +37,7 @@ struct RenderOutputUtil {
     }
 };
 
-struct SWPaintData {
-    sw::TextureView output;
-    sw::Semaphore waitFor;
-    sw::Semaphore signal;
-};
-struct GLPaintData {
-    gl::Image output;
-    gl::CommandSlot commandSlot;
-    sw::Semaphore signal;
-};
-struct VKPaintData { };
-MAKE_API_TEMPLATE_PREFIXED(PaintData)
-using PaintEvent = gfx::Variant<PaintData>;
+class AsyncInstance;
 
 class Instance : public evt::Timeline {
 public:
@@ -133,13 +121,38 @@ public:
 
     void doTick();
 
+    struct PainterJob {
+        ImageView atlas;
+        sw::Semaphore doneUsingAtlas;
+        Blocks blocks;
+    };
+    class SWPainter {
+    private:
+        struct Job;
+        AsyncInstance* instance = nullptr;
+
+    public:
+        SWPainter(AsyncInstance* instance)
+            : instance(instance) { }
+        void paint(ImageView framebuffer, sw::Semaphore waitFor, sw::Semaphore signal);
+    };
+    struct PaintEvent {
+        sw::Semaphore atlasReadyForUse;
+        PainterJob* painter = nullptr;
+
+        void reset() {
+            VERIFY(Ui, !(bool)atlasReadyForUse);
+            painter = nullptr;
+        }
+    };
+
     PaintEvent& paintEvent() { return paintRing[tick()]; }
     evt::TickRingBuffer<PaintEvent> paintRing;
 
     sw::Semaphore atlasUse = sw::Semaphore::create();
 
-    // only access from updateAtlas()
-    stx::Owned<sw::TextureView> atlas;
+    // only access from AtlasJob::updateAtlas()
+    stx::Owned<ImageView> atlas;
 };
 
 inline Instance* instance() { return (Instance*)evt::currentTimeline(); }

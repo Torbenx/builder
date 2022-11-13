@@ -47,42 +47,58 @@ inline constexpr VarDeclModifier storageBufferIndicator { "storage-buffer" };
 inline constexpr VarDeclModifier sampledImageIndicator { "sampled-image" };
 inline constexpr VarDeclModifier storageImageIndicator { "storage-image" };
 
-struct BindingModifier : VarDeclModifier {
+struct TempVarDeclModifier : VarDeclModifier {
+    constexpr TempVarDeclModifier(std::string_view name)
+        : VarDeclModifier(name, true) { }
+    constexpr virtual ~TempVarDeclModifier() = default;
+};
+struct BindingModifier : TempVarDeclModifier {
     int_t index = -1;
-    constexpr BindingModifier() = default;
     constexpr BindingModifier(int_t index)
-        : VarDeclModifier("binding", true), index(index) { }
+        : TempVarDeclModifier("binding"), index(index) { }
+};
+
+struct ImageFormatModifier : TempVarDeclModifier {
+    gfx::TexelComponents format;
+    constexpr ImageFormatModifier(gfx::TexelComponents format)
+        : TempVarDeclModifier("image-format"), format(format) { }
 };
 
 template<typename>
-struct CXXTypeFromMember;
+struct CXXTypeFromBufferMember;
 template<typename T, typename Base>
-struct CXXTypeFromMember<gfx::BufferView<T> Base::*> {
+struct CXXTypeFromBufferMember<gfx::BufferHandle<T> Base::*> {
     using type = T;
+};
+template<typename>
+struct FormatFromImageMember;
+template<gfx::TexelComponents format, typename Base>
+struct FormatFromImageMember<gfx::ImageHandle<format> Base::*> {
+    static constexpr gfx::TexelComponents value = format;
 };
 struct ShaderDriver : ShaderDeclDriver {
     int bindingIndices[4] = {};
     PseudoVector<CBinding> bindings;
-    PseudoVector<BindingModifier> bindingModifiers;
+    PseudoVector<TempVarDeclModifier*> temporaryModifiers;
 
-    constexpr ShaderDriver(ASTStorage storage, PseudoVector<CBinding> bindings, PseudoVector<BindingModifier> bindingModifiers)
-        : ShaderDeclDriver(storage), bindings(bindings), bindingModifiers(bindingModifiers) { }
+    constexpr ShaderDriver(ASTStorage storage, PseudoVector<CBinding> bindings, PseudoVector<TempVarDeclModifier*> temporaryModifiers)
+        : ShaderDeclDriver(storage), bindings(bindings), temporaryModifiers(temporaryModifiers) { }
 
     template<auto member>
-    constexpr const BindingModifier* makeBinding(Binding::Type type, const char* name) {
+    constexpr const VarDeclModifier* makeBinding(Binding::Type type, const char* name) {
         int index = bindingIndices[stx::to_underlying(type)]++;
         bindings.pushBack({ { name, index, type }, stx::constant<member>() });
-        return &bindingModifiers.pushBack({ index });
+        return temporaryModifiers.pushBack(new BindingModifier { index });
     }
 
     template<auto member>
     constexpr auto uniformBuffer(const char* name) {
-        using CXXType = typename CXXTypeFromMember<decltype(member)>::type;
+        using CXXType = typename CXXTypeFromBufferMember<decltype(member)>::type;
         return declareUniform<CXXType, 2>(name, { &uniformBufferIndicator, makeBinding<member>(Binding::Type::UniformBuffer, name) });
     }
     template<auto member>
     constexpr auto storageBuffer(const char* name, code::MemQual qual) {
-        using CXXType = typename CXXTypeFromMember<decltype(member)>::type;
+        using CXXType = typename CXXTypeFromBufferMember<decltype(member)>::type;
         const VarDeclModifier* mods[5] = { &shadergen::storageBufferIndicator, makeBinding<member>(Binding::Type::StorageBuffer, name) };
         int_t offset = 2;
         if (qual & code::MemQual::CanAlias)
@@ -91,24 +107,29 @@ struct ShaderDriver : ShaderDeclDriver {
             mods[offset++] = &memoryNoRead;
         if (qual & code::MemQual::NoWrite)
             mods[offset++] = &memoryNoWrite;
-        return declareUniform<CXXType[], 5>(name, { mods, offset });
+        return declareUniform<CXXType, 5>(name, { mods, offset });
     }
     /*template<typename T>
     constexpr auto sampledImage(const char* name) {
         return declareUniform<T, 2>(name, { &shadergen::sampledImageIndicator, makeBinding(Binding::Type::SampledImage, name) });
-    }
-    template<typename T>
+    }*/
+    template<auto member>
     constexpr auto storageImage(const char* name, code::MemQual qual) {
-        const VarDeclModifier* mods[5] = { &shadergen::storageImageIndicator, makeBinding(Binding::Type::StorageImage, name) };
-        int_t offset = 2;
+        constexpr gfx::TexelComponents format = FormatFromImageMember<decltype(member)>::value;
+        const VarDeclModifier* mods[6] = {
+            &shadergen::storageImageIndicator,
+            makeBinding<member>(Binding::Type::StorageImage, name),
+            temporaryModifiers.pushBack(new ImageFormatModifier { format }),
+        };
+        int_t offset = 3;
         if (qual & code::MemQual::CanAlias)
             mods[offset++] = &memoryCanAlias;
         if (qual & code::MemQual::NoRead)
             mods[offset++] = &memoryNoRead;
         if (qual & code::MemQual::NoWrite)
             mods[offset++] = &memoryNoWrite;
-        return declareUniform<T, 4>(name, { mods, offset });
-    }*/
+        return declareUniform<code::fImage2D, 6>(name, { mods, offset });
+    }
 };
 
 struct StageDriver : StageDeclDriver {
@@ -122,40 +143,45 @@ struct StageDriver : StageDeclDriver {
     }
 };
 
-struct ComputeGroupSizeModifier : VarDeclModifier {
+struct ComputeGroupSizeModifier : TempVarDeclModifier {
     static constexpr stx::FixedString NAME = "compute-group-size";
     int_t x = 1, y = 1, z = 1;
     constexpr ComputeGroupSizeModifier()
-        : VarDeclModifier { NAME, true } { }
+        : TempVarDeclModifier { NAME } { }
     static constexpr const ComputeGroupSizeModifier* find(const StageDecl* stage) {
         const ComputeGroupSizeModifier* ret = nullptr;
         stage->globals.decls.forEachEntry([&](const VarDecl* decl) {
-            if (decl->modifiers.empty())
-                return;
-            const VarDeclModifier* mod = decl->modifiers.front();
-            if (mod->name == NAME)
-                ret = static_cast<const ComputeGroupSizeModifier*>(mod);
+            decl->modifiers.forEachEntry([&](const VarDeclModifier* mod) {
+                if (mod->name == NAME)
+                    ret = static_cast<const ComputeGroupSizeModifier*>(mod);
+            });
         });
         return ret;
     }
 };
+struct DriverStorage {
+    ASTStorage storage;
+    PseudoVector<CBinding> bindings;
+    PseudoVector<TempVarDeclModifier*> temporaryModifiers;
+};
 struct ComputeDriver : ShaderDriver, StageDriver {
     DriverVariable<wrapped_vector, 2> localIndex;
     DriverVariable<wrapped_vector, 2> globalIndex;
-    ComputeGroupSizeModifier groupSizeMod;
+    ComputeGroupSizeModifier* groupSizeMod = new ComputeGroupSizeModifier;
 
-    constexpr ComputeDriver(ASTStorage storage, PseudoVector<CBinding> bindings, PseudoVector<BindingModifier> bindingModifiers)
-        : ShaderDriver(storage, bindings, bindingModifiers)
-        , StageDriver(storage, StageKind::Compute, &shaderDecl()->uniforms)
+    constexpr ComputeDriver(DriverStorage storage)
+        : ShaderDriver(storage.storage, storage.bindings, storage.temporaryModifiers)
+        , StageDriver(storage.storage, StageKind::Compute, &shaderDecl()->uniforms)
         , localIndex(builtin<iVec3, 1>("gl_LocalInvocationID", { &glsl::needsCast }))
         , globalIndex(builtin<iVec3, 1>("gl_WorkGroupID", { &glsl::needsCast })) {
+        storage.temporaryModifiers.pushBack(groupSizeMod);
         addStage(stageDecl());
         {
             VarDecl decl { "", &VoidType, nullptr };
             VarDecl* newDecl = createVarDecl(&decl, &stageDecl()->globals);
             newDecl->prevDecl = nullptr;
-            storage.pushBackOnList(newDecl->modifiers, &builtinIndicator);
-            storage.pushBackOnList(newDecl->modifiers, (const VarDeclModifier*)&groupSizeMod);
+            storage.storage.pushBackOnList(newDecl->modifiers, &builtinIndicator);
+            storage.storage.pushBackOnList(newDecl->modifiers, (const VarDeclModifier*)groupSizeMod);
         }
     }
 };
@@ -199,28 +225,50 @@ namespace glsl {
                     if (qual & NoWrite)
                         out() << "readonly ";
                 };
-                if (decl->modifiers.front() == &uniformBufferIndicator) {
+                const VarDeclModifier* primaryMod = decl->modifiers.front();
+                if (primaryMod == &uniformBufferIndicator) {
                     out() << Indentation() << "layout(std140, binding=" << binding << ") ";
                     out() << "uniform _uniform_block" << binding << " {\n";
                     indent += 1;
                     out() << Indentation() << decl << ";\n";
                     indent -= 1;
                     out() << Indentation() << "};\n";
-                } else if (decl->modifiers.front() == &storageBufferIndicator) {
-                    out() << Indentation() << "layout(std140, binding=" << binding << ") ";
+                } else if (primaryMod == &storageBufferIndicator) {
+                    out() << Indentation() << "layout(std430, binding=" << binding << ") ";
                     emitQual();
                     out() << "buffer _buffer_block" << binding << " {\n";
                     indent += 1;
                     out() << Indentation() << decl << ";\n";
                     indent -= 1;
                     out() << Indentation() << "};\n";
-                } else if (decl->modifiers.front() == &sampledImageIndicator) {
+                } else if (primaryMod == &sampledImageIndicator) {
                     out() << Indentation() << "layout(binding=" << binding << ") ";
                     out() << "uniform " << decl << ";\n";
-                } else if (decl->modifiers.front() == &storageImageIndicator) {
-                    out() << Indentation() << "layout(rgba8ui, binding=" << binding << ") ";
+                } else if (primaryMod == &storageImageIndicator) {
+                    std::string_view type;
+                    if (decl->type == &code::fImage2D::SHADERGEN_TYPE)
+                        type = "image2D";
+                    else if (decl->type == &code::iImage2D::SHADERGEN_TYPE)
+                        type = "iimage2D";
+                    else if (decl->type == &code::uImage2D::SHADERGEN_TYPE)
+                        type = "uimage2D";
+                    else
+                        VERIFY_NOT_REACHED(ShaderGen);
+
+                    std::string_view format = [](gfx::TexelComponents qual) {
+                        using enum gfx::TexelComponents;
+                        switch (qual) {
+                        case RGBA8:
+                            return "rgba8";
+                        default:
+                            VERIFY_NOT_REACHED(ShaderGen);
+                            return "";
+                        }
+                    }(static_cast<const ImageFormatModifier*>(decl->modifiers.get(2))->format);
+
+                    out() << Indentation() << "layout(" << format << ", binding=" << binding << ") ";
                     emitQual();
-                    out() << "uniform " << decl << ";\n";
+                    out() << "uniform " << type << " " << decl->name << ";\n";
                 } else {
                     VERIFY_NOT_REACHED(ShaderGen);
                 }
@@ -255,12 +303,6 @@ struct ShaderGenInput {
     OversizedArray<SourceRange, 100> sources;
     const ShaderDecl* shaderDecl = nullptr;
 
-    constexpr void setShader(const ShaderDecl* shader) {
-        shaderDecl = shader;
-        generateSource();
-        strip();
-    }
-
     constexpr void generateSource() {
         BasicASTStorage<10000, 10000> transformStorage;
         glsl::StmtTransform transform(transformStorage);
@@ -283,7 +325,12 @@ struct ShaderGenInput {
 
     template<typename Callback>
     constexpr ShaderGenInput(Callback callback) {
-        callback(*this);
+        OversizedArray<TempVarDeclModifier*, 1000> tempMods;
+        shaderDecl = callback(DriverStorage { storage, bindings, tempMods });
+        generateSource();
+        strip();
+        for (auto* mod : tempMods)
+            delete mod;
     }
 };
 
@@ -319,11 +366,10 @@ struct ShaderGenerator : ShaderRecord {
 };
 
 template<void (*func)(ComputeDriver&)>
-constexpr ShaderGenInput computeGenInput { [](ShaderGenInput& gen) {
-    OversizedArray<BindingModifier, 1000> bindingModifiers;
-    ComputeDriver driver(gen.storage, gen.bindings, bindingModifiers);
+constexpr ShaderGenInput computeGenInput { [](DriverStorage storage) {
+    ComputeDriver driver(storage);
     func(driver);
-    gen.setShader(driver.shaderDecl());
+    return driver.shaderDecl();
 } };
 template<void (*func)(ComputeDriver&)>
 constexpr ShaderRecord generate() {

@@ -114,114 +114,25 @@ void Instance::dumpShiftSizes() {
 #include <immintrin.h>
 
 namespace {
-    struct PaintJob {
-        sw::TextureView atlas;
-        sw::TextureView framebuffer;
-        ArrayView<const IntVec> blockOffsets;
-        int_t blockLayers = 0;
-        sw::Semaphore signal;
-
-        void paint() {
-            auto multiply = [](uint32_t in, uint32_t alpha) {
-                return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
-            };
-
-            struct UnpackedLine {
-                __m256i b, g, r, a;
-            };
-
-            // { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 }
-            const __m128i halfShuffle1 = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
-            const __m256i shuffle1 = _mm256_set_m128i(halfShuffle1, halfShuffle1);
-            // { 0, 4, 1, 5, 2, 6, 3, 7 }
-            const __m256i shuffle2 = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
-            auto unpack = [&](uint32_t* line) -> UnpackedLine {
-                // input: { b, g, r, a }
-                __m256i i1 = _mm256_loadu_si256((__m256i*)line);
-                __m256i i2 = _mm256_loadu_si256((__m256i*)line + 1);
-                i1 = _mm256_shuffle_epi8(i1, shuffle1);
-                i2 = _mm256_shuffle_epi8(i2, shuffle1);
-                i1 = _mm256_permutevar8x32_epi32(i1, shuffle2);
-                i2 = _mm256_permutevar8x32_epi32(i2, shuffle2);
-                __m256i br = _mm256_unpacklo_epi64(i1, i2);
-                __m256i ga = _mm256_unpackhi_epi64(i1, i2);
-                UnpackedLine out;
-                out.b = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(br, 0));
-                out.r = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(br, 1));
-                out.g = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(ga, 0));
-                out.a = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(ga, 1));
-                return out;
-            };
-
-            auto pack = [&](uint32_t* out, UnpackedLine l) {
-                __m256i bg = _mm256_or_si256(l.b, _mm256_slli_epi16(l.g, 8));
-                __m256i ra = _mm256_or_si256(l.r, _mm256_slli_epi16(l.a, 8));
-                __m256i i1 = _mm256_unpacklo_epi16(bg, ra);
-                __m256i i2 = _mm256_unpackhi_epi16(bg, ra);
-                _mm_storeu_si128((__m128i*)out, _mm256_extracti128_si256(i1, 0));
-                _mm_storeu_si128((__m128i*)out + 1, _mm256_extracti128_si256(i2, 0));
-                _mm_storeu_si128((__m128i*)out + 2, _mm256_extracti128_si256(i1, 1));
-                _mm_storeu_si128((__m128i*)out + 3, _mm256_extracti128_si256(i2, 1));
-            };
-
-            const __m256i multiply1 = _mm256_set1_epi16(0x8081);
-            auto blend = [&](__m256i src, __m256i dst, __m256i srcA, __m256i oneMinusSrcA) {
-                __m256i im = _mm256_add_epi16(_mm256_mullo_epi16(src, srcA), _mm256_mullo_epi16(dst, oneMinusSrcA));
-                // divide by 255
-                return _mm256_srli_epi16(_mm256_mulhi_epu16(im, multiply1), 7);
-            };
-
-            int_t blockCount = blockOffsets.size() / (blockLayers + 1);
-            for (int_t k = 0; k < blockCount; k++) {
-                const IntVec* block = blockOffsets.data() + k * (blockLayers + 1);
-                IntVec screenPos = block[0];
-                int_t h = std::min(16, framebuffer.dimensions.y() - screenPos.y());
-                for (int_t j = 0; j < h; j++) {
-                    /*for (int_t i = 0; i < 16; i++) {
-                        uint32_t color = (framebuffer.pos() + screenPos)[j][i];
-                        for (int_t layer = 0; layer < blockLayers; layer++) {
-                            IntVec layerPos = block[layer + 1];
-                            if (layerPos == IntVec {})
-                                break;
-                            uint32_t in = (atlas.pos() + layerPos)[j][i];
-                            uint32_t alpha = in >> 24;
-                            color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
-                            // color = in & 0xff'ff'ff;
-                        }
-                        (framebuffer.pos() + screenPos)[j][i] = color;
-                    }*/
-                    uint32_t* buffer = (framebuffer.pos() + screenPos)[j];
-                    UnpackedLine color = unpack(buffer);
-                    for (int_t layer = 0; layer < blockLayers; layer++) {
-                        IntVec layerPos = block[layer + 1];
-                        if (layerPos == IntVec {})
-                            break;
-                        UnpackedLine in = unpack((atlas.pos() + layerPos)[j]);
-                        __m256i oneMinusA = _mm256_sub_epi16(_mm256_set1_epi16(255), in.a);
-                        color.b = blend(in.b, color.b, in.a, oneMinusA);
-                        color.g = blend(in.g, color.g, in.a, oneMinusA);
-                        color.r = blend(in.r, color.r, in.a, oneMinusA);
-                    }
-                    pack(buffer, color);
-                }
-            }
-
-            signal.signal();
-            delete this;
-        }
-    };
-
     struct UiData {
         BEGIN_GEN_STRUCT(UiData);
         int GEN_FIELD(maxLayers);
         END_GEN_STRUCT();
     };
-    constexpr void defUiShader(shadergen::ComputeDriver& prog) {
+    struct UiShader {
+        gfx::BufferHandle<UiData> data;
+        gfx::BufferHandle<IntVec[]> positions;
+        gfx::ImageHandle<gfx::TexelComponents::RGBA8> screen;
+        gfx::ImageHandle<gfx::TexelComponents::RGBA8> atlas;
+
+        static constexpr void defineShader(shadergen::ComputeDriver&);
+    };
+    constexpr void UiShader::defineShader(shadergen::ComputeDriver& prog) {
         using namespace shadergen::code;
-        auto data = prog.uniformBuffer<UiData>("data"_v);
-        auto positions = prog.storageBuffer<shadergen::iVec2>("positions"_v, MemQual::NoWrite);
-        auto screen = prog.storageImage<uImage2D>("screen"_v, (MemQual)0);
-        auto atlas = prog.storageImage<uImage2D>("atlas"_v, MemQual::NoWrite);
+        auto data = prog.uniformBuffer<&UiShader::data>("data");
+        auto positions = prog.storageBuffer<&UiShader::positions>("positions", MemQual::NoWrite);
+        auto screen = prog.storageImage<&UiShader::screen>("screen", (MemQual)0);
+        auto atlas = prog.storageImage<&UiShader::atlas>("atlas", MemQual::NoWrite);
 
         AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
         AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
@@ -229,24 +140,27 @@ namespace {
         prog.range(constant(0), data.maxLayers, [&](auto& i) {
             AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
             AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
-            prog, color = (inColor.xyz() * inColor.w + color * (constant(255u) - inColor.w)) / constant(255u);
+            prog, color = inColor.xyz() * inColor.w + color * (constant(1.0f) - inColor.w);
         });
-        prog, imageStore(screen, screenPos, compose(color, constant(255u)));
+        prog, imageStore(screen, screenPos, compose(color, constant(1.0f)));
     }
-    constexpr shadergen::Shader uiShader = shadergen::generate<defUiShader>();
+}
 
+}
+DEFINE_SHADER(ui::UiShader);
+
+namespace ui {
+namespace {
     struct AtlasJob {
-        Instance::Blocks blocks;
-        PaintEvent event;
         Instance* instance = nullptr;
         IntVec atlasDimensions;
         stx::DynArray<std::vector<std::byte>> atlasUpdates;
-        sw::Semaphore atlasUse;
+        Instance::PaintEvent event;
 
         void updateAtlas() {
-            sw::TextureView atlas = instance->atlas;
-            if (atlasDimensions != atlas.dimensions)
-                atlas = instance->atlas = sw::allocateTexture(atlasDimensions);
+            if (atlasDimensions != instance->atlas.dimensions())
+                instance->atlas = ui::ImageView::allocate(atlasDimensions);
+            ImageView atlas = instance->atlas;
 
             for (int_t i = 0; i < atlasUpdates.size(); i++) {
                 auto& updates = atlasUpdates[i];
@@ -258,11 +172,11 @@ namespace {
                         ui::BottomLeft(output.atlasRect().bottomLeft() - 16),
                         ui::TopRight(output.atlasRect().topRight() + 16),
                     };
-                    sw::TextureView texture { atlas.pos() + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
-                    sw::TextureView paddedTexture { atlas.pos() + paddedRect.bottomLeft(), paddedRect.dimensions() };
-                    for (int_t j = 0; j < paddedTexture.dimensions.y(); j++) {
-                        for (int_t i = 0; i < paddedTexture.dimensions.x(); i++) {
-                            paddedTexture.pos()[j][i] = 0;
+                    ImageView texture { atlas + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
+                    ImageView paddedTexture { atlas + paddedRect.bottomLeft(), paddedRect.dimensions() };
+                    for (int j = 0; j < paddedTexture.dimensions().y(); j++) {
+                        for (int i = 0; i < paddedTexture.dimensions().x(); i++) {
+                            paddedTexture[{ i, j }] = 0;
                         }
                     }
                     record.render(texture, output.renderDataPtr());
@@ -270,7 +184,12 @@ namespace {
             }
             atlasUpdates.clear();
 
-            using enum gfx::Api;
+            event.painter->atlas = atlas;
+            event.atlasReadyForUse.signal();
+
+            delete this;
+
+            /*using enum gfx::Api;
             switch (event.api()) {
             case Software: {
                 gfx::get<Software>(event).waitFor.thenSync({ *this, stx::CallMember<&AtlasJob::startSWPaint>() });
@@ -285,19 +204,18 @@ namespace {
             default:
                 VERIFY_NOT_REACHED(Ui);
                 break;
-            }
+            }*/
         }
 
-        void GLPaint() {
+        /*void GLPaint() {
             auto& event = gfx::get<gfx::Api::OpenGL>(this->event);
             gl::Texture atlasTexture;
             gl::Image atlasImage = atlasTexture;
             gl::imageData(atlasImage, IntVec { 0, 0 }, instance->atlas);
             atlasUse.signal();
-            gl::bind(gl::binding<uiShader, "screen">, atlasImage);
-            gl::bind(gl::binding<uiShader, "atlas">, event.output);
-            //gl::bind(gl::binding<uiShader, "positions">, );
-            //gl::bind(gl::binding<uiShader, "data">, );
+            gfx::ShaderInstance<UiShader> shader;
+            shader.mutate().atlas = atlasImage;
+            shader.mutate().screen = event.output;
         }
 
         void startSWPaint() {
@@ -326,8 +244,114 @@ namespace {
             atlasUse.signal();
             event.signal.signal();
             delete this;
-        }
+        }*/
     };
+}
+
+struct Instance::SWPainter::Job : Instance::PainterJob {
+    ImageView framebuffer;
+    sw::Semaphore signal;
+
+    void paint() {
+        auto multiply = [](uint32_t in, uint32_t alpha) {
+            return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
+        };
+
+        struct UnpackedLine {
+            __m256i b, g, r, a;
+        };
+
+        // { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 }
+        const __m128i halfShuffle1 = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
+        const __m256i shuffle1 = _mm256_set_m128i(halfShuffle1, halfShuffle1);
+        // { 0, 4, 1, 5, 2, 6, 3, 7 }
+        const __m256i shuffle2 = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
+        auto unpack = [&](uint32_t* line) -> UnpackedLine {
+            // input: { b, g, r, a }
+            __m256i i1 = _mm256_loadu_si256((__m256i*)line);
+            __m256i i2 = _mm256_loadu_si256((__m256i*)line + 1);
+            i1 = _mm256_shuffle_epi8(i1, shuffle1);
+            i2 = _mm256_shuffle_epi8(i2, shuffle1);
+            i1 = _mm256_permutevar8x32_epi32(i1, shuffle2);
+            i2 = _mm256_permutevar8x32_epi32(i2, shuffle2);
+            __m256i br = _mm256_unpacklo_epi64(i1, i2);
+            __m256i ga = _mm256_unpackhi_epi64(i1, i2);
+            UnpackedLine out;
+            out.b = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(br, 0));
+            out.r = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(br, 1));
+            out.g = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(ga, 0));
+            out.a = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(ga, 1));
+            return out;
+        };
+
+        auto pack = [&](uint32_t* out, UnpackedLine l) {
+            __m256i bg = _mm256_or_si256(l.b, _mm256_slli_epi16(l.g, 8));
+            __m256i ra = _mm256_or_si256(l.r, _mm256_slli_epi16(l.a, 8));
+            __m256i i1 = _mm256_unpacklo_epi16(bg, ra);
+            __m256i i2 = _mm256_unpackhi_epi16(bg, ra);
+            _mm_storeu_si128((__m128i*)out, _mm256_extracti128_si256(i1, 0));
+            _mm_storeu_si128((__m128i*)out + 1, _mm256_extracti128_si256(i2, 0));
+            _mm_storeu_si128((__m128i*)out + 2, _mm256_extracti128_si256(i1, 1));
+            _mm_storeu_si128((__m128i*)out + 3, _mm256_extracti128_si256(i2, 1));
+        };
+
+        const __m256i multiply1 = _mm256_set1_epi16(0x8081);
+        auto blend = [&](__m256i src, __m256i dst, __m256i srcA, __m256i oneMinusSrcA) {
+            __m256i im = _mm256_add_epi16(_mm256_mullo_epi16(src, srcA), _mm256_mullo_epi16(dst, oneMinusSrcA));
+            // divide by 255
+            return _mm256_srli_epi16(_mm256_mulhi_epu16(im, multiply1), 7);
+        };
+
+        int_t blockCount = blocks.blockOffsets.size() / (blocks.blockLayers + 1);
+        for (int_t k = 0; k < blockCount; k++) {
+            const IntVec* block = blocks.blockOffsets.data() + k * (blocks.blockLayers + 1);
+            IntVec screenPos = block[0];
+            int_t h = std::min(16, framebuffer.dimensions().y() - screenPos.y());
+            for (int_t j = 0; j < h; j++) {
+                /*for (int_t i = 0; i < 16; i++) {
+                    uint32_t color = (framebuffer.pos() + screenPos)[j][i];
+                    for (int_t layer = 0; layer < blockLayers; layer++) {
+                        IntVec layerPos = block[layer + 1];
+                        if (layerPos == IntVec {})
+                            break;
+                        uint32_t in = (atlas.pos() + layerPos)[j][i];
+                        uint32_t alpha = in >> 24;
+                        color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
+                        // color = in & 0xff'ff'ff;
+                    }
+                    (framebuffer.pos() + screenPos)[j][i] = color;
+                }*/
+                uint32_t* buffer = (framebuffer + screenPos).row(j);
+                UnpackedLine color = unpack(buffer);
+                for (int_t layer = 0; layer < blocks.blockLayers; layer++) {
+                    IntVec layerPos = block[layer + 1];
+                    if (layerPos == IntVec {})
+                        break;
+                    UnpackedLine in = unpack((atlas + layerPos).row(j));
+                    __m256i oneMinusA = _mm256_sub_epi16(_mm256_set1_epi16(255), in.a);
+                    color.b = blend(in.b, color.b, in.a, oneMinusA);
+                    color.g = blend(in.g, color.g, in.a, oneMinusA);
+                    color.r = blend(in.r, color.r, in.a, oneMinusA);
+                }
+                pack(buffer, color);
+            }
+        }
+
+        doneUsingAtlas.signal();
+        signal.signal();
+        delete this;
+    }
+};
+
+void Instance::SWPainter::paint(ImageView framebuffer, sw::Semaphore waitFor, sw::Semaphore signal) {
+    Job* job = new Job;
+    job->framebuffer = framebuffer;
+    job->signal = std::move(signal);
+    instance->timeline()->paintRing[instance->tick()] = PaintEvent {
+        .atlasReadyForUse = waitFor.fork(),
+        .painter = job,
+    };
+    waitFor.thenAsync({ *job, stx::CallMember<&Job::paint>() });
 }
 
 void Instance::doTick() {
@@ -366,20 +390,23 @@ void Instance::doTick() {
         updates.clear();
     }
 
-    if (paintEvent().api() != gfx::Api::Invalid) {
+    if (paintEvent().atlasReadyForUse) {
         AtlasJob* job = new AtlasJob;
         job->atlasUpdates = std::move(incrementalRenderOutput);
         incrementalRenderOutput = stx::DynArray<std::vector<std::byte>> { RendererBase::recordCount() };
         outputGeneration += 1;
-        job->blocks = buildBlocks();
         job->instance = this;
         job->atlasDimensions = atlasDimensions;
+        PainterJob* painter = paintEvent().painter;
+        painter->blocks = buildBlocks();
         job->event = std::move(paintEvent());
         paintEvent().reset();
 
+        // run job after prev user is done using the atlas
         atlasUse.thenAsync({ *job, stx::CallMember<&AtlasJob::updateAtlas>() });
+
         atlasUse = sw::Semaphore::create();
-        job->atlasUse = atlasUse.fork();
+        painter->doneUsingAtlas = atlasUse.fork();
     }
 
     endTick();
@@ -559,13 +586,6 @@ void RendererBase::invalidateStyleInternal(int_t index) {
 
 void AsyncInstance::doTick() {
     timeline()->doTick();
-}
-
-void AsyncInstance::asyncPaint(sw::TextureView output, sw::Semaphore waitFor, sw::Semaphore signal) {
-    timeline()->paintRing[tick()] = SWPaintData { output, std::move(waitFor), std::move(signal) };
-}
-void AsyncInstance::asyncPaint(gl::Texture output, gl::CommandSlot commandSlot, sw::Semaphore signal) {
-    timeline()->paintRing[tick()] = GLPaintData { output, commandSlot, std::move(signal) };
 }
 
 }
