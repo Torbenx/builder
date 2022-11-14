@@ -103,55 +103,95 @@ evt::Script uiTestInit() {
     }
 }
 
-struct ClearJob {
-    ui::ImageView image;
-    sw::Semaphore signal;
-    uint32_t color = 0;
+struct Clearer {
+    struct Job {
+        ui::ImageView image;
+        sw::Semaphore signal;
+        uint32_t color = 0;
 
-    void clear() {
-        std::fill_n(image.data(), image.stride() * image.dimensions().y(), color);
-        signal.signal();
-        delete this;
+        void clear() {
+            std::fill_n(image.data(), image.stride() * image.dimensions().y(), color);
+            signal.signal();
+            delete this;
+        }
+    };
+
+    uint32_t color = 0;
+    gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer;
+
+    void clear(sw::Semaphore waitFor, sw::Semaphore signal) {
+        Job* job = new Job;
+        job->image = framebuffer.get();
+        job->color = color;
+        job->signal = std::move(signal);
+        waitFor.thenAsync({ *job, stx::CallMember<&Job::clear>() });
     }
+
+    void setFramebuffer(gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer) {
+        this->framebuffer = framebuffer;
+    }
+    void setColor(uint32_t color) { this->color = color; }
 };
 
-struct PresentJob {
-    plt::Window window;
-    ui::ImageView framebuffer;
-    AtomicQueue<ui::ImageView>* queue = nullptr;
-    static inline int_t frames = 0;
-    static inline uint64_t lastFrame = 0;
-    void present() {
-        uint64_t now = getNanos();
-        if (now - lastFrame >= 1'000'000'000) {
-            lastFrame = now;
-            log("FPS: {}", frames);
-            frames = 0;
+struct Presenter {
+    struct Job {
+        plt::Window window;
+        ui::ImageView framebuffer;
+        sw::Semaphore signal;
+
+        void present() {
+            static int_t frames = 0;
+            static uint64_t lastFrame = 0;
+            uint64_t now = getNanos();
+            if (now - lastFrame >= 1'000'000'000) {
+                lastFrame = now;
+                log("FPS: {}", frames);
+                frames = 0;
+            }
+            frames += 1;
+
+            auto* impl = plt::windows::windowImpl(window);
+            BITMAPINFO bitmapInfo {
+                .bmiHeader = {
+                    .biSize = sizeof(BITMAPINFOHEADER),
+                    .biWidth = (int)framebuffer.stride(),
+                    .biHeight = framebuffer.dimensions().y(),
+                    .biPlanes = 1,
+                    .biBitCount = 32,
+                    .biCompression = BI_RGB,
+                    .biSizeImage = 0,
+                    .biXPelsPerMeter = 0,
+                    .biYPelsPerMeter = 0,
+                    .biClrUsed = 0,
+                    .biClrImportant = 0,
+                },
+                .bmiColors = {},
+            };
+            auto dc = impl->deviceContext();
+            ui::IntVec dim = framebuffer.dimensions();
+            int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.data(), &bitmapInfo, DIB_RGB_COLORS);
+            WIN_VERIFY(linesProcessed > 0);
+            signal.signal();
+            delete this;
         }
-        frames += 1;
-        auto* impl = plt::windows::windowImpl(window);
-        BITMAPINFO bitmapInfo {
-            .bmiHeader = {
-                .biSize = sizeof(BITMAPINFOHEADER),
-                .biWidth = (int)framebuffer.stride(),
-                .biHeight = framebuffer.dimensions().y(),
-                .biPlanes = 1,
-                .biBitCount = 32,
-                .biCompression = BI_RGB,
-                .biSizeImage = 0,
-                .biXPelsPerMeter = 0,
-                .biYPelsPerMeter = 0,
-                .biClrUsed = 0,
-                .biClrImportant = 0,
-            },
-            .bmiColors = {},
-        };
-        auto dc = impl->deviceContext();
-        ui::IntVec dim = framebuffer.dimensions();
-        int linesProcessed = SetDIBitsToDevice(dc, 0, 0, dim.x(), dim.y(), 0, 0, 0, dim.y(), framebuffer.data(), &bitmapInfo, DIB_RGB_COLORS);
-        WIN_VERIFY(linesProcessed > 0);
-        queue->pushBack(framebuffer);
-        delete this;
+    };
+
+    plt::Window window;
+    gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer;
+
+    Presenter(plt::Window window)
+        : window(window) { }
+
+    void present(sw::Semaphore waitFor, sw::Semaphore signal) {
+        Job* job = new Job;
+        job->window = window;
+        job->framebuffer = framebuffer.get();
+        job->signal = std::move(signal);
+        waitFor.thenAsync({ *job, stx::CallMember<&Job::present>() });
+    }
+
+    void setFramebuffer(gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer) {
+        this->framebuffer = framebuffer;
     }
 };
 
@@ -161,51 +201,40 @@ evt::Script uiTestWrapper(plt::Window window) {
     evt::Script script = evt::asyncScript(instance, uiTestInit);
     window.initialize();
 
-    int_t framebuffersAlive = 0;
-    AtomicQueue<ui::ImageView> framebufferQueue;
+    stx::Owned<Clearer*> clearer = new Clearer;
+    clearer->setColor(0xff'ff'ff'ff);
     stx::Owned<ui::Instance::SWPainter*> uiPainter = instance.createSWPainter();
+    stx::Owned<Presenter*> presenter = new Presenter(window);
 
-    gfx::SWImageHandle<gfx::TexelLayout::BGRA8> framebufferImage;
+    auto graphicsInst = std::make_unique<gfx::Instance>();
+    gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer;
 
     auto paint = [&]() {
         if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
             return;
+        if (!graphicsInst->beginFrame())
+            return;
 
-        std::optional<ui::ImageView> opt;
-        while (true) {
-            opt = framebufferQueue.tryPopFront();
-            if (!opt.has_value()) {
-                framebuffersAlive += 1;
-                log("made a framebuffer");
-                opt = ui::ImageView::allocate(window.dimensions());
-                break;
-            } else if (opt->dimensions() == window.dimensions()) {
-                break;
-            }
-            framebuffersAlive -= 1;
-            opt->deallocate();
+        if (!framebuffer) {
+            framebuffer = gfx::SWImageHandle<ui::IMAGE_FORMAT>::create(window.dimensions());
+            clearer->setFramebuffer(framebuffer);
+            uiPainter->setFramebuffer(framebuffer);
+            presenter->setFramebuffer(framebuffer);
         }
-        ui::ImageView framebuffer = opt.value();
-        //ui::ImageView framebuffer = framebufferImage.get();
 
         sw::Semaphore paintUi = sw::Semaphore::create();
-        {
-            ClearJob* job = new ClearJob;
-            job->image = framebuffer;
-            job->signal = paintUi.fork();
-            job->color = 0xff'ff'ff'ff;
-            evt::async({ *job, stx::CallMember<&ClearJob::clear>() });
-        }
-
         sw::Semaphore present = sw::Semaphore::create();
-        uiPainter->paint(framebuffer, std::move(paintUi), present.fork());
-        {
-            PresentJob* job = new PresentJob;
-            job->framebuffer = framebuffer;
-            job->window = window;
-            job->queue = &framebufferQueue;
-            present.thenAsync({ *job, stx::CallMember<&PresentJob::present>() });
-        }
+        sw::Semaphore frameComplete = sw::Semaphore::create();
+        clearer->clear(sw::Semaphore::create(), paintUi.fork());
+        uiPainter->paint(std::move(paintUi), present.fork());
+        presenter->present(std::move(present), frameComplete.fork());
+        frameComplete.thenSync({
+            gfx::frame(),
+            [](gfx::Frame* frame) {
+                frame->complete();
+            },
+        });
+        graphicsInst->clearFrame();
     };
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
@@ -216,19 +245,6 @@ evt::Script uiTestWrapper(plt::Window window) {
     };
     instance.asyncTick();
     await { evt::Ping(instance) };
-
-    while (true) {
-        while (true) {
-            std::optional<ui::ImageView> opt = framebufferQueue.tryPopFront();
-            if (!opt.has_value())
-                break;
-            framebuffersAlive -= 1;
-            opt->deallocate();
-        }
-        if (framebuffersAlive == 0)
-            break;
-        await { evt::NextTick() };
-    }
 }
 
 }

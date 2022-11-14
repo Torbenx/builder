@@ -5,8 +5,18 @@
 #include "util/Callable.hpp"
 #include "util/types.hpp"
 #include <bit>
+#include <mutex>
+
+namespace Tag {
+struct GFX {
+    static constexpr char tag[] = "graphics";
+    static constexpr bool verifyEnabled = true;
+};
+}
 
 namespace gfx {
+
+using iVec2 = sw::iVec2;
 
 inline constexpr size_t BUFFER_CPU_ALLOCATION_ALIGNMENT = 16;
 
@@ -51,6 +61,14 @@ struct alignas(BUFFER_CPU_ALLOCATION_ALIGNMENT) BufferAllocHeader {
     BufferMapping prevMapping;
 };
 
+struct HWObject {
+    uint64_t handle = 0;
+};
+struct HWBuffer : HWObject {
+    uint32_t offset = 0;
+    uint32_t size = 0;
+};
+
 struct Frame {
     std::byte** bufferMappingLocations = nullptr;
     std::byte* get(BufferMapping buffer) const {
@@ -62,20 +80,36 @@ struct Frame {
     void growBufferAllocBump(uint32_t requiredSize);
     BufferMapping allocateBuffer(uint32_t id, BufferAllocKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping);
 
-    sw::ImageView<>* softwareImages = nullptr;
-};
+    sw::ImageView<>* swImages = nullptr;
+    uint32_t allocateSWImage(int_t texelSize, iVec2 dimensions);
 
-inline constexpr int_t MAX_CONCURRENT_FRAMES = 4;
+    HWBuffer* hwBuffers = nullptr;
+    HWObject* hwObjects = nullptr;
+
+    void complete();
+};
+DECLARE_THREAD_LOCAL_GETSET(Frame*, frame, setFrame, GRAPHICS_FRAME)
+
+inline constexpr int_t MAX_CONCURRENT_FRAMES = 1;
 inline constexpr size_t INSTANCE_ALIGNMENT = std::bit_ceil(sizeof(Frame) * MAX_CONCURRENT_FRAMES);
 
 struct alignas(INSTANCE_ALIGNMENT) Instance {
+    using frame_mask_t = uint32_t;
     Frame frames[MAX_CONCURRENT_FRAMES] = {};
 
     BufferInfo* bufferInfos = nullptr;
+
+    uint32_t nextSWImageId = 1;
+
+    frame_mask_t framesReadyMask = 0;
+    frame_mask_t framesAllocatedMask = 0;
+    bool beginFrame();
+    void clearFrame();
+    void frameComplete(int_t index);
+    void allocateFrame(int_t index);
 };
 static_assert(offsetof(Instance, frames[0]) == 0);
 
-DECLARE_THREAD_LOCAL_GETSET(Frame*, frame, setFrame, GRAPHICS_FRAME)
 inline Instance* toInstance(Frame* frame) {
     return (Instance*)stx::alignmentFloor(INSTANCE_ALIGNMENT, (uintptr_t)frame);
 }
@@ -111,8 +145,8 @@ protected:
         m_offset = 0;
     }
 
-    BufferInfo* info() const {
-        return instance()->bufferInfos + id();
+    BufferInfo* info(Frame* frame) const {
+        return toInstance(frame)->bufferInfos + id();
     }
 
     BufferMapping bufferMapping() const { return { loc(), offset() }; }
@@ -121,63 +155,62 @@ protected:
         m_offset = mapping.offset;
     }
 
-    void moveFrom(Buffer&& other) {
+    void moveFrom(Buffer&& other, Frame* frame) {
         copyFields(other);
         if (other) {
-            BufferInfo* info = other.info();
-            // VERIFY(Graphics, info->buffer == &other);
+            BufferInfo* info = other.info(frame);
+            VERIFY(GFX, info->buffer == &other);
             info->buffer = this;
         }
         other.clearFields();
     }
 
-    void* allocate(BufferAllocKind kind, uint32_t alignment, uint32_t size) {
-        Frame* frame = gfx::frame();
+    void* allocate(BufferAllocKind kind, uint32_t alignment, uint32_t size, Frame* frame) {
         BufferMapping mapping = frame->allocateBuffer(id(), kind, alignment, size, bufferMapping());
         setMapping(mapping);
         return frame->get(mapping);
     }
-    void deallocateInternal() {
-        allocate(BufferAllocKind::Destroy, 0, 0);
+    void deallocateInternal(Frame* frame) {
+        allocate(BufferAllocKind::Destroy, 0, 0, frame);
     }
 
 public:
     Buffer() = default;
     Buffer(const Buffer&) = delete;
 
-    Buffer(Buffer&& other) {
-        moveFrom(std::move(other));
+    Buffer(Buffer&& other, Frame* frame = gfx::frame()) {
+        moveFrom(std::move(other), frame);
     }
     Buffer& operator=(Buffer&& other) {
         if (*this)
-            deallocateInternal();
-        moveFrom(std::move(other));
+            deallocateInternal(frame());
+        moveFrom(std::move(other), frame());
         return *this;
     }
 
-    void* mapping() const {
-        return frame()->get(bufferMapping());
+    void* mapping(Frame* frame = gfx::frame()) const {
+        return frame->get(bufferMapping());
     }
 
     ~Buffer() {
         if (*this)
-            deallocateInternal();
+            deallocateInternal(frame());
     }
-    void deallocate() {
+    void deallocate(Frame* frame = gfx::frame()) {
         if (*this) {
-            deallocateInternal();
+            deallocateInternal(frame);
             clearFields();
         }
     }
 
-    void* staticUpdate(uint32_t alignment, uint32_t size) {
-        return allocate(BufferAllocKind::Static, alignment, size);
+    void* staticUpdate(uint32_t alignment, uint32_t size, Frame* frame = gfx::frame()) {
+        return allocate(BufferAllocKind::Static, alignment, size, frame);
     }
-    void* beginDynamicUpdates(uint32_t alignment, uint32_t size) {
-        return allocate(BufferAllocKind::Dynamic, alignment, size);
+    void* beginDynamicUpdates(uint32_t alignment, uint32_t size, Frame* frame = gfx::frame()) {
+        return allocate(BufferAllocKind::Dynamic, alignment, size, frame);
     }
-    void endDynamicUpdates() {
-        allocate(BufferAllocKind::Freeze, 0, 0);
+    void endDynamicUpdates(Frame* frame = gfx::frame()) {
+        allocate(BufferAllocKind::Freeze, 0, 0, frame);
     }
 
     explicit operator bool() const { return id() != 0; }
@@ -190,14 +223,14 @@ class Buffer : public Buffer<> {
 
 public:
     operator BufferHandle<T>() const { return { id() }; }
-    void* staticUpdate() {
-        return Base::staticUpdate(alignof(T), sizeof(T));
+    void* staticUpdate(Frame* frame = gfx::frame()) {
+        return Base::staticUpdate(alignof(T), sizeof(T), frame);
     }
-    void* beginDynamicUpdates() {
-        return Base::beginDynamicUpdates(alignof(T), sizeof(T));
+    void* beginDynamicUpdates(Frame* frame = gfx::frame()) {
+        return Base::beginDynamicUpdates(alignof(T), sizeof(T), frame);
     }
-    T* mapping() const {
-        return static_cast<T*>(Base::mapping());
+    T* mapping(Frame* frame = gfx::frame()) const {
+        return static_cast<T*>(Base::mapping(frame));
     }
 };
 template<typename T>
@@ -206,27 +239,40 @@ class Buffer<T[]> : public Buffer<> {
 
 public:
     operator BufferHandle<T[]>() const { return { id() }; }
-    void* staticUpdate(int_t size) {
-        return Base::staticUpdate(alignof(T), sizeof(T) * size);
+    void* staticUpdate(int_t size, Frame* frame = gfx::frame()) {
+        return Base::staticUpdate(alignof(T), sizeof(T) * size, frame);
     }
-    void* beginDynamicUpdates(int_t size) {
-        return Base::beginDynamicUpdates(alignof(T), sizeof(T) * size);
+    void* beginDynamicUpdates(int_t size, Frame* frame = gfx::frame()) {
+        return Base::beginDynamicUpdates(alignof(T), sizeof(T) * size, frame);
     }
-    T* mapping() const {
-        return static_cast<T*>(Base::mapping());
+    T* mapping(Frame* frame = gfx::frame()) const {
+        return static_cast<T*>(Base::mapping(frame));
     }
 };
 
-template<TexelLayout layout>
+template<TexelLayout layout = TexelLayout::Unknown>
 class SWImageHandle {
 protected:
     uint32_t id = 0;
+    SWImageHandle(uint32_t id)
+        : id(id) { }
 
 public:
-    sw::ImageView<layout> get() const {
-        return (sw::ImageView<layout>)frame()->softwareImages[id];
+    SWImageHandle() = default;
+    static SWImageHandle create(iVec2 dimensions, Frame* frame = gfx::frame()) {
+        return { frame->allocateSWImage(sizeof(sw::texel_t<layout>), dimensions) };
     }
+
+    sw::ImageView<layout> get(Frame* frame = gfx::frame()) const {
+        return (sw::ImageView<layout>)frame->swImages[id];
+    }
+    void deallocate() {
+        VERIFY_NOT_REACHED(GFX);
+        *this = {};
+    }
+    explicit operator bool() const { return id != 0; }
 };
+static_assert(stx::detail::HasDeallocateMemberFunction<SWImageHandle<TexelLayout::BGRA8>>);
 
 enum class TexelComponents {
     D16,
@@ -276,7 +322,7 @@ struct Texture {
 };
 
 template<typename S>
-class ShaderInstance {
+class Shader {
 private:
 public:
     const S& shader();

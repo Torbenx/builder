@@ -2,6 +2,7 @@
 
 #include "containers/ArrayView.hpp"
 #include "containers/FixedString.hpp"
+#include "graphics/Buffer.hpp"
 
 namespace Tag {
 struct ShaderGen {
@@ -26,15 +27,16 @@ struct BindingBase {
         StorageImage,
     };
     enum class Access {
-        None = 0,
-        ReadOnly = 1,
-        WriteOnly = 2,
-        ReadWrite = 3,
+        None,
+        ReadOnly,
+        WriteOnly,
+        ReadWrite,
     };
     const char* name = nullptr;
     int index = 0;
     Type type = (Type)0;
     Access access = (Access)0;
+    gfx::TexelComponents imageFormat = (gfx::TexelComponents)0;
     uint32_t stageMask = 0;
 };
 struct Binding : BindingBase {

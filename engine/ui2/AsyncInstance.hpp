@@ -24,7 +24,6 @@ private:
     BasicAtlasAllocator atlasAllocator;
 
     void doTick();
-    friend class Instance::SWPainter;
 
 public:
     AsyncInstance(const evt::Source<evt::WindowStateUpdate>& stateUpdate, const evt::Source<evt::ResizeEvent>& resizeEvent)
@@ -34,6 +33,10 @@ public:
 
     stx::Owned<Instance::SWPainter*> createSWPainter() {
         return new Instance::SWPainter(this);
+    }
+
+    Instance::PaintEvent& paintEvent() {
+        return timeline()->paintRing[tick()];
     }
 };
 

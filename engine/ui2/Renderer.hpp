@@ -8,8 +8,9 @@
 
 namespace ui {
 
-using ImagePtr = sw::ImagePtr<sw::TexelLayout::BGRA8>;
-using ImageView = sw::ImageView<sw::TexelLayout::BGRA8>;
+inline constexpr gfx::TexelLayout IMAGE_FORMAT = gfx::TexelLayout::BGRA8;
+using ImagePtr = sw::ImagePtr<IMAGE_FORMAT>;
+using ImageView = sw::ImageView<IMAGE_FORMAT>;
 
 class RendererBase;
 struct RendererRecord {

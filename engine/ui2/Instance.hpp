@@ -130,11 +130,32 @@ public:
     private:
         struct Job;
         AsyncInstance* instance = nullptr;
+        gfx::SWImageHandle<IMAGE_FORMAT> framebuffer;
 
     public:
         SWPainter(AsyncInstance* instance)
             : instance(instance) { }
-        void paint(ImageView framebuffer, sw::Semaphore waitFor, sw::Semaphore signal);
+        void paint(sw::Semaphore waitFor, sw::Semaphore signal);
+        void setFramebuffer(gfx::SWImageHandle<IMAGE_FORMAT> framebuffer);
+    };
+    class HWPainter {
+    private:
+        struct Job;
+        struct Shader;
+        struct Metadata {
+            int maxLayers = 0;
+        };
+        AsyncInstance* instance = nullptr;
+        gfx::Shader<Shader> shader;
+        gfx::Buffer<IntVec[]> positionsBuffer;
+        gfx::Buffer<Metadata> metadataBuffer;
+        gfx::Texture<IMAGE_FORMAT> atlasTexture;
+
+    public:
+        HWPainter(AsyncInstance* instance)
+            : instance(instance) { }
+        void paint(sw::Semaphore signal);
+        void setFramebuffer(gfx::Texture<IMAGE_FORMAT> framebuffer);
     };
     struct PaintEvent {
         sw::Semaphore atlasReadyForUse;

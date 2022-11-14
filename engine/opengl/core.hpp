@@ -23,7 +23,7 @@ namespace gl {
 void initialize();
 void attachWindow(plt::Window* window);
 
-static GLenum toGL(shadergen::Binding::Access access) {
+inline GLenum toGL(shadergen::Binding::Access access) {
     static constexpr GLenum glValues[] = {
         GL_READ_ONLY,
         GL_READ_ONLY,
@@ -31,6 +31,17 @@ static GLenum toGL(shadergen::Binding::Access access) {
         GL_READ_WRITE,
     };
     return glValues[stx::to_underlying(access)];
+}
+
+inline GLenum toGL(gfx::TexelComponents format) {
+    using enum gfx::TexelComponents;
+    switch (format){
+    case RGBA8:
+        return GL_RGBA8;
+    default:
+        VERIFY_NOT_REACHED(OpenGL);
+        return GL_NONE;
+    }
 }
 
 struct CommandSlot {
@@ -140,17 +151,44 @@ struct CubeMap {
     }
 };
 
-inline void bind(shadergen::Binding binding, Image image) {
-    VERIFY(OpenGL, binding.type == shadergen::Binding::Type::StorageImage);
-    int layer = 0;
-    if (image.bindpoint == Image::Bindpoint::CubeMap)
-        layer = stx::to_underlying(image.target) - stx::to_underlying(Image::Target::FacePosX);
-    glBindImageTexture(binding.index, image.glId, image.mipLevel, false, layer, toGL(binding.access), GL_RGBA8UI);
-}
-inline void bind(shadergen::Binding binding, Texture texture) {
-    VERIFY(OpenGL, binding.type == shadergen::Binding::Type::SampledImage);
-    glActiveTexture(GL_TEXTURE0 + binding.index);
-    texture.bind();
+struct ImageType {
+    static constinit const ImageType TYPES[8];
+    GLenum bindpoint;
+    GLenum target;
+    int layer;
+    static ImageType get(gfx::Image<> image) { return get(image.type); }
+    static ImageType get(gfx::ImageType type) { return TYPES[stx::to_underlying(type)]; }
+};
+inline constinit const ImageType ImageType::TYPES[8] = {
+    { GL_TEXTURE_2D, GL_TEXTURE_2D, 0 },
+    { GL_RENDERBUFFER, GL_RENDERBUFFER, 0 },
+    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0 },
+    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 1 },
+    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 2 },
+    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 3 },
+    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 4 },
+    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 5 },
+};
+
+inline void bind(const shadergen::ShaderRecord* shader, const void* inData) {
+    const std::byte* data = (const std::byte*)inData;
+    gfx::Frame* frame = gfx::frame();
+    using BType = shadergen::Binding::Type;
+    for (const auto& binding : shader->bindings) {
+        if (binding.type == BType::StorageBuffer || binding.type == BType::UniformBuffer) {
+            auto gfxHandle = *(const gfx::BufferHandle<>*)(data + binding.offset);
+            auto glBuf = frame->hwBuffers[gfxHandle.id];
+            GLenum glTarget = binding.type == BType::UniformBuffer ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
+            glBindBufferRange(glTarget, binding.index, glBuf.handle, glBuf.offset, glBuf.size);
+        } else if (binding.type == BType::StorageImage) {
+            auto gfxHandle = *(const gfx::Image<>*)(data + binding.offset);
+            auto glType = ImageType::get(gfxHandle);
+            auto glBaseTexture = frame->hwObjects[gfxHandle.baseId];
+            glBindImageTexture(binding.index, glBaseTexture.handle, gfxHandle.mipLevel, false, glType.layer, toGL(binding.access), toGL(binding.imageFormat));
+        } else {
+            VERIFY_NOT_REACHED(OpenGL);
+        }
+    }
 }
 
 /*inline void imageData(Image image, ui::IntRect rect, sw::TexturePosition data) {

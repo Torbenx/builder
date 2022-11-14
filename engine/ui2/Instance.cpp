@@ -188,63 +188,7 @@ namespace {
             event.atlasReadyForUse.signal();
 
             delete this;
-
-            /*using enum gfx::Api;
-            switch (event.api()) {
-            case Software: {
-                gfx::get<Software>(event).waitFor.thenSync({ *this, stx::CallMember<&AtlasJob::startSWPaint>() });
-                break;
-            }
-            case OpenGL: {
-                auto& event = gfx::get<OpenGL>(this->event);
-                event.commandSlot.set({ *this, stx::CallMember<&AtlasJob::GLPaint>() });
-                event.signal.signal();
-                break;
-            }
-            default:
-                VERIFY_NOT_REACHED(Ui);
-                break;
-            }*/
         }
-
-        /*void GLPaint() {
-            auto& event = gfx::get<gfx::Api::OpenGL>(this->event);
-            gl::Texture atlasTexture;
-            gl::Image atlasImage = atlasTexture;
-            gl::imageData(atlasImage, IntVec { 0, 0 }, instance->atlas);
-            atlasUse.signal();
-            gfx::ShaderInstance<UiShader> shader;
-            shader.mutate().atlas = atlasImage;
-            shader.mutate().screen = event.output;
-        }
-
-        void startSWPaint() {
-            auto& event = gfx::get<gfx::Api::Software>(this->event);
-            int_t offset = 0;
-            int_t blockCount = blocks.blockOffsets.size() / (blocks.blockLayers + 1);
-            sw::Semaphore paintComplete = sw::Semaphore::create();
-            while (blockCount - offset > 0) {
-                PaintJob* job = new PaintJob;
-                job->atlas = instance->atlas;
-                job->framebuffer = event.output;
-                static constexpr int_t targetSize = std::numeric_limits<int_t>::max() / 8;
-                int_t size = targetSize;
-                if (blockCount - offset < targetSize * 3 / 2)
-                    size = blockCount - offset;
-                job->blockOffsets = { &blocks.blockOffsets[offset * (blocks.blockLayers + 1)], size * (blocks.blockLayers + 1) };
-                job->blockLayers = blocks.blockLayers;
-                job->signal = paintComplete.fork();
-                offset += size;
-                evt::async({ *job, stx::CallMember<&PaintJob::paint>() });
-            }
-            paintComplete.thenSync({ *this, stx::CallMember<&AtlasJob::SWPaintComplete>() });
-        }
-        void SWPaintComplete() {
-            auto& event = gfx::get<gfx::Api::Software>(this->event);
-            atlasUse.signal();
-            event.signal.signal();
-            delete this;
-        }*/
     };
 }
 
@@ -343,15 +287,46 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
     }
 };
 
-void Instance::SWPainter::paint(ImageView framebuffer, sw::Semaphore waitFor, sw::Semaphore signal) {
+void Instance::SWPainter::paint(sw::Semaphore waitFor, sw::Semaphore signal) {
     Job* job = new Job;
-    job->framebuffer = framebuffer;
+    job->framebuffer = framebuffer.get();
     job->signal = std::move(signal);
-    instance->timeline()->paintRing[instance->tick()] = PaintEvent {
-        .atlasReadyForUse = waitFor.fork(),
+    waitFor.setAsyncCallback({ *job, stx::CallMember<&Job::paint>() });
+    instance->paintEvent() = PaintEvent {
+        .atlasReadyForUse = std::move(waitFor),
         .painter = job,
     };
-    waitFor.thenAsync({ *job, stx::CallMember<&Job::paint>() });
+}
+
+void Instance::SWPainter::setFramebuffer(gfx::SWImageHandle<IMAGE_FORMAT> framebuffer) {
+    this->framebuffer = framebuffer;
+}
+
+struct Instance::HWPainter::Job : Instance::PainterJob {
+    sw::Semaphore signal;
+    HWPainter* painter = nullptr;
+
+    void paint() {
+        std::copy_n(blocks.blockOffsets.data(), blocks.blockOffsets.size(), painter->positionsBuffer.mapping());
+        *painter->metadataBuffer.mapping() = { .maxLayers = (int)blocks.blockLayers };
+
+        //painter->shader;
+
+        signal.signal();
+        delete this;
+    }
+};
+
+void Instance::HWPainter::paint(sw::Semaphore signal) {
+    Job* job = new Job;
+    job->signal = std::move(signal);
+    job->painter = this;
+    sw::Semaphore beginPaint = sw::Semaphore::create();
+    beginPaint.setAsyncCallback({ *job, stx::CallMember<&Job::paint>() });
+    instance->paintEvent() = PaintEvent {
+        .atlasReadyForUse = std::move(beginPaint),
+        .painter = job,
+    };
 }
 
 void Instance::doTick() {

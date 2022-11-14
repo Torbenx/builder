@@ -69,7 +69,7 @@ struct ImagePtr {
     explicit ImagePtr(ImagePtr<> ptr)
         : m_data((tex_t*)ptr.data())
         , rowStrideInTexels(ptr.rowStrideInBytes / sizeof(tex_t)) {
-        VERIFY(Software, ptr.texelStrideInBytes == sizeof(tex_t));
+        EXPECT(Software, (size_t)ptr.texelStrideInBytes, sizeof(tex_t));
     }
 
     ImagePtr& operator+=(const iVec2& vec) {
@@ -86,11 +86,11 @@ struct ImagePtr {
     tex_t& operator[](const iVec2& vec) {
         return data()[vec.x() + vec.y() * rowStrideInTexels];
     }
-    operator ImagePtr<>() const {
+    operator ImagePtr<>() {
         return {
-            data(),
-            sizeof(tex_t),
-            rowStrideInTexels * sizeof(tex_t),
+            .m_data = (std::byte*)data(),
+            .texelStrideInBytes = (uint32_t)sizeof(tex_t),
+            .rowStrideInBytes = (uint32_t)(rowStrideInTexels * sizeof(tex_t)),
         };
     }
     tex_t* data() { return m_data; }
@@ -115,6 +115,12 @@ inline ImagePtr<layout> operator-(ImagePtr<layout> img, const iVec2& vec) {
 }
 
 template<TexelLayout layout = TexelLayout::Unknown>
+struct ImageView;
+
+ImageView<> allocateImage(int_t texelSize, iVec2 dimensions);
+void deallocateImage(ImageView<> image);
+
+template<TexelLayout layout>
 struct ImageView : ImagePtr<layout> {
     iVec2 m_dimensions;
 
@@ -123,12 +129,20 @@ struct ImageView : ImagePtr<layout> {
         : ImagePtr<layout>(ptr), m_dimensions(dimensions) { }
     ImageView(ImagePtr<> ptr, iVec2 dimensions) requires(layout != TexelLayout::Unknown)
         : ImagePtr<layout>(ptr), m_dimensions(dimensions) { }
-    explicit ImageView(const ImageView<>& view)
+    explicit ImageView(const ImageView<>& view) requires(layout != TexelLayout::Unknown)
         : ImageView((const ImagePtr<>&)view, view.dimensions()) { }
+    ImageView(const ImageView&) = default;
+    ImageView& operator=(const ImageView&) = default;
 
     iVec2 dimensions() const { return m_dimensions; }
     int_t sizeInTexels() const requires(layout != TexelLayout::Unknown) {
         return this->stride() * dimensions().y();
+    }
+    int_t sizeInBytes() const requires(layout != TexelLayout::Unknown) {
+        return sizeof(texel_t<layout>) * sizeInTexels();
+    }
+    int_t sizeInBytes() const requires(layout == TexelLayout::Unknown) {
+        return this->rowStrideInBytes * dimensions().y();
     }
 
     ImageView& operator+=(const iVec2& vec) {
@@ -139,20 +153,33 @@ struct ImageView : ImagePtr<layout> {
         *(ImagePtr<layout>*)this -= vec;
         return *this;
     }
-    operator ImageView<>() const requires(layout != TexelLayout::Unknown) {
+    operator ImageView<>() requires(layout != TexelLayout::Unknown) {
         return { (ImagePtr<>)*this, dimensions() };
     }
 
     void deallocate() requires(layout != TexelLayout::Unknown) {
-        std::allocator<texel_t<layout>>().deallocate(this->data(), sizeInTexels());
+        deallocateImage(*this);
         *this = {};
     }
     static ImageView allocate(iVec2 dimensions) requires(layout != TexelLayout::Unknown) {
-        int_t stride = stx::alignmentCeil(16, dimensions.x());
-        texel_t<layout>* data = std::allocator<texel_t<layout>>().allocate(stride * dimensions.y());
-        return { { data, stride }, dimensions };
+        return (ImageView)allocateImage(sizeof(texel_t<layout>), dimensions);
     }
 };
+inline ImageView<> allocateImage(int_t texelSize, iVec2 dimensions) {
+    int_t stride = stx::alignmentCeil(16, dimensions.x());
+    std::byte* data = std::allocator<std::byte>().allocate(stride * dimensions.y() * texelSize);
+    return {
+        ImagePtr<> {
+            .m_data = data,
+            .texelStrideInBytes = (uint32_t)texelSize,
+            .rowStrideInBytes = (uint32_t)(stride * texelSize),
+        },
+        dimensions,
+    };
+}
+inline void deallocateImage(ImageView<> image) {
+    std::allocator<std::byte>().deallocate((std::byte*)image.data(), image.sizeInBytes());
+}
 
 template<TexelLayout layout>
 inline ImageView<layout> operator+(ImageView<layout> img, const iVec2& vec) {

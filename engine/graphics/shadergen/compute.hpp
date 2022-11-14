@@ -85,21 +85,25 @@ struct ShaderDriver : ShaderDeclDriver {
         : ShaderDeclDriver(storage), bindings(bindings), temporaryModifiers(temporaryModifiers) { }
 
     template<auto member>
-    constexpr const VarDeclModifier* makeBinding(Binding::Type type, const char* name) {
+    constexpr CBinding& makeBinding(Binding::Type type, const char* name) {
         int index = bindingIndices[stx::to_underlying(type)]++;
-        bindings.pushBack({ { name, index, type }, stx::constant<member>() });
-        return temporaryModifiers.pushBack(new BindingModifier { index });
+        return bindings.pushBack({ { name, index, type }, stx::constant<member>() });
+    }
+    constexpr const VarDeclModifier* bindingModifier(const CBinding& binding) {
+        return temporaryModifiers.pushBack(new BindingModifier { binding.index });
     }
 
     template<auto member>
     constexpr auto uniformBuffer(const char* name) {
         using CXXType = typename CXXTypeFromBufferMember<decltype(member)>::type;
-        return declareUniform<CXXType, 2>(name, { &uniformBufferIndicator, makeBinding<member>(Binding::Type::UniformBuffer, name) });
+        CBinding& binding = makeBinding<member>(Binding::Type::UniformBuffer, name);
+        return declareUniform<CXXType, 2>(name, { &uniformBufferIndicator, bindingModifier(binding) });
     }
     template<auto member>
     constexpr auto storageBuffer(const char* name, code::MemQual qual) {
         using CXXType = typename CXXTypeFromBufferMember<decltype(member)>::type;
-        const VarDeclModifier* mods[5] = { &shadergen::storageBufferIndicator, makeBinding<member>(Binding::Type::StorageBuffer, name) };
+        CBinding& binding = makeBinding<member>(Binding::Type::StorageBuffer, name);
+        const VarDeclModifier* mods[5] = { &shadergen::storageBufferIndicator, bindingModifier(binding) };
         int_t offset = 2;
         if (qual & code::MemQual::CanAlias)
             mods[offset++] = &memoryCanAlias;
@@ -116,9 +120,11 @@ struct ShaderDriver : ShaderDeclDriver {
     template<auto member>
     constexpr auto storageImage(const char* name, code::MemQual qual) {
         constexpr gfx::TexelComponents format = FormatFromImageMember<decltype(member)>::value;
+        CBinding& binding = makeBinding<member>(Binding::Type::StorageImage, name);
+        binding.imageFormat = format;
         const VarDeclModifier* mods[6] = {
             &shadergen::storageImageIndicator,
-            makeBinding<member>(Binding::Type::StorageImage, name),
+            bindingModifier(binding),
             temporaryModifiers.pushBack(new ImageFormatModifier { format }),
         };
         int_t offset = 3;
