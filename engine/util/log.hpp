@@ -48,6 +48,7 @@ template<VerifyTag tag, typename F>
 constexpr void expect(F lhs, F rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires std::is_floating_point_v<F> && tag::verifyEnabled {
     if (std::abs(lhs - rhs) > 0.00001f) {
         log<tag>("EXPECT failed {}:{}: {}(): {} {{{}}} == {} {{{}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
+        verify_failed();
     }
 }
 
@@ -55,6 +56,7 @@ template<VerifyTag tag, typename T>
 constexpr void expect(const T& lhs, const T& rhs, const char* lhsStr, const char* rhsStr, const char* file, int line, const char* func) requires tag::verifyEnabled &&(!std::is_floating_point_v<T>) {
     if (lhs != rhs) {
         log<tag>("EXPECT failed {}:{}: {}(): {} {{{:#x}}} == {} {{{:#x}}}", file, line, func, lhsStr, lhs, rhsStr, rhs);
+        verify_failed();
     }
 }
 

@@ -23,9 +23,14 @@ namespace detail {
         using type = typename T::DestroyCall;
     };
     template<typename T>
-    requires std::is_same_v<decltype(&T::deallocate), void (T::*)()>
+    concept HasDeallocateMemberFunction = requires(T& in) { in.deallocate(); };
+    template<HasDeallocateMemberFunction T>
     struct DefaultDeallocateCall<T> {
-        using type = CallMember<&T::deallocate>;
+        struct type {
+            constexpr void operator()(T& value) const {
+                value.deallocate();
+            }
+        };
     };
     template<typename T>
     struct DefaultDeallocateCall<T*> {
