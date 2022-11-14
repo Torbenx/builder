@@ -99,6 +99,11 @@ struct UserTypeImpl : UserType {
 };
 
 // macros
+#ifdef BEGIN_GEN_STRUCT
+#undef BEGIN_GEN_STRUCT
+#undef GEN_FIELD
+#undef END_GEN_STRUCT
+#endif
 #define BEGIN_GEN_STRUCT(name)                                           \
     template<int_t fieldIndex, typename T = void>                        \
     struct _gen_fields_;                                                 \

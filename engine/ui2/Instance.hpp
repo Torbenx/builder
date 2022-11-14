@@ -139,11 +139,15 @@ public:
         void setFramebuffer(gfx::SWImageHandle<IMAGE_FORMAT> framebuffer);
     };
     class HWPainter {
+    public:
+        struct Shader;
+
     private:
         struct Job;
-        struct Shader;
         struct Metadata {
-            int maxLayers = 0;
+            BEGIN_GEN_STRUCT(Metadata);
+            int GEN_FIELD(maxLayers);
+            END_GEN_STRUCT();
         };
         AsyncInstance* instance = nullptr;
         gfx::Shader<Shader> shader;

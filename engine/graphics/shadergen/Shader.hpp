@@ -59,4 +59,10 @@ struct ShaderRecordHolder {
     static constinit const ShaderRecord value;
 };
 
+#ifndef BEGIN_GEN_STRUCT
+#define BEGIN_GEN_STRUCT(name)
+#define GEN_FIELD(name) name;
+#define END_GEN_STRUCT()
+#endif
+
 }

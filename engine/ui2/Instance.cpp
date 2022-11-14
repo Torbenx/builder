@@ -1,8 +1,10 @@
+#include "graphics/shadergen/compute.hpp"
+
 #include "AsyncInstance.hpp"
 #include "event/Awaitable.hpp"
-#include "graphics/shadergen/compute.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
+#include <immintrin.h>
 
 namespace ui {
 
@@ -111,45 +113,6 @@ void Instance::dumpShiftSizes() {
     }
 }
 
-#include <immintrin.h>
-
-namespace {
-    struct UiData {
-        BEGIN_GEN_STRUCT(UiData);
-        int GEN_FIELD(maxLayers);
-        END_GEN_STRUCT();
-    };
-    struct UiShader {
-        gfx::BufferHandle<UiData> data;
-        gfx::BufferHandle<IntVec[]> positions;
-        gfx::ImageHandle<gfx::TexelComponents::RGBA8> screen;
-        gfx::ImageHandle<gfx::TexelComponents::RGBA8> atlas;
-
-        static constexpr void defineShader(shadergen::ComputeDriver&);
-    };
-    constexpr void UiShader::defineShader(shadergen::ComputeDriver& prog) {
-        using namespace shadergen::code;
-        auto data = prog.uniformBuffer<&UiShader::data>("data");
-        auto positions = prog.storageBuffer<&UiShader::positions>("positions", MemQual::NoWrite);
-        auto screen = prog.storageImage<&UiShader::screen>("screen", (MemQual)0);
-        auto atlas = prog.storageImage<&UiShader::atlas>("atlas", MemQual::NoWrite);
-
-        AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
-        AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
-        AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
-        prog.range(constant(0), data.maxLayers, [&](auto& i) {
-            AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
-            AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
-            prog, color = inColor.xyz() * inColor.w + color * (constant(1.0f) - inColor.w);
-        });
-        prog, imageStore(screen, screenPos, compose(color, constant(1.0f)));
-    }
-}
-
-}
-DEFINE_SHADER(ui::UiShader);
-
-namespace ui {
 namespace {
     struct AtlasJob {
         Instance* instance = nullptr;
@@ -310,12 +273,41 @@ struct Instance::HWPainter::Job : Instance::PainterJob {
         std::copy_n(blocks.blockOffsets.data(), blocks.blockOffsets.size(), painter->positionsBuffer.mapping());
         *painter->metadataBuffer.mapping() = { .maxLayers = (int)blocks.blockLayers };
 
-        //painter->shader;
+        // painter->shader;
 
         signal.signal();
         delete this;
     }
 };
+
+struct Instance::HWPainter::Shader {
+    gfx::BufferHandle<Metadata> data;
+    gfx::BufferHandle<IntVec[]> positions;
+    gfx::ImageHandle<gfx::TexelComponents::RGBA8> screen;
+    gfx::ImageHandle<gfx::TexelComponents::RGBA8> atlas;
+
+    static constexpr void defineShader(shadergen::ComputeDriver& prog) {
+        using namespace shadergen::code;
+        auto data = prog.uniformBuffer<&Shader::data>("data");
+        auto positions = prog.storageBuffer<&Shader::positions>("positions", MemQual::NoWrite);
+        auto screen = prog.storageImage<&Shader::screen>("screen", (MemQual)0);
+        auto atlas = prog.storageImage<&Shader::atlas>("atlas", MemQual::NoWrite);
+
+        AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
+        AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
+        AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
+        prog.range(constant(0), data.maxLayers, [&](auto& i) {
+            AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
+            AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
+            prog, color = inColor.xyz() * inColor.w + color * (constant(1.0f) - inColor.w);
+        });
+        prog, imageStore(screen, screenPos, compose(color, constant(1.0f)));
+    }
+};
+
+}
+DEFINE_SHADER(ui::Instance::HWPainter::Shader);
+namespace ui {
 
 void Instance::HWPainter::paint(sw::Semaphore signal) {
     Job* job = new Job;
