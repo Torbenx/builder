@@ -208,6 +208,7 @@ evt::Script uiTestWrapper(plt::Window window) {
 
     auto graphicsInst = std::make_unique<gfx::Instance>();
     gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer;
+    sw::iVec2 framebufferDimensions = {};
 
     auto paint = [&]() {
         if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
@@ -215,8 +216,10 @@ evt::Script uiTestWrapper(plt::Window window) {
         if (!graphicsInst->beginFrame())
             return;
 
-        if (!framebuffer) {
-            framebuffer = gfx::SWImageHandle<ui::IMAGE_FORMAT>::create(window.dimensions());
+        if (framebufferDimensions != window.dimensions()) {
+            framebufferDimensions = window.dimensions();
+            log("allocating new framebuffer");
+            framebuffer = gfx::SWImageHandle<ui::IMAGE_FORMAT>::createDynamic(framebufferDimensions);
             clearer->setFramebuffer(framebuffer);
             uiPainter->setFramebuffer(framebuffer);
             presenter->setFramebuffer(framebuffer);
@@ -234,6 +237,7 @@ evt::Script uiTestWrapper(plt::Window window) {
                 frame->complete();
             },
         });
+        gfx::frame()->allocationComplete();
         graphicsInst->clearFrame();
     };
 

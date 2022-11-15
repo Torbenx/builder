@@ -2,6 +2,7 @@
 
 #include "Semaphore.hpp"
 #include "containers/Array.hpp"
+#include "containers/EnumTable.hpp"
 #include "ui2/IntTypes.hpp"
 #include "util/types.hpp"
 
@@ -12,6 +13,7 @@ enum class TexelLayout {
     D16,
     RGBA8,
     BGRA8,
+    COUNT,
 };
 
 }
@@ -35,6 +37,14 @@ DEFINE_TEXEL(BGRA8, uint32_t);
 
 template<TexelLayout layout>
 using texel_t = typename texel_helper<layout>::type;
+
+template<TexelLayout layout>
+requires requires { typename texel_t<layout>; }
+struct texel_size {
+    static constexpr int_t value = sizeof(texel_t<layout>);
+};
+
+inline constexpr stx::TemplateEnumTable<TexelLayout, int_t, texel_size> texelSizes { 0 };
 
 template<TexelLayout layout = TexelLayout::Unknown>
 struct ImagePtr;
@@ -117,8 +127,8 @@ inline ImagePtr<layout> operator-(ImagePtr<layout> img, const iVec2& vec) {
 template<TexelLayout layout = TexelLayout::Unknown>
 struct ImageView;
 
-ImageView<> allocateImage(int_t texelSize, iVec2 dimensions);
-void deallocateImage(ImageView<> image);
+ImageView<> allocateImage(TexelLayout, iVec2 dimensions);
+void deallocateImage(ImageView<>);
 
 template<TexelLayout layout>
 struct ImageView : ImagePtr<layout> {
@@ -162,10 +172,11 @@ struct ImageView : ImagePtr<layout> {
         *this = {};
     }
     static ImageView allocate(iVec2 dimensions) requires(layout != TexelLayout::Unknown) {
-        return (ImageView)allocateImage(sizeof(texel_t<layout>), dimensions);
+        return (ImageView)allocateImage(layout, dimensions);
     }
 };
-inline ImageView<> allocateImage(int_t texelSize, iVec2 dimensions) {
+inline ImageView<> allocateImage(TexelLayout format, iVec2 dimensions) {
+    int_t texelSize = texelSizes[format];
     int_t stride = stx::alignmentCeil(16, dimensions.x());
     std::byte* data = std::allocator<std::byte>().allocate(stride * dimensions.y() * texelSize);
     return {

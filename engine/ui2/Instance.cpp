@@ -202,11 +202,33 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
             _mm_storeu_si128((__m128i*)out + 3, _mm256_extracti128_si256(i2, 1));
         };
 
-        const __m256i multiply1 = _mm256_set1_epi16(0x8081);
+        /*
+         *  2^(2n) / (2^n - 1) - (2^n + 1)
+         *  = (2^(2n) - (2^n + 1)(2^n - 1)) / (2^n - 1)
+         *  = 1 / (2^n - 1)
+         *
+         *  d = (x + 2^(n-1)) * (2^n + 1) / 2^(2n) - (x *  / (2^n - 1) + 1/2)
+         *
+         *  d * 2^(2n) = (x + 2^(n-1)) * (2^n + 1) - (x * 2^(2n) / (2^n - 1) + 2^(2n - 1))
+         *             = (x + 2^(n-1)) * (2^n + 1) - (x * (2^n + 1 + 1 / (2^n - 1)) + 2^(2n - 1))
+         *             = x * (2^n + 1) + 2^(2n - 1) + 2^(n-1) - x * (2^n + 1) - x / (2^n - 1) - 2^(2n - 1)
+         *             = 2^(n-1) - x / (2^n - 1)
+         *
+         *  d = (2^(n-1) - x / (2^n - 1)) / 2^(2n)
+         *    = 2^(-n-1) - x / 2^(2n) / (2^n - 1)
+         *
+         *  x >= 0
+         *  d <= 2^(-n-1)
+         *
+         *  x <= (2^n - 1) * 2^n
+         *  d >= 1 / 2^(n+1) - 1 / 2^n = -2^(-n-1)
+         */
+        const __m256i multiply1 = _mm256_set1_epi16(257);
+        const __m256i add1 = _mm256_set1_epi16(128);
         auto blend = [&](__m256i src, __m256i dst, __m256i srcA, __m256i oneMinusSrcA) {
             __m256i im = _mm256_add_epi16(_mm256_mullo_epi16(src, srcA), _mm256_mullo_epi16(dst, oneMinusSrcA));
             // divide by 255
-            return _mm256_srli_epi16(_mm256_mulhi_epu16(im, multiply1), 7);
+            return _mm256_mulhi_epu16(_mm256_add_epi16(im, add1), multiply1);
         };
 
         int_t blockCount = blocks.blockOffsets.size() / (blocks.blockLayers + 1);

@@ -53,12 +53,18 @@ enum class BufferAllocKind : uint16_t {
     Freeze,
     Destroy,
 };
-struct alignas(BUFFER_CPU_ALLOCATION_ALIGNMENT) BufferAllocHeader {
+struct alignas(BUFFER_CPU_ALLOCATION_ALIGNMENT) BufferAllocInfo {
     uint16_t id = 0;
     BufferAllocKind kind : 2 = (BufferAllocKind)0;
     uint16_t alignment : 14 = 0;
     uint32_t size = 0;
     BufferMapping prevMapping;
+};
+
+struct SWImageAllocInfo {
+    TexelLayout format = (TexelLayout)0;
+    uint32_t id = 0;
+    iVec2 dimensions;
 };
 
 struct HWObject {
@@ -67,6 +73,22 @@ struct HWObject {
 struct HWBuffer : HWObject {
     uint32_t offset = 0;
     uint32_t size = 0;
+};
+
+inline constexpr int_t MAX_CONCURRENT_FRAMES = 4;
+
+template<typename T>
+struct ShiftingFrameVector {
+    std::vector<T> vectors[MAX_CONCURRENT_FRAMES] = {};
+
+    void shift(int_t count) {
+        for (int_t i = count - 1; i >= 1; i--)
+            vectors[i] = std::move(vectors[i - 1]);
+        if (count < MAX_CONCURRENT_FRAMES)
+            vectors[count].clear();
+    }
+    std::vector<T>& current() { return vectors[0]; }
+    std::vector<T>& past(int_t i) { return vectors[i]; }
 };
 
 struct Frame {
@@ -81,31 +103,33 @@ struct Frame {
     BufferMapping allocateBuffer(uint32_t id, BufferAllocKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping);
 
     sw::ImageView<>* swImages = nullptr;
-    uint32_t allocateSWImage(int_t texelSize, iVec2 dimensions);
+    ShiftingFrameVector<SWImageAllocInfo> swImageAllocations;
+    uint32_t allocateSWImage(TexelLayout format, iVec2 dimensions);
 
     HWBuffer* hwBuffers = nullptr;
     HWObject* hwObjects = nullptr;
 
+    void allocationComplete();
     void complete();
 };
 DECLARE_THREAD_LOCAL_GETSET(Frame*, frame, setFrame, GRAPHICS_FRAME)
-
-inline constexpr int_t MAX_CONCURRENT_FRAMES = 1;
 inline constexpr size_t INSTANCE_ALIGNMENT = std::bit_ceil(sizeof(Frame) * MAX_CONCURRENT_FRAMES);
 
 struct alignas(INSTANCE_ALIGNMENT) Instance {
-    using frame_mask_t = uint32_t;
     Frame frames[MAX_CONCURRENT_FRAMES] = {};
 
     BufferInfo* bufferInfos = nullptr;
 
     uint32_t nextSWImageId = 1;
 
-    frame_mask_t framesReadyMask = 0;
-    frame_mask_t framesAllocatedMask = 0;
+    int_t nextFrameIndex = 0;
+    int_t concurrentFrames = 2;
+    uint32_t framesReadyMask = (1u << concurrentFrames) - 1;
+    bool allocationOngoing = false;
+    Instance();
+    ~Instance();
     bool beginFrame();
     void clearFrame();
-    void frameComplete(int_t index);
     void allocateFrame(int_t index);
 };
 static_assert(offsetof(Instance, frames[0]) == 0);
@@ -259,8 +283,8 @@ protected:
 
 public:
     SWImageHandle() = default;
-    static SWImageHandle create(iVec2 dimensions, Frame* frame = gfx::frame()) {
-        return { frame->allocateSWImage(sizeof(sw::texel_t<layout>), dimensions) };
+    static SWImageHandle createDynamic(iVec2 dimensions, Frame* frame = gfx::frame()) {
+        return { frame->allocateSWImage(layout, dimensions) };
     }
 
     sw::ImageView<layout> get(Frame* frame = gfx::frame()) const {
