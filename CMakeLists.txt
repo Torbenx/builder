@@ -41,7 +41,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mbmi -mcx16 -mlzcnt -mfma")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mbmi -mpopcnt -mcx16 -mlzcnt -mfma")
     endif()
 
     include_directories(libs/OpenGL/api)
