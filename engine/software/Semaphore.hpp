@@ -56,8 +56,15 @@ public:
 
     static Semaphore create();
     static Semaphore merge(ArrayView<Semaphore>);
+    static Semaphore fromPtr(void* ptr) { return { (Storage*)ptr }; }
     void signal();
     void destroy();
+
+    void* asPtr() {
+        Storage* storage = this->storage;
+        this->storage = nullptr;
+        return storage;
+    }
 
     void setSyncCallback(stx::BasicCallback<> callback) {
         VERIFY(Software, (bool)storage);

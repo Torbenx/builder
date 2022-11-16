@@ -44,7 +44,7 @@ public:
     constexpr ArrayView(const std::vector<std::remove_const_t<T>>& data) requires std::is_const_v<T>
         : m_data(data.data()), m_size(data.size()) { }
 
-    constexpr ArrayView(const std::initializer_list<T>& data)
+    constexpr ArrayView(const std::initializer_list<T>& data) requires std::is_const_v<T>
         : m_data(data.begin()), m_size(data.size()) { }
 
     constexpr T* data() const { return m_data; }

@@ -35,7 +35,7 @@ public:
         return new Instance::SWPainter(this);
     }
 
-    Instance::PaintEvent& paintEvent() {
+    std::vector<Instance::PaintEvent>& paintEvents() {
         return timeline()->paintRing[tick()];
     }
 };

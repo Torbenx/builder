@@ -213,8 +213,19 @@ evt::Script uiTestWrapper(plt::Window window) {
     auto paint = [&]() {
         if (window.dimensions().x() == 0 || window.dimensions().y() == 0)
             return;
-        if (!graphicsInst->beginFrame())
+        if (!graphicsInst->nextFrameReady()) {
+            // log("next frame was not ready");
+            // VDUMP(graphicsInst->allocationOngoing.load());
+            // VDUMP(graphicsInst->framesReadyMask.load(), ":#b");
             return;
+        }
+
+        sw::Semaphore allocationComplete = sw::Semaphore::create();
+        sw::Semaphore paintUi = sw::Semaphore::create();
+        sw::Semaphore present = sw::Semaphore::create();
+        sw::Semaphore frameComplete = sw::Semaphore::create();
+
+        graphicsInst->beginFrame(allocationComplete.fork(), frameComplete.fork());
 
         if (framebufferDimensions != window.dimensions()) {
             framebufferDimensions = window.dimensions();
@@ -225,26 +236,17 @@ evt::Script uiTestWrapper(plt::Window window) {
             presenter->setFramebuffer(framebuffer);
         }
 
-        sw::Semaphore paintUi = sw::Semaphore::create();
-        sw::Semaphore present = sw::Semaphore::create();
-        sw::Semaphore frameComplete = sw::Semaphore::create();
         clearer->clear(sw::Semaphore::create(), paintUi.fork());
         uiPainter->paint(std::move(paintUi), present.fork());
-        presenter->present(std::move(present), frameComplete.fork());
-        frameComplete.thenSync({
-            gfx::frame(),
-            [](gfx::Frame* frame) {
-                frame->complete();
-            },
-        });
-        gfx::frame()->allocationComplete();
+        presenter->present(std::move(present), std::move(frameComplete));
         graphicsInst->clearFrame();
+        allocationComplete.signal();
     };
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
     while (!completionEv.hasEvent()) {
-        instance.asyncTick();
         paint();
+        instance.asyncTick();
         await { (evt::NextTick(), script->completion > completionEv) };
     };
     instance.asyncTick();

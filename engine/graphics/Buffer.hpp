@@ -75,7 +75,7 @@ struct HWBuffer : HWObject {
     uint32_t size = 0;
 };
 
-inline constexpr int_t MAX_CONCURRENT_FRAMES = 4;
+inline constexpr int_t MAX_CONCURRENT_FRAMES = 8;
 
 template<typename T>
 struct ShiftingFrameVector {
@@ -108,9 +108,6 @@ struct Frame {
 
     HWBuffer* hwBuffers = nullptr;
     HWObject* hwObjects = nullptr;
-
-    void allocationComplete();
-    void complete();
 };
 DECLARE_THREAD_LOCAL_GETSET(Frame*, frame, setFrame, GRAPHICS_FRAME)
 inline constexpr size_t INSTANCE_ALIGNMENT = std::bit_ceil(sizeof(Frame) * MAX_CONCURRENT_FRAMES);
@@ -123,14 +120,16 @@ struct alignas(INSTANCE_ALIGNMENT) Instance {
     uint32_t nextSWImageId = 1;
 
     int_t nextFrameIndex = 0;
-    int_t concurrentFrames = 2;
-    uint32_t framesReadyMask = (1u << concurrentFrames) - 1;
-    bool allocationOngoing = false;
+    int_t concurrentFrames = 8;
+    std::atomic<uint32_t> framesReadyMask = (1u << concurrentFrames) - 1;
+    std::atomic<bool> allocationOngoing = false;
     Instance();
     ~Instance();
-    bool beginFrame();
+    bool nextFrameReady();
+    void beginFrame(sw::Semaphore allocationComplete, sw::Semaphore frameComplete);
     void clearFrame();
     void allocateFrame(int_t index);
+    void allocationComplete(int_t index);
 };
 static_assert(offsetof(Instance, frames[0]) == 0);
 

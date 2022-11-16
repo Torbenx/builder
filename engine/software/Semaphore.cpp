@@ -10,7 +10,10 @@ Semaphore Semaphore::create() {
 Semaphore Semaphore::merge(ArrayView<Semaphore> in) {
     Semaphore out = create();
     for (Semaphore& semaphore : in)
-        semaphore.thenSync({ &out, [](Semaphore* s) { s->signal(); } });
+        semaphore.thenSync({
+            out.fork().asPtr(),
+            [](void* ptr) { fromPtr(ptr).signal(); },
+        });
     return out;
 }
 
@@ -23,6 +26,7 @@ void Semaphore::signal() {
         return;
     }
     stx::BasicCallback copy = storage->callback;
+    VERIFY(Software, (bool)copy);
     bool async = storage->asyncCallback;
     int_t mainTick = storage->mainTick;
     delete storage;

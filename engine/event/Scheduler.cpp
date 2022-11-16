@@ -140,6 +140,7 @@ namespace {
         TickRingBuffer<std::atomic<int_t>> itemsAlive = {};
         std::atomic<int_t> lowestActiveTick = 0;
         TickRingBuffer<CallbackQueue> queuedCallbacks;
+        std::atomic<bool> shouldExit = false;
     };
 
     struct Scheduler {
@@ -153,6 +154,7 @@ namespace {
         bool positiveCheckPending = false;
         const int_t checksBeforeSleep = 30;
         int_t checksSinceLastSchedule = 0;
+        bool shouldExit = false;
 
         Scheduler(GlobalData* global)
             : global(global) {
@@ -198,6 +200,10 @@ namespace {
             if (checksSinceLastSchedule < checksBeforeSleep)
                 return false;
 
+            if (global->shouldExit.load()) {
+                shouldExit = true;
+                return false;
+            }
             using namespace std::chrono_literals;
             std::this_thread::sleep_for(1ms);
             checksSinceLastSchedule = 0;
@@ -257,7 +263,7 @@ namespace {
         }
 
         void run() {
-            while (true) {
+            while (!shouldExit) {
                 runOnce();
             }
         }
@@ -265,7 +271,7 @@ namespace {
     DECLARE_THREAD_LOCAL_GETSET(Scheduler*, scheduler, setScheduler, SCHEDULER)
 
     struct MainScheduler : Scheduler {
-        const int_t ticksPerSecond = 10;
+        const int_t ticksPerSecond = 10000;
         const int_t nanosPerSecond = 1'000'000'000;
         const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
         int_t nextTickToStart = 0;
@@ -305,12 +311,12 @@ namespace {
             }
 
             // log<Tag::Event>("starting tick {}, lowest is {} waiting for {} items, should be at {}",
-            //     nextTickToStart, lowestTick, globalItemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
+            //     nextTickToStart, lowestTick, global->itemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
 
             if (nextTickToStart < activeTick) {
                 activeTick = nextTickToStart;
-                hasNonActiveTicks = true;
             }
+            hasNonActiveTicks = true;
 
             shouldStartTick = true;
             return true;
@@ -343,6 +349,26 @@ namespace {
     struct EngineImpl {
         GlobalData global;
         MainScheduler mainScheduler { &global };
+        std::vector<std::thread> extraThreads;
+
+        EngineImpl() {
+            int_t tCount = 3;
+            for (int_t i = 0; i < tCount; i++) {
+                extraThreads.emplace_back(
+                    [](GlobalData* global) {
+                        Scheduler scheduler { global };
+                        setScheduler(&scheduler);
+                        scheduler.run();
+                        setScheduler(nullptr);
+                    },
+                    &global);
+            }
+        }
+        ~EngineImpl() {
+            global.shouldExit.store(true);
+            for (auto& thread : extraThreads)
+                thread.join();
+        }
     };
 }
 

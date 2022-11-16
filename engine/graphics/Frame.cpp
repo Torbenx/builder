@@ -32,28 +32,6 @@ uint32_t Frame::allocateSWImage(TexelLayout format, iVec2 dimensions) {
     return id;
 }
 
-void Frame::allocationComplete() {
-    Instance* instance = toInstance(this);
-    int_t nextIndex = toFrameIndex(this) + 1;
-    if (nextIndex == instance->concurrentFrames)
-        nextIndex = 0;
-    VERIFY(GFX, nextIndex == instance->nextFrameIndex);
-    Frame* nextFrame = &instance->frames[nextIndex];
-    for (int_t i = instance->concurrentFrames - 1; i >= 0; i--) {
-        for (auto alloc : swImageAllocations.past(i)) {
-            nextFrame->swImages[alloc.id] = sw::allocateImage(alloc.format, alloc.dimensions);
-        }
-    }
-    swImageAllocations.shift(instance->concurrentFrames);
-    nextFrame->swImageAllocations = std::move(swImageAllocations);
-    instance->allocationOngoing = false;
-}
-
-void Frame::complete() {
-    toInstance(this)->framesReadyMask |= 1u << toFrameIndex(this);
-    
-}
-
 void Instance::allocateFrame(int_t index) {
     Frame& frame = frames[index];
     frame.swImages = new sw::ImageView<>[16];
@@ -68,19 +46,54 @@ Instance::~Instance() {
     // TODO: cleanup
 }
 
-bool Instance::beginFrame() {
-    int_t frameIndex = nextFrameIndex;
-    if ((framesReadyMask & (1u << frameIndex)) == 0 || allocationOngoing)
-        return false;
+bool Instance::nextFrameReady() {
+    return (framesReadyMask.load() & (1u << nextFrameIndex)) != 0 && !allocationOngoing.load();
+}
 
-    nextFrameIndex += 1;
+void Instance::beginFrame(sw::Semaphore allocationComplete, sw::Semaphore frameComplete) {
+    VERIFY(GFX, nextFrameReady());
+    int_t frameIndex = nextFrameIndex++;
     if (nextFrameIndex == concurrentFrames)
         nextFrameIndex = 0;
-    allocationOngoing = true;
 
-    log("begining frame {}", frameIndex);
-    setFrame(&frames[frameIndex]);
-    return true;
+    //log("begining frame {}", frameIndex);
+    Frame* frame = &frames[frameIndex];
+
+    allocationOngoing.store(true);
+    allocationComplete.thenSync({
+        frame,
+        [](Frame* frame) {
+            toInstance(frame)->allocationComplete(toFrameIndex(frame));
+        },
+    });
+    framesReadyMask.fetch_and(~(1u << frameIndex)); 
+    frameComplete.thenSync({
+        frame,
+        [](Frame* frame) {
+            toInstance(frame)->framesReadyMask.fetch_or(1u << toFrameIndex(frame));
+        },
+    });
+
+    setFrame(frame);
+}
+
+void Instance::allocationComplete(int_t index) {
+    Frame* curFrame = &frames[index];
+    int_t nextIndex = index + 1;
+    if (nextIndex == concurrentFrames)
+        nextIndex = 0;
+    VERIFY(GFX, nextIndex == nextFrameIndex);
+    Frame* nextFrame = &frames[nextIndex];
+
+    for (int_t i = concurrentFrames - 1; i >= 0; i--) {
+        for (auto alloc : curFrame->swImageAllocations.past(i)) {
+            nextFrame->swImages[alloc.id] = sw::allocateImage(alloc.format, alloc.dimensions);
+        }
+    }
+    curFrame->swImageAllocations.shift(concurrentFrames);
+    nextFrame->swImageAllocations = std::move(curFrame->swImageAllocations);
+
+    allocationOngoing.store(false);
 }
 
 void Instance::clearFrame() {

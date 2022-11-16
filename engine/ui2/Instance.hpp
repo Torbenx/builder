@@ -171,10 +171,12 @@ public:
         }
     };
 
-    PaintEvent& paintEvent() { return paintRing[tick()]; }
-    evt::TickRingBuffer<PaintEvent> paintRing;
+    std::vector<PaintEvent>& paintEvents() { return paintRing[tick()]; }
+    evt::TickRingBuffer<std::vector<PaintEvent>> paintRing;
 
-    sw::Semaphore atlasUse = sw::Semaphore::create();
+    sw::Semaphore atlasInUse = sw::Semaphore::create();
+    sw::Semaphore afterAtlasUpdateChain = sw::Semaphore::create();
+    struct AtlasJob;
 
     // only access from AtlasJob::updateAtlas()
     stx::Owned<ImageView> atlas;

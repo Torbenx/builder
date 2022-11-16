@@ -46,7 +46,8 @@ Instance::~Instance() {
     for (int_t i = 0; i < 4; i++)
         removeEqn(windowEquations[i]);
     deleteVariable(windowRect);
-    atlasUse.destroy();
+    atlasInUse.destroy();
+    afterAtlasUpdateChain.destroy();
 }
 
 uint32_t Instance::allocateVariableIds(int_t count) {
@@ -113,53 +114,51 @@ void Instance::dumpShiftSizes() {
     }
 }
 
-namespace {
-    struct AtlasJob {
-        Instance* instance = nullptr;
-        IntVec atlasDimensions;
-        stx::DynArray<std::vector<std::byte>> atlasUpdates;
-        Instance::PaintEvent event;
+struct Instance::AtlasJob {
+    Instance* instance = nullptr;
+    IntVec atlasDimensions;
+    stx::DynArray<std::vector<std::byte>> atlasUpdates;
+    sw::Semaphore signal;
 
-        void updateAtlas() {
-            if (atlasDimensions != instance->atlas.dimensions())
-                instance->atlas = ui::ImageView::allocate(atlasDimensions);
-            ImageView atlas = instance->atlas;
+    void updateAtlas() {
+        if (atlasDimensions != instance->atlas.dimensions())
+            instance->atlas = ui::ImageView::allocate(atlasDimensions);
+        ImageView atlas = instance->atlas;
 
-            for (int_t i = 0; i < atlasUpdates.size(); i++) {
-                auto& updates = atlasUpdates[i];
-                const ui::RendererRecord& record = ui::RendererBase::record(i);
-                int_t stride = ui::RenderOutputUtil::outputSize(i);
-                for (auto it = updates.begin(); it != updates.end(); it += stride) {
-                    ui::RenderOutputUtil output(&*it);
-                    ui::IntRect paddedRect {
-                        ui::BottomLeft(output.atlasRect().bottomLeft() - 16),
-                        ui::TopRight(output.atlasRect().topRight() + 16),
-                    };
-                    ImageView texture { atlas + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
-                    ImageView paddedTexture { atlas + paddedRect.bottomLeft(), paddedRect.dimensions() };
-                    for (int j = 0; j < paddedTexture.dimensions().y(); j++) {
-                        for (int i = 0; i < paddedTexture.dimensions().x(); i++) {
-                            paddedTexture[{ i, j }] = 0;
-                        }
+        for (int_t i = 0; i < atlasUpdates.size(); i++) {
+            auto& updates = atlasUpdates[i];
+            const ui::RendererRecord& record = ui::RendererBase::record(i);
+            int_t stride = ui::RenderOutputUtil::outputSize(i);
+            for (auto it = updates.begin(); it != updates.end(); it += stride) {
+                ui::RenderOutputUtil output(&*it);
+                ui::IntRect paddedRect {
+                    ui::BottomLeft(output.atlasRect().bottomLeft() - 16),
+                    ui::TopRight(output.atlasRect().topRight() + 16),
+                };
+                ImageView texture { atlas + output.atlasRect().bottomLeft(), output.atlasRect().dimensions() };
+                ImageView paddedTexture { atlas + paddedRect.bottomLeft(), paddedRect.dimensions() };
+                for (int j = 0; j < paddedTexture.dimensions().y(); j++) {
+                    for (int i = 0; i < paddedTexture.dimensions().x(); i++) {
+                        paddedTexture[{ i, j }] = 0;
                     }
-                    record.render(texture, output.renderDataPtr());
                 }
+                record.render(texture, output.renderDataPtr());
             }
-            atlasUpdates.clear();
-
-            event.painter->atlas = atlas;
-            event.atlasReadyForUse.signal();
-
-            delete this;
         }
-    };
-}
+
+        signal.signal();
+        delete this;
+    }
+};
 
 struct Instance::SWPainter::Job : Instance::PainterJob {
     ImageView framebuffer;
     sw::Semaphore signal;
 
+    static inline std::atomic<int_t> aliveJobs = 0;
+
     void paint() {
+        //aliveJobs.fetch_add(1, std::memory_order_relaxed);
         auto multiply = [](uint32_t in, uint32_t alpha) {
             return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
         };
@@ -269,6 +268,8 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
         doneUsingAtlas.signal();
         signal.signal();
         delete this;
+        //log("alive jobs: {}", aliveJobs.load(std::memory_order_relaxed));
+        //aliveJobs.fetch_sub(1, std::memory_order_relaxed);
     }
 };
 
@@ -277,10 +278,10 @@ void Instance::SWPainter::paint(sw::Semaphore waitFor, sw::Semaphore signal) {
     job->framebuffer = framebuffer.get();
     job->signal = std::move(signal);
     waitFor.setAsyncCallback({ *job, stx::CallMember<&Job::paint>() });
-    instance->paintEvent() = PaintEvent {
+    instance->paintEvents().push_back({
         .atlasReadyForUse = std::move(waitFor),
         .painter = job,
-    };
+    });
 }
 
 void Instance::SWPainter::setFramebuffer(gfx::SWImageHandle<IMAGE_FORMAT> framebuffer) {
@@ -337,10 +338,10 @@ void Instance::HWPainter::paint(sw::Semaphore signal) {
     job->painter = this;
     sw::Semaphore beginPaint = sw::Semaphore::create();
     beginPaint.setAsyncCallback({ *job, stx::CallMember<&Job::paint>() });
-    instance->paintEvent() = PaintEvent {
+    instance->paintEvents().push_back({
         .atlasReadyForUse = std::move(beginPaint),
         .painter = job,
-    };
+    });
 }
 
 void Instance::doTick() {
@@ -365,7 +366,7 @@ void Instance::doTick() {
         }
     }
 
-    updateLayout(true);
+    updateLayout(false);
 
     for (int_t i = 0; i < rendererUpdates.size(); i++) {
         auto& updates = rendererUpdates[i];
@@ -379,23 +380,47 @@ void Instance::doTick() {
         updates.clear();
     }
 
-    if (paintEvent().atlasReadyForUse) {
-        AtlasJob* job = new AtlasJob;
-        job->atlasUpdates = std::move(incrementalRenderOutput);
-        incrementalRenderOutput = stx::DynArray<std::vector<std::byte>> { RendererBase::recordCount() };
-        outputGeneration += 1;
-        job->instance = this;
-        job->atlasDimensions = atlasDimensions;
-        PainterJob* painter = paintEvent().painter;
-        painter->blocks = buildBlocks();
-        job->event = std::move(paintEvent());
-        paintEvent().reset();
+    int_t totalUpdates = 0;
+    for (auto& updates : incrementalRenderOutput)
+        totalUpdates += updates.size();
+    bool atlasDirty = totalUpdates > 0;
+    if (paintEvents().size() > 0) {
+        if (atlasDirty) {
+            AtlasJob* job = new AtlasJob;
+            job->atlasUpdates = std::move(incrementalRenderOutput);
+            incrementalRenderOutput = stx::DynArray<std::vector<std::byte>> { RendererBase::recordCount() };
+            outputGeneration += 1;
+            job->instance = this;
+            job->atlasDimensions = atlasDimensions;
 
-        // run job after prev user is done using the atlas
-        atlasUse.thenAsync({ *job, stx::CallMember<&AtlasJob::updateAtlas>() });
-
-        atlasUse = sw::Semaphore::create();
-        painter->doneUsingAtlas = atlasUse.fork();
+            // run job after prev user is done using the atlas
+            sw::Semaphore param[] = { std::move(atlasInUse), std::move(afterAtlasUpdateChain) };
+            sw::Semaphore::merge(param).thenAsync({ *job, stx::CallMember<&AtlasJob::updateAtlas>() });
+            atlasInUse = sw::Semaphore::create();
+            afterAtlasUpdateChain = sw::Semaphore::create();
+            job->signal = afterAtlasUpdateChain.fork();
+        }
+        for (auto& event : paintEvents()) {
+            event.painter->doneUsingAtlas = atlasInUse.fork();
+            event.painter->blocks = buildBlocks();
+        }
+        struct DistJob {
+            std::vector<PaintEvent> events;
+            Instance* instance;
+            sw::Semaphore signal;
+            void run() {
+                for (auto& event : events) {
+                    event.painter->atlas = instance->atlas;
+                    event.atlasReadyForUse.signal();
+                }
+                signal.signal();
+                delete this;
+            }
+        };
+        sw::Semaphore nextChain = sw::Semaphore::create();
+        DistJob* distJob = new DistJob { std::move(paintEvents()), this, nextChain.fork() };
+        afterAtlasUpdateChain.thenSync({ *distJob, stx::CallMember<&DistJob::run>() });
+        afterAtlasUpdateChain = std::move(nextChain);
     }
 
     endTick();
@@ -437,12 +462,11 @@ void Instance::updateLayout(bool clearTextures) {
         deallocateAllTextures();
         for (int_t i = 1; i < (int_t)renders.size(); i++) {
             auto& render = renders[i];
-            IntRect rect = intRect(render.rect);
+            IntRect rect = intRect(render.rect, newVarValues.data());
             render.allocPosition = allocateTexture(rect.dimensions());
             updateRenderTexture(render, rect);
         }
     } else {
-        std::vector<int_t> textureUpdates;
         for (int_t i = 1; i < (int_t)renders.size(); i++) {
             auto& render = renders[i];
             IntRect oldRect = intRect(render.rect, varValues.data());
@@ -453,13 +477,8 @@ void Instance::updateLayout(bool clearTextures) {
                 deallocateTexture({ BottomLeft(render.allocPosition), Dimensions(oldRect.dimensions()) });
                 render.allocPosition = {};
             }
-            textureUpdates.push_back(i);
-        }
-        for (int_t updateId : textureUpdates) {
-            auto& render = renders[updateId];
-            IntRect rect = intRect(render.rect);
-            render.allocPosition = allocateTexture(rect.dimensions());
-            updateRenderTexture(render, rect);
+            render.allocPosition = allocateTexture(newRect.dimensions());
+            updateRenderTexture(render, newRect);
         }
     }
 
