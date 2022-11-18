@@ -30,8 +30,9 @@ void detail::AsyncTimelineBase::scheduleAsyncTick(Timeline* timeline) {
 }
 
 int_t detail::AsyncTimelineBase::computeTick(const Timeline* timeline) const {
-    if (timeline->tickMapping[nextTickToSchedule - 1] == mainTick())
+    if (timeline->tickMapping[nextTickToSchedule - 1] == mainTick()) {
         return nextTickToSchedule - 1;
+    }
     return nextTickToSchedule;
 }
 

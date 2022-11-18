@@ -155,9 +155,13 @@ namespace {
         const int_t checksBeforeSleep = 30;
         int_t checksSinceLastSchedule = 0;
         bool shouldExit = false;
+        uint64_t lastSecond = 0;
+        uint64_t totalWorkTime = 0;
+        int_t itemsExecuted = 0;
+        int_t threadId = 0;
 
-        Scheduler(GlobalData* global)
-            : global(global) {
+        Scheduler(int_t id, GlobalData* global)
+            : global(global), threadId(id) {
             checks.push_back([](Scheduler* scheduler) { return scheduler->checkForBetter(); });
             checks.push_back([](Scheduler* scheduler) { return scheduler->checkForSleep(); });
         }
@@ -192,6 +196,13 @@ namespace {
         }
 
         bool checkForSleep() {
+            uint64_t now = getNanos();
+            if (now - lastSecond > 1'000'000'000) {
+                log("{} executed {} items and worked {}% of the time", threadId, itemsExecuted, totalWorkTime * 100.0f / (now - lastSecond));
+                totalWorkTime = 0;
+                itemsExecuted = 0;
+                lastSecond = now;
+            }
             if (localStacks[activeTick].size() == 0 && !hasNonActiveTicks && !executingItem)
                 checksSinceLastSchedule += 1;
             else
@@ -205,7 +216,8 @@ namespace {
                 return false;
             }
             using namespace std::chrono_literals;
-            std::this_thread::sleep_for(1ms);
+            // std::this_thread::sleep_for(1ms);
+
             checksSinceLastSchedule = 0;
             return false;
         }
@@ -248,9 +260,12 @@ namespace {
                     volunteerNonActive();
                 evt::setMainTick(activeTick);
                 executingItem = true;
+                uint64_t workBegin = getNanos();
                 item();
+                totalWorkTime += getNanos() - workBegin;
                 executingItem = false;
                 global->itemsAlive[activeTick].fetch_sub(1, std::memory_order_relaxed);
+                itemsExecuted += 1;
             } else {
                 // having activeTick = lowestTick + MAX_CONCURRENT_TICKS should be fine since
                 // the ring buffer has an extra element that should always be empty
@@ -280,8 +295,8 @@ namespace {
         std::vector<CallbackQueue::TakeReturnType> callbackQueues;
         Timeline timeline;
 
-        MainScheduler(GlobalData* global)
-            : Scheduler(global) {
+        MainScheduler(int_t id, GlobalData* global)
+            : Scheduler(id, global) {
             checks.push_back([](Scheduler* scheduler) {
                 return static_cast<MainScheduler*>(scheduler)->checkTickLifetime();
             });
@@ -306,20 +321,22 @@ namespace {
 
             if (nextTickToStart - lowestTick >= MAX_CONCURRENT_TICKS) {
                 // log<Tag::Event>("failed to start tick {}, lowest is {} waiting for {} items, should be at {}",
-                //     nextTickToStart, lowestTick, globalItemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
+                //     nextTickToStart, lowestTick, global->itemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
                 return false;
             }
 
             // log<Tag::Event>("starting tick {}, lowest is {} waiting for {} items, should be at {}",
             //     nextTickToStart, lowestTick, global->itemsAlive[lowestTick].load(std::memory_order_relaxed), shouldBeTick);
 
+            hasNonActiveTicks = true;
+            bool result = false;
             if (nextTickToStart < activeTick) {
                 activeTick = nextTickToStart;
+                result = true;
             }
-            hasNonActiveTicks = true;
 
             shouldStartTick = true;
-            return true;
+            return result;
         }
 
         bool run() {
@@ -334,6 +351,7 @@ namespace {
 
             nextTickToStart += 1;
             shouldStartTick = false;
+            itemsExecuted += 1;
 
             do {
                 runOnce();
@@ -348,15 +366,15 @@ namespace {
 
     struct EngineImpl {
         GlobalData global;
-        MainScheduler mainScheduler { &global };
+        MainScheduler mainScheduler { 0, &global };
         std::vector<std::thread> extraThreads;
 
         EngineImpl() {
-            int_t tCount = 3;
+            int_t tCount = 0;
             for (int_t i = 0; i < tCount; i++) {
                 extraThreads.emplace_back(
-                    [](GlobalData* global) {
-                        Scheduler scheduler { global };
+                    [i](GlobalData* global) {
+                        Scheduler scheduler { i + 1, global };
                         setScheduler(&scheduler);
                         scheduler.run();
                         setScheduler(nullptr);
@@ -378,6 +396,10 @@ void async(Item item, int_t tick) {
 
 void postCallback(Source<CallbackEvent>& postTo, stx::BasicCallback<> callback) {
     scheduler()->global->queuedCallbacks[evt::mainTick()].pushBack({ &postTo, { callback } });
+}
+
+bool schedulerCheck() {
+    return scheduler()->check();
 }
 
 EngineScope::EngineScope()

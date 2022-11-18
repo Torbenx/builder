@@ -86,6 +86,9 @@ public:
         setAsyncCallback(callback);
         signal();
     }
+    void then(Semaphore then) {
+        thenSync({ then.asPtr(), [](void* ptr) { fromPtr(ptr).signal(); } });
+    }
 
     explicit operator bool() const { return (bool)storage; }
 };

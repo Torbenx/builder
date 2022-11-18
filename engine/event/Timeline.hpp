@@ -7,6 +7,20 @@ namespace evt {
 
 void async(stx::BasicCallback<>, int_t tick = evt::mainTick());
 void postCallback(Source<CallbackEvent>& postTo, stx::BasicCallback<>);
+bool schedulerCheck();
+
+struct SchedulerCheck {
+    bool await_ready() {
+        return !schedulerCheck();
+    }
+    void await_suspend(stdx::coroutine_handle<> handle) {
+        async({
+            handle.address(),
+            [](void* addr) { stdx::coroutine_handle<>::from_address(addr).resume(); },
+        });
+    }
+    void await_resume() { }
+};
 
 class EngineScope {
 private:

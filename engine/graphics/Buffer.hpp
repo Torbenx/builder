@@ -120,7 +120,7 @@ struct alignas(INSTANCE_ALIGNMENT) Instance {
     uint32_t nextSWImageId = 1;
 
     int_t nextFrameIndex = 0;
-    int_t concurrentFrames = 8;
+    int_t concurrentFrames = 4;
     std::atomic<uint32_t> framesReadyMask = (1u << concurrentFrames) - 1;
     std::atomic<bool> allocationOngoing = false;
     Instance();

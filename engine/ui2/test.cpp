@@ -140,15 +140,15 @@ struct Presenter {
         sw::Semaphore signal;
 
         void present() {
-            static int_t frames = 0;
-            static uint64_t lastFrame = 0;
+            static std::atomic<int_t> frames = 0;
+            static std::atomic<uint64_t> lastFrame = 0;
             uint64_t now = getNanos();
-            if (now - lastFrame >= 1'000'000'000) {
-                lastFrame = now;
-                log("FPS: {}", frames);
-                frames = 0;
+            uint64_t lastFrameCopy = lastFrame.load();
+            if (now - lastFrameCopy >= 1'000'000'000 && lastFrame.compare_exchange_strong(lastFrameCopy, now)) {
+                int_t framesCopy = frames.exchange(0);
+                log("FPS: {}", framesCopy);
             }
-            frames += 1;
+            frames.fetch_add(1);
 
             auto* impl = plt::windows::windowImpl(window);
             BITMAPINFO bitmapInfo {
@@ -245,8 +245,8 @@ evt::Script uiTestWrapper(plt::Window window) {
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;
     while (!completionEv.hasEvent()) {
-        paint();
         instance.asyncTick();
+        paint();
         await { (evt::NextTick(), script->completion > completionEv) };
     };
     instance.asyncTick();

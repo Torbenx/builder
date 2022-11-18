@@ -155,10 +155,7 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
     ImageView framebuffer;
     sw::Semaphore signal;
 
-    static inline std::atomic<int_t> aliveJobs = 0;
-
     void paint() {
-        //aliveJobs.fetch_add(1, std::memory_order_relaxed);
         auto multiply = [](uint32_t in, uint32_t alpha) {
             return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
         };
@@ -268,8 +265,6 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
         doneUsingAtlas.signal();
         signal.signal();
         delete this;
-        //log("alive jobs: {}", aliveJobs.load(std::memory_order_relaxed));
-        //aliveJobs.fetch_sub(1, std::memory_order_relaxed);
     }
 };
 

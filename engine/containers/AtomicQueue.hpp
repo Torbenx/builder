@@ -28,12 +28,13 @@ public:
 private:
     std::optional<T> tryReplaceHead(Item*& oldHead) {
         Item* item = oldHead->next.load(std::memory_order_seq_cst);
-        if (item) {
-            T copy = item->value;
-            if (head.compare_exchange_weak(oldHead, item, std::memory_order_relaxed)) {
-                delete oldHead;
-                return copy;
-            }
+        if (!item || head.load(std::memory_order_relaxed) != oldHead)
+            return {};
+        T copy = item->value;
+        // FIXME: This still has ABA problems, that can only be solved via special allocation behaviour
+        if (head.compare_exchange_weak(oldHead, item, std::memory_order_relaxed)) {
+            delete oldHead;
+            return copy;
         }
         return {};
     }
