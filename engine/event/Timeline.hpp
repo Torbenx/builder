@@ -2,6 +2,7 @@
 
 #include "Event.hpp"
 #include <atomic>
+#include <memory>
 
 namespace evt {
 
@@ -22,9 +23,11 @@ struct SchedulerCheck {
     void await_resume() { }
 };
 
+struct EngineImpl;
+
 class EngineScope {
 private:
-    void* data = nullptr;
+    std::unique_ptr<EngineImpl> impl;
 
 public:
     EngineScope();

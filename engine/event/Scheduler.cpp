@@ -216,7 +216,7 @@ namespace {
                 return false;
             }
             using namespace std::chrono_literals;
-            // std::this_thread::sleep_for(1ms);
+            std::this_thread::sleep_for(1ms);
 
             checksSinceLastSchedule = 0;
             return false;
@@ -286,7 +286,7 @@ namespace {
     DECLARE_THREAD_LOCAL_GETSET(Scheduler*, scheduler, setScheduler, SCHEDULER)
 
     struct MainScheduler : Scheduler {
-        const int_t ticksPerSecond = 10000;
+        const int_t ticksPerSecond = 10;
         const int_t nanosPerSecond = 1'000'000'000;
         const int_t nanosPerTick = nanosPerSecond / ticksPerSecond;
         int_t nextTickToStart = 0;
@@ -363,31 +363,6 @@ namespace {
             return true;
         }
     };
-
-    struct EngineImpl {
-        GlobalData global;
-        MainScheduler mainScheduler { 0, &global };
-        std::vector<std::thread> extraThreads;
-
-        EngineImpl() {
-            int_t tCount = 0;
-            for (int_t i = 0; i < tCount; i++) {
-                extraThreads.emplace_back(
-                    [i](GlobalData* global) {
-                        Scheduler scheduler { i + 1, global };
-                        setScheduler(&scheduler);
-                        scheduler.run();
-                        setScheduler(nullptr);
-                    },
-                    &global);
-            }
-        }
-        ~EngineImpl() {
-            global.shouldExit.store(true);
-            for (auto& thread : extraThreads)
-                thread.join();
-        }
-    };
 }
 
 void async(Item item, int_t tick) {
@@ -402,9 +377,33 @@ bool schedulerCheck() {
     return scheduler()->check();
 }
 
+struct EngineImpl {
+    GlobalData global;
+    MainScheduler mainScheduler { 0, &global };
+    std::vector<std::thread> extraThreads;
+
+    EngineImpl() {
+        int_t tCount = 0;
+        for (int_t i = 0; i < tCount; i++) {
+            extraThreads.emplace_back(
+                [i](GlobalData* global) {
+                    Scheduler scheduler { i + 1, global };
+                    setScheduler(&scheduler);
+                    scheduler.run();
+                    setScheduler(nullptr);
+                },
+                &global);
+        }
+    }
+    ~EngineImpl() {
+        global.shouldExit.store(true);
+        for (auto& thread : extraThreads)
+            thread.join();
+    }
+};
+
 EngineScope::EngineScope()
-    : data(new EngineImpl {}) {
-    EngineImpl* impl = (EngineImpl*)data;
+    : impl(new EngineImpl {}) {
 
     VERIFY(Event, scheduler() == nullptr);
     VERIFY(Event, mainTick() == 0);
@@ -418,8 +417,6 @@ bool EngineScope::run() {
     return static_cast<MainScheduler*>(scheduler())->run();
 }
 EngineScope::~EngineScope() {
-    EngineImpl* impl = (EngineImpl*)data;
-
     VERIFY(Event, scheduler() == &impl->mainScheduler);
     VERIFY(Event, mainTick() == impl->mainScheduler.nextTickToStart);
     VERIFY(Event, currentTimeline() == &impl->mainScheduler.timeline);
@@ -427,9 +424,6 @@ EngineScope::~EngineScope() {
     impl->mainScheduler.timeline.clearTick();
     setMainTick(0);
     setScheduler(nullptr);
-
-    delete impl;
-    data = nullptr;
 }
 
 }
