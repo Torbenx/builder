@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Array.hpp"
 #include "ArrayView.hpp"
 
 namespace stx {
@@ -19,9 +20,15 @@ public:
     };
     template<int_t N>
     constexpr EnumTable(T defaultValue, const Entry (&entries)[N]) {
+
         std::fill_n(this->data(), this->size(), defaultValue);
-        for (const Entry& entry : entries)
-            this->data()[stx::to_underlying(entry.key)] = entry.value;
+        stx::Array<bool, stx::to_underlying(E::COUNT)> checkArray = {};
+        for (const Entry& entry : entries) {
+            auto val = stx::to_underlying(entry.key);
+            VERIFY(Containers, !checkArray[val]);
+            checkArray[val] = true;
+            this->data()[val] = entry.value;
+        }
     }
 
     using Base::operator[];
