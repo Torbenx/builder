@@ -87,9 +87,8 @@ inline constinit const stx::EnumTable<gfx::ImageType, ImageType> ImageType::TYPE
     },
 };
 
-inline void bind(const shadergen::ShaderRecord* shader, const void* inData) {
+inline void bind(gfx::FrameData* frame, const shadergen::ShaderRecord* shader, const void* inData) {
     const std::byte* data = (const std::byte*)inData;
-    gfx::Frame* frame = gfx::frame();
     using BType = shadergen::Binding::Type;
     for (const auto& binding : shader->bindings) {
         if (binding.type == BType::StorageBuffer || binding.type == BType::UniformBuffer) {

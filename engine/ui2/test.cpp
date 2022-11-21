@@ -238,7 +238,8 @@ evt::Script uiTestWrapper(plt::Window window) {
         clearer->clear(sw::Semaphore::create(), paintUi.fork());
         uiPainter->paint(std::move(paintUi), present.fork());
         presenter->present(std::move(present), std::move(frameComplete));
-        graphicsInst->clearFrame();
+        
+        gfx::finishAllocator();
     };
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;

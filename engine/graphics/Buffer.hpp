@@ -5,7 +5,7 @@
 #include "util/Callable.hpp"
 #include "util/types.hpp"
 #include <bit>
-#include <mutex>
+#include <memory>
 
 namespace Tag {
 struct GFX {
@@ -81,11 +81,29 @@ struct HWBuffer : HWObject {
 
 inline constexpr int_t MAX_CONCURRENT_FRAMES = 8;
 
-struct Frame {
+struct FrameData {
     std::byte** bufferMappingLocations = nullptr;
     std::byte* get(BufferMapping buffer) const {
         return bufferMappingLocations[buffer.location] + buffer.offset;
     }
+
+    sw::ImageView<>* swImages = nullptr;
+
+    HWBuffer* hwBuffers = nullptr;
+    HWObject* hwObjects = nullptr;
+};
+struct Frame;
+struct Instance;
+
+struct RootAllocator;
+struct Allocator : FrameData {
+    Frame* m_frame = nullptr;
+    RootAllocator* root = nullptr;
+    Allocator(const FrameData& copyFrom, Frame* frame, RootAllocator* root);
+    Allocator(RootAllocator* root);
+    Frame* frame() { return m_frame; }
+    Instance* instance();
+    void finish();
 
     BufferMapping bufferAllocBump;
     uint32_t bufferAllocBumpEnd = 0;
@@ -93,14 +111,25 @@ struct Frame {
     void growBufferAllocBump(uint32_t requiredSize);
     BufferMapping allocateBuffer(uint32_t id, BufferAllocKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping);
 
-    sw::ImageView<>* swImages = nullptr;
     std::vector<SWImageAllocInfo> swImageAllocations;
     uint32_t allocateSWImage(TexelLayout format, iVec2 dimensions);
-
-    HWBuffer* hwBuffers = nullptr;
-    HWObject* hwObjects = nullptr;
 };
-DECLARE_THREAD_LOCAL_GETSET(Frame*, frame, setFrame, GRAPHICS_FRAME)
+struct RootAllocator : Allocator {
+    std::atomic<int_t> unfinishedAllocators = 1;
+    std::vector<std::unique_ptr<Allocator>> children;
+    RootAllocator(Frame* frame);
+    Allocator* fork();
+    void doFinish();
+};
+void finishAllocator();
+
+DECLARE_THREAD_LOCAL_GETSET(Allocator*, allocator, setAllocator, GRAPHICS_ALLOCATOR)
+struct Frame : FrameData {
+    Frame() = default;
+    Frame(const Frame&) = delete;
+
+    std::vector<SWImageAllocInfo> swImageAllocations;
+};
 inline constexpr size_t INSTANCE_ALIGNMENT = std::bit_ceil(sizeof(Frame) * MAX_CONCURRENT_FRAMES);
 
 struct alignas(INSTANCE_ALIGNMENT) Instance {
@@ -111,13 +140,12 @@ struct alignas(INSTANCE_ALIGNMENT) Instance {
     uint32_t nextSWImageId = 1;
 
     int_t nextFrameIndex = 0;
-    int_t concurrentFrames = 4;
+    int_t concurrentFrames = 2;
     std::atomic<uint32_t> framesReadyMask = (1u << concurrentFrames) - 1;
     Instance();
     ~Instance();
     bool nextFrameReady();
     void beginFrame(sw::Semaphore frameComplete);
-    void clearFrame();
     void allocateFrame(int_t index);
     template<typename Callback>
     void iteratePrevFrames(int_t index, Callback&& callback) {
@@ -136,7 +164,7 @@ inline Instance* toInstance(Frame* frame) {
 inline int_t toFrameIndex(Frame* frame) {
     return frame - (Frame*)toInstance(frame);
 }
-inline Instance* instance() { return toInstance(frame()); }
+inline Instance* Allocator::instance() { return toInstance(frame()); }
 
 template<typename T = void>
 struct BufferHandle {
@@ -165,8 +193,8 @@ protected:
         m_offset = 0;
     }
 
-    BufferInfo* info(Frame* frame) const {
-        return toInstance(frame)->bufferInfos + id();
+    BufferInfo* info(Instance* inst) const {
+        return inst->bufferInfos + id();
     }
 
     BufferMapping bufferMapping() const { return { loc(), offset() }; }
@@ -175,62 +203,62 @@ protected:
         m_offset = mapping.offset;
     }
 
-    void moveFrom(Buffer&& other, Frame* frame) {
+    void moveFrom(Buffer&& other, Instance* inst) {
         copyFields(other);
         if (other) {
-            BufferInfo* info = other.info(frame);
+            BufferInfo* info = other.info(inst);
             VERIFY(GFX, info->buffer == &other);
             info->buffer = this;
         }
         other.clearFields();
     }
 
-    void* allocate(BufferAllocKind kind, uint32_t alignment, uint32_t size, Frame* frame) {
-        BufferMapping mapping = frame->allocateBuffer(id(), kind, alignment, size, bufferMapping());
+    void* allocate(BufferAllocKind kind, uint32_t alignment, uint32_t size, Allocator* alloc) {
+        BufferMapping mapping = alloc->allocateBuffer(id(), kind, alignment, size, bufferMapping());
         setMapping(mapping);
-        return frame->get(mapping);
+        return alloc->get(mapping);
     }
-    void deallocateInternal(Frame* frame) {
-        allocate(BufferAllocKind::Destroy, 0, 0, frame);
+    void deallocateInternal(Allocator* alloc) {
+        allocate(BufferAllocKind::Destroy, 0, 0, alloc);
     }
 
 public:
     Buffer() = default;
     Buffer(const Buffer&) = delete;
 
-    Buffer(Buffer&& other, Frame* frame = gfx::frame()) {
-        moveFrom(std::move(other), frame);
+    Buffer(Buffer&& other, Allocator* alloc = gfx::allocator()) {
+        moveFrom(std::move(other), alloc->instance());
     }
     Buffer& operator=(Buffer&& other) {
         if (*this)
-            deallocateInternal(frame());
-        moveFrom(std::move(other), frame());
+            deallocateInternal(allocator());
+        moveFrom(std::move(other), allocator()->instance());
         return *this;
     }
 
-    void* mapping(Frame* frame = gfx::frame()) const {
-        return frame->get(bufferMapping());
+    void* mapping(Allocator* alloc = gfx::allocator()) const {
+        return alloc->get(bufferMapping());
     }
 
     ~Buffer() {
         if (*this)
-            deallocateInternal(frame());
+            deallocateInternal(allocator());
     }
-    void deallocate(Frame* frame = gfx::frame()) {
+    void deallocate(Allocator* alloc = gfx::allocator()) {
         if (*this) {
-            deallocateInternal(frame);
+            deallocateInternal(alloc);
             clearFields();
         }
     }
 
-    void* staticUpdate(uint32_t alignment, uint32_t size, Frame* frame = gfx::frame()) {
-        return allocate(BufferAllocKind::Static, alignment, size, frame);
+    void* staticUpdate(uint32_t alignment, uint32_t size, Allocator* alloc = gfx::allocator()) {
+        return allocate(BufferAllocKind::Static, alignment, size, alloc);
     }
-    void* beginDynamicUpdates(uint32_t alignment, uint32_t size, Frame* frame = gfx::frame()) {
-        return allocate(BufferAllocKind::Dynamic, alignment, size, frame);
+    void* beginDynamicUpdates(uint32_t alignment, uint32_t size, Allocator* alloc = gfx::allocator()) {
+        return allocate(BufferAllocKind::Dynamic, alignment, size, alloc);
     }
-    void endDynamicUpdates(Frame* frame = gfx::frame()) {
-        allocate(BufferAllocKind::Freeze, 0, 0, frame);
+    void endDynamicUpdates(Allocator* alloc = gfx::allocator()) {
+        allocate(BufferAllocKind::Freeze, 0, 0, alloc);
     }
 
     explicit operator bool() const { return id() != 0; }
@@ -243,14 +271,14 @@ class Buffer : public Buffer<> {
 
 public:
     operator BufferHandle<T>() const { return { id() }; }
-    void* staticUpdate(Frame* frame = gfx::frame()) {
-        return Base::staticUpdate(alignof(T), sizeof(T), frame);
+    void* staticUpdate(Allocator* alloc = gfx::allocator()) {
+        return Base::staticUpdate(alignof(T), sizeof(T), alloc);
     }
-    void* beginDynamicUpdates(Frame* frame = gfx::frame()) {
-        return Base::beginDynamicUpdates(alignof(T), sizeof(T), frame);
+    void* beginDynamicUpdates(Allocator* alloc = gfx::allocator()) {
+        return Base::beginDynamicUpdates(alignof(T), sizeof(T), alloc);
     }
-    T* mapping(Frame* frame = gfx::frame()) const {
-        return static_cast<T*>(Base::mapping(frame));
+    T* mapping(Allocator* alloc = gfx::allocator()) const {
+        return static_cast<T*>(Base::mapping(alloc));
     }
 };
 template<typename T>
@@ -259,14 +287,14 @@ class Buffer<T[]> : public Buffer<> {
 
 public:
     operator BufferHandle<T[]>() const { return { id() }; }
-    void* staticUpdate(int_t size, Frame* frame = gfx::frame()) {
-        return Base::staticUpdate(alignof(T), sizeof(T) * size, frame);
+    void* staticUpdate(int_t size, Allocator* alloc = gfx::allocator()) {
+        return Base::staticUpdate(alignof(T), sizeof(T) * size, alloc);
     }
-    void* beginDynamicUpdates(int_t size, Frame* frame = gfx::frame()) {
-        return Base::beginDynamicUpdates(alignof(T), sizeof(T) * size, frame);
+    void* beginDynamicUpdates(int_t size, Allocator* alloc = gfx::allocator()) {
+        return Base::beginDynamicUpdates(alignof(T), sizeof(T) * size, alloc);
     }
-    T* mapping(Frame* frame = gfx::frame()) const {
-        return static_cast<T*>(Base::mapping(frame));
+    T* mapping(Allocator* alloc = gfx::allocator()) const {
+        return static_cast<T*>(Base::mapping(alloc));
     }
 };
 
@@ -279,12 +307,12 @@ protected:
 
 public:
     SWImageHandle() = default;
-    static SWImageHandle createDynamic(iVec2 dimensions, Frame* frame = gfx::frame()) {
-        return { frame->allocateSWImage(layout, dimensions) };
+    static SWImageHandle createDynamic(iVec2 dimensions, Allocator* alloc = gfx::allocator()) {
+        return { alloc->allocateSWImage(layout, dimensions) };
     }
 
-    sw::ImageView<layout> get(Frame* frame = gfx::frame()) const {
-        return (sw::ImageView<layout>)frame->swImages[id];
+    sw::ImageView<layout> get(Allocator* alloc = gfx::allocator()) const {
+        return (sw::ImageView<layout>)alloc->swImages[id];
     }
     void deallocate() {
         VERIFY_NOT_REACHED(GFX);

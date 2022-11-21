@@ -7,7 +7,7 @@ namespace plt {
 inline constexpr uint32_t TLS_MAIN_TICK_INDEX = 0;
 inline constexpr uint32_t TLS_SCHEDULER_INDEX = 1;
 inline constexpr uint32_t TLS_TIMELINE_INDEX = 2;
-inline constexpr uint32_t TLS_GRAPHICS_FRAME_INDEX = 3;
+inline constexpr uint32_t TLS_GRAPHICS_ALLOCATOR_INDEX = 3;
 inline constexpr int_t TLS_INDICES_COUNT = 4;
 
 }
