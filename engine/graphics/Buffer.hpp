@@ -18,7 +18,7 @@ namespace gfx {
 
 using iVec2 = sw::iVec2;
 
-inline constexpr size_t BUFFER_CPU_ALLOCATION_ALIGNMENT = 16;
+inline constexpr size_t BUFFER_STAGING_ALLOCATION_ALIGNMENT = 16;
 
 template<typename T = void>
 class Buffer;
@@ -53,10 +53,11 @@ enum class BufferAllocKind : uint16_t {
     Freeze,
     Destroy,
 };
-struct alignas(BUFFER_CPU_ALLOCATION_ALIGNMENT) BufferAllocInfo {
+struct BufferAllocInfo {
     uint16_t id = 0;
     BufferAllocKind kind : 2 = (BufferAllocKind)0;
     uint16_t alignment : 14 = 0;
+    BufferMapping stagingMapping;
     uint32_t size = 0;
     BufferMapping prevMapping;
 };
@@ -69,6 +70,9 @@ struct SWImageAllocInfo {
 
 struct HWObject {
     uint64_t handle = 0;
+    HWObject() = default;
+    HWObject(uint64_t handle)
+        : handle(handle) { }
 };
 struct HWBuffer : HWObject {
     uint32_t offset = 0;
@@ -77,20 +81,6 @@ struct HWBuffer : HWObject {
 
 inline constexpr int_t MAX_CONCURRENT_FRAMES = 8;
 
-template<typename T>
-struct ShiftingFrameVector {
-    std::vector<T> vectors[MAX_CONCURRENT_FRAMES] = {};
-
-    void shift(int_t count) {
-        for (int_t i = count - 1; i >= 1; i--)
-            vectors[i] = std::move(vectors[i - 1]);
-        if (count < MAX_CONCURRENT_FRAMES)
-            vectors[count].clear();
-    }
-    std::vector<T>& current() { return vectors[0]; }
-    std::vector<T>& past(int_t i) { return vectors[i]; }
-};
-
 struct Frame {
     std::byte** bufferMappingLocations = nullptr;
     std::byte* get(BufferMapping buffer) const {
@@ -98,12 +88,13 @@ struct Frame {
     }
 
     BufferMapping bufferAllocBump;
-    uint32_t bufferAllocBumpSize = 0;
+    uint32_t bufferAllocBumpEnd = 0;
+    std::vector<BufferAllocInfo> bufferAllocations;
     void growBufferAllocBump(uint32_t requiredSize);
     BufferMapping allocateBuffer(uint32_t id, BufferAllocKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping);
 
     sw::ImageView<>* swImages = nullptr;
-    ShiftingFrameVector<SWImageAllocInfo> swImageAllocations;
+    std::vector<SWImageAllocInfo> swImageAllocations;
     uint32_t allocateSWImage(TexelLayout format, iVec2 dimensions);
 
     HWBuffer* hwBuffers = nullptr;
@@ -122,14 +113,20 @@ struct alignas(INSTANCE_ALIGNMENT) Instance {
     int_t nextFrameIndex = 0;
     int_t concurrentFrames = 4;
     std::atomic<uint32_t> framesReadyMask = (1u << concurrentFrames) - 1;
-    std::atomic<bool> allocationOngoing = false;
     Instance();
     ~Instance();
     bool nextFrameReady();
-    void beginFrame(sw::Semaphore allocationComplete, sw::Semaphore frameComplete);
+    void beginFrame(sw::Semaphore frameComplete);
     void clearFrame();
     void allocateFrame(int_t index);
-    void allocationComplete(int_t index);
+    template<typename Callback>
+    void iteratePrevFrames(int_t index, Callback&& callback) {
+        for (int_t i = index - concurrentFrames + 1; i < index; i++) {
+            int_t j = i >= 0 ? i : i + concurrentFrames;
+            Frame* frame = &frames[j];
+            callback(frame);
+        }
+    }
 };
 static_assert(offsetof(Instance, frames[0]) == 0);
 
@@ -295,7 +292,6 @@ public:
     }
     explicit operator bool() const { return id != 0; }
 };
-static_assert(stx::detail::HasDeallocateMemberFunction<SWImageHandle<TexelLayout::BGRA8>>);
 
 enum class TexelComponents {
     D16,
@@ -304,13 +300,13 @@ enum class TexelComponents {
 
 enum class ImageType : uint32_t {
     Texture,
-    Renderbuffer,
     CubeFacePosX,
     CubeFaceNegX,
     CubeFacePosY,
     CubeFaceNegY,
     CubeFacePosZ,
     CubeFaceNegZ,
+    COUNT,
 };
 
 template<TexelLayout layout = TexelLayout::Unknown>

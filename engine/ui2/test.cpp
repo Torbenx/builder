@@ -220,12 +220,11 @@ evt::Script uiTestWrapper(plt::Window window) {
             return;
         }
 
-        sw::Semaphore allocationComplete = sw::Semaphore::create();
         sw::Semaphore paintUi = sw::Semaphore::create();
         sw::Semaphore present = sw::Semaphore::create();
         sw::Semaphore frameComplete = sw::Semaphore::create();
 
-        graphicsInst->beginFrame(allocationComplete.fork(), frameComplete.fork());
+        graphicsInst->beginFrame(frameComplete.fork());
 
         if (framebufferDimensions != window.dimensions()) {
             framebufferDimensions = window.dimensions();
@@ -240,7 +239,6 @@ evt::Script uiTestWrapper(plt::Window window) {
         uiPainter->paint(std::move(paintUi), present.fork());
         presenter->present(std::move(present), std::move(frameComplete));
         graphicsInst->clearFrame();
-        allocationComplete.signal();
     };
 
     evt::Receiver<evt::ScriptCompletionEvent> completionEv;

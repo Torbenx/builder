@@ -1,5 +1,6 @@
 #pragma once
 
+#include "containers/EnumTable.hpp"
 #include "graphics/Buffer.hpp"
 #include "graphics/shadergen/Shader.hpp"
 #include "platform/Window.hpp"
@@ -35,7 +36,7 @@ inline GLenum toGL(shadergen::Binding::Access access) {
 
 inline GLenum toGL(gfx::TexelComponents format) {
     using enum gfx::TexelComponents;
-    switch (format){
+    switch (format) {
     case RGBA8:
         return GL_RGBA8;
     default:
@@ -44,130 +45,46 @@ inline GLenum toGL(gfx::TexelComponents format) {
     }
 }
 
-struct CommandSlot {
-    stx::BasicCallback<>* slot = nullptr;
-    void set(stx::BasicCallback<> callback) const {
-        *slot = callback;
-    }
-    explicit operator bool() const { return (bool)slot; }
+struct BufferHandle : gfx::HWObject {
+    using gfx::HWObject::HWObject;
 };
 
-struct Image {
-    enum class Bindpoint : uint32_t {
-        Texture = 0,
-        CubeMap = 1,
-        Renderbuffer = 2,
-    };
-    enum class Target : uint32_t {
-        Texture = 0,
-        Renderbuffer = 1,
-        FacePosX = 2,
-        FaceNegX = 3,
-        FacePosY = 4,
-        FaceNegY = 5,
-        FacePosZ = 6,
-        FaceNegZ = 7,
-    };
-    static GLenum toGL(Bindpoint bindpoint) {
-        static constexpr GLenum glValues[] = {
-            GL_TEXTURE_2D,
-            GL_TEXTURE_CUBE_MAP,
-            GL_RENDERBUFFER,
-        };
-        return glValues[stx::to_underlying(bindpoint)];
-    }
-    static GLenum toGL(Target target) {
-        static constexpr GLenum glValues[] = {
-            GL_TEXTURE_2D,
-            GL_RENDERBUFFER,
-            GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-            GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-            GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-            GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
-            GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-            GL_TEXTURE_CUBE_MAP_NEGATIVE_Z,
-        };
-        return glValues[stx::to_underlying(target)];
-    }
-    uint32_t glId = 0;
-    Bindpoint bindpoint : 8 = (Bindpoint)0;
-    Target target : 8 = (Target)0;
-    uint32_t mipLevel : 16 = 0;
-    explicit operator bool() const { return glId != 0; }
-
-    GLenum glBindpoint() const { return toGL(bindpoint); }
-    GLenum glTarget() const { return toGL(target); }
-
-    void bindTexture() const {
-        glBindTexture(toGL(bindpoint), glId);
-    }
-};
-
-struct Texture {
-    uint32_t glId = 0;
-    explicit operator bool() const { return glId != 0; }
-    Image image(int_t mipLevel = 0) const {
-        return {
-            .glId = glId,
-            .bindpoint = Image::Bindpoint::Texture,
-            .target = Image::Target::Texture,
-            .mipLevel = (uint32_t)mipLevel,
-        };
-    }
-    void bind() const { glBindTexture(GL_TEXTURE_2D, glId); }
-    operator Image() const { return image(); }
-
-    void deallocate() {
-        if (glId != 0)
-            glDeleteTextures(1, &glId);
-        glId = 0;
-    }
-};
-
-struct CubeMap {
-    enum class Face {
-        PosX = 0,
-        NegX = 1,
-        PosY = 2,
-        NegY = 3,
-        PosZ = 4,
-        NegZ = 5,
-    };
-    uint32_t glId = 0;
-    explicit operator bool() const { return glId != 0; }
-    Image face(Face face, int_t mipLevel = 0) {
-        return {
-            .glId = glId,
-            .bindpoint = Image::Bindpoint::CubeMap,
-            .target = (Image::Target)(stx::to_underlying(Image::Target::FacePosX) + stx::to_underlying(face)),
-            .mipLevel = (uint32_t)mipLevel,
-        };
-    }
-
-    void deallocate() {
-        if (glId != 0)
-            glDeleteTextures(1, &glId);
-        glId = 0;
-    }
-};
+inline std::pair<BufferHandle, void*> allocateAndMapBuffer(int_t size, GLbitfield flags) {
+    static constexpr GLenum TEMP_TARGET = GL_COPY_READ_BUFFER;
+    flags |= GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT;
+    GLuint id = 0;
+    glGenBuffers(1, &id);
+    glBindBuffer(TEMP_TARGET, id);
+    glBufferStorage(TEMP_TARGET, size, nullptr, flags);
+    void* mapping = glMapBufferRange(TEMP_TARGET, 0, size, flags);
+    return { id, mapping };
+}
+inline std::pair<BufferHandle, void*> allocateReadBuffer(int_t size) {
+    return allocateAndMapBuffer(size, GL_MAP_READ_BIT);
+}
+inline std::pair<BufferHandle, void*> allocateWriteBuffer(int_t size) {
+    return allocateAndMapBuffer(size, GL_MAP_WRITE_BIT);
+}
 
 struct ImageType {
-    static constinit const ImageType TYPES[8];
-    GLenum bindpoint;
-    GLenum target;
-    int layer;
+    static constinit const stx::EnumTable<gfx::ImageType, ImageType> TYPES;
+    GLenum bindpoint = GL_NONE;
+    GLenum target = GL_NONE;
+    int layer = 0;
     static ImageType get(gfx::Image<> image) { return get(image.type); }
-    static ImageType get(gfx::ImageType type) { return TYPES[stx::to_underlying(type)]; }
+    static ImageType get(gfx::ImageType type) { return TYPES[type]; }
 };
-inline constinit const ImageType ImageType::TYPES[8] = {
-    { GL_TEXTURE_2D, GL_TEXTURE_2D, 0 },
-    { GL_RENDERBUFFER, GL_RENDERBUFFER, 0 },
-    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0 },
-    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 1 },
-    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 2 },
-    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 3 },
-    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 4 },
-    { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 5 },
+inline constinit const stx::EnumTable<gfx::ImageType, ImageType> ImageType::TYPES {
+    {},
+    {
+        { gfx::ImageType::Texture, { GL_TEXTURE_2D, GL_TEXTURE_2D, 0 } },
+        { gfx::ImageType::CubeFacePosX, { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0 } },
+        { gfx::ImageType::CubeFaceNegX, { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 1 } },
+        { gfx::ImageType::CubeFacePosY, { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 2 } },
+        { gfx::ImageType::CubeFaceNegY, { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 3 } },
+        { gfx::ImageType::CubeFacePosZ, { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 4 } },
+        { gfx::ImageType::CubeFaceNegZ, { GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 5 } },
+    },
 };
 
 inline void bind(const shadergen::ShaderRecord* shader, const void* inData) {
