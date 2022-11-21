@@ -25,8 +25,8 @@ static constexpr get_self_t get_self = {};
 
 struct VoidPromise {
     void get_return_object() { }
-    std::suspend_never initial_suspend() { return {}; }
-    std::suspend_never final_suspend() noexcept { return {}; }
+    stdx::suspend_never initial_suspend() { return {}; }
+    stdx::suspend_never final_suspend() noexcept { return {}; }
     void return_void() { }
     void unhandled_exception() { VERIFY_NOT_REACHED(Default); }
 };
