@@ -22,7 +22,7 @@ struct OpenGL {
 namespace gl {
 
 void initialize();
-void attachWindow(plt::Window* window);
+void attachWindow(plt::Window window);
 
 inline GLenum toGL(shadergen::Binding::Access access) {
     static constexpr GLenum glValues[] = {
@@ -95,7 +95,7 @@ inline void bind(gfx::FrameData* frame, const shadergen::ShaderRecord* shader, c
             auto gfxHandle = *(const gfx::BufferHandle<>*)(data + binding.offset);
             auto glBuf = frame->hwBuffers[gfxHandle.id];
             GLenum glTarget = binding.type == BType::UniformBuffer ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
-            glBindBufferRange(glTarget, binding.index, glBuf.handle, glBuf.offset, glBuf.size);
+            glBindBufferRange(glTarget, binding.index, glBuf.base.handle, glBuf.offset, glBuf.size);
         } else if (binding.type == BType::StorageImage) {
             auto gfxHandle = *(const gfx::Image<>*)(data + binding.offset);
             auto glType = ImageType::get(gfxHandle);

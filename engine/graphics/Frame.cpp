@@ -4,7 +4,7 @@
 namespace gfx {
 
 Allocator::Allocator(const FrameData& copyFrom, Frame* frame, RootAllocator* root)
-    : FrameData(copyFrom), m_frame(frame), root(root) { }
+    : FrameData(copyFrom), m_frame(frame), root(root), bufferAllocBump(stagingMapping()), bufferAllocBumpEnd(STAGING_BUFFER_SIZE) { }
 
 Allocator::Allocator(RootAllocator* root)
     : Allocator(*root, root->frame(), root) {
@@ -18,6 +18,7 @@ Allocator* RootAllocator::fork() {
     auto child = std::make_unique<Allocator>(this);
     Allocator* ret = child.get();
     children.emplace_back(std::move(child));
+    // TODO: we need a new staging buffer here
     return ret;
 }
 void Allocator::finish() {
@@ -37,13 +38,19 @@ void RootAllocator::doFinish() {
     handleAllocator(this);
     for (auto& child : children)
         handleAllocator(child.get());
+
+    m_uploadLock.thenAsync([]() {
+        // ready to upload...
+    });
     delete this;
 }
 
-void Allocator::growBufferAllocBump(uint32_t) { }
+void Allocator::growBufferAllocBump(uint32_t) {
+    VERIFY_NOT_REACHED(GFX);
+}
 
 BufferMapping Allocator::allocateBuffer(uint32_t id, BufferAllocKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping) {
-    uint32_t requiredSize = stx::alignmentCeil(BUFFER_STAGING_ALLOCATION_ALIGNMENT, size);
+    uint32_t requiredSize = stx::alignmentCeil(STAGING_ALLOCATION_ALIGNMENT, size);
     while (bufferAllocBump.offset + requiredSize >= bufferAllocBumpEnd) {
         growBufferAllocBump(requiredSize);
     }
@@ -58,6 +65,10 @@ BufferMapping Allocator::allocateBuffer(uint32_t id, BufferAllocKind kind, uint3
     BufferMapping ret = bufferAllocBump;
     bufferAllocBump += requiredSize;
     return ret;
+}
+
+uint32_t Allocator::allocateBufferId() {
+    return instance()->nextBufferId++;
 }
 
 uint32_t Allocator::allocateSWImage(TexelLayout format, iVec2 dimensions) {
@@ -81,11 +92,14 @@ void Instance::allocateFrame(int_t index) {
     Frame& frame = frames[index];
     frame.swImages = new sw::ImageView<>[16];
     frame.bufferMappingLocations = new std::byte*[16]();
-    // auto [handle, mapping] = gl::allocateWriteBuffer(4096);
-    // frame.bufferMappingLocations[0] = (std::byte*)mapping;
+
+    // auto [handle, mapping] = gl::allocateWriteBuffer(STAGING_BUFFER_SIZE);
+    // frame.stagingBuffer = handle;
+    // frame.bufferMappingLocations[1] = (std::byte*)mapping;
 }
 
 Instance::Instance() {
+    bufferInfos = new BufferInfo[16];
     for (int_t i = 0; i < concurrentFrames; i++)
         allocateFrame(i);
 }

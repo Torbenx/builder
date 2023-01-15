@@ -15,6 +15,10 @@
 #include <memory>
 #include <vector>
 
+namespace shadergen {
+    struct ComputeDriver;
+}
+
 namespace ui {
 
 struct AtlasAllocator {
@@ -140,24 +144,31 @@ public:
     };
     class HWPainter {
     public:
-        struct Shader;
-
-    private:
-        struct Job;
         struct Metadata {
             BEGIN_GEN_STRUCT(Metadata);
             int GEN_FIELD(maxLayers);
             END_GEN_STRUCT();
         };
+        struct Shader {
+            gfx::BufferHandle<Metadata> data;
+            gfx::BufferHandle<IntVec[]> positions;
+            gfx::ImageHandle<gfx::TexelComponents::RGBA8> screen;
+            gfx::ImageHandle<gfx::TexelComponents::RGBA8> atlas;
+
+            static constexpr void defineShader(shadergen::ComputeDriver& prog);
+        };
+
+    private:
+        struct Job;
         AsyncInstance* instance = nullptr;
         gfx::Shader<Shader> shader;
         gfx::Buffer<IntVec[]> positionsBuffer;
         gfx::Buffer<Metadata> metadataBuffer;
         gfx::Texture<IMAGE_FORMAT> atlasTexture;
+        gfx::Texture<IMAGE_FORMAT> framebuffer;
 
     public:
-        HWPainter(AsyncInstance* instance)
-            : instance(instance) { }
+        HWPainter(AsyncInstance* instance);
         void paint(sw::Semaphore signal);
         void setFramebuffer(gfx::Texture<IMAGE_FORMAT> framebuffer);
     };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "api.hpp"
 #include "platform/thread_local_storage.hpp"
 #include "software/Image.hpp"
 #include "util/Callable.hpp"
@@ -18,7 +19,9 @@ namespace gfx {
 
 using iVec2 = sw::iVec2;
 
-inline constexpr size_t BUFFER_STAGING_ALLOCATION_ALIGNMENT = 16;
+inline constexpr size_t STAGING_ALLOCATION_ALIGNMENT = 16;
+inline constexpr int_t STAGING_BUFFER_SIZE = 1024 * 1024;
+inline constexpr int_t STAGING_MAPPING_ID = 1;
 
 template<typename T = void>
 class Buffer;
@@ -47,6 +50,8 @@ inline BufferMapping operator-(const BufferMapping& m, int32_t shift) {
     return { m.location, m.offset - shift };
 }
 
+constexpr BufferMapping stagingMapping() { return { STAGING_MAPPING_ID, 0 }; }
+
 enum class BufferAllocKind : uint16_t {
     Dynamic,
     Static,
@@ -74,7 +79,8 @@ struct HWObject {
     HWObject(uint64_t handle)
         : handle(handle) { }
 };
-struct HWBuffer : HWObject {
+struct HWBuffer {
+    HWObject base;
     uint32_t offset = 0;
     uint32_t size = 0;
 };
@@ -94,6 +100,7 @@ struct FrameData {
 };
 struct Frame;
 struct Instance;
+struct ShaderBase;
 
 struct RootAllocator;
 struct Allocator : FrameData {
@@ -110,9 +117,17 @@ struct Allocator : FrameData {
     std::vector<BufferAllocInfo> bufferAllocations;
     void growBufferAllocBump(uint32_t requiredSize);
     BufferMapping allocateBuffer(uint32_t id, BufferAllocKind kind, uint32_t gpuAlignment, uint32_t size, BufferMapping prevMapping);
+    uint32_t allocateBufferId();
 
     std::vector<SWImageAllocInfo> swImageAllocations;
     uint32_t allocateSWImage(TexelLayout format, iVec2 dimensions);
+
+    std::vector<ShaderBase*> dirtyShaders;
+    void markShaderDirty(ShaderBase* shader) {
+        dirtyShaders.push_back(shader);
+    }
+
+    [[nodiscard]] sw::Semaphore uploadLock();
 };
 struct RootAllocator : Allocator {
     std::atomic<int_t> unfinishedAllocators = 1;
@@ -120,7 +135,9 @@ struct RootAllocator : Allocator {
     RootAllocator(Frame* frame);
     Allocator* fork();
     void doFinish();
+    sw::Semaphore m_uploadLock = sw::Semaphore::create();
 };
+inline sw::Semaphore Allocator::uploadLock() { return root->m_uploadLock.fork(); }
 void finishAllocator();
 
 DECLARE_THREAD_LOCAL_GETSET(Allocator*, allocator, setAllocator, GRAPHICS_ALLOCATOR)
@@ -129,6 +146,8 @@ struct Frame : FrameData {
     Frame(const Frame&) = delete;
 
     std::vector<SWImageAllocInfo> swImageAllocations;
+
+    HWObject stagingBuffer;
 };
 inline constexpr size_t INSTANCE_ALIGNMENT = std::bit_ceil(sizeof(Frame) * MAX_CONCURRENT_FRAMES);
 
@@ -138,6 +157,7 @@ struct alignas(INSTANCE_ALIGNMENT) Instance {
     BufferInfo* bufferInfos = nullptr;
 
     uint32_t nextSWImageId = 1;
+    uint32_t nextBufferId = 1;
 
     int_t nextFrameIndex = 0;
     int_t concurrentFrames = 2;
@@ -220,11 +240,19 @@ protected:
     }
     void deallocateInternal(Allocator* alloc) {
         allocate(BufferAllocKind::Destroy, 0, 0, alloc);
+        info(alloc->instance())->buffer = nullptr;
     }
+
+    Buffer(uint32_t id, Allocator* alloc)
+        : m_id(id) { info(alloc->instance())->buffer = this; }
 
 public:
     Buffer() = default;
     Buffer(const Buffer&) = delete;
+
+    static Buffer create(Allocator* alloc = gfx::allocator()) {
+        return { alloc->allocateBufferId(), alloc };
+    }
 
     Buffer(Buffer&& other, Allocator* alloc = gfx::allocator()) {
         moveFrom(std::move(other), alloc->instance());
@@ -267,9 +295,17 @@ public:
 
 template<typename T>
 class Buffer : public Buffer<> {
+private:
     using Base = Buffer<>;
 
+    Buffer(uint32_t id, Allocator* alloc)
+        : Base(id, alloc) { }
+
 public:
+    Buffer() = default;
+    static Buffer create(Allocator* alloc = gfx::allocator()) {
+        return { alloc->allocateBufferId(), alloc };
+    }
     operator BufferHandle<T>() const { return { id() }; }
     void* staticUpdate(Allocator* alloc = gfx::allocator()) {
         return Base::staticUpdate(alignof(T), sizeof(T), alloc);
@@ -285,7 +321,14 @@ template<typename T>
 class Buffer<T[]> : public Buffer<> {
     using Base = Buffer<>;
 
+    Buffer(uint32_t id, Allocator* alloc)
+        : Base(id, alloc) { }
+
 public:
+    Buffer() = default;
+    static Buffer create(Allocator* alloc = gfx::allocator()) {
+        return { alloc->allocateBufferId(), alloc };
+    }
     operator BufferHandle<T[]>() const { return { id() }; }
     void* staticUpdate(int_t size, Allocator* alloc = gfx::allocator()) {
         return Base::staticUpdate(alignof(T), sizeof(T) * size, alloc);
@@ -322,8 +365,17 @@ public:
 };
 
 enum class TexelComponents {
+    Unknown,
     D16,
     RGBA8,
+};
+inline constexpr stx::EnumTable<TexelLayout, TexelComponents> layoutComponents {
+    TexelComponents::Unknown,
+    {
+        { TexelLayout::D16, TexelComponents::D16 },
+        { TexelLayout::RGBA8, TexelComponents::RGBA8 },
+        { TexelLayout::BGRA8, TexelComponents::RGBA8 },
+    },
 };
 
 enum class ImageType : uint32_t {
@@ -347,33 +399,53 @@ struct Image<TexelLayout::Unknown> {
     ImageType type : 4 = (ImageType)0;
 };
 
+template<TexelComponents comps>
+struct ImageHandle : Image<> { };
+
 template<TexelLayout layout>
 struct Image : Image<> {
     using Base = Image<>;
+    operator ImageHandle<layoutComponents[layout]>() const {
+        return { (const Image<>&)*this };
+    }
 };
-
-template<TexelComponents comps>
-struct ImageHandle : Image<> { };
 
 template<TexelLayout layout>
 struct Texture {
     uint32_t id = 0;
     Image<layout> image(int_t level = 0) const {
-        return {
+        return { Image<> {
             .baseId = id,
             .mipLevel = (uint32_t)level,
             .type = ImageType::Texture,
-        };
+        } };
     }
     operator Image<layout>() const { return image(); }
 };
 
+struct ShaderBase {
+    uint32_t id : 31 = 0;
+    uint32_t dirty : 1 = false;
+};
+static_assert(sizeof(ShaderBase) == 4);
+
 template<typename S>
-class Shader {
+class Shader : private ShaderBase {
 private:
+    S data;
+    static_assert(alignof(S) == 4);
+
 public:
-    const S& shader();
-    S& mutate();
+    Shader() = default;
+    Shader(const Shader&) = delete;
+    const S& shader() const { return data; }
+    S& mutate(Allocator* alloc = gfx::allocator()) {
+        if (!dirty) {
+            dirty = true;
+            alloc->markShaderDirty((ShaderBase*)this);
+        }
+        return data;
+    }
 };
 
 }

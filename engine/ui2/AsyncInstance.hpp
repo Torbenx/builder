@@ -34,6 +34,9 @@ public:
     stx::Owned<Instance::SWPainter*> createSWPainter() {
         return new Instance::SWPainter(this);
     }
+    stx::Owned<Instance::HWPainter*> createHWPainter() {
+        return new Instance::HWPainter(this);
+    }
 
     std::vector<Instance::PaintEvent>& paintEvents() {
         return timeline()->paintRing[tick()];

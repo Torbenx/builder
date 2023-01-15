@@ -201,9 +201,12 @@ evt::Script uiTestWrapper(plt::Window window) {
     evt::Script script = evt::asyncScript(instance, uiTestInit);
     window.initialize();
 
+    // gl::initialize();
+    // gl::attachWindow(window);
+
     stx::Owned<Clearer*> clearer = new Clearer;
     clearer->setColor(0xff'ff'ff'ff);
-    stx::Owned<ui::Instance::SWPainter*> uiPainter = instance.createSWPainter();
+    stx::Owned<ui::Instance::SWPainter*> uiPainter;
     stx::Owned<Presenter*> presenter = new Presenter(window);
 
     auto graphicsInst = std::make_unique<gfx::Instance>();
@@ -226,6 +229,9 @@ evt::Script uiTestWrapper(plt::Window window) {
 
         graphicsInst->beginFrame(frameComplete.fork());
 
+        if (!uiPainter)
+            uiPainter = instance.createSWPainter();
+
         if (framebufferDimensions != window.dimensions()) {
             framebufferDimensions = window.dimensions();
             log("allocating new framebuffer");
@@ -238,7 +244,7 @@ evt::Script uiTestWrapper(plt::Window window) {
         clearer->clear(sw::Semaphore::create(), paintUi.fork());
         uiPainter->paint(std::move(paintUi), present.fork());
         presenter->present(std::move(present), std::move(frameComplete));
-        
+
         gfx::finishAllocator();
     };
 

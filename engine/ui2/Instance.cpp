@@ -285,58 +285,75 @@ void Instance::SWPainter::setFramebuffer(gfx::SWImageHandle<IMAGE_FORMAT> frameb
 
 struct Instance::HWPainter::Job : Instance::PainterJob {
     sw::Semaphore signal;
-    HWPainter* painter = nullptr;
+    sw::Semaphore uploadLock;
+    IntVec* positionsBuffer = nullptr;
+    gfx::Shader<Shader> shader;
 
     void paint() {
-        std::copy_n(blocks.blockOffsets.data(), blocks.blockOffsets.size(), painter->positionsBuffer.mapping());
-        *painter->metadataBuffer.mapping() = { .maxLayers = (int)blocks.blockLayers };
+        std::copy_n(blocks.blockOffsets.data(), blocks.blockOffsets.size(), positionsBuffer);
+        uploadLock.signal();
 
         // painter->shader;
 
         signal.signal();
+        doneUsingAtlas.signal();
         delete this;
     }
 };
 
-struct Instance::HWPainter::Shader {
-    gfx::BufferHandle<Metadata> data;
-    gfx::BufferHandle<IntVec[]> positions;
-    gfx::ImageHandle<gfx::TexelComponents::RGBA8> screen;
-    gfx::ImageHandle<gfx::TexelComponents::RGBA8> atlas;
+constexpr void Instance::HWPainter::Shader::defineShader(shadergen::ComputeDriver& prog) {
+    using namespace shadergen::code;
+    auto data = prog.uniformBuffer<&Shader::data>("data");
+    auto positions = prog.storageBuffer<&Shader::positions>("positions", MemQual::NoWrite);
+    auto screen = prog.storageImage<&Shader::screen>("screen", (MemQual)0);
+    auto atlas = prog.storageImage<&Shader::atlas>("atlas", MemQual::NoWrite);
 
-    static constexpr void defineShader(shadergen::ComputeDriver& prog) {
-        using namespace shadergen::code;
-        auto data = prog.uniformBuffer<&Shader::data>("data");
-        auto positions = prog.storageBuffer<&Shader::positions>("positions", MemQual::NoWrite);
-        auto screen = prog.storageImage<&Shader::screen>("screen", (MemQual)0);
-        auto atlas = prog.storageImage<&Shader::atlas>("atlas", MemQual::NoWrite);
-
-        AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
-        AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
-        AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
-        prog.range(constant(0), data.maxLayers, [&](auto& i) {
-            AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
-            AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
-            prog, color = inColor.xyz() * inColor.w + color * (constant(1.0f) - inColor.w);
-        });
-        prog, imageStore(screen, screenPos, compose(color, constant(1.0f)));
-    }
-};
+    AUTO_VARIABLE(prog, offset) = prog.globalIndex.x * (data.maxLayers + constant(1));
+    AUTO_VARIABLE(prog, screenPos) = positions[offset] + prog.localIndex.xy();
+    AUTO_VARIABLE(prog, color) = imageLoad(screen, screenPos).xyz();
+    prog.range(constant(0), data.maxLayers, [&](auto& i) {
+        AUTO_VARIABLE(prog, atlasPos) = positions[i + constant(1)] + prog.localIndex.xy();
+        AUTO_VARIABLE(prog, inColor) = imageLoad(atlas, atlasPos);
+        prog, color = inColor.xyz() * inColor.w + color * (constant(1.0f) - inColor.w);
+    });
+    prog, imageStore(screen, screenPos, compose(color, constant(1.0f)));
+}
 
 }
 DEFINE_SHADER(ui::Instance::HWPainter::Shader);
 namespace ui {
 
+Instance::HWPainter::HWPainter(AsyncInstance* instance)
+    : instance(instance) {
+    metadataBuffer = decltype(metadataBuffer)::create();
+    metadataBuffer.staticUpdate();
+    *metadataBuffer.mapping() = { .maxLayers = 1 };
+
+    positionsBuffer = decltype(positionsBuffer)::create();
+    positionsBuffer.beginDynamicUpdates(10000);
+
+    shader.mutate() = Shader {
+        .data = metadataBuffer,
+        .positions = positionsBuffer,
+        .atlas = atlasTexture.image(),
+    };
+}
+
 void Instance::HWPainter::paint(sw::Semaphore signal) {
     Job* job = new Job;
     job->signal = std::move(signal);
-    job->painter = this;
+    job->positionsBuffer = positionsBuffer.mapping();
+    job->uploadLock = gfx::allocator()->uploadLock();
     sw::Semaphore beginPaint = sw::Semaphore::create();
     beginPaint.setAsyncCallback({ *job, stx::CallMember<&Job::paint>() });
     instance->paintEvents().push_back({
         .atlasReadyForUse = std::move(beginPaint),
         .painter = job,
     });
+}
+
+void Instance::HWPainter::setFramebuffer(gfx::Texture<IMAGE_FORMAT> framebuffer) {
+    shader.mutate().screen = framebuffer.image();
 }
 
 void Instance::doTick() {

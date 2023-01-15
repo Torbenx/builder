@@ -6,14 +6,13 @@ namespace gfx {
 
 enum class Api {
     Invalid,
-    Software,
     OpenGL,
     Vulkan,
 };
 
 template<template<Api> typename Data>
-struct Variant : std::variant<std::monostate, Data<(Api)1>, Data<(Api)2>, Data<(Api)3>> {
-    using Base = std::variant<std::monostate, Data<(Api)1>, Data<(Api)2>, Data<(Api)3>>;
+struct Variant : std::variant<std::monostate, Data<(Api)1>, Data<(Api)2>> {
+    using Base = std::variant<std::monostate, Data<(Api)1>, Data<(Api)2>>;
     using Base::Base;
     using Base::operator=;
     Api api() const { return (Api)this->index(); }

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Instance.hpp"
 #include "Rect.hpp"
 #include "StyleConsumer.hpp"
 #include "ZIndex.hpp"
