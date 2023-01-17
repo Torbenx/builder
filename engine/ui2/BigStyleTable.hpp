@@ -19,10 +19,6 @@ struct BigStyleTable {
     const typename Key::Type& get() const {
         return *(const typename Key::Type*)data[Key::styleKey()];
     }
-    template<typename T>
-    const T& get(Key<T> key) const {
-        return *(const T*)data[key.styleKey];
-    }
 };
 
 template<>
@@ -43,11 +39,6 @@ struct Ref<BigStyleTable> {
     Ref<typename Key::Type>& get() const {
         log("accessing {}", Key::styleKey());
         return *(Ref<typename Key::Type>*)data[Key::styleKey()];
-    }
-    template<typename T>
-    const T& get(Key<T> key) const {
-        log("accessing {}", key.styleKey);
-        return *(Ref<T>*)data[key.styleKey];
     }
 
     BigStyleTable finalize() const;

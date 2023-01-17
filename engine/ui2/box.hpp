@@ -33,7 +33,7 @@ struct PaddedImpl : StyleConsumer<PaddedImpl, PaddingStyle> {
         using namespace code;
         paddingEqn = paddedBox == extendBy(innerBox, {});
     }
-    void applyStyle(const PaddingStyle& style) {
+    void applyStyle(const PaddingStyle& style, LayoutMetadata) {
         paddingEqn.updateShift(style.get<Padding>());
     }
 };

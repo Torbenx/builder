@@ -13,9 +13,9 @@ using ImageView = sw::ImageView<IMAGE_FORMAT>;
 
 class RendererBase;
 struct RendererRecord {
-    void (*updateStyleAndPrepareRender)(RendererBase*, void*) = nullptr;
-    void (*prepareRender)(RendererBase*, void*) = nullptr;
-    void (*render)(ImageView, const void*) = nullptr;
+    void (*updateStyleAndPrepareRender)(RendererBase*, void*, LayoutMetadata) = nullptr;
+    void (*prepareRender)(RendererBase*, void*, LayoutMetadata) = nullptr;
+    void (*render)(ImageView, const void*, LayoutMetadata) = nullptr;
     int_t renderDataSizeAlign8 = 0;
 };
 
@@ -45,22 +45,22 @@ public:
     friend struct RendererHandle;
 
 private:
-    static void updateStyleAndPrepareRender(RendererBase* base, void* renderDataOut) {
+    static void updateStyleAndPrepareRender(RendererBase* base, void* renderDataOut, LayoutMetadata meta) {
         Renderer* thiz = (Renderer*)base;
         RData* renderData = (RData*)renderDataOut;
         thiz->isDirty = false;
         thiz->m_computedStyle = computeStyle(thiz->bigTable, thiz->baseStyle, thiz->localStyle);
-        thiz->impl()->applyStyle(thiz->m_computedStyle);
-        thiz->impl()->getRenderData(*renderData);
+        thiz->impl()->applyStyle(thiz->m_computedStyle, meta);
+        thiz->impl()->getRenderData(*renderData, meta);
     }
-    static void prepareRender(RendererBase* base, void* renderDataOut) {
+    static void prepareRender(RendererBase* base, void* renderDataOut, LayoutMetadata meta) {
         Renderer* thiz = (Renderer*)base;
         RData* renderData = (RData*)renderDataOut;
-        thiz->impl()->getRenderData(*renderData);
+        thiz->impl()->getRenderData(*renderData, meta);
     }
-    static void dispatchRender(ImageView image, const void* renderDataIn) {
+    static void dispatchRender(ImageView image, const void* renderDataIn, LayoutMetadata meta) {
         const RData* renderData = (const RData*)renderDataIn;
-        Impl::render(image, *renderData);
+        Impl::render(image, *renderData, meta);
     }
 
     static constexpr RendererRecord makeRecord() {
@@ -81,10 +81,10 @@ private:
     Ref<Style> localStyle;
     Style m_computedStyle;
 
-    void getRenderData(RData& out) requires std::is_same_v<RData, Style> {
+    void getRenderData(RData& out, LayoutMetadata) requires std::is_same_v<RData, Style> {
         out = computedStyle();
     }
-    void applyStyle(const Style&) { }
+    void applyStyle(const Style&, LayoutMetadata) { }
 
     void invalidateStyle() {
         if (isDirty)
@@ -124,8 +124,8 @@ struct RendererHandle {
     const RendererRecord& record() {
         return RendererBase::record(classIndex);
     }
-    void prepareRender(void* renderData) {
-        record().prepareRender(base, renderData);
+    void prepareRender(void* renderData, LayoutMetadata meta) {
+        record().prepareRender(base, renderData, meta);
     }
 };
 

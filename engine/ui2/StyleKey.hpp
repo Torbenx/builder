@@ -37,12 +37,9 @@ struct StyleKey {
         static_assert(std::is_base_of_v<StyleKey, Key>);
         return classIndex() + 1;
     }
-    static const inline SelfReferenceRef<Type> selfRef { styleKey() };
 };
 template<typename Key>
-const Ref<typename Key::Type>& ref() { return Key::selfRef; }
-template<typename Key>
-ui::Key<typename Key::Type> key() { return { Key::styleKey() }; }
+const Ptr<typename Key::Type> ref() { return PtrInfo { .styleKey = Key::styleKey(), .byteOffset = 0 }; }
 
 #define DECLARE_STYLE_KEY(name, type) \
     struct name : ui::StyleKey<name, type> { };

@@ -26,11 +26,19 @@ struct Substituter {
 };
 template<typename T>
 T substituteLeaf(const Ref<T>& in, const Substituter& subs, const T& base) {
-    if (!in.isPtr())
+    if (!in.isPtr()) {
+        if constexpr (std::is_same_v<T, Size>)
+            log("had local value: {}", in.value().value());
         return in.value();
+    }
     Ptr<T> ptr = in.ptr();
-    if (ptr)
+    if (ptr) {
+        if constexpr (std::is_same_v<T, Size>)
+            log("had local ptr, resolved to: {}", subs.table.get(ptr).value());
         return subs.table.get(ptr);
+    }
+    if constexpr (std::is_same_v<T, Size>)
+        log("fallback to global value {}", base.value());
     return base;
 }
 
@@ -45,24 +53,19 @@ concept Stylable = requires(T& t, BigStyleTable table, Ptr<typename T::Style> pt
     t.setStyle(ptr);
 };
 
-template<Stylable... Ts>
-struct CompoundStylable : Ts... {
-    using Style = SmallStyleTable<typename Ts::Style...>;
-    template<typename T>
-    T& get() { return *(T*)this; }
-    template<typename T>
-    const T& get() const { return *(const T*)this; }
-    void setTable(BigStyleTable table) {
-        (get<Ts>().setTable(table), ...);
-    }
-    void setStyle(Ptr<Style> style) {
-        (get<Ts>().setStyle(style), ...);
-    }
+class LayoutMetadata {
+private:
+    float m_ptScale = 1.0f;
+
+public:
+    LayoutMetadata(float ptScale)
+        : m_ptScale(ptScale) { }
+    float ptScale() const { return m_ptScale; }
 };
 
 class StyleConsumerBase;
 struct StyleConsumerRecord {
-    void (*updateStyle)(StyleConsumerBase*) = nullptr;
+    void (*updateStyle)(StyleConsumerBase*, LayoutMetadata) = nullptr;
 };
 
 }
@@ -84,11 +87,11 @@ public:
     using Style = S;
 
 private:
-    static void updateStyle(StyleConsumerBase* base) {
+    static void updateStyle(StyleConsumerBase* base, LayoutMetadata meta) {
         StyleConsumer* thiz = (StyleConsumer*)base;
         thiz->isDirty = false;
         thiz->m_computedStyle = computeStyle(thiz->bigTable, thiz->baseStyle, thiz->localStyle);
-        thiz->impl()->applyStyle(thiz->m_computedStyle);
+        thiz->impl()->applyStyle(thiz->m_computedStyle, meta);
     }
 
     static constexpr StyleConsumerRecord makeRecord() {

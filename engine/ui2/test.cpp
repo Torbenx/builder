@@ -1,3 +1,4 @@
+#include "Canvas.hpp"
 #include "Instance.hpp"
 #include "box.hpp"
 #include "containers/AtomicQueue.hpp"
@@ -16,84 +17,57 @@
 #include <memory>
 #include <sstream>
 
-namespace {
+namespace ui {
 
-DECLARE_STYLE_KEY(DefaultBoxStyle, ui::PaddingStyle);
+DECLARE_STYLE_KEY(CornerRadius, Size);
+DECLARE_STYLE_KEY(FillColor, Color);
+using RectStyle = SmallStyleTable<FillColor>;
 
-enum class ColorChannel {
-    Red,
-    Green,
-    Blue,
-};
-
-DECLARE_STYLE_KEY(Channel1, ColorChannel);
-DECLARE_STYLE_KEY(Channel2, ColorChannel);
-using TestStyle = ui::SmallStyleTable<Channel1, Channel2>;
-DECLARE_STYLE_KEY(DefaultTestStyle, TestStyle);
-
-struct TestRenderer : ui::Renderer<TestRenderer, TestStyle> {
-    static void render(ui::ImageView image, const TestStyle& style) {
-        auto channelToShift = [](ColorChannel channel) -> int {
-            switch (channel) {
-            case ColorChannel::Red:
-                return 16;
-            case ColorChannel::Green:
-                return 8;
-            case ColorChannel::Blue:
-                return 0;
-            default:
-                VERIFY_NOT_REACHED(Ui);
-                return 0;
-            }
-        };
-        int shift1 = channelToShift(style.get<Channel1>());
-        int shift2 = channelToShift(style.get<Channel2>());
-        ui::IntVec dim = image.dimensions();
-        for (int j = 0; j < dim.y(); j++) {
-            for (int i = 0; i < dim.x(); i++) {
-                float fracX = i / (float)(dim.x() - 1);
-                float fracY = j / (float)(dim.y() - 1);
-                uint32_t c1 = fracX * 255;
-                uint32_t c2 = 255 - c1;
-                uint32_t c3 = fracY * fracY * 255;
-                image[{ i, j }] = 0xff'00'00'00 | (c3 << 24) | (c1 << shift1) | (c2 << shift2);
-            }
-        }
+struct RectRenderer : Renderer<RectRenderer, RectStyle> {
+    static void render(ImageView image, const RectStyle& style, LayoutMetadata) {
+        // float radius = style.get<CornerRadius>().asPixels(meta.ptScale());
+        Canvas canvas { image };
+        canvas.rect(style.get<FillColor>());
     }
 };
+
+}
+
+namespace {
+
+using PaddedRectStyle = ui::SmallStyleTable<ui::RectStyle, ui::PaddingStyle>;
+DECLARE_STYLE_KEY(DefaultRectStyle, PaddedRectStyle);
+
 evt::Script uiTestInit() {
     auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
     {
-        ui::Ref<TestStyle>& testStyle = bigTable.get<DefaultTestStyle>();
-        testStyle.get<Channel1>() = ColorChannel::Green;
-        testStyle.get<Channel2>() = ColorChannel::Blue;
-        ui::Ref<ui::PaddingStyle>& boxStyle = bigTable.get<DefaultBoxStyle>();
-        boxStyle.get<ui::Padding>() = 50_px;
+        auto& style = bigTable.get<DefaultRectStyle>();
+        style.get<ui::FillColor>() = 0_rgba;
+        style.get<ui::Padding>() = 3_px;
     }
     auto bigStyle = bigTable.finalize();
 
-    ui::Padded<ui::ContentBox<TestRenderer>> box1;
-    ui::RectEqn box1Eqn;
+    ui::Padded<ui::ContentBox<ui::RectRenderer>> box1, box2;
+    ui::RectEqn box1Eqn, box2Eqn;
 
     using namespace ui::code;
     ui::RectVarHandle windowRect = ui::windowRect();
     box1Eqn = box1.box() == windowRect;
-    /*box1Eqn.left() = box1.outerBox.left() + box1.outerBox.right() == windowRect.left() + windowRect.right();
-    box1Eqn.bottom() = box1.outerBox.bottom() + box1.outerBox.top() == windowRect.bottom() + windowRect.top();
-    box1Eqn.right() = box1.innerBox.width() / 16.0f == box1.innerBox.height() / 9.0f;
-    box1Eqn.top() = box1.innerBox.width() == 0.5f * windowRect.width();*/
+    box2Eqn = box2.box() == box1.contentBox;
+    /*box1Eqn.left() = box1.box().left() + box1.box().right() == windowRect.left() + windowRect.right();
+    box1Eqn.bottom() = box1.box().bottom() + box1.box().top() == windowRect.bottom() + windowRect.top();
+    box1Eqn.right() = box1.contentBox.width() / 16.0f == box1.contentBox.height() / 9.0f;
+    box1Eqn.top() = box1.box().width() == 0.5f * windowRect.width();*/
 
     box1.setTable(bigStyle);
-    box1.padded().setStyle(ui::key<DefaultBoxStyle>());
-    box1.renderer().setStyle(ui::key<DefaultTestStyle>());
+    box1.setStyle(ui::ref<DefaultRectStyle>());
+    box2.setTable(bigStyle);
+    box2.setStyle(ui::ref<DefaultRectStyle>());
 
-    {
-        auto& boxStyle = box1.padded().mutateLocal();
-        boxStyle.get<ui::Padding>().x() = 0_px;
-        boxStyle.get<ui::Padding>().y() = 0_px;
-        auto& style = box1.renderer().mutateLocal();
-        style.get<Channel1>() = ColorChannel::Red;
-    }
+    box1.padded().mutateLocal().get<ui::Padding>() = 1_px;
+    box1.renderer().mutateLocal().get<ui::FillColor>() = 0x00ff00_rgb;
+    box2.padded().mutateLocal().get<ui::Padding>() = ui::ref<DefaultRectStyle>().get<ui::Padding>();
+    box2.renderer().mutateLocal().get<ui::FillColor>() = 0x0000ff_rgb;
 
     while (!ui::destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;
@@ -107,16 +81,16 @@ struct Clearer {
     struct Job {
         ui::ImageView image;
         sw::Semaphore signal;
-        uint32_t color = 0;
+        ui::Color color = {};
 
         void clear() {
-            std::fill_n(image.data(), image.stride() * image.dimensions().y(), color);
+            std::fill_n(image.data(), image.stride() * image.dimensions().y(), color.uint());
             signal.signal();
             delete this;
         }
     };
 
-    uint32_t color = 0;
+    ui::Color color = 0;
     gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer;
 
     void clear(sw::Semaphore waitFor, sw::Semaphore signal) {
@@ -130,7 +104,7 @@ struct Clearer {
     void setFramebuffer(gfx::SWImageHandle<ui::IMAGE_FORMAT> framebuffer) {
         this->framebuffer = framebuffer;
     }
-    void setColor(uint32_t color) { this->color = color; }
+    void setColor(ui::Color color) { this->color = color; }
 };
 
 struct Presenter {
@@ -205,7 +179,7 @@ evt::Script uiTestWrapper(plt::Window window) {
     // gl::attachWindow(window);
 
     stx::Owned<Clearer*> clearer = new Clearer;
-    clearer->setColor(0xff'ff'ff'ff);
+    clearer->setColor(0xff0000_rgb);
     stx::Owned<ui::Instance::SWPainter*> uiPainter;
     stx::Owned<Presenter*> presenter = new Presenter(window);
 

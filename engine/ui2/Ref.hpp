@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FixedPoint.hpp"
 #include "Size.hpp"
 #include "util/types.hpp"
 #include <bit>
@@ -52,44 +53,26 @@ struct PtrBase {
         : storage(compactInfo) { }
     PtrBase(PtrInfo info)
         : PtrBase(info.compact()) { }
+    explicit PtrBase(Ptr<void>);
     PtrInfo info() const { return PtrInfo::fromCompact(storage); }
     operator Ptr<void>() const;
+    Ptr<void> byteOffsetBy(uint32_t) const;
     explicit operator bool() const { return storage != 0; }
 };
 template<typename T>
 struct Ptr : PtrBase {
     using PtrBase::PtrBase;
-    template<typename T2>
-    explicit Ptr(const Ptr<T2>& in)
-        : PtrBase(in) { }
 };
+inline PtrBase::PtrBase(Ptr<void> p)
+    : storage(p.storage) { }
 inline PtrBase::operator Ptr<void>() const { return Ptr<void> { storage }; }
+inline Ptr<void> PtrBase::byteOffsetBy(uint32_t offset) const {
+    return Ptr<void> { storage + offset / PtrInfo::MIN_OFFSET_ALIGNMENT };
+}
 
 // recursive ptr or value
 template<typename T>
 struct Ref;
-
-struct MakeSelfReference {
-    const std::byte* baseAddress = nullptr;
-    uint32_t styleKey = 0;
-    MakeSelfReference(const void* baseAddress, int_t styleKey)
-        : baseAddress((const std::byte*)baseAddress), styleKey(styleKey) { }
-    Ptr<void> operator()(const void* thiz) const {
-        return Ptr<void>(PtrInfo { .styleKey = styleKey, .byteOffset = (uint32_t)((const std::byte*)thiz - baseAddress) });
-    }
-};
-template<typename T>
-struct SelfReferenceRef : Ref<T> {
-    SelfReferenceRef(int_t styleKey)
-        : Ref<T>(MakeSelfReference(this, styleKey)) { }
-};
-
-template<typename T>
-struct Key {
-    uint32_t styleKey = 0;
-    SelfReferenceRef<T> ref() const { return { styleKey }; }
-    operator Ptr<T>() const { return PtrInfo { .styleKey = styleKey, .byteOffset = 0 }; }
-};
 
 template<typename T>
 struct RefLeaf;
@@ -178,6 +161,16 @@ requires(sizeof(T) == 4 && (std::is_integral_v<T> || std::is_enum_v<T>)) struct 
     static uint32_t pack(T value) { return std::bit_cast<uint32_t>(Storage { value }); }
     static T unpack(uint32_t storage) { return std::bit_cast<Storage>(storage).value; }
 };
+template<>
+struct SmallRefStorage32<Color> {
+    static uint32_t pack(Color value) {
+        uint32_t v = value.uint();
+        return (v & 0x00'ff'ff'ff) | ((v & 0xfe'00'00'00) >> 1);
+    }
+    static Color unpack(uint32_t s) {
+        return (s + (s & 0x7f'00'00'00)) | ((s & 0x40'00'00'00) >> 6);
+    }
+};
 
 template<typename T>
 requires requires { typename SmallRefStorage32<T>; }
@@ -200,7 +193,7 @@ template<typename T>
 requires requires { typename RefLeaf<T>; }
 struct Ref<T> : RefLeaf<T> {
     Ref() { }
-    Ref(const MakeSelfReference& selfRef) { this->set((Ptr<T>)selfRef(this)); }
+    Ref(Ptr<T> ptr) { this->set(ptr); }
     Ref(T value) { this->set(value); }
     bool isPtr() const { return !this->isValue(); }
     void clear() { this->set(Ptr<T>()); }

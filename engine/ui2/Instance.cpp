@@ -1,10 +1,10 @@
 #include "graphics/shadergen/compute.hpp"
 
 #include "AsyncInstance.hpp"
+#include "FixedPoint.hpp"
 #include "event/Awaitable.hpp"
 #include "math/sparse/LUDecomposition.hpp"
 #include "util/log.hpp"
-#include <immintrin.h>
 
 namespace ui {
 
@@ -125,6 +125,9 @@ struct Instance::AtlasJob {
             instance->atlas = ui::ImageView::allocate(atlasDimensions);
         ImageView atlas = instance->atlas;
 
+        // FIXME: should not read from instance here
+        LayoutMetadata meta { instance->ptScale };
+
         for (int_t i = 0; i < atlasUpdates.size(); i++) {
             auto& updates = atlasUpdates[i];
             const ui::RendererRecord& record = ui::RendererBase::record(i);
@@ -142,7 +145,7 @@ struct Instance::AtlasJob {
                         paddedTexture[{ i, j }] = 0;
                     }
                 }
-                record.render(texture, output.renderDataPtr());
+                record.render(texture, output.renderDataPtr(), meta);
             }
         }
 
@@ -156,109 +159,22 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
     sw::Semaphore signal;
 
     void paint() {
-        auto multiply = [](uint32_t in, uint32_t alpha) {
-            return (((in * alpha / 255) & 0xff0000) | (((in & 0xff00) * alpha / 255) & 0xff00) | ((in & 0xff) * alpha / 255));
-        };
-
-        struct UnpackedLine {
-            __m256i b, g, r, a;
-        };
-
-        // { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 }
-        const __m128i halfShuffle1 = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
-        const __m256i shuffle1 = _mm256_set_m128i(halfShuffle1, halfShuffle1);
-        // { 0, 4, 1, 5, 2, 6, 3, 7 }
-        const __m256i shuffle2 = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
-        auto unpack = [&](uint32_t* line) -> UnpackedLine {
-            // input: { b, g, r, a }
-            __m256i i1 = _mm256_loadu_si256((__m256i*)line);
-            __m256i i2 = _mm256_loadu_si256((__m256i*)line + 1);
-            i1 = _mm256_shuffle_epi8(i1, shuffle1);
-            i2 = _mm256_shuffle_epi8(i2, shuffle1);
-            i1 = _mm256_permutevar8x32_epi32(i1, shuffle2);
-            i2 = _mm256_permutevar8x32_epi32(i2, shuffle2);
-            __m256i br = _mm256_unpacklo_epi64(i1, i2);
-            __m256i ga = _mm256_unpackhi_epi64(i1, i2);
-            UnpackedLine out;
-            out.b = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(br, 0));
-            out.r = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(br, 1));
-            out.g = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(ga, 0));
-            out.a = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(ga, 1));
-            return out;
-        };
-
-        auto pack = [&](uint32_t* out, UnpackedLine l) {
-            __m256i bg = _mm256_or_si256(l.b, _mm256_slli_epi16(l.g, 8));
-            __m256i ra = _mm256_or_si256(l.r, _mm256_slli_epi16(l.a, 8));
-            __m256i i1 = _mm256_unpacklo_epi16(bg, ra);
-            __m256i i2 = _mm256_unpackhi_epi16(bg, ra);
-            _mm_storeu_si128((__m128i*)out, _mm256_extracti128_si256(i1, 0));
-            _mm_storeu_si128((__m128i*)out + 1, _mm256_extracti128_si256(i2, 0));
-            _mm_storeu_si128((__m128i*)out + 2, _mm256_extracti128_si256(i1, 1));
-            _mm_storeu_si128((__m128i*)out + 3, _mm256_extracti128_si256(i2, 1));
-        };
-
-        /*
-         *  2^(2n) / (2^n - 1) - (2^n + 1)
-         *  = (2^(2n) - (2^n + 1)(2^n - 1)) / (2^n - 1)
-         *  = 1 / (2^n - 1)
-         *
-         *  d = (x + 2^(n-1)) * (2^n + 1) / 2^(2n) - (x *  / (2^n - 1) + 1/2)
-         *
-         *  d * 2^(2n) = (x + 2^(n-1)) * (2^n + 1) - (x * 2^(2n) / (2^n - 1) + 2^(2n - 1))
-         *             = (x + 2^(n-1)) * (2^n + 1) - (x * (2^n + 1 + 1 / (2^n - 1)) + 2^(2n - 1))
-         *             = x * (2^n + 1) + 2^(2n - 1) + 2^(n-1) - x * (2^n + 1) - x / (2^n - 1) - 2^(2n - 1)
-         *             = 2^(n-1) - x / (2^n - 1)
-         *
-         *  d = (2^(n-1) - x / (2^n - 1)) / 2^(2n)
-         *    = 2^(-n-1) - x / 2^(2n) / (2^n - 1)
-         *
-         *  x >= 0
-         *  d <= 2^(-n-1)
-         *
-         *  x <= (2^n - 1) * 2^n
-         *  d >= 1 / 2^(n+1) - 1 / 2^n = -2^(-n-1)
-         */
-        const __m256i multiply1 = _mm256_set1_epi16(257);
-        const __m256i add1 = _mm256_set1_epi16(128);
-        auto blend = [&](__m256i src, __m256i dst, __m256i srcA, __m256i oneMinusSrcA) {
-            __m256i im = _mm256_add_epi16(_mm256_mullo_epi16(src, srcA), _mm256_mullo_epi16(dst, oneMinusSrcA));
-            // divide by 255
-            return _mm256_mulhi_epu16(_mm256_add_epi16(im, add1), multiply1);
-        };
-
         int_t blockCount = blocks.blockOffsets.size() / (blocks.blockLayers + 1);
         for (int_t k = 0; k < blockCount; k++) {
             const IntVec* block = blocks.blockOffsets.data() + k * (blocks.blockLayers + 1);
             IntVec screenPos = block[0];
             int_t h = std::min(16, framebuffer.dimensions().y() - screenPos.y());
             for (int_t j = 0; j < h; j++) {
-                /*for (int_t i = 0; i < 16; i++) {
-                    uint32_t color = (framebuffer.pos() + screenPos)[j][i];
-                    for (int_t layer = 0; layer < blockLayers; layer++) {
-                        IntVec layerPos = block[layer + 1];
-                        if (layerPos == IntVec {})
-                            break;
-                        uint32_t in = (atlas.pos() + layerPos)[j][i];
-                        uint32_t alpha = in >> 24;
-                        color = multiply(in & 0xff'ff'ff, alpha) + multiply(color, 255 - alpha);
-                        // color = in & 0xff'ff'ff;
-                    }
-                    (framebuffer.pos() + screenPos)[j][i] = color;
-                }*/
                 uint32_t* buffer = (framebuffer + screenPos).row(j);
-                UnpackedLine color = unpack(buffer);
+                RGBLine color = RGBALine::load(buffer).rgb();
                 for (int_t layer = 0; layer < blocks.blockLayers; layer++) {
                     IntVec layerPos = block[layer + 1];
                     if (layerPos == IntVec {})
                         break;
-                    UnpackedLine in = unpack((atlas + layerPos).row(j));
-                    __m256i oneMinusA = _mm256_sub_epi16(_mm256_set1_epi16(255), in.a);
-                    color.b = blend(in.b, color.b, in.a, oneMinusA);
-                    color.g = blend(in.g, color.g, in.a, oneMinusA);
-                    color.r = blend(in.r, color.r, in.a, oneMinusA);
+                    RGBALine in = RGBALine::load((atlas + layerPos).row(j));
+                    color = blend(in.rgb(), color, in.a);
                 }
-                pack(buffer, color);
+                color.withAlpha(1.0_fp).store(buffer);
             }
         }
 
@@ -360,11 +276,13 @@ void Instance::doTick() {
     beginTick();
     executeScripts();
 
+    LayoutMetadata meta { ptScale };
+
     for (int_t i = 0; i < styleConsumerUpdates.size(); i++) {
         auto& updates = styleConsumerUpdates[i];
         const auto& record = StyleConsumerBase::record(i);
         for (StyleConsumerBase* toUpdate : updates)
-            record.updateStyle(toUpdate);
+            record.updateStyle(toUpdate, meta);
         updates.clear();
     }
     for (int_t i = 0; i < rendererUpdates.size(); i++) {
@@ -373,7 +291,7 @@ void Instance::doTick() {
         for (uintptr_t& toUpdateUint : updates) {
             RendererBase* toUpdate = (RendererBase*)toUpdateUint;
             RenderOutputUtil output = allocateRenderOutput(renders[toUpdate->id]);
-            record.updateStyleAndPrepareRender(toUpdate, output.renderDataPtr());
+            record.updateStyleAndPrepareRender(toUpdate, output.renderDataPtr(), meta);
             toUpdateUint = (uintptr_t)toUpdate->id;
         }
     }
@@ -439,8 +357,8 @@ void Instance::doTick() {
 }
 
 void Instance::resize() {
-    updateInhom(windowEquations[1], windowDimensions.x() * 1_px);
-    updateInhom(windowEquations[3], windowDimensions.y() * 1_px);
+    updateInhom(windowEquations[1], (windowDimensions.x() - 1) * 1_px);
+    updateInhom(windowEquations[3], (windowDimensions.y() - 1) * 1_px);
 
     IntVec windowBlocks = (windowDimensions + 15) / 16;
     blockMap.clear();
@@ -464,7 +382,7 @@ void Instance::updateLayout(bool clearTextures) {
             output = findRenderOutput(render);
         } else {
             output = allocateRenderOutput(render);
-            render.handle.prepareRender(output.renderDataPtr());
+            render.handle.prepareRender(output.renderDataPtr(), LayoutMetadata { ptScale });
         }
         IntRect atlasRect { BottomLeft(render.allocPosition), Dimensions(screenRect.dimensions()) };
         output.atlasRect() = atlasRect;
@@ -499,7 +417,7 @@ void Instance::updateLayout(bool clearTextures) {
 
 Instance::Blocks Instance::buildBlocks() {
     std::vector<IntVec> blockOffsets;
-    int_t blockLayers = 1;
+    int_t blockLayers = 2;
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
     for (uint32_t& u : blockMap)
         u = INVALID_BLOCK_ID;
@@ -511,7 +429,6 @@ Instance::Blocks Instance::buildBlocks() {
             BottomLeft(rect.bottomLeft() / 16),
             TopRight(rect.topRight() / 16)
         };
-        // log("blockRect: ({}, {}) - ({}, {})", blockRect.left(), blockRect.bottom(), blockRect.right(), blockRect.top());
         for (int j = 0; j < blockRect.height(); j++) {
             for (int i = 0; i < blockRect.width(); i++) {
                 IntVec block = blockRect.bottomLeft() + IntVec { i, j };
@@ -530,7 +447,7 @@ Instance::Blocks Instance::buildBlocks() {
                 for (; layer < blockLayers; layer++) {
                     if (blockOffsets[blockIndex + 1 + layer] == IntVec {})
                         break;
-                    log("layer {} used: ({}, {})", layer, blockOffsets[blockIndex + 1 + layer].x(), blockOffsets[blockIndex + 1 + layer].y());
+                    //log("layer {} used: ({}, {})", layer, blockOffsets[blockIndex + 1 + layer].x(), blockOffsets[blockIndex + 1 + layer].y());
                 }
                 if (layer == blockLayers) {
                     VERIFY_NOT_REACHED(Ui);

@@ -11,7 +11,7 @@ namespace shadergen {
 struct Offset {
     template<typename T, typename B, T B::*member>
     static inline const int_t actualOffset = []() {
-        B* base = reinterpret_cast<B*>((void*)nullptr);
+        B* base = reinterpret_cast<B*>(1); // FIXME: Why 1?
         T* obj = &((*base).*member);
         return (std::byte*)obj - (std::byte*)base;
     }();

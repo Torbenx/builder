@@ -1,8 +1,9 @@
 #pragma once
 
+#include "IntTypes.hpp"
 #include "Ref.hpp"
 #include "Size.hpp"
-#include "IntTypes.hpp"
+
 
 namespace ui {
 
@@ -61,12 +62,38 @@ constexpr ui::Rect operator-(const ui::Rect& in) {
 namespace ui {
 
 template<>
+struct Ptr<Range> : PtrBase {
+    using PtrBase::PtrBase;
+    const Ptr<Size> low() const {
+        return Ptr<Size> { byteOffsetBy(__builtin_offsetof(Range, m_low)) };
+    }
+    const Ptr<Size> high() const {
+        return Ptr<Size> { byteOffsetBy(__builtin_offsetof(Range, m_high)) };
+    }
+};
+template<>
+struct Ptr<Rect> : PtrBase {
+    using PtrBase::PtrBase;
+    const Ptr<Range> x() const {
+        return Ptr<Range> { byteOffsetBy(__builtin_offsetof(Rect, m_x)) };
+    }
+    const Ptr<Range> y() const {
+        return Ptr<Range> { byteOffsetBy(__builtin_offsetof(Rect, m_y)) };
+    }
+    const Ptr<Range> axis(Axis axis) const { return axis == Axis::X ? x() : y(); }
+    const Ptr<Size> left() const { return x().low(); }
+    const Ptr<Size> right() const { return x().high(); }
+    const Ptr<Size> bottom() const { return y().low(); }
+    const Ptr<Size> top() const { return x().high(); }
+};
+
+template<>
 struct Ref<Range> {
     Ref<Size> m_low;
     Ref<Size> m_high;
     Ref() { }
-    Ref(const MakeSelfReference& selfRef)
-        : m_low(selfRef), m_high(selfRef) { }
+    Ref(Ptr<Range> ptr)
+        : m_low(ptr.low()), m_high(ptr.high()) { }
     Ref(const Range& range)
         : m_low(range.low()), m_high(range.high()) { }
     Ref(const Ref<Size>& value)
@@ -80,16 +107,20 @@ struct Ref<Range> {
     Ref<Size>& high() { return m_high; }
     const Ref<Size> high() const { return m_high; }
     Range value() const { return { low().value(), high().value() }; }
-    Range resolve(const Resolver& resolver) const { return { low().resolve(resolver), high().resolve(resolver) }; }
-    Range substitute(const Substituter& substituter, const Range& base) const { return { low().substitute(substituter, base.low()), high().substitute(substituter, base.high()) }; }
+    Range resolve(const Resolver& resolver) const {
+        return { low().resolve(resolver), high().resolve(resolver) };
+    }
+    Range substitute(const Substituter& substituter, const Range& base) const {
+        return { low().substitute(substituter, base.low()), high().substitute(substituter, base.high()) };
+    }
 };
 template<>
 struct Ref<Rect> {
     Ref<Range> m_x;
     Ref<Range> m_y;
     Ref() { }
-    Ref(const MakeSelfReference& selfRef)
-        : m_x(selfRef), m_y(selfRef) { }
+    Ref(Ptr<Rect> ptr)
+        : m_x(ptr.x()), m_y(ptr.y()) { }
     Ref(const Rect& rect)
         : m_x(rect.x()), m_y(rect.y()) { }
     Ref(const Size& value)
@@ -117,8 +148,12 @@ struct Ref<Rect> {
     Ref<Size>& top() { return y().high(); }
     const Ref<Size> top() const { return y().high(); }
     Rect value() const { return { x().value(), y().value() }; }
-    Rect resolve(const Resolver& resolver) const { return { x().resolve(resolver), y().resolve(resolver) }; }
-    Rect substitute(const Substituter& substituter, const Rect& base) const { return { x().substitute(substituter, base.x()), y().substitute(substituter, base.y()) }; }
+    Rect resolve(const Resolver& resolver) const {
+        return { x().resolve(resolver), y().resolve(resolver) };
+    }
+    Rect substitute(const Substituter& substituter, const Rect& base) const {
+        return { x().substitute(substituter, base.x()), y().substitute(substituter, base.y()) };
+    }
 };
 
 }

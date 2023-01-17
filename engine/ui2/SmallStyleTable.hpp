@@ -92,32 +92,35 @@ struct Ptr<SmallStyleTableImpl<Keys...>> : PtrBase {
     template<typename... Keys2>
     static int_t computeByteOffset() {
         using FirstKey = typename detail::first<Keys...>::type;
-        const SmallStyleTableImpl<Keys2...>* inObject = nullptr;
-        const auto* baseObject = (const SmallStyleTableStorage<FirstKey>*)inObject;
-        return (std::byte*)baseObject - (std::byte*)inObject;
+        const auto* inObject = reinterpret_cast<SmallStyleTableImpl<Keys2...>*>(1); // FIXME: Why 1?
+        const auto* outObject = static_cast<const SmallStyleTableStorage<FirstKey>*>(inObject);
+        return (const std::byte*)outObject - (const std::byte*)inObject;
     }
 
     template<typename... Keys2>
     Ptr(const Ptr<SmallStyleTableImpl<Keys2...>>& in) requires(detail::subpackOf<detail::Pack<Keys...>, detail::Pack<Keys2...>>::type::value)
         : PtrBase(in.info().offsetBy(Ptr::computeByteOffset<Keys2...>())) { }
 
-    template<typename T2>
-    explicit Ptr(const Ptr<T2>& in)
-        : PtrBase(in) { }
+    template<typename Key>
+    const Ptr<typename Key::Type> get() const {
+        const auto* inObject = reinterpret_cast<SmallStyleTableImpl<Keys...>*>(1); // FIXME: Why 1?
+        const auto* outObject = static_cast<const SmallStyleTableStorage<Key>*>(inObject);
+        return Ptr<typename Key::Type> { byteOffsetBy((const std::byte*)outObject - (const std::byte*)inObject) };
+    }
 };
 
 template<typename Key>
 struct SmallStyleTableRefStorage {
     Ref<typename Key::Type> value;
     SmallStyleTableRefStorage() = default;
-    SmallStyleTableRefStorage(const MakeSelfReference& selfRef)
-        : value(selfRef) { }
+    SmallStyleTableRefStorage(Ptr<typename Key::Type> ptr)
+        : value(ptr) { }
 };
 template<typename... Keys>
 struct Ref<SmallStyleTableImpl<Keys...>> : SmallStyleTableRefStorage<Keys>... {
     Ref() = default;
-    Ref(const MakeSelfReference& selfRef)
-        : SmallStyleTableRefStorage<Keys>(selfRef)... { }
+    Ref(Ptr<SmallStyleTableImpl<Keys...>> ptr)
+        : SmallStyleTableRefStorage<Keys>(ptr.template get<Keys>())... { }
 
     template<typename Key>
     Ref<typename Key::Type>& get() { return SmallStyleTableRefStorage<Key>::value; }
@@ -134,4 +137,5 @@ struct Ref<SmallStyleTableImpl<Keys...>> : SmallStyleTableRefStorage<Keys>... {
         return { { get<Keys>().substitute(substituter, base.template get<Keys>()) }... };
     }
 };
+
 }

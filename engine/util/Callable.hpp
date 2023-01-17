@@ -53,7 +53,7 @@ struct WithContaining : Callback {
         : Callback(callback) { }
     template<typename... Args>
     constexpr decltype(auto) operator()(FieldType& field, Args&&... args) const {
-        ContType* contP = nullptr;
+        ContType* contP = reinterpret_cast<ContType*>(1); // FIXME: Why 1?
         FieldType* fieldP = &(contP->*memberPtr);
         int_t offset = (std::byte*)fieldP - (std::byte*)contP;
         ContType* cont = (ContType*)((std::byte*)&field - offset);
