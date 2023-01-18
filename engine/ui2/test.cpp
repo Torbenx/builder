@@ -21,13 +21,13 @@ namespace ui {
 
 DECLARE_STYLE_KEY(CornerRadius, Size);
 DECLARE_STYLE_KEY(FillColor, Color);
-using RectStyle = SmallStyleTable<FillColor>;
+using RectStyle = SmallStyleTable<FillColor, CornerRadius>;
 
 struct RectRenderer : Renderer<RectRenderer, RectStyle> {
-    static void render(ImageView image, const RectStyle& style, LayoutMetadata) {
-        // float radius = style.get<CornerRadius>().asPixels(meta.ptScale());
+    static void render(ImageView image, const RectStyle& style, LayoutMetadata meta) {
+        float radius = style.get<CornerRadius>().asPixels(meta.ptScale());
         Canvas canvas { image };
-        canvas.rect(style.get<FillColor>());
+        canvas.rectAA(style.get<FillColor>(), radius);
     }
 };
 
@@ -44,6 +44,7 @@ evt::Script uiTestInit() {
         auto& style = bigTable.get<DefaultRectStyle>();
         style.get<ui::FillColor>() = 0_argb;
         style.get<ui::Padding>() = 3_px;
+        style.get<ui::CornerRadius>() = 0_px;
     }
     auto bigStyle = bigTable.finalize();
 
@@ -53,6 +54,8 @@ evt::Script uiTestInit() {
     using namespace ui::code;
     ui::RectVarHandle windowRect = ui::windowRect();
     box1Eqn = box1.box() == windowRect;
+    //box1Eqn.right() = box1.contentBox.width() == shift(26_px);
+    //box1Eqn.top() = box1.contentBox.height() == shift(26_px);
     box2Eqn = box2.box() == box1.contentBox;
     /*box1Eqn.left() = box1.box().left() + box1.box().right() == windowRect.left() + windowRect.right();
     box1Eqn.bottom() = box1.box().bottom() + box1.box().top() == windowRect.bottom() + windowRect.top();
@@ -64,10 +67,12 @@ evt::Script uiTestInit() {
     box2.setTable(bigStyle);
     box2.setStyle(ui::ref<DefaultRectStyle>());
 
-    box1.padded().mutateLocal().get<ui::Padding>() = 1_px;
-    box1.renderer().mutateLocal().get<ui::FillColor>() = 0x00ff00_rgb;
+    box1.padded().mutateLocal().get<ui::Padding>() = 20_px;
+    box1.renderer().mutateLocal().get<ui::FillColor>() = 0xff0000_rgb;
+    box1.renderer().mutateLocal().get<ui::CornerRadius>() = 13_px;
     box2.padded().mutateLocal().get<ui::Padding>() = ui::ref<DefaultRectStyle>().get<ui::Padding>();
-    box2.renderer().mutateLocal().get<ui::FillColor>() = 0x0000ff_argb;
+    box2.renderer().mutateLocal().get<ui::FillColor>() = 0x0000ff_rgb;
+    box2.renderer().mutateLocal().get<ui::CornerRadius>() = 10_px;
 
     while (!ui::destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;
@@ -179,7 +184,7 @@ evt::Script uiTestWrapper(plt::Window window) {
     // gl::attachWindow(window);
 
     stx::Owned<Clearer*> clearer = new Clearer;
-    clearer->setColor(0xff0000_rgb);
+    clearer->setColor(0x888888_rgb);
     stx::Owned<ui::Instance::SWPainter*> uiPainter;
     stx::Owned<Presenter*> presenter = new Presenter(window);
 

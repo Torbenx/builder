@@ -1,5 +1,6 @@
 #pragma once
 
+#include "util/log.hpp"
 #include "util/types.hpp"
 #include <array>
 #include <bit>
@@ -9,15 +10,23 @@ namespace ui {
 
 struct FixedPoint {
     uint16_t value = 0;
+    constexpr FixedPoint() = default;
+    constexpr FixedPoint(float f)
+        : value(f * 255.0f + 0.5f) { }
+    static constexpr FixedPoint fromRaw(uint16_t value) {
+        FixedPoint ret;
+        ret.value = value;
+        return ret;
+    }
     constexpr FixedPoint& operator+=(FixedPoint);
     constexpr FixedPoint& operator-=(FixedPoint);
     constexpr FixedPoint& operator*=(FixedPoint);
 };
 constexpr FixedPoint rawMultiply(FixedPoint l, FixedPoint r) {
-    return { static_cast<uint16_t>(l.value * r.value) };
+    return FixedPoint::fromRaw(l.value * r.value);
 }
 constexpr FixedPoint divideBy255(FixedPoint in) {
-    return { static_cast<uint16_t>((static_cast<uint32_t>(in.value + 128) * (uint32_t)257) >> 16) };
+    return FixedPoint::fromRaw(((in.value + 128) * (uint32_t)257) >> 16);
 }
 
 template<typename>
@@ -75,16 +84,16 @@ struct alignas(uint32_t) Color {
     constexpr Color(uint32_t val)
         : value(std::bit_cast<std::array<uint8_t, 4>>(val)) { }
     constexpr FixedPoint alpha() const {
-        return { value[3] };
+        return FixedPoint::fromRaw(value[3]);
     }
     constexpr FixedPoint red() const {
-        return { value[2] };
+        return FixedPoint::fromRaw(value[2]);
     }
     constexpr FixedPoint green() const {
-        return { value[1] };
+        return FixedPoint::fromRaw(value[1]);
     }
     constexpr FixedPoint blue() const {
-        return { value[0] };
+        return FixedPoint::fromRaw(value[0]);
     }
     constexpr void setAlpha(FixedPoint v) {
         value[3] = std::min(v.value, (uint16_t)255);
@@ -116,8 +125,8 @@ struct alignas(uint32_t) OpaqueColor : Color {
 
 private:
     using Color::alpha;
-    using Color::setAlpha;
     using Color::opaquePart;
+    using Color::setAlpha;
 };
 
 constexpr OpaqueColor Color::opaquePart() const {
@@ -133,6 +142,7 @@ struct Register<Color> {
         : b(b), g(g), r(r), a(a) { }
     Register<Color>(Color c)
         : b(c.blue()), g(c.green()), r(c.red()), a(c.alpha()) { }
+    Register<Color>(Register<OpaqueColor> bgr, Register<FixedPoint> a);
 
     static Register<Color> load(const uint32_t* in) {
         // { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 }
@@ -185,9 +195,11 @@ struct Register<OpaqueColor> {
     Register<Color> withAlpha(Register<FixedPoint> a) const {
         return { b, g, r, a };
     }
-    operator Register<Color>() const { return withAlpha(FixedPoint { 255 }); }
+    operator Register<Color>() const { return withAlpha(FixedPoint { 1.0f }); }
 };
 
+inline Register<Color>::Register(Register<OpaqueColor> bgr, Register<FixedPoint> a)
+    : b(bgr.b), g(bgr.g), r(bgr.r), a(a) { }
 inline Register<OpaqueColor> Register<Color>::opaquePart() const {
     return { b, g, r };
 }
@@ -208,6 +220,9 @@ struct Register<uint16_t> {
 
     Register<uint16_t>& operator+=(Register<uint16_t>);
     Register<uint16_t>& operator-=(Register<uint16_t>);
+    Register<uint16_t>& operator*=(Register<uint16_t>);
+    Register<uint16_t>& operator>>=(int);
+    Register<uint16_t>& operator<<=(int);
 };
 
 inline ui::Register<uint16_t> min(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
@@ -232,13 +247,13 @@ inline ui::Register<Color> choose(ui::Register<uint16_t> c, ui::Register<Color> 
 }
 
 consteval ui::FixedPoint operator""_fp(long double v) {
-    return { static_cast<uint16_t>(v * 255.0 + 0.5) };
+    return { (float)v };
 }
 constexpr ui::FixedPoint operator+(ui::FixedPoint l, ui::FixedPoint r) {
-    return { static_cast<uint16_t>(l.value + r.value) };
+    return { ui::FixedPoint::fromRaw(l.value + r.value) };
 }
 constexpr ui::FixedPoint operator-(ui::FixedPoint l, ui::FixedPoint r) {
-    return { static_cast<uint16_t>(l.value - r.value) };
+    return { ui::FixedPoint::fromRaw(l.value - r.value) };
 }
 constexpr ui::FixedPoint operator*(ui::FixedPoint l, ui::FixedPoint r) {
     return ui::divideBy255(ui::rawMultiply(l, r));
@@ -259,6 +274,15 @@ inline ui::Register<uint16_t> operator+(ui::Register<uint16_t> l, ui::Register<u
 }
 inline ui::Register<uint16_t> operator-(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_sub_epi16(l.simd, r.simd);
+}
+inline ui::Register<uint16_t> operator*(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
+    return _mm256_mullo_epi16(l.simd, r.simd);
+}
+inline ui::Register<uint16_t> operator>>(ui::Register<uint16_t> l, int r) {
+    return _mm256_srli_epi16(l.simd, r);
+}
+inline ui::Register<uint16_t> operator<<(ui::Register<uint16_t> l, int r) {
+    return _mm256_slli_epi16(l.simd, r);
 }
 inline ui::Register<uint16_t> operator^(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_xor_si256(l.simd, r.simd);
@@ -331,17 +355,55 @@ inline Register<uint16_t>& Register<uint16_t>::operator-=(Register<uint16_t> r) 
     *this = *this + r;
     return *this;
 }
-
-inline Register<FixedPoint> blend(Register<FixedPoint> src, Register<FixedPoint> dst, Register<FixedPoint> srcFactor) {
-    return { divideBy255(rawMultiply(src, srcFactor) + rawMultiply(dst, 1.0_fp - srcFactor)) };
+inline Register<uint16_t>& Register<uint16_t>::operator*=(Register<uint16_t> r) {
+    *this = *this * r;
+    return *this;
 }
-inline Register<OpaqueColor> blend(Register<OpaqueColor> src, Register<OpaqueColor> dst, Register<FixedPoint> srcFactor) {
-    Register<FixedPoint> dstFactor = 1.0_fp - srcFactor;
+inline Register<uint16_t>& Register<uint16_t>::operator>>=(int r) {
+    *this = *this >> r;
+    return *this;
+}
+inline Register<uint16_t>& Register<uint16_t>::operator<<=(int r) {
+    *this = *this << r;
+    return *this;
+}
+
+inline Register<FixedPoint> mix(Register<FixedPoint> a, Register<FixedPoint> b, Register<FixedPoint> af, Register<FixedPoint> bf) {
+    return divideBy255(rawMultiply(a, af) + rawMultiply(b, bf));
+}
+inline Register<OpaqueColor> mix(Register<OpaqueColor> a, Register<OpaqueColor> b, Register<FixedPoint> af, Register<FixedPoint> bf) {
     return {
-        divideBy255(rawMultiply(src.b, srcFactor) + rawMultiply(dst.b, dstFactor)),
-        divideBy255(rawMultiply(src.g, srcFactor) + rawMultiply(dst.g, dstFactor)),
-        divideBy255(rawMultiply(src.r, srcFactor) + rawMultiply(dst.r, dstFactor)),
+        mix(a.b, b.b, af, bf),
+        mix(a.g, b.g, af, bf),
+        mix(a.r, b.r, af, bf),
     };
+}
+inline Register<Color> mix(Register<Color> a, Register<Color> b, Register<FixedPoint> af, Register<FixedPoint> bf) {
+    return {
+        mix(a.b, b.b, af, bf),
+        mix(a.g, b.g, af, bf),
+        mix(a.r, b.r, af, bf),
+        mix(a.a, b.a, af, bf),
+    };
+}
+
+inline Register<Color> blendPremultiplied(Register<Color> src, Register<Color> dst) {
+    Register<FixedPoint> oneMinusSrcAlpha = 1.0_fp - src.a;
+    return mix(src, dst, 1.0_fp, oneMinusSrcAlpha);
+}
+inline Register<Color> blendStraightToPremultiplied(Register<Color> src, Register<Color> dst) {
+    Register<FixedPoint> oneMinusSrcAlpha = 1.0_fp - src.a;
+    return {
+        mix(src.opaquePart(), dst.opaquePart(), src.a, oneMinusSrcAlpha),
+        mix(src.a, dst.a, 1.0_fp, oneMinusSrcAlpha),
+    };
+}
+
+inline Register<FixedPoint> blendStaight(Register<FixedPoint> src, Register<FixedPoint> dst, Register<FixedPoint> srcFactor) {
+    return mix(src, dst, srcFactor, 1.0_fp - srcFactor);
+}
+inline Register<OpaqueColor> blendStaight(Register<OpaqueColor> src, Register<OpaqueColor> dst, Register<FixedPoint> srcFactor) {
+    return mix(src, dst, srcFactor, 1.0_fp - srcFactor);
 }
 
 }
