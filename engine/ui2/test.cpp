@@ -42,7 +42,7 @@ evt::Script uiTestInit() {
     auto bigTable = ui::Ref<ui::BigStyleTable>::allocate();
     {
         auto& style = bigTable.get<DefaultRectStyle>();
-        style.get<ui::FillColor>() = 0_rgba;
+        style.get<ui::FillColor>() = 0_argb;
         style.get<ui::Padding>() = 3_px;
     }
     auto bigStyle = bigTable.finalize();
@@ -67,7 +67,7 @@ evt::Script uiTestInit() {
     box1.padded().mutateLocal().get<ui::Padding>() = 1_px;
     box1.renderer().mutateLocal().get<ui::FillColor>() = 0x00ff00_rgb;
     box2.padded().mutateLocal().get<ui::Padding>() = ui::ref<DefaultRectStyle>().get<ui::Padding>();
-    box2.renderer().mutateLocal().get<ui::FillColor>() = 0x0000ff_rgb;
+    box2.renderer().mutateLocal().get<ui::FillColor>() = 0x0000ff_argb;
 
     while (!ui::destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;

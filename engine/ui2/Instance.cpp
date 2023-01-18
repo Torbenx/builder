@@ -166,13 +166,13 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
             int_t h = std::min(16, framebuffer.dimensions().y() - screenPos.y());
             for (int_t j = 0; j < h; j++) {
                 uint32_t* buffer = (framebuffer + screenPos).row(j);
-                RGBLine color = RGBALine::load(buffer).rgb();
+                Register<OpaqueColor> color = Register<Color>::load(buffer).opaquePart();
                 for (int_t layer = 0; layer < blocks.blockLayers; layer++) {
                     IntVec layerPos = block[layer + 1];
                     if (layerPos == IntVec {})
                         break;
-                    RGBALine in = RGBALine::load((atlas + layerPos).row(j));
-                    color = blend(in.rgb(), color, in.a);
+                    Register<Color> in = Register<Color>::load((atlas + layerPos).row(j));
+                    color = blend(in.opaquePart(), color, in.a);
                 }
                 color.withAlpha(1.0_fp).store(buffer);
             }

@@ -20,24 +20,28 @@ constexpr FixedPoint divideBy255(FixedPoint in) {
     return { static_cast<uint16_t>((static_cast<uint32_t>(in.value + 128) * (uint32_t)257) >> 16) };
 }
 
+template<typename>
+struct Register;
+
 // 16 x 16 bit unsigned integers
-struct FixedPointLine {
+template<>
+struct Register<FixedPoint> {
     __m256i simd;
-    FixedPointLine()
+    Register<FixedPoint>()
         : simd(_mm256_setzero_si256()) { }
-    FixedPointLine(__m256i simd)
+    Register<FixedPoint>(__m256i simd)
         : simd(simd) { }
-    FixedPointLine(FixedPoint v)
+    Register<FixedPoint>(FixedPoint v)
         : simd(_mm256_set1_epi16(v.value)) { }
 
-    FixedPointLine& operator+=(FixedPointLine);
-    FixedPointLine& operator-=(FixedPointLine);
-    FixedPointLine& operator*=(FixedPointLine);
+    Register<FixedPoint>& operator+=(Register<FixedPoint>);
+    Register<FixedPoint>& operator-=(Register<FixedPoint>);
+    Register<FixedPoint>& operator*=(Register<FixedPoint>);
 };
-inline FixedPointLine rawMultiply(FixedPointLine l, FixedPointLine r) {
+inline Register<FixedPoint> rawMultiply(Register<FixedPoint> l, Register<FixedPoint> r) {
     return _mm256_mullo_epi16(l.simd, r.simd);
 }
-inline FixedPointLine divideBy255(FixedPointLine in) {
+inline Register<FixedPoint> divideBy255(Register<FixedPoint> in) {
     /*
      *  2^(2n) / (2^n - 1) - (2^n + 1)
      *  = (2^(2n) - (2^n + 1)(2^n - 1)) / (2^n - 1)
@@ -53,18 +57,18 @@ inline FixedPointLine divideBy255(FixedPointLine in) {
      *  d = (2^(n-1) - x / (2^n - 1)) / 2^(2n)
      *    = 2^(-n-1) - x / 2^(2n) / (2^n - 1)
      *
-     *  x >= 0
-     *  d <= 2^(-n-1)
+     *  x >= 0               --> d <= 2^(-n-1)
      *
-     *  x <= (2^n - 1) * 2^n
-     *  d >= 1 / 2^(n+1) - 1 / 2^n = -2^(-n-1)
+     *  x <= (2^n - 1) * 2^n --> d >= 1 / 2^(n+1) - 1 / 2^n = -2^(-n-1)
      */
     const __m256i multiply = _mm256_set1_epi16(257);
     const __m256i add = _mm256_set1_epi16(128);
     return _mm256_mulhi_epu16(_mm256_add_epi16(in.simd, add), multiply);
 }
 
-struct Color {
+struct OpaqueColor;
+
+struct alignas(uint32_t) Color {
     // bgra8888
     std::array<uint8_t, 4> value = {};
     constexpr Color() = default;
@@ -97,32 +101,40 @@ struct Color {
     constexpr uint32_t uint() const {
         return std::bit_cast<uint32_t>(value);
     }
+    constexpr OpaqueColor opaquePart() const;
 };
 
-struct RGBALine;
+struct alignas(uint32_t) OpaqueColor : Color {
+    std::array<uint8_t, 4> value = {};
+    constexpr OpaqueColor()
+        : Color(0xff'00'00'00) { }
+    constexpr OpaqueColor(uint32_t val)
+        : Color(val | 0xff'00'00'00) { }
+    constexpr Color withAlpha(FixedPoint alpha) const {
+        return { (uint() & 0x00'ff'ff'ff) | ((uint32_t)std::min(alpha.value, (uint16_t)255) << 24) };
+    }
 
-struct RGBLine {
-    FixedPointLine b, g, r;
-
-    RGBLine() = default;
-    RGBLine(FixedPointLine b, FixedPointLine g, FixedPointLine r)
-        : b(b), g(g), r(r) { }
-    RGBLine(Color c)
-        : b(c.blue()), g(c.green()), r(c.red()) { }
-
-    RGBALine withAlpha(FixedPointLine a) const;
+private:
+    using Color::alpha;
+    using Color::setAlpha;
+    using Color::opaquePart;
 };
 
-struct RGBALine {
-    FixedPointLine b, g, r, a;
+constexpr OpaqueColor Color::opaquePart() const {
+    return { uint() };
+}
 
-    RGBALine() = default;
-    RGBALine(FixedPointLine b, FixedPointLine g, FixedPointLine r, FixedPointLine a)
+template<>
+struct Register<Color> {
+    Register<FixedPoint> b, g, r, a;
+
+    Register<Color>() = default;
+    Register<Color>(Register<FixedPoint> b, Register<FixedPoint> g, Register<FixedPoint> r, Register<FixedPoint> a)
         : b(b), g(g), r(r), a(a) { }
-    RGBALine(Color c)
+    Register<Color>(Color c)
         : b(c.blue()), g(c.green()), r(c.red()), a(c.alpha()) { }
 
-    static RGBALine load(const uint32_t* in) {
+    static Register<Color> load(const uint32_t* in) {
         // { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 }
         const __m128i halfShuffle1 = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
         const __m256i shuffle1 = _mm256_set_m128i(halfShuffle1, halfShuffle1);
@@ -157,48 +169,63 @@ struct RGBALine {
         _mm_storeu_si128((__m128i*)out + 3, _mm256_extracti128_si256(i2, 1));
     }
 
-    RGBLine rgb() const {
-        return { b, g, r };
-    }
+    Register<OpaqueColor> opaquePart() const;
 };
 
-inline RGBALine RGBLine::withAlpha(FixedPointLine a) const {
-    return { b, g, r, a };
+template<>
+struct Register<OpaqueColor> {
+    Register<FixedPoint> b, g, r;
+
+    Register<OpaqueColor>() = default;
+    Register<OpaqueColor>(Register<FixedPoint> b, Register<FixedPoint> g, Register<FixedPoint> r)
+        : b(b), g(g), r(r) { }
+    Register<OpaqueColor>(OpaqueColor c)
+        : b(c.blue()), g(c.green()), r(c.red()) { }
+
+    Register<Color> withAlpha(Register<FixedPoint> a) const {
+        return { b, g, r, a };
+    }
+    operator Register<Color>() const { return withAlpha(FixedPoint { 255 }); }
+};
+
+inline Register<OpaqueColor> Register<Color>::opaquePart() const {
+    return { b, g, r };
 }
 
-struct U16Line {
-    static U16Line indices() {
+template<>
+struct Register<uint16_t> {
+    static Register<uint16_t> indices() {
         return _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
     }
 
     __m256i simd;
-    U16Line()
+    Register<uint16_t>()
         : simd(_mm256_setzero_si256()) { }
-    U16Line(__m256i simd)
+    Register<uint16_t>(__m256i simd)
         : simd(simd) { }
-    U16Line(uint16_t v)
+    Register<uint16_t>(uint16_t v)
         : simd(_mm256_set1_epi16(v)) { }
 
-    U16Line& operator+=(U16Line);
-    U16Line& operator-=(U16Line);
+    Register<uint16_t>& operator+=(Register<uint16_t>);
+    Register<uint16_t>& operator-=(Register<uint16_t>);
 };
 
-inline ui::U16Line min(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> min(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_min_epu16(l.simd, r.simd);
 }
-inline ui::U16Line max(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> max(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_max_epu16(l.simd, r.simd);
 }
-inline ui::U16Line choose(ui::U16Line c, ui::U16Line a, ui::U16Line b) {
+inline ui::Register<uint16_t> choose(ui::Register<uint16_t> c, ui::Register<uint16_t> a, ui::Register<uint16_t> b) {
     return _mm256_blendv_epi8(b.simd, a.simd, c.simd);
 }
-inline ui::FixedPointLine choose(ui::U16Line c, ui::FixedPointLine a, ui::FixedPointLine b) {
+inline ui::Register<FixedPoint> choose(ui::Register<uint16_t> c, ui::Register<FixedPoint> a, ui::Register<FixedPoint> b) {
     return _mm256_blendv_epi8(b.simd, a.simd, c.simd);
 }
-inline ui::RGBLine choose(ui::U16Line c, ui::RGBLine a, ui::RGBLine b) {
+inline ui::Register<OpaqueColor> choose(ui::Register<uint16_t> c, ui::Register<OpaqueColor> a, ui::Register<OpaqueColor> b) {
     return { choose(c, a.b, b.b), choose(c, a.g, b.g), choose(c, a.r, b.r) };
 }
-inline ui::RGBALine choose(ui::U16Line c, ui::RGBALine a, ui::RGBALine b) {
+inline ui::Register<Color> choose(ui::Register<uint16_t> c, ui::Register<Color> a, ui::Register<Color> b) {
     return { choose(c, a.b, b.b), choose(c, a.g, b.g), choose(c, a.r, b.r), choose(c, a.a, b.a) };
 }
 
@@ -217,54 +244,54 @@ constexpr ui::FixedPoint operator*(ui::FixedPoint l, ui::FixedPoint r) {
     return ui::divideBy255(ui::rawMultiply(l, r));
 }
 
-inline ui::FixedPointLine operator+(ui::FixedPointLine l, ui::FixedPointLine r) {
+inline ui::Register<ui::FixedPoint> operator+(ui::Register<ui::FixedPoint> l, ui::Register<ui::FixedPoint> r) {
     return _mm256_add_epi16(l.simd, r.simd);
 }
-inline ui::FixedPointLine operator-(ui::FixedPointLine l, ui::FixedPointLine r) {
+inline ui::Register<ui::FixedPoint> operator-(ui::Register<ui::FixedPoint> l, ui::Register<ui::FixedPoint> r) {
     return _mm256_sub_epi16(l.simd, r.simd);
 }
-inline ui::FixedPointLine operator*(ui::FixedPointLine l, ui::FixedPointLine r) {
+inline ui::Register<ui::FixedPoint> operator*(ui::Register<ui::FixedPoint> l, ui::Register<ui::FixedPoint> r) {
     return ui::divideBy255(ui::rawMultiply(l, r));
 }
 
-inline ui::U16Line operator+(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator+(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_add_epi16(l.simd, r.simd);
 }
-inline ui::U16Line operator-(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator-(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_sub_epi16(l.simd, r.simd);
 }
-inline ui::U16Line operator^(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator^(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_xor_si256(l.simd, r.simd);
 }
-inline ui::U16Line operator&(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator&(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_and_si256(l.simd, r.simd);
 }
-inline ui::U16Line operator|(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator|(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_or_si256(l.simd, r.simd);
 }
-inline ui::U16Line operator~(ui::U16Line in) {
+inline ui::Register<uint16_t> operator~(ui::Register<uint16_t> in) {
     return _mm256_xor_si256(in.simd, _mm256_set1_epi8(0xff));
 }
-inline ui::U16Line operator==(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator==(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_cmpeq_epi16(l.simd, r.simd);
 }
-inline ui::U16Line operator<=(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator<=(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return l == ui::min(l, r);
 }
-inline ui::U16Line operator>=(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator>=(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return l == ui::max(l, r);
 }
-inline ui::U16Line operator<(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator<(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return ~(l >= r);
 }
-inline ui::U16Line operator>(ui::U16Line l, ui::U16Line r) {
+inline ui::Register<uint16_t> operator>(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return ~(l <= r);
 }
 
-constexpr ui::Color operator""_rgb(unsigned long long value) {
-    return { (uint32_t)value | 0xff'00'00'00 };
+constexpr ui::OpaqueColor operator""_rgb(unsigned long long value) {
+    return { (uint32_t)value };
 }
-constexpr ui::Color operator""_rgba(unsigned long long value) {
+constexpr ui::Color operator""_argb(unsigned long long value) {
     return { (uint32_t)value };
 }
 
@@ -283,30 +310,33 @@ constexpr FixedPoint& FixedPoint::operator*=(FixedPoint r) {
     return *this;
 }
 
-inline FixedPointLine& FixedPointLine::operator+=(FixedPointLine r) {
+inline Register<FixedPoint>& Register<FixedPoint>::operator+=(Register<FixedPoint> r) {
     *this = *this + r;
     return *this;
 }
-inline FixedPointLine& FixedPointLine::operator-=(FixedPointLine r) {
+inline Register<FixedPoint>& Register<FixedPoint>::operator-=(Register<FixedPoint> r) {
     *this = *this - r;
     return *this;
 }
-inline FixedPointLine& FixedPointLine::operator*=(FixedPointLine r) {
+inline Register<FixedPoint>& Register<FixedPoint>::operator*=(Register<FixedPoint> r) {
     *this = *this * r;
     return *this;
 }
 
-inline U16Line& U16Line::operator+=(U16Line r) {
+inline Register<uint16_t>& Register<uint16_t>::operator+=(Register<uint16_t> r) {
     *this = *this + r;
     return *this;
 }
-inline U16Line& U16Line::operator-=(U16Line r) {
+inline Register<uint16_t>& Register<uint16_t>::operator-=(Register<uint16_t> r) {
     *this = *this + r;
     return *this;
 }
 
-inline RGBLine blend(RGBLine src, RGBLine dst, FixedPointLine srcFactor) {
-    FixedPointLine dstFactor = 1.0_fp - srcFactor;
+inline Register<FixedPoint> blend(Register<FixedPoint> src, Register<FixedPoint> dst, Register<FixedPoint> srcFactor) {
+    return { divideBy255(rawMultiply(src, srcFactor) + rawMultiply(dst, 1.0_fp - srcFactor)) };
+}
+inline Register<OpaqueColor> blend(Register<OpaqueColor> src, Register<OpaqueColor> dst, Register<FixedPoint> srcFactor) {
+    Register<FixedPoint> dstFactor = 1.0_fp - srcFactor;
     return {
         divideBy255(rawMultiply(src.b, srcFactor) + rawMultiply(dst.b, dstFactor)),
         divideBy255(rawMultiply(src.g, srcFactor) + rawMultiply(dst.g, dstFactor)),
