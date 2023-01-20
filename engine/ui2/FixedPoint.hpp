@@ -13,9 +13,9 @@ struct FixedPoint {
     constexpr FixedPoint() = default;
     constexpr FixedPoint(float f)
         : value(f * 255.0f + 0.5f) { }
-    static constexpr FixedPoint fromRaw(uint16_t value) {
+    static constexpr FixedPoint fromRaw(uint16_t raw) {
         FixedPoint ret;
-        ret.value = value;
+        ret.value = raw;
         return ret;
     }
     constexpr FixedPoint& operator+=(FixedPoint);
@@ -32,6 +32,48 @@ constexpr FixedPoint divideBy255(FixedPoint in) {
 template<typename>
 struct Register;
 
+template<>
+struct Register<uint16_t> {
+    static Register<uint16_t> indices() {
+        return _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    }
+
+    __m256i simd;
+    Register<uint16_t>()
+        : simd(_mm256_setzero_si256()) { }
+    Register<uint16_t>(__m256i simd)
+        : simd(simd) { }
+    Register<uint16_t>(uint16_t v)
+        : simd(_mm256_set1_epi16(v)) { }
+
+    Register<uint16_t>& operator+=(Register<uint16_t>);
+    Register<uint16_t>& operator-=(Register<uint16_t>);
+    Register<uint16_t>& operator*=(Register<uint16_t>);
+    Register<uint16_t>& operator>>=(int);
+    Register<uint16_t>& operator<<=(int);
+};
+
+template<>
+struct Register<int16_t> {
+    static Register<int16_t> indices() {
+        return _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    }
+
+    __m256i simd;
+    Register<int16_t>()
+        : simd(_mm256_setzero_si256()) { }
+    Register<int16_t>(__m256i simd)
+        : simd(simd) { }
+    Register<int16_t>(int16_t v)
+        : simd(_mm256_set1_epi16(v)) { }
+
+    Register<int16_t>& operator+=(Register<int16_t>);
+    Register<int16_t>& operator-=(Register<int16_t>);
+    Register<int16_t>& operator*=(Register<int16_t>);
+    Register<int16_t>& operator>>=(int);
+    Register<int16_t>& operator<<=(int);
+};
+
 // 16 x 16 bit unsigned integers
 template<>
 struct Register<FixedPoint> {
@@ -42,6 +84,9 @@ struct Register<FixedPoint> {
         : simd(simd) { }
     Register<FixedPoint>(FixedPoint v)
         : simd(_mm256_set1_epi16(v.value)) { }
+    static Register<FixedPoint> fromRaw(Register<uint16_t> raw) {
+        return { raw.simd };
+    }
 
     Register<FixedPoint>& operator+=(Register<FixedPoint>);
     Register<FixedPoint>& operator-=(Register<FixedPoint>);
@@ -203,27 +248,6 @@ inline Register<Color>::Register(Register<OpaqueColor> bgr, Register<FixedPoint>
 inline Register<OpaqueColor> Register<Color>::opaquePart() const {
     return { b, g, r };
 }
-
-template<>
-struct Register<uint16_t> {
-    static Register<uint16_t> indices() {
-        return _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-    }
-
-    __m256i simd;
-    Register<uint16_t>()
-        : simd(_mm256_setzero_si256()) { }
-    Register<uint16_t>(__m256i simd)
-        : simd(simd) { }
-    Register<uint16_t>(uint16_t v)
-        : simd(_mm256_set1_epi16(v)) { }
-
-    Register<uint16_t>& operator+=(Register<uint16_t>);
-    Register<uint16_t>& operator-=(Register<uint16_t>);
-    Register<uint16_t>& operator*=(Register<uint16_t>);
-    Register<uint16_t>& operator>>=(int);
-    Register<uint16_t>& operator<<=(int);
-};
 
 inline ui::Register<uint16_t> min(ui::Register<uint16_t> l, ui::Register<uint16_t> r) {
     return _mm256_min_epu16(l.simd, r.simd);

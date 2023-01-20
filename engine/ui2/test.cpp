@@ -48,31 +48,40 @@ evt::Script uiTestInit() {
     }
     auto bigStyle = bigTable.finalize();
 
-    ui::Padded<ui::ContentBox<ui::RectRenderer>> box1, box2;
-    ui::RectEqn box1Eqn, box2Eqn;
+    ui::Padded<ui::ContentBox<ui::RectRenderer>> box1, box2, box3;
+    ui::RectEqn box1Eqn, box2Eqn, box3Eqn;
 
     using namespace ui::code;
     ui::RectVarHandle windowRect = ui::windowRect();
+
     box1Eqn = box1.box() == windowRect;
-    //box1Eqn.right() = box1.contentBox.width() == shift(26_px);
-    //box1Eqn.top() = box1.contentBox.height() == shift(26_px);
+
     box2Eqn = box2.box() == box1.contentBox;
-    /*box1Eqn.left() = box1.box().left() + box1.box().right() == windowRect.left() + windowRect.right();
-    box1Eqn.bottom() = box1.box().bottom() + box1.box().top() == windowRect.bottom() + windowRect.top();
-    box1Eqn.right() = box1.contentBox.width() / 16.0f == box1.contentBox.height() / 9.0f;
-    box1Eqn.top() = box1.box().width() == 0.5f * windowRect.width();*/
+    
+    box3Eqn.left() = box3.box().left() == windowRect.left();
+    box3Eqn.bottom() = box3.box().bottom() == windowRect.bottom();
+
+    // FIXME: width() == n_px results in a width of (n-1) pixels
+    box3Eqn.right() = box3.contentBox.width() || shift(12_px);
+    box3Eqn.top() = box3.contentBox.height() || shift(12_px);
 
     box1.setTable(bigStyle);
     box1.setStyle(ui::ref<DefaultRectStyle>());
     box2.setTable(bigStyle);
     box2.setStyle(ui::ref<DefaultRectStyle>());
+    box3.setTable(bigStyle);
+    box3.setStyle(ui::ref<DefaultRectStyle>());
 
     box1.padded().mutateLocal().get<ui::Padding>() = 20_px;
     box1.renderer().mutateLocal().get<ui::FillColor>() = 0xff0000_rgb;
-    box1.renderer().mutateLocal().get<ui::CornerRadius>() = 13_px;
+    box1.renderer().mutateLocal().get<ui::CornerRadius>() = 0_px;
+
     box2.padded().mutateLocal().get<ui::Padding>() = ui::ref<DefaultRectStyle>().get<ui::Padding>();
     box2.renderer().mutateLocal().get<ui::FillColor>() = 0x0000ff_rgb;
-    box2.renderer().mutateLocal().get<ui::CornerRadius>() = 10_px;
+    box2.renderer().mutateLocal().get<ui::CornerRadius>() = 500_px;
+
+    box3.renderer().mutateLocal().get<ui::FillColor>() = 0x00ff00_rgb;
+    box3.renderer().mutateLocal().get<ui::CornerRadius>() = 6.25_px;
 
     while (!ui::destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;

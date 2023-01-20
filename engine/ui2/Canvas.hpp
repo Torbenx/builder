@@ -65,45 +65,51 @@ public:
         u16 maxX = dim.x() - 1;
         u16 maxY = dim.y() - 1;
         // (x - r)^2 + (y - r)^2 <= r^2
-        // x >= r - sqrt(r^2 - (y - r)^2)
+        // x >= r - sqrt(r^2 - (y - r)^2) = r - sqrt(2*y*r - y^2) = r - sqrt(y * (2*r - y))
         struct Range {
             u16 start;
             u16 stop;
         };
 
-        float scaledRadius = 2.0f * radius;
-        u16 scaledMaxX = 2 * maxX;
-
-        auto computeStartStop = [scaledRadius, scaledMaxX](float yDistFromBorder) -> Range {
-            float diff = yDistFromBorder + 0.5f - scaledRadius;
-            float sqrt = std::sqrt(scaledRadius * scaledRadius - diff * diff);
-            Range r {
-                (u16)(scaledRadius + 0.5f - sqrt),
-                (u16)(scaledMaxX - scaledRadius + 0.5f + sqrt),
+        auto computeStartStop = [radius, maxX](float yDistFromBorder) -> std::pair<Range, Range> {
+            float diff = radius - (yDistFromBorder + 0.5f);
+            float sqrt = std::sqrt(radius * radius - diff * diff);
+            Range rM {
+                (u16)(radius - sqrt + 0.5f - 0.25f),
+                (u16)(maxX - radius + sqrt + 0.5f - 0.25f),
             };
-            if (yDistFromBorder > scaledRadius)
-                r = { 0, scaledMaxX };
-            return r;
+            Range rP {
+                (u16)(radius - sqrt + 0.5f + 0.25f),
+                (u16)(maxX - radius + sqrt + 0.5f + 0.25f),
+            };
+            if (yDistFromBorder + 0.5f >= radius) {
+                rM = { 0, maxX };
+                rP = { 0, maxX };
+            }
+            return { rM, rP };
         };
 
         for (u16 y = 0; y < (u16)dim.y(); y++) {
-            auto bot1 = computeStartStop(y * 2);
-            auto bot2 = computeStartStop(y * 2 + 1);
-            auto top1 = computeStartStop((maxY - y) * 2);
-            auto top2 = computeStartStop((maxY - y) * 2 + 1);
-            Range r1 { std::max(bot1.start, top1.start), std::min(bot1.stop, top1.stop) };
-            Range r2 { std::max(bot2.start, top2.start), std::min(bot2.stop, top2.stop) };
+            auto [botMM, botPM] = computeStartStop(y - 0.25f);
+            auto [botMP, botPP] = computeStartStop(y + 0.25f);
+            auto [topMM, topPM] = computeStartStop((maxY - y) - 0.25f);
+            auto [topMP, topPP] = computeStartStop((maxY - y) + 0.25f);
+            Range rMM { std::max(botMM.start, topMM.start), std::min(botMM.stop, topMM.stop) };
+            Range rPM { std::max(botPM.start, topPM.start), std::min(botPM.stop, topPM.stop) };
+            Range rMP { std::max(botMP.start, topMP.start), std::min(botMP.stop, topMP.stop) };
+            Range rPP { std::max(botPP.start, topPP.start), std::min(botPP.stop, topPP.stop) };
 
             for (u16 x0 = 0; x0 <= maxX; x0 += 16) {
                 auto x = Register<u16>::indices() + x0;
 
                 Register<u16> count = 0;
-                count += Register<u16> { 255 } & (x * 2 >= r1.start) & (x * 2 <= r1.stop + 1);
-                count += Register<u16> { 255 } & (x * 2 + 1 >= r1.start) & (x * 2 <= r1.stop);
-                count += Register<u16> { 255 } & (x * 2 >= r2.start) & (x * 2 <= r2.stop + 1);
-                count += Register<u16> { 255 } & (x * 2 + 1 >= r2.start) & (x * 2 <= r2.stop);
-                count >>= 2;
-                Register<FixedPoint> alpha { count.simd };
+                count += Register<u16> { 255 } & (x >= rMM.start) & (x <= rMM.stop);
+                count += Register<u16> { 255 } & (x >= rPM.start) & (x <= rPM.stop);
+                count += Register<u16> { 255 } & (x >= rMP.start) & (x <= rMP.stop);
+                count += Register<u16> { 255 } & (x >= rPP.start) & (x <= rPP.stop);
+                count = (count + 2) >> 2;
+
+                auto alpha = Register<FixedPoint>::fromRaw(count);
                 output(x0, y, { color.opaquePart(), color.a * alpha });
             }
         }

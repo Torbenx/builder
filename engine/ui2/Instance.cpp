@@ -417,7 +417,7 @@ void Instance::updateLayout(bool clearTextures) {
 
 Instance::Blocks Instance::buildBlocks() {
     std::vector<IntVec> blockOffsets;
-    int_t blockLayers = 2;
+    int_t blockLayers = 3;
     static constexpr uint32_t INVALID_BLOCK_ID = -1;
     for (uint32_t& u : blockMap)
         u = INVALID_BLOCK_ID;
