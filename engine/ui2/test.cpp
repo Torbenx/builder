@@ -61,9 +61,8 @@ evt::Script uiTestInit() {
     box3Eqn.left() = box3.box().left() == windowRect.left();
     box3Eqn.bottom() = box3.box().bottom() == windowRect.bottom();
 
-    // FIXME: width() == n_px results in a width of (n-1) pixels
-    box3Eqn.right() = box3.contentBox.width() || shift(12_px);
-    box3Eqn.top() = box3.contentBox.height() || shift(12_px);
+    box3Eqn.right() = box3.contentBox.width() == shift(12_px);
+    box3Eqn.top() = box3.contentBox.height() == shift(12_px);
 
     box1.setTable(bigStyle);
     box1.setStyle(ui::ref<DefaultRectStyle>());
@@ -72,16 +71,16 @@ evt::Script uiTestInit() {
     box3.setTable(bigStyle);
     box3.setStyle(ui::ref<DefaultRectStyle>());
 
-    box1.padded().mutateLocal().get<ui::Padding>() = 20_px;
-    box1.renderer().mutateLocal().get<ui::FillColor>() = 0xff0000_rgb;
-    box1.renderer().mutateLocal().get<ui::CornerRadius>() = 0_px;
+    box1.mut<ui::Padding>() = 0_px;
+    box1.mut<ui::FillColor>() = 0xff0000_rgb;
+    box1.mut<ui::CornerRadius>() = 0_px;
 
-    box2.padded().mutateLocal().get<ui::Padding>() = ui::ref<DefaultRectStyle>().get<ui::Padding>();
-    box2.renderer().mutateLocal().get<ui::FillColor>() = 0x0000ff_rgb;
-    box2.renderer().mutateLocal().get<ui::CornerRadius>() = 500_px;
+    box2.mut<ui::Padding>() = ui::ref<DefaultRectStyle>().get<ui::Padding>();
+    box2.mut<ui::FillColor>() = 0x0000ff_rgb;
+    box2.mut<ui::CornerRadius>() = 500_px;
 
-    box3.renderer().mutateLocal().get<ui::FillColor>() = 0x00ff00_rgb;
-    box3.renderer().mutateLocal().get<ui::CornerRadius>() = 6.25_px;
+    box3.mut<ui::FillColor>() = 0x00ff00_rgb;
+    box3.mut<ui::CornerRadius>() = 6.25_px;
 
     while (!ui::destroyed()) {
         evt::Receiver<evt::WindowStateUpdate> events;

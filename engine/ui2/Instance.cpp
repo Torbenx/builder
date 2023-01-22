@@ -357,8 +357,8 @@ void Instance::doTick() {
 }
 
 void Instance::resize() {
-    updateInhom(windowEquations[1], (windowDimensions.x() - 1) * 1_px);
-    updateInhom(windowEquations[3], (windowDimensions.y() - 1) * 1_px);
+    updateInhom(windowEquations[1], windowDimensions.x() * 1_px);
+    updateInhom(windowEquations[3], windowDimensions.y() * 1_px);
 
     IntVec windowBlocks = (windowDimensions + 15) / 16;
     blockMap.clear();
@@ -447,7 +447,7 @@ Instance::Blocks Instance::buildBlocks() {
                 for (; layer < blockLayers; layer++) {
                     if (blockOffsets[blockIndex + 1 + layer] == IntVec {})
                         break;
-                    //log("layer {} used: ({}, {})", layer, blockOffsets[blockIndex + 1 + layer].x(), blockOffsets[blockIndex + 1 + layer].y());
+                    // log("layer {} used: ({}, {})", layer, blockOffsets[blockIndex + 1 + layer].x(), blockOffsets[blockIndex + 1 + layer].y());
                 }
                 if (layer == blockLayers) {
                     VERIFY_NOT_REACHED(Ui);

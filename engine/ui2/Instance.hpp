@@ -16,7 +16,7 @@
 #include <vector>
 
 namespace shadergen {
-    struct ComputeDriver;
+struct ComputeDriver;
 }
 
 namespace ui {
@@ -78,9 +78,13 @@ public:
     void dumpShiftValues();
     void dumpShiftSizes();
     static IntRect intRect(RectVarHandle var, const float* varValues) {
+        // is rounding down the bottom left corner the best?
         return {
-            IntRange { (int)varValues[var.left().id], (int)varValues[var.right().id] },
-            IntRange { (int)varValues[var.bottom().id], (int)varValues[var.top().id] }
+            BottomLeft { (int)varValues[var.left().id], (int)varValues[var.bottom().id] },
+            Dimensions {
+                (int)(varValues[var.right().id] - varValues[var.left().id]),
+                (int)(varValues[var.top().id] - varValues[var.bottom().id]),
+            },
         };
     }
     IntRect intRect(RectVarHandle var) const { return intRect(var, varValues.data()); }

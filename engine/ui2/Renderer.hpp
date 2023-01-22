@@ -108,6 +108,8 @@ public:
         invalidateStyle();
         return localStyle;
     }
+    template<ContainedIn<Style> Key>
+    auto& mut() { return mutateLocal().template get<Key>(); }
 };
 
 template<typename T>

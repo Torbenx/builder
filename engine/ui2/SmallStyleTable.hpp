@@ -16,6 +16,11 @@ struct SmallStyleTableImpl : SmallStyleTableStorage<Keys>... {
     const typename Key::Type& get() const { return SmallStyleTableStorage<Key>::wrapper.value; }
 };
 
+template<typename Key, typename Style>
+concept ContainedIn = requires(const Style* ptr) {
+    static_cast<const SmallStyleTableStorage<Key>*>(ptr);
+};
+
 template<typename... Keys>
 struct SmallStyleTableAccumulator {
     using type = SmallStyleTableImpl<Keys...>;
@@ -24,8 +29,16 @@ template<typename... Keys1, typename... Keys2>
 struct SmallStyleTableAccumulator<SmallStyleTableImpl<Keys1...>, Keys2...> {
     using type = typename SmallStyleTableAccumulator<Keys2..., Keys1...>::type;
 };
+template<typename Key>
+struct MaybeWrapWithTable {
+    using type = SmallStyleTableImpl<Key>;
+};
 template<typename... Keys>
-using SmallStyleTable = typename SmallStyleTableAccumulator<Keys...>::type;
+struct MaybeWrapWithTable<SmallStyleTableImpl<Keys...>> {
+    using type = SmallStyleTableImpl<Keys...>;
+};
+template<typename... Keys>
+using SmallStyleTable = typename SmallStyleTableAccumulator<typename MaybeWrapWithTable<Keys>::type...>::type;
 
 template<typename Callback, typename... Keys>
 void forEachKey(SmallStyleTableImpl<Keys...>& style, Callback&& callback) {

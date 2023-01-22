@@ -1,12 +1,19 @@
 #pragma once
 
-#include "equation_code.hpp"
 #include "Renderer.hpp"
+#include "equation_code.hpp"
+
 
 namespace ui {
 
+template<typename T, typename Style>
+concept StyledBoxImpl = std::is_same_v<typename T::Style, Style> && requires(T impl) {
+    { impl.mutate() } -> std::same_as<Ref<Style>&>;
+};
 template<typename B>
-concept StyledBox = Stylable<B> && requires(const B& box) {
+concept StyledBox = requires(B box, BigStyleTable table, Ptr<typename B::Style> ptr) {
+    box.setTable(table);
+    box.setStyle(ptr);
     { box.box() } -> std::same_as<RectVarHandle>;
 };
 
@@ -53,6 +60,9 @@ struct Padded : B, PaddedImpl {
     }
     PaddedImpl& padded() { return *this; }
     const PaddedImpl& padded() const { return *this; }
+    
+    using B::mut;
+    using PaddedImpl::mut;
 };
 
 }

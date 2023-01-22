@@ -47,12 +47,6 @@ T computeStyle(BigStyleTable bigTable, Ptr<T> baseStyle, const Ref<T>& localStyl
     return localStyle.substitute({ bigTable }, bigTable.get(baseStyle));
 }
 
-template<typename T>
-concept Stylable = requires(T& t, BigStyleTable table, Ptr<typename T::Style> ptr) {
-    t.setTable(table);
-    t.setStyle(ptr);
-};
-
 class LayoutMetadata {
 private:
     float m_ptScale = 1.0f;
@@ -127,6 +121,8 @@ public:
         invalidateStyle();
         return localStyle;
     }
+    template<ContainedIn<Style> Key>
+    auto& mut() { return mutateLocal().template get<Key>(); }
 };
 
 }
