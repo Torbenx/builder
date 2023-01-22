@@ -159,6 +159,47 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
     sw::Semaphore signal;
 
     void paint() {
+        struct Line {
+            __m256i l1;
+            __m256i l2;
+
+            static Line load(const uint32_t* in) {
+                return {
+                    _mm256_loadu_si256((const __m256i*)in),
+                    _mm256_loadu_si256((const __m256i*)in + 1),
+                };
+            }
+            void store(uint32_t* out) const {
+                _mm256_storeu_si256((__m256i*)out, l1);
+                _mm256_storeu_si256((__m256i*)out + 1, l2);
+            }
+        };
+
+        constexpr auto blend = [](Line dst, Line src) -> Line {
+            constexpr auto computeOneMinusAlpha16 = [](__m256i in) {
+                const __m256i one = _mm256_set1_epi32(255);
+                __m256i tmp = _mm256_sub_epi8(one, _mm256_srli_epi32(in, 24));
+                return _mm256_or_si256(tmp, _mm256_slli_epi32(tmp, 16));
+            };
+            constexpr auto multiplyFP8x16 = [](__m256i a8, __m256i b16) {
+                constexpr auto multiplyFP16 = [](__m256i a, __m256i b) {
+                    __m256i c = _mm256_mullo_epi16(a, b);
+
+                    const __m256i multiply = _mm256_set1_epi16(257);
+                    const __m256i add = _mm256_set1_epi16(128);
+                    return _mm256_mulhi_epu16(_mm256_add_epi16(c, add), multiply);
+                };
+
+                __m256i m0 = multiplyFP16(_mm256_and_si256(a8, _mm256_set1_epi16(0x00ff)), b16);
+                __m256i m1 = multiplyFP16(_mm256_srli_epi16(a8, 8), b16);
+                return _mm256_or_si256(m0, _mm256_slli_epi16(m1, 8));
+            };
+            return {
+                _mm256_add_epi8(src.l1, multiplyFP8x16(dst.l1, computeOneMinusAlpha16(src.l1))),
+                _mm256_add_epi8(src.l2, multiplyFP8x16(dst.l2, computeOneMinusAlpha16(src.l2))),
+            };
+        };
+
         int_t blockCount = blocks.blockOffsets.size() / (blocks.blockLayers + 1);
         for (int_t k = 0; k < blockCount; k++) {
             const IntVec* block = blocks.blockOffsets.data() + k * (blocks.blockLayers + 1);
@@ -166,13 +207,13 @@ struct Instance::SWPainter::Job : Instance::PainterJob {
             int_t h = std::min(16, framebuffer.dimensions().y() - screenPos.y());
             for (int_t j = 0; j < h; j++) {
                 uint32_t* buffer = (framebuffer + screenPos).row(j);
-                Register<Color> dst = Register<Color>::load(buffer);
+                Line dst = Line::load(buffer);
                 for (int_t layer = 0; layer < blocks.blockLayers; layer++) {
                     IntVec layerPos = block[layer + 1];
                     if (layerPos == IntVec {})
                         break;
-                    Register<Color> src = Register<Color>::load((atlas + layerPos).row(j));
-                    dst = blendPremultiplied(src, dst);
+                    Line src = Line::load((atlas + layerPos).row(j));
+                    dst = blend(dst, src);
                 }
                 dst.store(buffer);
             }
