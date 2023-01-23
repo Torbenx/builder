@@ -128,10 +128,10 @@ struct Presenter {
 
         void present() {
             static std::atomic<int_t> frames = 0;
-            static std::atomic<uint64_t> lastFrame = 0;
+            static std::atomic<uint64_t> lastFrame = getNanos();
             uint64_t now = getNanos();
             uint64_t lastFrameCopy = lastFrame.load();
-            if (now - lastFrameCopy >= 1'000'000'000 && lastFrame.compare_exchange_strong(lastFrameCopy, now)) {
+            if (now - lastFrameCopy >= 1'000'000'000 && lastFrame.fetch_add(1'000'000'000)) {
                 int_t framesCopy = frames.exchange(0);
                 log("FPS: {}", framesCopy);
             }
