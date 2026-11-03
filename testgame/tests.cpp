@@ -65,8 +65,8 @@ struct UiData {
 struct UiShader {
     gfx::BufferHandle<UiData> data;
     gfx::BufferHandle<iVec2[]> positions;
-    gfx::ImageHandle<gfx::FormatQual::RGBA8> screen;
-    gfx::ImageHandle<gfx::FormatQual::RGBA8> atlas;
+    gfx::ImageHandle<gfx::TexelComponents::RGBA8> screen;
+    gfx::ImageHandle<gfx::TexelComponents::RGBA8> atlas;
 
     static constexpr void defineShader(ComputeDriver&);
 };

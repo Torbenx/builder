@@ -395,7 +395,11 @@ union ASTNodeStorage {
         return std::construct_at(&ShaderDecl_, shader);
     }
 
-    constexpr ASTNodeStorage() { }
+    // unused slots need an active member, otherwise gcc rejects constexpr
+    // variables containing them as incompletely initialized
+    char unused_;
+    constexpr ASTNodeStorage()
+        : unused_() { }
 };
 struct ASTStorage {
     PseudoVector<ASTNodeStorage> nodeStorage;

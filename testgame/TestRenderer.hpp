@@ -86,6 +86,8 @@ public:
     render3d::Renderpass* renderpass3d;
     render3d::StaticNodeSequence<SG::BoundingNode, SG::ObjectNode> o1;
     render3d::StaticNodeSequence<SG::ObjectNode> o2, o3, o4, o5;
+    // render3d ignores GraphicsObject::modelMatrix, so the pawn's transform needs its own node
+    render3d::StaticNodeSequence<SG::TransformNode, SG::ObjectNode> oPawn;
     render3d::StaticNodeSequence<SG::CompoundNode> reflectedItems, unreflectedItems;
     render3d::StaticNodeSequence<SG::PortalNode, SG::TransformNode, SG::WorldTransformNode, SG::CompoundNode> cameraSeq;
     render3d::StaticNodeSequence<SG::PortalNode, SG::TransformNode, SG::WorldTransformNode, SG::CompoundNode> reflectionSeq;

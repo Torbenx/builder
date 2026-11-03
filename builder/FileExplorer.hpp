@@ -12,11 +12,11 @@ class FileExplorer : public UiSceneComponent{
         std::string path;
         void *renderer;
         TestComponent background;
-        GAllocator& allocator;
+        GAllocator* allocator;
 
         FileExplorer(void *renderer);
         void setPath(std::string path);
         void onClick(int id) override;
-        void draw(Framebuffer&, GAllocator&) override;
+        void draw(Framebuffer&, GAllocator*) override;
         ~FileExplorer();
 };

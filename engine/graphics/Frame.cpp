@@ -54,14 +54,16 @@ BufferMapping Allocator::allocateBuffer(uint32_t id, BufferAllocKind kind, uint3
     while (bufferAllocBump.offset + requiredSize >= bufferAllocBumpEnd) {
         growBufferAllocBump(requiredSize);
     }
-    bufferAllocations.push_back({
+    // alignment is a 14 bit bit-field, so it can't be set in the braced initializer without narrowing
+    VERIFY(GFX, gpuAlignment < (1u << 14));
+    BufferAllocInfo& info = bufferAllocations.emplace_back(BufferAllocInfo {
         .id = (uint16_t)id,
         .kind = kind,
-        .alignment = (uint16_t)gpuAlignment,
         .stagingMapping = bufferAllocBump,
         .size = size,
         .prevMapping = prevMapping,
     });
+    info.alignment = gpuAlignment;
     BufferMapping ret = bufferAllocBump;
     bufferAllocBump += requiredSize;
     return ret;

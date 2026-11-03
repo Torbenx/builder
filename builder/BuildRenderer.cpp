@@ -31,7 +31,7 @@ void BuildRenderer<G>::change(int_t newWidth, int_t newHeight) {
     metrics.y.size = newHeight;
     metrics.y.dpi = dpi;
     scene.metrics = metrics;
-    scene.build(allocator);
+    scene.build(&allocator);
     allocator.stage();
     setPath(platform::isAndroid() ? "/data/data/com.tt.builder" : "C:/Users/Torben/Documents/dev/c++");
 }
@@ -39,8 +39,8 @@ void BuildRenderer<G>::change(int_t newWidth, int_t newHeight) {
 template<Gapi G>
 void BuildRenderer<G>::drawFrame() {
     Framebuffer::DEFAULT.clear();
-    explorer.draw(Framebuffer::DEFAULT, allocator);
-    head.draw(Framebuffer::DEFAULT, allocator);
+    explorer.draw(Framebuffer::DEFAULT, &allocator);
+    head.draw(Framebuffer::DEFAULT, &allocator);
 }
 
 template<Gapi G>
@@ -71,7 +71,7 @@ void BuildRenderer<G>::setPath(std::string path) {
 
 template<Gapi G>
 BuildRenderer<G>::~BuildRenderer() {
-    scene.clear(allocator);
+    scene.clear(&allocator);
 }
 
 INSTANTIATE_G_API_CLASS(BuildRenderer);

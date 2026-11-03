@@ -3,7 +3,7 @@
 #include <util/log.hpp>
 
 FileExplorer::FileExplorer(void* renderer)
-    : allocator(((BuildRenderer<OpenGL>*)renderer)->allocator) {
+    : allocator(&((BuildRenderer<OpenGL>*)renderer)->allocator) {
     this->renderer = renderer;
 }
 
@@ -77,7 +77,7 @@ void FileExplorer::onClick(int id) {
     }
 }
 
-void FileExplorer::draw(Framebuffer& framebuffer, GAllocator& allocator) {
+void FileExplorer::draw(Framebuffer& framebuffer, GAllocator* allocator) {
     background.draw(framebuffer, allocator);
     for (auto* comp : fileNameComps) {
         comp->draw(framebuffer, allocator);

@@ -2,7 +2,7 @@
 #include "BuildRenderer.hpp"
 
 HeadBar::HeadBar(void* renderer)
-    : allocator(((BuildRenderer<OpenGL>*)renderer)->allocator) {
+    : allocator(&((BuildRenderer<OpenGL>*)renderer)->allocator) {
     this->renderer = renderer;
     title.textColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     title.textSize = TypedSize::windowsDIP(40);
@@ -45,7 +45,7 @@ void HeadBar::setPath(std::string path) {
     scene.build(allocator);
 }
 
-void HeadBar::draw(Framebuffer& framebuffer, GAllocator& allocator) {
+void HeadBar::draw(Framebuffer& framebuffer, GAllocator* allocator) {
     box.draw(framebuffer, allocator);
     subTitle.draw(framebuffer, allocator);
     title.draw(framebuffer, allocator);

@@ -302,10 +302,14 @@ TestRenderer<G>::TestRenderer()
     stx::get<SG::ObjectNode>(o4).object = &f4;
     stx::get<SG::ObjectNode>(o5).effects = effects5;
     stx::get<SG::ObjectNode>(o5).object = &f5;
+    stx::get<SG::TransformNode>(oPawn).transform = pawn.modelMatrix;
+    stx::get<SG::ObjectNode>(oPawn).effects = { pawnCol.handle(), ambientLight.handle() };
+    stx::get<SG::ObjectNode>(oPawn).object = &pawn;
     stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o1);
     stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o2);
     stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o4);
     stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(o5);
+    stx::get<SG::CompoundNode>(unreflectedItems).addSubSequence(oPawn);
     stx::get<SG::CompoundNode>(reflectedItems).addSubSequence(o3);
 
     stx::get<SG::PortalNode>(reflectionSeq).points.push_back(Vec3(-10, -2, -10));
