@@ -1,5 +1,7 @@
 # builder: a hobby C++ game engine
 
+![The testgame scene](docs/testgame.png)
+
 A personal game-engine project I worked on from December 2018 to January 2023 (~490 commits,
 ~30k lines of hand-written C++20). Most of it was written in 2021–2022.
 
